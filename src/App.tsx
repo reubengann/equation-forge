@@ -17,11 +17,15 @@ type TaggedRender = {
   latexTagged: string;
   nodes: Record<string, NodeInfo>;
   parentById: Record<string, string | null>;
+  childrenById: Record<string, string[]>;        // for Add/Multiply nodes
+  childIndexById: Record<string, number>;        // for any node that is a child of Add/Multiply
 };
 
 function makeTaggedLatexFromMathJson(mj: MJ): TaggedRender {
   let nextId = 1;
   const newId = () => `n${nextId++}`;
+  const childrenById: Record<string, string[]> = {};
+  const childIndexById: Record<string, number> = {};
 
   const nodes: Record<string, NodeInfo> = {};
   const parentById: Record<string, string | null> = {};
@@ -94,7 +98,11 @@ function makeTaggedLatexFromMathJson(mj: MJ): TaggedRender {
 
       if (op === "Add") {
         const children = node.slice(1).map((c: MJ) => emit(c, "Add", id)); // ✅ parent=id
-
+        
+        // record the order
+        childrenById[id] = children.map(ch => ch.id);
+        childrenById[id].forEach((cid, idx) => (childIndexById[cid] = idx));
+        
         const plain = children.map((c) => c.latexPlain).join(" + ");
         const tagged = children.map((c) => c.latexTagged).join(String.raw` + `);
 
@@ -107,6 +115,9 @@ function makeTaggedLatexFromMathJson(mj: MJ): TaggedRender {
 
       if (op === "Multiply") {
         const children = node.slice(1).map((c: MJ) => emit(c, "Multiply", id)); // ✅ parent=id
+        // record the order
+        childrenById[id] = children.map(ch => ch.id);
+        childrenById[id].forEach((cid, idx) => (childIndexById[cid] = idx));
 
         const plain = children.map((c) => c.latexPlain).join(String.raw`\,`);
         const tagged = children.map((c) => c.latexTagged).join(String.raw`\,`);
@@ -143,7 +154,7 @@ function makeTaggedLatexFromMathJson(mj: MJ): TaggedRender {
   };
 
   const top = emit(mj, null, null);
-  return { latexTagged: top.latexTagged, nodes, parentById };
+  return { latexTagged: top.latexTagged, nodes, parentById, childrenById, childIndexById };
 }
 
 
@@ -176,6 +187,18 @@ function installShadowStyle(mathDivEl: HTMLElement) {
   sr.appendChild(style);
 }
 
+function setShadowHighlightSpan(mathDivEl: HTMLElement, childIds: string[]) {
+  const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
+  if (!sr) return;
+
+  sr.querySelectorAll(".dp-selected").forEach(el => el.classList.remove("dp-selected"));
+
+  for (const id of childIds) {
+    sr.querySelectorAll<HTMLElement>(`[data-node-id="${CSS.escape(id)}"]`)
+      .forEach(el => el.classList.add("dp-selected"));
+  }
+}
+
 function setShadowHighlight(mathDivEl: HTMLElement, nodeId: string | null) {
   const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
   if (!sr) return;
@@ -192,8 +215,14 @@ export default function App() {
   const MathDiv = useMemo(() => "math-div" as any, []);
   const MathField = useMemo(() => "math-field" as any, []);
   const [parentById, setParentById] = useState<Record<string, string | null>>({});
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId] = useState<string | null>(null);
+  type Selection =
+  | { kind: "node"; nodeId: string }
+  | { kind: "span"; parentId: string; op: "Add" | "Multiply"; start: number; end: number };
 
+  const [selection, setSelection] = useState<Selection | null>(null);
+  const [childrenById, setChildrenById] = useState<Record<string, string[]>>({});
+  const [childIndexById, setChildIndexById] = useState<Record<string, number>>({});
   const inputRef = useRef<any>(null);
   const displayRef = useRef<HTMLElement | null>(null);
 
@@ -208,6 +237,8 @@ export default function App() {
 
     setNodesById(rendered.nodes);
     setParentById(rendered.parentById);
+    setChildrenById(rendered.childrenById);
+    setChildIndexById(rendered.childIndexById);
 
     displayRef.current.textContent = rendered.latexTagged;
     (displayRef.current as any).render?.();
@@ -257,7 +288,7 @@ export default function App() {
     const baseId = e.shiftKey && selectedId ? selectedId : clickedId;
     const nextSelectedId = e.shiftKey ? (parentById[baseId] ?? baseId) : clickedId;
 
-    setSelectedId(nextSelectedId);
+    setSelection({ kind: "node", nodeId: nextSelectedId });
     setShadowHighlight(displayEl, nextSelectedId);
 
     const hit = nodesById[nextSelectedId];
@@ -278,6 +309,67 @@ export default function App() {
       ].join("\n")
     );
   }
+
+  function onKeyDown(e: React.KeyboardEvent) {
+  if (!e.shiftKey) return;
+  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  if (!displayRef.current) return;
+  if (!selection) return;
+
+  e.preventDefault();
+
+  // Turn a node selection into a span selection when appropriate
+  if (selection.kind === "node") {
+    const nodeId = selection.nodeId;
+    const parentId = parentById[nodeId];
+    if (!parentId) return;
+
+    const parentInfo = nodesById[parentId];
+    if (!parentInfo) return;
+
+    const op = parentInfo.op;
+    if (op !== "Add" && op !== "Multiply") return;
+
+    const idx = childIndexById[nodeId];
+    if (idx === undefined) return;
+
+    const start = idx;
+    const end = idx;
+
+    // Now expand one step in the requested direction
+    const kids = childrenById[parentId] ?? [];
+    let newStart = start;
+    let newEnd = end;
+
+    if (e.key === "ArrowLeft") newStart = Math.max(0, start - 1);
+    else newEnd = Math.min(kids.length - 1, end + 1);
+
+    const span: Selection = { kind: "span", parentId, op, start: newStart, end: newEnd };
+    setSelection(span);
+
+    setShadowHighlightSpan(displayRef.current, kids.slice(newStart, newEnd + 1));
+    return;
+  }
+
+  // Expand an existing span
+  if (selection.kind === "span") {
+    const { parentId, op, start, end } = selection;
+    const kids = childrenById[parentId] ?? [];
+    if (kids.length === 0) return;
+
+    let newStart = start;
+    let newEnd = end;
+
+    if (e.key === "ArrowLeft") newStart = Math.max(0, start - 1);
+    else newEnd = Math.min(kids.length - 1, end + 1);
+
+    const span: Selection = { kind: "span", parentId, op, start: newStart, end: newEnd };
+    setSelection(span);
+
+    setShadowHighlightSpan(displayRef.current, kids.slice(newStart, newEnd + 1));
+  }
+}
+
 
   return (
     <div style={{ padding: 24, maxWidth: 1000 }}>
@@ -322,6 +414,8 @@ export default function App() {
           userSelect: "none",
         }}
         onPointerDown={onDisplayPointerDown}
+        tabIndex={0}
+        onKeyDown={onKeyDown}
       >
         <div style={{ fontSize: 14, marginBottom: 8, opacity: 0.8 }}>
           Rendered (tagged from MathJSON) — click to inspect + highlight
