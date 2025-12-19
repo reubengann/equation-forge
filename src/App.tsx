@@ -21,6 +21,7 @@ type TaggedRender = {
   childIndexById: Record<string, number>;        // for any node that is a child of Add/Multiply
 };
 
+
 function makeTaggedLatexFromMathJson(mj: MJ): TaggedRender {
   let nextId = 1;
   const newId = () => `n${nextId++}`;
@@ -98,11 +99,11 @@ function makeTaggedLatexFromMathJson(mj: MJ): TaggedRender {
 
       if (op === "Add") {
         const children = node.slice(1).map((c: MJ) => emit(c, "Add", id)); // ✅ parent=id
-        
+
         // record the order
         childrenById[id] = children.map(ch => ch.id);
         childrenById[id].forEach((cid, idx) => (childIndexById[cid] = idx));
-        
+
         const plain = children.map((c) => c.latexPlain).join(" + ");
         const tagged = children.map((c) => c.latexTagged).join(String.raw` + `);
 
@@ -158,15 +159,47 @@ function makeTaggedLatexFromMathJson(mj: MJ): TaggedRender {
 }
 
 
-function findNodeIdFromComposedPath(path: unknown[]): string | null {
+// function findNodeIdFromComposedPath(path: unknown[]): string | null {
+//   for (const p of path) {
+//     if (!(p instanceof Element)) continue;
+//     const h = p as HTMLElement;
+//     const nodeId = h.dataset?.nodeId;
+//     if (nodeId) return nodeId;
+//   }
+//   return null;
+// }
+
+function findBestNodeIdFromComposedPath(
+  path: unknown[],
+  nodesById: Record<string, NodeInfo>,
+): string | null {
+  // Operators we do NOT want to select by clicking on their glyphs.
+  const disallowOnPlainClick = new Set(["Add", "Multiply", "Equal"]);
+
+  // Walk from deepest to shallowest.
+  // Prefer the first tagged node whose op is NOT disallowed.
+  let firstTagged: string | null = null;
+
   for (const p of path) {
     if (!(p instanceof Element)) continue;
     const h = p as HTMLElement;
     const nodeId = h.dataset?.nodeId;
-    if (nodeId) return nodeId;
+    if (!nodeId) continue;
+
+    if (!firstTagged) firstTagged = nodeId;
+
+    const info = nodesById[nodeId];
+    if (!info) continue;
+
+    if (!disallowOnPlainClick.has(info.op)) {
+      return nodeId; // ✅ pick a term-like node
+    }
   }
+
+  // If the only thing we found was a container (like Add), treat it as "no selection"
   return null;
 }
+
 
 function installShadowStyle(mathDivEl: HTMLElement) {
   const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
@@ -187,18 +220,6 @@ function installShadowStyle(mathDivEl: HTMLElement) {
   sr.appendChild(style);
 }
 
-function setShadowHighlightSpan(mathDivEl: HTMLElement, childIds: string[]) {
-  const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
-  if (!sr) return;
-
-  sr.querySelectorAll(".dp-selected").forEach(el => el.classList.remove("dp-selected"));
-
-  for (const id of childIds) {
-    sr.querySelectorAll<HTMLElement>(`[data-node-id="${CSS.escape(id)}"]`)
-      .forEach(el => el.classList.add("dp-selected"));
-  }
-}
-
 function setShadowHighlight(mathDivEl: HTMLElement, nodeId: string | null) {
   const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
   if (!sr) return;
@@ -216,18 +237,34 @@ export default function App() {
   const MathField = useMemo(() => "math-field" as any, []);
   const [parentById, setParentById] = useState<Record<string, string | null>>({});
   const [selectedId] = useState<string | null>(null);
-  type Selection =
-  | { kind: "node"; nodeId: string }
-  | { kind: "span"; parentId: string; op: "Add" | "Multiply"; start: number; end: number };
+  type ExprSelection =
+    | { kind: "node"; nodeId: string }
+    | { kind: "span"; parentId: string; op: "Add" | "Multiply"; start: number; end: number };
 
-  const [selection, setSelection] = useState<Selection | null>(null);
+  const [selection, setSelection] = useState<ExprSelection | null>(null);
   const [childrenById, setChildrenById] = useState<Record<string, string[]>>({});
   const [childIndexById, setChildIndexById] = useState<Record<string, number>>({});
   const inputRef = useRef<any>(null);
   const displayRef = useRef<HTMLElement | null>(null);
+  const renderBoxRef = useRef<HTMLDivElement | null>(null);
+  const mathWrapRef = useRef<HTMLDivElement | null>(null);
+
+
+  const [overlayRect, setOverlayRect] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   const [nodesById, setNodesById] = useState<Record<string, NodeInfo>>({});
   const [info, setInfo] = useState<string>("Type an equation, click Add / Update. Then click parts of the rendered equation.");
+
+  function clearSelection() {
+    setSelection(null);
+    setOverlayRect(null);
+  }
+
 
   function renderFromMathJson(json: MJ) {
     if (!displayRef.current) return;
@@ -279,9 +316,12 @@ export default function App() {
 
     const ne = e.nativeEvent as PointerEvent;
     const path = typeof ne.composedPath === "function" ? ne.composedPath() : [];
-    const clickedId = findNodeIdFromComposedPath(path);
+    const clickedId = findBestNodeIdFromComposedPath(path, nodesById);
 
-    if (!clickedId) return;
+    if (!clickedId) {
+      clearSelection();
+      return;
+    }
 
     // If shift is held, expand from the *current* selection if there is one;
     // otherwise expand from the clicked node.
@@ -289,7 +329,7 @@ export default function App() {
     const nextSelectedId = e.shiftKey ? (parentById[baseId] ?? baseId) : clickedId;
 
     setSelection({ kind: "node", nodeId: nextSelectedId });
-    setShadowHighlight(displayEl, nextSelectedId);
+    setOverlayForNodeIds([nextSelectedId]);
 
     const hit = nodesById[nextSelectedId];
     if (!hit) {
@@ -311,65 +351,114 @@ export default function App() {
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
-  if (!e.shiftKey) return;
-  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-  if (!displayRef.current) return;
-  if (!selection) return;
+    if (!e.shiftKey) return;
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    if (!displayRef.current) return;
+    if (!selection) return;
 
-  e.preventDefault();
+    e.preventDefault();
 
-  // Turn a node selection into a span selection when appropriate
-  if (selection.kind === "node") {
-    const nodeId = selection.nodeId;
-    const parentId = parentById[nodeId];
-    if (!parentId) return;
+    // Turn a node selection into a span selection when appropriate
+    if (selection.kind === "node") {
+      const nodeId = selection.nodeId;
+      const parentId = parentById[nodeId];
+      if (!parentId) return;
 
-    const parentInfo = nodesById[parentId];
-    if (!parentInfo) return;
+      const parentInfo = nodesById[parentId];
+      if (!parentInfo) return;
 
-    const op = parentInfo.op;
-    if (op !== "Add" && op !== "Multiply") return;
+      const op = parentInfo.op;
+      if (op !== "Add" && op !== "Multiply") return;
 
-    const idx = childIndexById[nodeId];
-    if (idx === undefined) return;
+      const idx = childIndexById[nodeId];
+      if (idx === undefined) return;
 
-    const start = idx;
-    const end = idx;
+      const start = idx;
+      const end = idx;
 
-    // Now expand one step in the requested direction
-    const kids = childrenById[parentId] ?? [];
-    let newStart = start;
-    let newEnd = end;
+      // Now expand one step in the requested direction
+      const kids = childrenById[parentId] ?? [];
+      let newStart = start;
+      let newEnd = end;
 
-    if (e.key === "ArrowLeft") newStart = Math.max(0, start - 1);
-    else newEnd = Math.min(kids.length - 1, end + 1);
+      if (e.key === "ArrowLeft") newStart = Math.max(0, start - 1);
+      else newEnd = Math.min(kids.length - 1, end + 1);
 
-    const span: Selection = { kind: "span", parentId, op, start: newStart, end: newEnd };
-    setSelection(span);
+      const span: ExprSelection = { kind: "span", parentId, op, start: newStart, end: newEnd };
+      setSelection(span);
 
-    setShadowHighlightSpan(displayRef.current, kids.slice(newStart, newEnd + 1));
-    return;
+      const selectedChildIds = kids.slice(newStart, newEnd + 1);
+      setOverlayForNodeIds(selectedChildIds);
+      return;
+    }
+
+    // Expand an existing span
+    if (selection.kind === "span") {
+      const { parentId, op, start, end } = selection;
+      const kids = childrenById[parentId] ?? [];
+      if (kids.length === 0) return;
+
+      let newStart = start;
+      let newEnd = end;
+
+      if (e.key === "ArrowLeft") newStart = Math.max(0, start - 1);
+      else newEnd = Math.min(kids.length - 1, end + 1);
+
+      const span: ExprSelection = { kind: "span", parentId, op, start: newStart, end: newEnd };
+      setSelection(span);
+
+      setOverlayForNodeIds(kids.slice(newStart, newEnd + 1));
+    }
   }
 
-  // Expand an existing span
-  if (selection.kind === "span") {
-    const { parentId, op, start, end } = selection;
-    const kids = childrenById[parentId] ?? [];
-    if (kids.length === 0) return;
+  function computeOverlayRectForNodeIds(
+    mathDivEl: HTMLElement,
+    nodeIds: string[],
+    padX: number,
+    padY: number,
+    renderBoxEl: HTMLDivElement
+  ) {
+    const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
+    if (!sr || nodeIds.length === 0) return null;
 
-    let newStart = start;
-    let newEnd = end;
+    const boxRect = renderBoxEl.getBoundingClientRect();
 
-    if (e.key === "ArrowLeft") newStart = Math.max(0, start - 1);
-    else newEnd = Math.min(kids.length - 1, end + 1);
+    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+    let found = 0;
 
-    const span: Selection = { kind: "span", parentId, op, start: newStart, end: newEnd };
-    setSelection(span);
+    for (const id of nodeIds) {
+      sr.querySelectorAll<HTMLElement>(`[data-node-id="${CSS.escape(id)}"]`).forEach((el) => {
+        const r = el.getBoundingClientRect();
+        left = Math.min(left, r.left);
+        top = Math.min(top, r.top);
+        right = Math.max(right, r.right);
+        bottom = Math.max(bottom, r.bottom);
+        found++;
+      });
+    }
 
-    setShadowHighlightSpan(displayRef.current, kids.slice(newStart, newEnd + 1));
+    if (!found) return null;
+
+    left -= padX; right += padX; top -= padY; bottom += padY;
+
+    return {
+      left: left - boxRect.left,
+      top: top - boxRect.top,
+      width: right - left,
+      height: bottom - top,
+    };
   }
-}
 
+  function setOverlayForNodeIds(nodeIds: string[]) {
+    const mathDivEl = displayRef.current;
+    const boxEl = mathWrapRef.current;   // ✅ changed
+    if (!mathDivEl || !boxEl) return;
+
+    const padX = 8;
+    const padY = 3;
+
+    setOverlayRect(computeOverlayRectForNodeIds(mathDivEl, nodeIds, padX, padY, boxEl));
+  }
 
   return (
     <div style={{ padding: 24, maxWidth: 1000 }}>
@@ -386,7 +475,7 @@ export default function App() {
               borderRadius: 8,
             }}
           >
-            {String.raw`a+b=c`}
+            {String.raw`a+b+c=d`}
           </MathField>
         </div>
 
@@ -405,6 +494,7 @@ export default function App() {
       </div>
 
       <div
+        ref={renderBoxRef}
         style={{
           marginTop: 16,
           border: "1px solid #ddd",
@@ -417,10 +507,30 @@ export default function App() {
         tabIndex={0}
         onKeyDown={onKeyDown}
       >
+
         <div style={{ fontSize: 14, marginBottom: 8, opacity: 0.8 }}>
           Rendered (tagged from MathJSON) — click to inspect + highlight
         </div>
-        <MathDiv ref={displayRef} mode="displaystyle" />
+
+        <div ref={mathWrapRef} style={{ position: "relative", display: "inline-block" }}>
+          <MathDiv ref={displayRef} mode="displaystyle" />
+          {overlayRect && (
+            <div
+              style={{
+                position: "absolute",
+                left: overlayRect.left,
+                top: overlayRect.top,
+                width: overlayRect.width,
+                height: overlayRect.height,
+                border: "2px solid #ff9800",
+                borderRadius: 6,
+                pointerEvents: "none",
+                boxSizing: "border-box",
+              }}
+            />
+          )}
+        </div>
+
       </div>
 
       <textarea
