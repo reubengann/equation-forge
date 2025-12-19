@@ -21,8 +21,11 @@ type TaggedRender = {
   childIndexById: Record<string, number>;        // for any node that is a child of Add/Multiply
 };
 
+type AddPreview =
+  | null
+  | { addId: string; draggedChildId: string; fromIndex: number; toIndex: number };
 
-function makeTaggedLatexFromMathJson(mj: MJ): TaggedRender {
+function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRender {
   let nextId = 1;
   const newId = () => `n${nextId++}`;
   const childrenById: Record<string, string[]> = {};
@@ -63,6 +66,7 @@ function makeTaggedLatexFromMathJson(mj: MJ): TaggedRender {
     parentOp: string | null,
     parentId: string | null
   ): { id: string; latexTagged: string; latexPlain: string } => {
+    // console.log("emit", node, parentOp, parentId);
     const id = newId();
     parentById[id] = parentId;
 
@@ -83,6 +87,7 @@ function makeTaggedLatexFromMathJson(mj: MJ): TaggedRender {
 
     // Composite
     if (Array.isArray(node)) {
+      // console.log("isarray");
       const op = String(node[0]);
 
       if (op === "Equal") {
@@ -98,11 +103,29 @@ function makeTaggedLatexFromMathJson(mj: MJ): TaggedRender {
       }
 
       if (op === "Add") {
-        const children = node.slice(1).map((c: MJ) => emit(c, "Add", id)); // ✅ parent=id
+        let children = node.slice(1).map((c: MJ) => emit(c, "Add", id)); // ✅ parent=id
 
         // record the order
         childrenById[id] = children.map(ch => ch.id);
         childrenById[id].forEach((cid, idx) => (childIndexById[cid] = idx));
+
+        // let displayParts = children.map((c) => ({ id: c.id, latexTagged: c.latexTagged, latexPlain: c.latexPlain }));
+
+        console.log(addPreview);
+        if (addPreview && addPreview.addId === id) {
+          const { fromIndex, toIndex } = addPreview;
+          if (fromIndex !== toIndex && fromIndex >= 0 && fromIndex < children.length) {
+            // console.log("reorder", fromIndex, toIndex);
+            const moved = children[fromIndex];
+            const rest = children.filter((_, i) => i !== fromIndex);
+
+            const ins = Math.max(0, Math.min(rest.length, toIndex));
+            const reordered = [...rest.slice(0, ins), moved, ...rest.slice(ins)];
+
+            children = reordered;
+          }
+        }
+
 
         const plain = children.map((c) => c.latexPlain).join(" + ");
         const tagged = children.map((c) => c.latexTagged).join(String.raw` + `);
@@ -211,11 +234,9 @@ function installShadowStyle(mathDivEl: HTMLElement) {
   const style = document.createElement("style");
   style.setAttribute("data-derivation-pad", "1");
   style.textContent = `
-    .dp-selected {
-      outline: 2px solid #ff9800;
-      outline-offset: 2px;
-      border-radius: 3px;
-    }
+    .dp-selected { outline: 2px solid #ff9800; outline-offset: 2px; border-radius: 3px; }
+  .dp-faded { opacity: 0.25; }
+  .dp-dragging { outline: 2px solid #7c4dff; outline-offset: 2px; border-radius: 3px; }
   `;
   sr.appendChild(style);
 }
@@ -237,15 +258,33 @@ export default function App() {
   const MathField = useMemo(() => "math-field" as any, []);
   const [parentById, setParentById] = useState<Record<string, string | null>>({});
   const [selectedId] = useState<string | null>(null);
+  const [currentJson, setCurrentJson] = useState<MJ | null>(null);
   type ExprSelection =
     | { kind: "node"; nodeId: string }
     | { kind: "span"; parentId: string; op: "Add" | "Multiply"; start: number; end: number };
 
   const [selection, setSelection] = useState<ExprSelection | null>(null);
+
+  type DragState =
+    | null
+    | {
+      kind: "reorder-add";
+      addParentId: string;
+      draggedChildId: string;
+      fromIndex: number;
+      toIndex: number;
+      pointerId: number;
+      isActive: boolean;
+    };
+
+
+  const [drag, setDrag] = useState<DragState>(null);
+
   const [childrenById, setChildrenById] = useState<Record<string, string[]>>({});
   const [childIndexById, setChildIndexById] = useState<Record<string, number>>({});
   const inputRef = useRef<any>(null);
   const displayRef = useRef<HTMLElement | null>(null);
+  const measureRef = useRef<HTMLElement | null>(null);
   const renderBoxRef = useRef<HTMLDivElement | null>(null);
   const mathWrapRef = useRef<HTMLDivElement | null>(null);
 
@@ -266,24 +305,36 @@ export default function App() {
   }
 
 
-  function renderFromMathJson(json: MJ) {
+  function renderFromMathJson(json: MJ, opts?: { preview: boolean, previewOverride?: { addId: string; draggedChildId: string; fromIndex: number; toIndex: number } }) {
     if (!displayRef.current) return;
-    const rendered = makeTaggedLatexFromMathJson(json);
-    console.log("nodesById", rendered.nodes);
-    console.log("parentById", rendered.parentById);
+    if (!measureRef.current) return;
+
+    const preview: AddPreview =
+      opts?.preview
+        ? (opts.previewOverride ??
+          (drag?.kind === "reorder-add" && drag.isActive
+            ? { addId: drag.addParentId, draggedChildId: drag.draggedChildId, fromIndex: drag.fromIndex, toIndex: drag.toIndex }
+            : null))
+        : null;
+    const rendered = makeTaggedLatexFromMathJson(json, preview);
 
     setNodesById(rendered.nodes);
     setParentById(rendered.parentById);
     setChildrenById(rendered.childrenById);
     setChildIndexById(rendered.childIndexById);
 
+    // Always update the DISPLAY
     displayRef.current.textContent = rendered.latexTagged;
     (displayRef.current as any).render?.();
-
-    // Make sure our highlight CSS exists
     installShadowStyle(displayRef.current);
-    // Clear any highlight
     setShadowHighlight(displayRef.current, null);
+
+    // Only update MEASURE when not previewing
+    if (!opts?.preview) {
+      measureRef.current.textContent = rendered.latexTagged;
+      (measureRef.current as any).render?.();
+      // no need for highlight CSS on measure
+    }
   }
 
   function onAddEquation() {
@@ -295,8 +346,8 @@ export default function App() {
       setInfo(`No mf.expression.json (Compute Engine not loaded?). mf.value=${latex}`);
       return;
     }
-
-    renderFromMathJson(json);
+    setCurrentJson(json);
+    renderFromMathJson(json, { preview: false });
 
     setInfo(
       [
@@ -321,6 +372,24 @@ export default function App() {
     if (!clickedId) {
       clearSelection();
       return;
+    }
+
+    const pId = parentById[clickedId];
+    const pInfo = pId ? nodesById[pId] : null;
+    const idx = childIndexById[clickedId];
+
+    if (pId && pInfo?.op === "Add" && idx !== undefined) {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+
+      setDrag({
+        kind: "reorder-add",
+        addParentId: pId,
+        draggedChildId: clickedId,
+        fromIndex: idx,
+        toIndex: idx,
+        pointerId: e.pointerId,
+        isActive: true,
+      });
     }
 
     // If shift is held, expand from the *current* selection if there is one;
@@ -378,6 +447,7 @@ export default function App() {
 
       // Now expand one step in the requested direction
       const kids = childrenById[parentId] ?? [];
+
       let newStart = start;
       let newEnd = end;
 
@@ -409,6 +479,52 @@ export default function App() {
 
       setOverlayForNodeIds(kids.slice(newStart, newEnd + 1));
     }
+  }
+
+  function getChildRectsInShadow(mathDivEl: HTMLElement, childIds: string[]) {
+    const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
+    if (!sr) return [];
+
+    return childIds.map((id) => {
+      // a child may appear multiple times (rare here). take union rect.
+      let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
+      let found = 0;
+
+      sr.querySelectorAll<HTMLElement>(`[data-node-id="${CSS.escape(id)}"]`).forEach((el) => {
+        const r = el.getBoundingClientRect();
+        left = Math.min(left, r.left);
+        right = Math.max(right, r.right);
+        top = Math.min(top, r.top);
+        bottom = Math.max(bottom, r.bottom);
+        found++;
+      });
+
+      if (!found) return null;
+      return { id, rect: { left, right, top, bottom, midX: (left + right) / 2 } };
+    }).filter(Boolean) as { id: string; rect: any }[];
+  }
+
+  type NodeRect = { id: string; rect: { left: number; right: number; midX: number } };
+
+  
+  function pickSlot(rects: NodeRect[], clientX: number): number {
+    for (let i = 1; i < rects.length; i++) {
+      const l = rects[i - 1];
+      const r = rects[i];
+      const midpoint = (r.rect.left + l.rect.right)/2;
+      // debugger
+      if (clientX <= midpoint) 
+      {
+        return i - 1;
+      }
+    }
+    return rects.length;
+  }
+
+  function mapSlotToIndexWithoutDragged(slot: number, fromIndex: number) {
+    // slot is 0..N in the original list
+    // return is 0..N-1 for list without dragged
+    return slot <= fromIndex ? slot : slot - 1;
   }
 
   function computeOverlayRectForNodeIds(
@@ -460,6 +576,63 @@ export default function App() {
     setOverlayRect(computeOverlayRectForNodeIds(mathDivEl, nodeIds, padX, padY, boxEl));
   }
 
+  function onDisplayPointerMove(e: React.PointerEvent) {
+    if (!drag?.isActive) return;
+    if (e.pointerId !== drag.pointerId) return;
+    if (!currentJson) return;
+
+    const measureEl = measureRef.current;
+    if (!measureEl) return;
+
+    const kids = childrenById[drag.addParentId] ?? [];
+    if (kids.length < 2) return;
+
+    // Measure from the BASELINE renderer, not the preview renderer
+    const rects = getChildRectsInShadow(measureEl, kids) as NodeRect[];
+    if (rects.length === 0) return;
+
+    // slot in full list (0..kids.length)
+    const slot = pickSlot(rects, e.clientX);
+
+    // map to insertion index in list with dragged removed (0..kids.length-1)
+    let toIndex = mapSlotToIndexWithoutDragged(slot, drag.fromIndex);
+    toIndex = Math.max(0, Math.min(kids.length - 1, toIndex));
+
+    if (toIndex === drag.toIndex) {
+      if (toIndex !== drag.toIndex) {
+        // debugPick(kids, rects, e.clientX, slot, toIndex, drag.fromIndex);
+      }
+      return;
+    }
+
+    const nextDrag = { ...drag, toIndex };
+    setDrag(nextDrag);
+
+    // show what it would be "if released now"
+    renderFromMathJson(currentJson, {
+      preview: true,
+      previewOverride: {
+        addId: drag.addParentId,
+        draggedChildId: drag.draggedChildId,
+        fromIndex: drag.fromIndex,
+        toIndex, // <-- the newly computed one
+      },
+    });
+  }
+
+  function onDisplayPointerUp(e: React.PointerEvent) {
+    if (!drag?.isActive) return;
+    if (e.pointerId !== drag.pointerId) return;
+
+    // TODO
+    // Commit reorder in your underlying MathJSON (or “current state”)
+    // For now: just rebuild the MathJSON by moving that child within the Add node.
+    // commitReorderAdd(drag.addParentId, drag.fromIndex, drag.toIndex);
+
+    setDrag(null);
+    // if (currentJson) renderFromMathJson(currentJson, { preview: false });
+  }
+
   return (
     <div style={{ padding: 24, maxWidth: 1000 }}>
       <h2>Derivation Pad — Confirm Selection</h2>
@@ -504,6 +677,9 @@ export default function App() {
           userSelect: "none",
         }}
         onPointerDown={onDisplayPointerDown}
+        onPointerMove={onDisplayPointerMove}
+        onPointerUp={onDisplayPointerUp}
+        onPointerCancel={onDisplayPointerUp}
         tabIndex={0}
         onKeyDown={onKeyDown}
       >
@@ -513,7 +689,22 @@ export default function App() {
         </div>
 
         <div ref={mathWrapRef} style={{ position: "relative", display: "inline-block" }}>
-          <MathDiv ref={displayRef} mode="displaystyle" />
+          {/* measurement math-div: invisible but still laid out */}
+          <MathDiv
+            ref={measureRef}
+            mode="displaystyle"
+            className="math-measure"
+            style={{
+              position: "absolute",
+              inset: 0,
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+          />
+
+          {/* display math-div: what the user sees */}
+          <MathDiv ref={displayRef} mode="displaystyle" className="math-display" />
+
           {overlayRect && (
             <div
               style={{
@@ -530,7 +721,6 @@ export default function App() {
             />
           )}
         </div>
-
       </div>
 
       <textarea
