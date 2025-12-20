@@ -57,45 +57,18 @@ type AddPreview =
 * @returns TaggedRender containing LaTeX + node relationship tables.
 */
 function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRender {
+  
+  // Node ID generator
   let nextId = 1;
   const newId = () => `n${nextId++}`;
+  
+  // Bookkeeping tables
   const childrenById: Record<string, string[]> = {};
   const childIndexById: Record<string, number> = {};
-
   const nodes: Record<string, NodeInfo> = {};
   const parentById: Record<string, string | null> = {};
 
-  const wrap = (id: string, contentLatex: string) =>
-    String.raw`\htmlData{node-id=${id}}{${contentLatex}}`;
-
-  const prec: Record<string, number> = {
-    Equal: 0,
-    Add: 10,
-    Multiply: 20,
-    Negate: 30,
-    Power: 40,
-    Symbol: 100,
-    Number: 100,
-  };
-
-  /** Return an operator label for a MathJSON node: "Add", "Symbol", "Number", etc. */
-  const opOf = (node: MJ): string => {
-    if (Array.isArray(node)) return String(node[0]);
-    if (typeof node === "string") return "Symbol";
-    if (typeof node === "number") return "Number";
-    return "Unknown";
-  };
-
-  /**
- * Decide whether a child expression should be parenthesized when embedded in a parent operator.
- * Uses a simple precedence table; if child precedence is lower than parent precedence,
- * we wrap it in \left( ... \right).
- */
-  const needsParens = (node: MJ, parentOp: string | null) => {
-    if (!Array.isArray(node) || !parentOp) return false;
-    const op = String(node[0]);
-    return (prec[op] ?? 999) < (prec[parentOp] ?? 999);
-  };
+  const wrap = (id: string, contentLatex: string) => String.raw`\htmlData{node-id=${id}}{${contentLatex}}`;
 
   /**
  * Recursively emit LaTeX for a MathJSON node, tagging each subtree with a unique node-id.
@@ -110,35 +83,19 @@ function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRen
  */
   const emit = (
     node: MJ,
-    parentOp: string | null,
     parentId: string | null
   ): { id: string; latexTagged: string; latexPlain: string } => {
     // console.log("emit", node, parentOp, parentId);
     const id = newId();
     parentById[id] = parentId;
 
-    const op = opOf(node);
-
-    // Leaf: symbol
-    if (typeof node === "string") {
-      nodes[id] = { id, op, latex: node, json: node };
-      return { id, latexTagged: wrap(id, node), latexPlain: node };
-    }
-
-    // Leaf: number
-    if (typeof node === "number") {
-      const plain = String(node);
-      nodes[id] = { id, op, latex: plain, json: node };
-      return { id, latexTagged: wrap(id, plain), latexPlain: plain };
-    }
-
     // Composite
     if (Array.isArray(node)) {
 
       if (Array.isArray(node) && node[0] === "Divide") {
         // MathJSON: ["Divide", numerator, denominator]
-        const num = emit(node[1], "Divide", id);
-        const den = emit(node[2], "Divide", id);
+        const num = emit(node[1], id);
+        const den = emit(node[2], id);
         childrenById[id] = [num.id, den.id];
         childIndexById[num.id] = 0;
         childIndexById[den.id] = 1;
@@ -153,8 +110,8 @@ function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRen
       const op = String(node[0]);
 
       if (op === "Equal") {
-        const L = emit(node[1], "Equal", id);
-        const R = emit(node[2], "Equal", id);
+        const L = emit(node[1], id);
+        const R = emit(node[2], id);
 
         const plain = `${L.latexPlain} = ${R.latexPlain}`;
         const tagged = `${L.latexTagged} = ${R.latexTagged}`;
@@ -164,7 +121,7 @@ function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRen
       }
 
       if (op === "Add") {
-        let children = node.slice(1).map((c: MJ) => emit(c, "Add", id)); // ✅ parent=id
+        let children = node.slice(1).map((c: MJ) => emit(c, id)); // ✅ parent=id
 
         // record the order
         childrenById[id] = children.map(ch => ch.id);
@@ -187,58 +144,24 @@ function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRen
           }
         }
 
-
         const plain = children.map((c) => c.latexPlain).join(" + ");
         const tagged = children.map((c) => c.latexTagged).join(String.raw` + `);
 
-        const bodyPlain = needsParens(node, parentOp) ? String.raw`\left(${plain}\right)` : plain;
-        const bodyTagged = needsParens(node, parentOp) ? String.raw`\left(${tagged}\right)` : tagged;
-
-        nodes[id] = { id, op, latex: bodyPlain, json: node };
-        return { id, latexTagged: wrap(id, bodyTagged), latexPlain: bodyPlain };
+        nodes[id] = { id, op, latex: plain, json: node };
+        return { id, latexTagged: wrap(id, tagged), latexPlain: plain };
       }
 
-      if (op === "Multiply") {
-        const children = node.slice(1).map((c: MJ) => emit(c, "Multiply", id)); // ✅ parent=id
-        // record the order
-        childrenById[id] = children.map(ch => ch.id);
-        childrenById[id].forEach((cid, idx) => (childIndexById[cid] = idx));
-
-        const plain = children.map((c) => c.latexPlain).join(String.raw`\,`);
-        const tagged = children.map((c) => c.latexTagged).join(String.raw`\,`);
-
-        const bodyPlain = needsParens(node, parentOp) ? String.raw`\left(${plain}\right)` : plain;
-        const bodyTagged = needsParens(node, parentOp) ? String.raw`\left(${tagged}\right)` : tagged;
-
-        nodes[id] = { id, op, latex: bodyPlain, json: node };
-        return { id, latexTagged: wrap(id, bodyTagged), latexPlain: bodyPlain };
-      }
-
-      if (op === "Negate") {
-        const child = emit(node[1], "Negate", id); // ✅ parent=id
-
-        const plain = `-${child.latexPlain}`;
-        const tagged = `-${child.latexTagged}`;
-
-        const bodyPlain = needsParens(node, parentOp) ? String.raw`\left(${plain}\right)` : plain;
-        const bodyTagged = needsParens(node, parentOp) ? String.raw`\left(${tagged}\right)` : tagged;
-
-        nodes[id] = { id, op, latex: bodyPlain, json: node };
-        return { id, latexTagged: wrap(id, bodyTagged), latexPlain: bodyPlain };
-      }
-
-      // Fallback
       const plain = String.raw`\operatorname{${op}}\left(\dots\right)`;
       nodes[id] = { id, op, latex: plain, json: node };
       return { id, latexTagged: wrap(id, plain), latexPlain: plain };
     }
 
-    const plain = String.raw`\text{?}`;
+    const plain = ce.box(node).latex;
     nodes[id] = { id, op: "Unknown", latex: plain, json: node };
     return { id, latexTagged: wrap(id, plain), latexPlain: plain };
   };
 
-  const top = emit(mj, null, null);
+  const top = emit(mj, null);
   return { latexTagged: top.latexTagged, nodes, parentById, childrenById, childIndexById };
 }
 
