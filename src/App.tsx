@@ -2,7 +2,15 @@ import { useMemo, useRef, useState } from "react";
 import "mathlive";
 import "@cortex-js/compute-engine";
 import { MathfieldElement } from "mathlive";
+import { ComputeEngine } from "@cortex-js/compute-engine";
+
+const ce = new ComputeEngine();
 MathfieldElement.fontsDirectory = "/fonts";
+
+/*
+  The main idea here is to interface with Mathlive. However, it only accepts Latex. We don't like this; we actually want to maintain a tree (specifically it's a MathJSON tree). 
+  So we need to convert between the two for anything we want to do with the MathJSON tree in order for it to be rendered.
+*/
 
 type MJ = any;
 
@@ -25,6 +33,29 @@ type AddPreview =
   | null
   | { addId: string; draggedChildId: string; fromIndex: number; toIndex: number };
 
+/**
+* Convert a MathJSON expression into LaTeX that is *tagged* with stable node IDs.
+*
+* This is the core bridge between:
+*   1) Your semantic structure (MathJSON tree), and
+*   2) The rendered DOM inside MathLive's <math-div> shadowRoot.
+*
+* Each emitted subtree is wrapped in a LaTeX `\htmlData{node-id=...}{...}` span.
+* After MathLive renders, these become DOM elements with `data-node-id="nX"`,
+* which you can query for hit-testing, highlighting, and geometry measurement.
+*
+* Also builds several lookup tables used by interaction logic:
+* - nodes:        nodeId -> NodeInfo (op, latex snippet, json subtree)
+* - parentById:   nodeId -> parent nodeId (render-tree parent, not MathJSON index path)
+* - childrenById: nodeId -> ordered child nodeIds (for container ops like Add/Multiply/Divide)
+* - childIndexById: childId -> index within its parent container
+*
+* @param mj MathJSON root expression to render
+* @param addPreview Optional preview state for reordering terms within a specific Add node.
+*                  This is a *display-only* preview: it reorders the rendered children
+*                  but does NOT mutate the MathJSON.
+* @returns TaggedRender containing LaTeX + node relationship tables.
+*/
 function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRender {
   let nextId = 1;
   const newId = () => `n${nextId++}`;
@@ -47,6 +78,7 @@ function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRen
     Number: 100,
   };
 
+  /** Return an operator label for a MathJSON node: "Add", "Symbol", "Number", etc. */
   const opOf = (node: MJ): string => {
     if (Array.isArray(node)) return String(node[0]);
     if (typeof node === "string") return "Symbol";
@@ -54,13 +86,28 @@ function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRen
     return "Unknown";
   };
 
+  /**
+ * Decide whether a child expression should be parenthesized when embedded in a parent operator.
+ * Uses a simple precedence table; if child precedence is lower than parent precedence,
+ * we wrap it in \left( ... \right).
+ */
   const needsParens = (node: MJ, parentOp: string | null) => {
     if (!Array.isArray(node) || !parentOp) return false;
     const op = String(node[0]);
     return (prec[op] ?? 999) < (prec[parentOp] ?? 999);
   };
 
-  // NOTE: parentId is the ID of the AST node containing this node
+  /**
+ * Recursively emit LaTeX for a MathJSON node, tagging each subtree with a unique node-id.
+ *
+ * Returns both:
+ * - latexPlain: untagged LaTeX for the subtree
+ * - latexTagged: LaTeX with \htmlData{node-id=...}{...} wrappers, used for hit-testing
+ *
+ * Also populates:
+ * - parentById: render-tree parent links
+ * - childrenById / childIndexById for container operators (Add, Multiply, Divide)
+ */
   const emit = (
     node: MJ,
     parentOp: string | null,
@@ -87,11 +134,25 @@ function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRen
 
     // Composite
     if (Array.isArray(node)) {
-      // console.log("isarray");
+
+      if (Array.isArray(node) && node[0] === "Divide") {
+        // MathJSON: ["Divide", numerator, denominator]
+        const num = emit(node[1], "Divide", id);
+        const den = emit(node[2], "Divide", id);
+        childrenById[id] = [num.id, den.id];
+        childIndexById[num.id] = 0;
+        childIndexById[den.id] = 1;
+        const latexPlain = String.raw`\frac{${num.latexPlain}}{${den.latexPlain}}`;
+        const latexTaggedInner = String.raw`\frac{${num.latexTagged}}{${den.latexTagged}}`;
+
+        // wrap the whole Divide node with its own id (so the fraction itself is selectable)
+        const latexTagged = wrap(id, latexTaggedInner); // whatever you use for Add/vars
+        return { id, latexPlain, latexTagged };
+      }
+
       const op = String(node[0]);
 
       if (op === "Equal") {
-        // ✅ children get THIS node's id as their parent
         const L = emit(node[1], "Equal", id);
         const R = emit(node[2], "Equal", id);
 
@@ -181,25 +242,28 @@ function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRen
   return { latexTagged: top.latexTagged, nodes, parentById, childrenById, childIndexById };
 }
 
-
-// function findNodeIdFromComposedPath(path: unknown[]): string | null {
-//   for (const p of path) {
-//     if (!(p instanceof Element)) continue;
-//     const h = p as HTMLElement;
-//     const nodeId = h.dataset?.nodeId;
-//     if (nodeId) return nodeId;
-//   }
-//   return null;
-// }
-
+/**
+ * Given a PointerEvent composedPath() (DOM ancestry including shadow DOM),
+ * choose the "best" node-id to treat as clicked.
+ *
+ * This function walks from deepest element upward and looks for an element
+ * with `data-node-id="nX"` (inserted by makeTaggedLatexFromMathJson).
+ *
+ * It deliberately *avoids* selecting container operators on a plain click
+ * (e.g. Add / Multiply / Equal), because users usually mean "a term"
+ * rather than "the whole sum" when clicking once.
+ *
+ * @param path Result of event.composedPath()
+ * @param nodesById Current node registry from the latest render
+ * @returns nodeId of the clicked term-like node, or null if nothing usable was clicked
+ */
 function findBestNodeIdFromComposedPath(
   path: unknown[],
   nodesById: Record<string, NodeInfo>,
 ): string | null {
-  // Operators we do NOT want to select by clicking on their glyphs.
   const disallowOnPlainClick = new Set(["Add", "Multiply", "Equal"]);
 
-  // Walk from deepest to shallowest.
+  // Walk up the mathjson tree from deepest to shallowest.
   // Prefer the first tagged node whose op is NOT disallowed.
   let firstTagged: string | null = null;
 
@@ -223,7 +287,19 @@ function findBestNodeIdFromComposedPath(
   return null;
 }
 
-
+/**
+ * Inject CSS into the shadowRoot of a MathLive <math-div>.
+ *
+ * MathLive renders into shadow DOM, so global CSS won't reach it.
+ * We add a small style tag once per <math-div> instance to support:
+ *   - .dp-selected  (selection outline)
+ *   - .dp-faded     (preview fade)
+ *   - .dp-dragging  (drag outline)
+ *
+ * Safe to call repeatedly; it no-ops if the style is already installed.
+ *
+ * @param mathDivEl The <math-div> element hosting MathLive's shadow DOM
+ */
 function installShadowStyle(mathDivEl: HTMLElement) {
   const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
   if (!sr) return;
@@ -241,6 +317,16 @@ function installShadowStyle(mathDivEl: HTMLElement) {
   sr.appendChild(style);
 }
 
+/**
+ * Apply/remove selection highlighting inside a MathLive <math-div> shadowRoot.
+ *
+ * Because the same node-id can appear multiple times in the rendered DOM
+ * (rare now, but possible later), we highlight *all* elements with the given
+ * data-node-id.
+ *
+ * @param mathDivEl The display <math-div>
+ * @param nodeId Node id to highlight, or null to clear highlight
+ */
 function setShadowHighlight(mathDivEl: HTMLElement, nodeId: string | null) {
   const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
   if (!sr) return;
@@ -287,7 +373,8 @@ export default function App() {
   const measureRef = useRef<HTMLElement | null>(null);
   const renderBoxRef = useRef<HTMLDivElement | null>(null);
   const mathWrapRef = useRef<HTMLDivElement | null>(null);
-
+  const [nodesById, setNodesById] = useState<Record<string, NodeInfo>>({});
+  const [info, setInfo] = useState<string>("Type an equation, click Add / Update. Then click parts of the rendered equation.");
 
   const [overlayRect, setOverlayRect] = useState<{
     left: number;
@@ -296,26 +383,48 @@ export default function App() {
     height: number;
   } | null>(null);
 
-  const [nodesById, setNodesById] = useState<Record<string, NodeInfo>>({});
-  const [info, setInfo] = useState<string>("Type an equation, click Add / Update. Then click parts of the rendered equation.");
-
   function clearSelection() {
     setSelection(null);
     setOverlayRect(null);
   }
 
-
+  /**
+ * Render a MathJSON expression into the MathLive display <math-div>.
+ *
+ * This is the only function that should write into `displayRef.current.textContent`
+ * and call MathLive's `.render()` to update the visible equation.
+ *
+ * It also keeps a hidden "measure" <math-div> in sync with the *baseline* expression
+ * (non-preview) so we can measure stable child rectangles while dragging:
+ * - DISPLAY <math-div>: shows preview during drag
+ * - MEASURE <math-div>: stays on baseline so rects don't jump mid-drag
+ *
+ * The `preview` flag is a display-only behavior:
+ * - If preview=false: both DISPLAY and MEASURE update to the same equation
+ * - If preview=true:  DISPLAY updates with preview ordering, MEASURE does not
+ *
+ * @param json The MathJSON to render
+ * @param opts.preview If true, render a preview (currently only Add reorder preview)
+ * @param opts.previewOverride If provided, uses this preview state instead of current `drag`
+ */
   function renderFromMathJson(json: MJ, opts?: { preview: boolean, previewOverride?: { addId: string; draggedChildId: string; fromIndex: number; toIndex: number } }) {
     if (!displayRef.current) return;
     if (!measureRef.current) return;
 
-    const preview: AddPreview =
-      opts?.preview
-        ? (opts.previewOverride ??
-          (drag?.kind === "reorder-add" && drag.isActive
-            ? { addId: drag.addParentId, draggedChildId: drag.draggedChildId, fromIndex: drag.fromIndex, toIndex: drag.toIndex }
-            : null))
-        : null;
+    let preview: AddPreview = null;
+
+    if (opts?.preview) {
+      if (opts.previewOverride) {
+        preview = opts.previewOverride;
+      } else if (drag?.kind === "reorder-add" && drag.isActive) {
+        preview = {
+          addId: drag.addParentId,
+          draggedChildId: drag.draggedChildId,
+          fromIndex: drag.fromIndex,
+          toIndex: drag.toIndex,
+        };
+      }
+    }
     const rendered = makeTaggedLatexFromMathJson(json, preview);
 
     setNodesById(rendered.nodes);
@@ -337,18 +446,29 @@ export default function App() {
     }
   }
 
+  /**
+ * Parse the current MathLive <math-field> input and render it into the display.
+ *
+ * Uses the Compute Engine parse() with `{ canonical: false }` so the term order
+ * reflects the user's input (no canonical reordering of commutative Add).
+ *
+ * Side effects:
+ * - Updates `currentJson` (the "source of truth" MathJSON)
+ * - Calls renderFromMathJson(json, { preview:false })
+ * - Updates the debug textarea with the LaTeX and MathJSON
+ */
   function onAddEquation() {
     const mf = inputRef.current;
-    const latex = String(mf?.value ?? "").trim();
-
-    const json = mf?.expression?.json;
-    if (!json) {
-      setInfo(`No mf.expression.json (Compute Engine not loaded?). mf.value=${latex}`);
+    console.log(mf.value)
+    const latex: string = mf.value;
+    const expr = ce.parse(latex, { canonical: false });
+    if (!expr) {
+      setInfo(`Parse failed. latex=${latex}`);
       return;
     }
-    setCurrentJson(json);
-    renderFromMathJson(json, { preview: false });
 
+    const json = expr.json; // ✅ now typed
+    // debugger
     setInfo(
       [
         `mf.value (LaTeX): ${latex}`,
@@ -359,8 +479,24 @@ export default function App() {
         "Now click the rendered equation below.",
       ].join("\n")
     );
+    setCurrentJson(json);
+    renderFromMathJson(json, { preview: false });
   }
 
+  /**
+ * Pointer down handler on the rendered equation.
+ *
+ * Responsibilities:
+ * 1) Hit-test the clicked DOM element (via composedPath + data-node-id tags)
+ * 2) Update selection state + overlay rectangle
+ * 3) If the click hits a child term inside an Add container, begin a drag-reorder
+ *    gesture by setting DragState and capturing the pointer.
+ *
+ * Notes:
+ * - Dragging is currently enabled only for terms whose parent op is "Add".
+ * - Selection and dragging are currently started from the same pointerdown;
+ *   you may later separate "click to select" vs "drag to reorder".
+ */
   function onDisplayPointerDown(e: React.PointerEvent) {
     const displayEl = displayRef.current;
     if (!displayEl) return;
@@ -419,6 +555,21 @@ export default function App() {
     );
   }
 
+  /**
+ * Keyboard handler for span expansion.
+ *
+ * Current behavior:
+ * - Holding SHIFT + ArrowLeft/ArrowRight expands selection inside an Add/Multiply
+ *   container by extending the span boundaries.
+ *
+ * It supports two selection modes:
+ * - { kind:"node" }  a single node-id
+ * - { kind:"span" }  a contiguous range of child indices within a parent container
+ *
+ * Side effects:
+ * - Updates `selection`
+ * - Updates overlay rectangle to cover the selected child node IDs
+ */
   function onKeyDown(e: React.KeyboardEvent) {
     if (!e.shiftKey) return;
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
@@ -481,6 +632,18 @@ export default function App() {
     }
   }
 
+  /**
+ * Measure the bounding rectangles of a list of rendered node IDs inside a <math-div>'s shadow DOM.
+ *
+ * Each node-id may appear multiple times in the DOM; this computes a union rectangle
+ * across all matches to produce a single box per node.
+ *
+ * This is used primarily for drag-reorder hit testing (to decide insertion location).
+ *
+ * @param mathDivEl The <math-div> whose shadowRoot should be queried (often MEASURE)
+ * @param childIds List of node IDs (render IDs, e.g. ["n3","n4","n5"])
+ * @returns Array of { id, rect } with rect including left/right/top/bottom/midX
+ */
   function getChildRectsInShadow(mathDivEl: HTMLElement, childIds: string[]) {
     const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
     if (!sr) return [];
@@ -506,27 +669,73 @@ export default function App() {
 
   type NodeRect = { id: string; rect: { left: number; right: number; midX: number } };
 
-  
+
+  /**
+ * Convert a mouse x-position into a "slot" index between children.
+ *
+ * The returned value is in the coordinate system of the *original* child list:
+ * - slot is in [0..N], where N=rects.length
+ * - slot=k corresponds roughly to "insert around child k boundary"
+ *
+ * Implementation detail:
+ * Uses midpoints between adjacent children (average of left boundary of right child
+ * and right boundary of left child). This makes operators (like '+') naturally act
+ * as stable boundaries for reordering.
+ *
+ * @param rects Child rectangles in visual order
+ * @param clientX Pointer position (viewport coordinates)
+ * @returns Slot index in [0..rects.length]
+ */
   function pickSlot(rects: NodeRect[], clientX: number): number {
     for (let i = 1; i < rects.length; i++) {
       const l = rects[i - 1];
       const r = rects[i];
-      const midpoint = (r.rect.left + l.rect.right)/2;
+      const midpoint = (r.rect.left + l.rect.right) / 2;
       // debugger
-      if (clientX <= midpoint) 
-      {
+      if (clientX <= midpoint) {
         return i - 1;
       }
     }
     return rects.length;
   }
 
+  /**
+ * Convert an insertion slot from the full list into an insertion index for the list
+ * with the dragged item removed.
+ *
+ * Example:
+ * children = [a, b, c], dragging b (fromIndex=1)
+ * slots are 0..3 in the original list.
+ *
+ * If slot <= fromIndex, insertion index is unchanged.
+ * If slot >  fromIndex, insertion index shifts left by 1 because the dragged item is removed.
+ *
+ * @param slot Insertion slot in full list (0..N)
+ * @param fromIndex Index of the dragged child in the full list
+ * @returns Insertion index in the reduced list (0..N-1)
+ */
   function mapSlotToIndexWithoutDragged(slot: number, fromIndex: number) {
     // slot is 0..N in the original list
     // return is 0..N-1 for list without dragged
     return slot <= fromIndex ? slot : slot - 1;
   }
 
+  /**
+ * Compute an overlay rectangle (in render-box local coords) that encloses a set of node IDs.
+ *
+ * This:
+ * - Finds DOM rects for all matching data-node-id elements in the *display* shadowRoot
+ * - Unions them
+ * - Applies padding
+ * - Converts viewport coordinates into coordinates relative to your render container
+ *
+ * @param mathDivEl Display <math-div> whose shadowRoot contains the tagged nodes
+ * @param nodeIds Node IDs to enclose
+ * @param padX Horizontal padding (pixels)
+ * @param padY Vertical padding (pixels)
+ * @param renderBoxEl Element whose rect defines the local coordinate system
+ * @returns Rectangle in local coords, or null if nothing found
+ */
   function computeOverlayRectForNodeIds(
     mathDivEl: HTMLElement,
     nodeIds: string[],
@@ -576,6 +785,20 @@ export default function App() {
     setOverlayRect(computeOverlayRectForNodeIds(mathDivEl, nodeIds, padX, padY, boxEl));
   }
 
+  /**
+ * Pointer move handler during a drag-reorder gesture.
+ *
+ * Responsibilities:
+ * - Use the *measure* math-div (baseline) to compute stable child rectangles
+ * - Convert pointer x-position to an insertion slot and then to a toIndex
+ * - Update drag state
+ * - Re-render DISPLAY with an AddPreview override (visual-only preview)
+ *
+ * Notes:
+ * - This does not modify currentJson.
+ * - The preview is created by makeTaggedLatexFromMathJson(addPreview=...)
+ *   which reorders emitted children only for display.
+ */
   function onDisplayPointerMove(e: React.PointerEvent) {
     if (!drag?.isActive) return;
     if (e.pointerId !== drag.pointerId) return;
