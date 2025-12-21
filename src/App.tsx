@@ -659,8 +659,6 @@ export default function App() {
     toIndex = Math.max(0, Math.min(kids.length - 1, toIndex));
 
     if (toIndex === drag.toIndex) {
-      if (toIndex !== drag.toIndex) {
-      }
       return;
     }
 
