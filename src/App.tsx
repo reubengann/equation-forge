@@ -22,22 +22,22 @@ type NodeInfo = {
   json: MJ;            // MathJSON subtree
 };
 
+type PathKey = string;
+
 type TaggedRender = {
   latexTagged: string;
   nodes: Record<string, NodeInfo>;
   parentById: Record<string, string | null>;
   childrenById: Record<string, string[]>;        // for Add/Multiply nodes
   childIndexById: Record<string, number>;        // for any node that is a child of Add/Multiply
+  pathById: Record<string, number[]>;     // "n17" -> [1,2]
+  idByPath: Record<PathKey, string>;      // "1.2" -> "n17"
 };
-
-type AddPreview =
-  | null
-  | { addId: string; draggedChildId: string; fromIndex: number; toIndex: number };
 
 /*
   Here we take a MathJson tree and convert it into a tagged LaTeX string. The tags are used for hit testing.
 */
-function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRender {
+function makeTaggedLatexFromMathJson(mj: MJ): TaggedRender {
 
   // Node ID generator
   let nextId = 1;
@@ -48,6 +48,10 @@ function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRen
   const childIndexById: Record<string, number> = {};
   const nodes: Record<string, NodeInfo> = {};
   const parentById: Record<string, string | null> = {};
+  const pathById: Record<string, number[]> = {};
+  const idByPath: Record<string, string> = {};
+
+  const pathKey = (p: number[]) => p.join(".");
 
   const wrap = (id: string, contentLatex: string) => String.raw`\htmlData{node-id="${id}"}{${contentLatex}}`;
 
@@ -64,10 +68,13 @@ function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRen
  */
   const emit = (
     node: MJ,
-    parentId: string | null
+    parentId: string | null,
+    path: number[]
   ): { id: string; latexTagged: string; latexPlain: string } => {
     // console.log("emit", node, parentOp, parentId);
     const id = newId();
+    pathById[id] = path;
+    idByPath[pathKey(path)] = id;
     parentById[id] = parentId;
 
     // Composite
@@ -75,8 +82,8 @@ function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRen
 
       if (Array.isArray(node) && node[0] === "Divide") {
         // MathJSON: ["Divide", numerator, denominator]
-        const num = emit(node[1], id);
-        const den = emit(node[2], id);
+        const num = emit(node[1], id, [...path, 1]);
+        const den = emit(node[2], id, [...path, 1]);
         childrenById[id] = [num.id, den.id];
         childIndexById[num.id] = 0;
         childIndexById[den.id] = 1;
@@ -91,8 +98,8 @@ function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRen
       const op = String(node[0]);
 
       if (op === "Equal") {
-        const L = emit(node[1], id);
-        const R = emit(node[2], id);
+        const L = emit(node[1], id, [...path, 1]);
+        const R = emit(node[2], id, [...path, 2]);
 
         const plain = `${L.latexPlain} = ${R.latexPlain}`;
         const tagged = `${L.latexTagged} = ${R.latexTagged}`;
@@ -102,27 +109,13 @@ function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRen
       }
 
       if (op === "Add") {
-        let children = node.slice(1).map((c: MJ) => emit(c, id)); // ✅ parent=id
+        let children = node.slice(1).map((c, i) => emit(c, id, [...path, 1 + i]));
 
         // record the order
         childrenById[id] = children.map(ch => ch.id);
         childrenById[id].forEach((cid, idx) => (childIndexById[cid] = idx));
 
         // let displayParts = children.map((c) => ({ id: c.id, latexTagged: c.latexTagged, latexPlain: c.latexPlain }));
-
-        if (addPreview && addPreview.addId === id) {
-          const { fromIndex, toIndex } = addPreview;
-          if (fromIndex !== toIndex && fromIndex >= 0 && fromIndex < children.length) {
-            // console.log("reorder", fromIndex, toIndex);
-            const moved = children[fromIndex];
-            const rest = children.filter((_, i) => i !== fromIndex);
-
-            const ins = Math.max(0, Math.min(rest.length, toIndex));
-            const reordered = [...rest.slice(0, ins), moved, ...rest.slice(ins)];
-
-            children = reordered;
-          }
-        }
 
         const plain = children.map((c) => c.latexPlain).join(" + ");
         const tagged = children.map((c) => c.latexTagged).join(String.raw` + `);
@@ -136,13 +129,20 @@ function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRen
       return { id, latexTagged: wrap(id, plain), latexPlain: plain };
     }
 
+    // This hack prevents e as being interpreted as \exponentialE
+    if (typeof node === "string" && /^[A-Za-z]$/.test(node)) {
+      const plain = node; // italic by default in math mode
+      nodes[id] = { id, op: "Symbol", latex: plain, json: node };
+      return { id, latexTagged: wrap(id, plain), latexPlain: plain };
+    }
+
     const plain = ce.box(node).latex;
     nodes[id] = { id, op: "Unknown", latex: plain, json: node };
     return { id, latexTagged: wrap(id, plain), latexPlain: plain };
   };
 
-  const top = emit(mj, null);
-  return { latexTagged: top.latexTagged, nodes, parentById, childrenById, childIndexById };
+  const top = emit(mj, null, []);
+  return { latexTagged: top.latexTagged, nodes, parentById, childrenById, childIndexById, pathById, idByPath };
 }
 
 /**
@@ -248,6 +248,9 @@ export default function App() {
   const [parentById, setParentById] = useState<Record<string, string | null>>({});
   const [selectedId] = useState<string | null>(null);
   const [currentJson, setCurrentJson] = useState<MJ | null>(null);
+  const [previewJson, setPreviewJson] = useState<MJ | null>(null);
+  const [pathById, setPathById] = useState<Record<string, number[]>>({});
+
   type ExprSelection =
     | { kind: "node"; nodeId: string }
     | { kind: "span"; parentId: string; op: "Add" | "Multiply"; start: number; end: number };
@@ -258,12 +261,14 @@ export default function App() {
     | null
     | {
       kind: "reorder-add";
+      isActive: boolean;
+      pointerId: number;
       addParentId: string;
+      addPath: number[];
+      baselineChildIds: string[];
       draggedChildId: string;
       fromIndex: number;
       toIndex: number;
-      pointerId: number;
-      isActive: boolean;
     };
 
 
@@ -314,26 +319,14 @@ export default function App() {
     if (!displayRef.current) return;
     if (!measureRef.current) return;
 
-    let preview: AddPreview = null;
-
-    if (opts?.preview) {
-      if (opts.previewOverride) {
-        preview = opts.previewOverride;
-      } else if (drag?.kind === "reorder-add" && drag.isActive) {
-        preview = {
-          addId: drag.addParentId,
-          draggedChildId: drag.draggedChildId,
-          fromIndex: drag.fromIndex,
-          toIndex: drag.toIndex,
-        };
-      }
-    }
-    const rendered = makeTaggedLatexFromMathJson(json, preview);
+    const rendered = makeTaggedLatexFromMathJson(json);
+    console.log(rendered);
 
     setNodesById(rendered.nodes);
     setParentById(rendered.parentById);
     setChildrenById(rendered.childrenById);
     setChildIndexById(rendered.childIndexById);
+    setPathById(rendered.pathById);
 
     // Always update the DISPLAY
     displayRef.current.textContent = rendered.latexTagged;
@@ -414,20 +407,30 @@ export default function App() {
     }
 
     const pId = parentById[clickedId];
+    if (!pId) return;
     const pInfo = pId ? nodesById[pId] : null;
     const idx = childIndexById[clickedId];
+    const addPath = pathById[pId];              // parentId is the Add node id
+    if (!addPath) return;
+    const baselineChildIds = childrenById[pId] ?? [];
+    if (baselineChildIds.length < 2) return;
+    setPreviewJson(null);
 
     if (pId && pInfo?.op === "Add" && idx !== undefined) {
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 
       setDrag({
         kind: "reorder-add",
+        isActive: true,
+        pointerId: e.pointerId,
+
         addParentId: pId,
+        addPath,
+        baselineChildIds,
+
         draggedChildId: clickedId,
         fromIndex: idx,
         toIndex: idx,
-        pointerId: e.pointerId,
-        isActive: true,
       });
     }
 
@@ -632,6 +635,38 @@ export default function App() {
     });
   }
 
+  function getAtPath(root: any, path: number[]) {
+    let cur = root;
+    for (const i of path) cur = cur[i];
+    return cur;
+  }
+
+  function setAtPath(root: any, path: number[], value: any): any {
+    if (path.length === 0) return value;
+    const [i, ...rest] = path;
+    const copy = Array.isArray(root) ? root.slice() : { ...root };
+    copy[i] = setAtPath(copy[i], rest, value);
+    return copy;
+  }
+
+  function reorderAddAtPath(root: MJ, addPath: number[], fromIndex: number, toIndex: number): MJ {
+    const addNode = getAtPath(root, addPath);
+    if (!Array.isArray(addNode) || addNode[0] !== "Add") return root;
+
+    const kids = addNode.slice(1);
+    if (kids.length < 2) return root;
+    if (fromIndex === toIndex) return root;
+    if (fromIndex < 0 || fromIndex >= kids.length) return root;
+
+    const moved = kids[fromIndex];
+    const rest = kids.filter((_, i) => i !== fromIndex);
+
+    const ins = Math.max(0, Math.min(rest.length, toIndex));
+    const nextKids = [...rest.slice(0, ins), moved, ...rest.slice(ins)];
+
+    const nextAdd: MJ = ["Add", ...nextKids];
+    return setAtPath(root, addPath, nextAdd);
+  }
   /*
     Dragging functionality: Here we determine if there is a valid reorder or move operation possible.
     Right now this is only within a sum.
@@ -665,28 +700,27 @@ export default function App() {
     const nextDrag = { ...drag, toIndex };
     setDrag(nextDrag);
 
-    renderFromMathJson(currentJson, {
-      preview: true,
-      previewOverride: {
-        addId: drag.addParentId,
-        draggedChildId: drag.draggedChildId,
-        fromIndex: drag.fromIndex,
-        toIndex, // <-- the newly computed one
-      },
-    });
+    // ✅ build previewJson and render it
+    const nextPreview = reorderAddAtPath(currentJson, drag.addPath, drag.fromIndex, toIndex);
+    setPreviewJson(nextPreview);
+
+    // preview=true means "don't update MEASURE"
+    renderFromMathJson(nextPreview);
   }
 
   function onDisplayPointerUp(e: React.PointerEvent) {
     if (!drag?.isActive) return;
     if (e.pointerId !== drag.pointerId) return;
 
-    // TODO
-    // Commit reorder in your underlying MathJSON (or “current state”)
-    // For now: just rebuild the MathJSON by moving that child within the Add node.
-    // commitReorderAdd(drag.addParentId, drag.fromIndex, drag.toIndex);
+    if (previewJson) {
+      setCurrentJson(previewJson);
+      renderFromMathJson(previewJson, { preview: false });
+      setPreviewJson(null);
+    } else if (currentJson) {
+      renderFromMathJson(currentJson, { preview: false });
+    }
 
     setDrag(null);
-    // if (currentJson) renderFromMathJson(currentJson, { preview: false });
   }
 
   return (
@@ -704,7 +738,7 @@ export default function App() {
               borderRadius: 8,
             }}
           >
-            {String.raw`a+b+c=d`}
+            {String.raw`\frac{a+b}{2}+c+d=e+f`}
           </MathField>
         </div>
 
