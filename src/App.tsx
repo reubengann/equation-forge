@@ -127,13 +127,11 @@ function setShadowHighlight(mathDivEl: HTMLElement, nodeId: string | null) {
 export default function App() {
   const MathDiv = useMemo(() => "math-div" as any, []);
   const MathField = useMemo(() => "math-field" as any, []);
-  const [parentById, setParentById] = useState<Record<string, string | null>>(
-    {}
-  );
+
   const [selectedId] = useState<string | null>(null);
   const [currentJson, setCurrentJson] = useState<MJ | null>(null);
   const [previewJson, setPreviewJson] = useState<MJ | null>(null);
-  const [pathById, setPathById] = useState<Record<string, number[]>>({});
+  const [tree, setTree] = useState<ExpressionTree | null>(null);
 
   type ExprSelection =
     | { kind: "node"; nodeId: string }
@@ -161,18 +159,11 @@ export default function App() {
 
   const [drag, setDrag] = useState<DragState>(null);
 
-  const [childrenById, setChildrenById] = useState<Record<string, string[]>>(
-    {}
-  );
-  const [childIndexById, setChildIndexById] = useState<Record<string, number>>(
-    {}
-  );
   const inputRef = useRef<any>(null);
   const displayRef = useRef<HTMLElement | null>(null);
   const measureRef = useRef<HTMLElement | null>(null);
   const renderBoxRef = useRef<HTMLDivElement | null>(null);
   const mathWrapRef = useRef<HTMLDivElement | null>(null);
-  const [nodesById, setNodesById] = useState<Record<string, NodeInfo>>({});
   const [info, setInfo] = useState<string>(
     "Type an equation, click Add / Update. Then click parts of the rendered equation."
   );
@@ -226,11 +217,7 @@ export default function App() {
     const rendered = ExpressionTree.create(json);
     console.log(rendered);
 
-    setNodesById(rendered.nodesById);
-    setParentById(rendered.parentById);
-    setChildrenById(rendered.childrenById);
-    setChildIndexById(rendered.childIndexById);
-    setPathById(rendered.pathById);
+    setTree(rendered);
 
     // Always update the DISPLAY
     displayRef.current.textContent = rendered.latexTagged;
@@ -300,23 +287,24 @@ export default function App() {
   function onDisplayPointerDown(e: React.PointerEvent) {
     const displayEl = displayRef.current;
     if (!displayEl) return;
+    if (!tree) return;
 
     const ne = e.nativeEvent as PointerEvent;
     const path = typeof ne.composedPath === "function" ? ne.composedPath() : [];
-    const clickedId = findBestNodeIdFromComposedPath(path, nodesById);
+    const clickedId = findBestNodeIdFromComposedPath(path, tree.nodesById);
 
     if (!clickedId) {
       clearSelection();
       return;
     }
 
-    const pId = parentById[clickedId];
+    const pId = tree.parentById[clickedId];
     if (!pId) return;
-    const pInfo = pId ? nodesById[pId] : null;
-    const idx = childIndexById[clickedId];
-    const addPath = pathById[pId]; // parentId is the Add node id
+    const pInfo = pId ? tree.nodesById[pId] : null;
+    const idx = tree.childIndexById[clickedId];
+    const addPath = tree.pathById[pId]; // parentId is the Add node id
     if (!addPath) return;
-    const baselineChildIds = childrenById[pId] ?? [];
+    const baselineChildIds = tree.childrenById[pId] ?? [];
     if (baselineChildIds.length < 2) return;
     setPreviewJson(null);
 
@@ -342,13 +330,13 @@ export default function App() {
     // otherwise expand from the clicked node.
     const baseId = e.shiftKey && selectedId ? selectedId : clickedId;
     const nextSelectedId = e.shiftKey
-      ? parentById[baseId] ?? baseId
+      ? tree.parentById[baseId] ?? baseId
       : clickedId;
 
     setSelection({ kind: "node", nodeId: nextSelectedId });
     setOverlayForNodeIds([nextSelectedId]);
 
-    const hit = nodesById[nextSelectedId];
+    const hit = tree.nodesById[nextSelectedId];
     if (!hit) {
       setInfo(
         (prev) =>
@@ -391,29 +379,30 @@ export default function App() {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
     if (!displayRef.current) return;
     if (!selection) return;
+    if (!tree) return;
 
     e.preventDefault();
 
     // Turn a node selection into a span selection when appropriate
     if (selection.kind === "node") {
       const nodeId = selection.nodeId;
-      const parentId = parentById[nodeId];
+      const parentId = tree.parentById[nodeId];
       if (!parentId) return;
 
-      const parentInfo = nodesById[parentId];
+      const parentInfo = tree.nodesById[parentId];
       if (!parentInfo) return;
 
       const op = parentInfo.op;
       if (op !== "Add" && op !== "Multiply") return;
 
-      const idx = childIndexById[nodeId];
+      const idx = tree.childIndexById[nodeId];
       if (idx === undefined) return;
 
       const start = idx;
       const end = idx;
 
       // Now expand one step in the requested direction
-      const kids = childrenById[parentId] ?? [];
+      const kids = tree.childrenById[parentId] ?? [];
 
       let newStart = start;
       let newEnd = end;
@@ -438,7 +427,7 @@ export default function App() {
     // Expand an existing span
     if (selection.kind === "span") {
       const { parentId, op, start, end } = selection;
-      const kids = childrenById[parentId] ?? [];
+      const kids = tree.childrenById[parentId] ?? [];
       if (kids.length === 0) return;
 
       let newStart = start;
@@ -630,11 +619,12 @@ export default function App() {
     if (!drag?.isActive) return;
     if (e.pointerId !== drag.pointerId) return;
     if (!currentJson) return;
+    if (!tree) return;
 
     const measureEl = measureRef.current;
     if (!measureEl) return;
 
-    const kids = childrenById[drag.addParentId] ?? [];
+    const kids = tree.childrenById[drag.addParentId] ?? [];
     if (kids.length < 2) return;
 
     const rects = getChildRectsInShadow(measureEl, kids) as NodeRect[];
