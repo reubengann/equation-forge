@@ -5,7 +5,7 @@ import { ComputeEngine } from "@cortex-js/compute-engine";
 const ce = new ComputeEngine();
 
 function makeMJfromLatex(x: string): MJ {
-  return ce.parse(x).json as MJ;
+  return ce.parse(x, { canonical: false }).json as MJ;
 }
 
 describe("ExpressionTree", () => {
@@ -184,5 +184,30 @@ describe("ExpressionTree", () => {
       String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{e} + \htmlData{node-id="n3"}{f}}`
     );
     expect(t.latexTagged).not.toContain(`\\exponentialE`);
+  });
+
+  it("Renders Divide as a fraction", () => {
+    const t = ExpressionTree.create(["Divide", ["Add", "a", "b"], 2]);
+    expect(t.latexTagged).toBe(
+      String.raw`\htmlData{node-id="n1"}{\frac{\htmlData{node-id="n2"}{\htmlData{node-id="n3"}{a} + \htmlData{node-id="n4"}{b}}}{\htmlData{node-id="n5"}{2}}}`
+    );
+  });
+
+  it("Does not canonicalize commutative Add (b + a stays b + a)", () => {
+    const mj: MJ = ["Add", "b", "a"];
+    const t = ExpressionTree.create(mj);
+
+    expect(t.latexTagged).toBe(
+      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{b} + \htmlData{node-id="n3"}{a}}`
+    );
+  });
+
+  it("Renders InvisibleOperator with a thin space", () => {
+    const mj: MJ = ["InvisibleOperator", "a", "b"];
+    const t = ExpressionTree.create(mj);
+
+    expect(t.latexTagged).toBe(
+      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{a}\,\htmlData{node-id="n3"}{b}}`
+    );
   });
 });

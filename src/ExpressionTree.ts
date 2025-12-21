@@ -67,7 +67,13 @@ export class ExpressionTree {
       if (op === "Equal") {
         return this.emitEqual(node, id, path, op);
       }
-      throw Error("Not a known type of array");
+      if (op == "Divide") {
+        return this.emitDivide(node, id, path, op);
+      }
+      if (op === "InvisibleOperator") {
+        return this.emitImplicitMultiply(node, id, path, op);
+      }
+      throw Error(`${op} is not a known type of array`);
     }
 
     let plain = this._leafLatex(node);
@@ -94,6 +100,50 @@ export class ExpressionTree {
     this._leafLatex = (x) => String(x);
     const parseResult = this.emit(mj, null, []);
     this.latexTagged = parseResult.latexTagged;
+  }
+
+  private emitImplicitMultiply(
+    node: MJNode,
+    id: string,
+    path: number[],
+    op: string
+  ) {
+    const children = node
+      .slice(1)
+      .map((c: MJ, i: number) => this.emit(c, id, [...path, 1 + i]));
+
+    this.childrenById[id] = children.map((ch) => ch.id);
+    this.childrenById[id].forEach((cid, idx) => {
+      this.childIndexById[cid] = idx;
+    });
+
+    // Thin space for implicit multiplication
+    const sep = String.raw`\,`;
+    const plain = children.map((c) => c.latexPlain).join(" ");
+    const taggedInner = children.map((c) => c.latexTagged).join(sep);
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
+  private emitDivide(node: MJNode, id: string, path: number[], op: string) {
+    const num = this.emit(node[1], id, [...path, 1]);
+    const den = this.emit(node[2], id, [...path, 2]);
+
+    // childrenById / childIndexById
+    this.childrenById[id] = [num.id, den.id];
+    this.childIndexById[num.id] = 0;
+    this.childIndexById[den.id] = 1;
+
+    const plain = String.raw`\frac{${num.latexPlain}}{${den.latexPlain}}`;
+    const taggedInner = String.raw`\frac{${num.latexTagged}}{${den.latexTagged}}`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return {
+      id,
+      latexPlain: plain,
+      latexTagged: this.wrap(id, taggedInner),
+    };
   }
 
   private emitEqual(node: MJNode, id: string, path: number[], op: string) {
