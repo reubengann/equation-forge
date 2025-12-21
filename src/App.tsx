@@ -3,6 +3,7 @@ import "mathlive";
 import "@cortex-js/compute-engine";
 import { MathfieldElement } from "mathlive";
 import { ComputeEngine } from "@cortex-js/compute-engine";
+import { ExpressionTree } from "./ExpressionTree";
 
 const ce = new ComputeEngine();
 MathfieldElement.fontsDirectory = "/fonts";
@@ -18,133 +19,10 @@ type MJ = any;
 
 type NodeInfo = {
   id: string;
-  op: string;          // "Symbol" | "Number" | "Add" | ...
-  latex: string;       // LaTeX for exactly this subtree (UNtagged)
-  json: MJ;            // MathJSON subtree
+  op: string; // "Symbol" | "Number" | "Add" | ...
+  latex: string; // LaTeX for exactly this subtree (UNtagged)
+  json: MJ; // MathJSON subtree
 };
-
-type PathKey = string;
-
-type TaggedRender = {
-  latexTagged: string;
-  nodes: Record<string, NodeInfo>;
-  parentById: Record<string, string | null>;
-  childrenById: Record<string, string[]>;        // for Add/Multiply nodes
-  childIndexById: Record<string, number>;        // for any node that is a child of Add/Multiply
-  pathById: Record<string, number[]>;     // "n17" -> [1,2]
-  idByPath: Record<PathKey, string>;      // "1.2" -> "n17"
-};
-
-/*
-  Here we take a MathJson tree and convert it into a tagged LaTeX string. The tags are used for hit testing.
-*/
-function makeTaggedLatexFromMathJson(mj: MJ): TaggedRender {
-
-  // Node ID generator
-  let nextId = 1;
-  const newId = () => `n${nextId++}`;
-
-  // Bookkeeping tables
-  const childrenById: Record<string, string[]> = {};
-  const childIndexById: Record<string, number> = {};
-  const nodes: Record<string, NodeInfo> = {};
-  const parentById: Record<string, string | null> = {};
-  const pathById: Record<string, number[]> = {};
-  const idByPath: Record<string, string> = {};
-
-  const pathKey = (p: number[]) => p.join(".");
-
-  const wrap = (id: string, contentLatex: string) => String.raw`\htmlData{node-id="${id}"}{${contentLatex}}`;
-
-  /**
- * Recursively emit LaTeX for a MathJSON node, tagging each subtree with a unique node-id.
- *
- * Returns both:
- * - latexPlain: untagged LaTeX for the subtree
- * - latexTagged: LaTeX with \htmlData{node-id=...}{...} wrappers, used for hit-testing
- *
- * Also populates:
- * - parentById: render-tree parent links
- * - childrenById / childIndexById for container operators (Add, Multiply, Divide)
- */
-  const emit = (
-    node: MJ,
-    parentId: string | null,
-    path: number[]
-  ): { id: string; latexTagged: string; latexPlain: string } => {
-    // console.log("emit", node, parentOp, parentId);
-    const id = newId();
-    pathById[id] = path;
-    idByPath[pathKey(path)] = id;
-    parentById[id] = parentId;
-
-    // Composite
-    if (Array.isArray(node)) {
-
-      if (Array.isArray(node) && node[0] === "Divide") {
-        // MathJSON: ["Divide", numerator, denominator]
-        const num = emit(node[1], id, [...path, 1]);
-        const den = emit(node[2], id, [...path, 1]);
-        childrenById[id] = [num.id, den.id];
-        childIndexById[num.id] = 0;
-        childIndexById[den.id] = 1;
-        const latexPlain = String.raw`\frac{${num.latexPlain}}{${den.latexPlain}}`;
-        const latexTaggedInner = String.raw`\frac{${num.latexTagged}}{${den.latexTagged}}`;
-
-        // wrap the whole Divide node with its own id (so the fraction itself is selectable)
-        const latexTagged = wrap(id, latexTaggedInner); // whatever you use for Add/vars
-        return { id, latexPlain, latexTagged };
-      }
-
-      const op = String(node[0]);
-
-      if (op === "Equal") {
-        const L = emit(node[1], id, [...path, 1]);
-        const R = emit(node[2], id, [...path, 2]);
-
-        const plain = `${L.latexPlain} = ${R.latexPlain}`;
-        const tagged = `${L.latexTagged} = ${R.latexTagged}`;
-
-        nodes[id] = { id, op, latex: plain, json: node };
-        return { id, latexTagged: wrap(id, tagged), latexPlain: plain };
-      }
-
-      if (op === "Add") {
-        let children = node.slice(1).map((c, i) => emit(c, id, [...path, 1 + i]));
-
-        // record the order
-        childrenById[id] = children.map(ch => ch.id);
-        childrenById[id].forEach((cid, idx) => (childIndexById[cid] = idx));
-
-        // let displayParts = children.map((c) => ({ id: c.id, latexTagged: c.latexTagged, latexPlain: c.latexPlain }));
-
-        const plain = children.map((c) => c.latexPlain).join(" + ");
-        const tagged = children.map((c) => c.latexTagged).join(String.raw` + `);
-
-        nodes[id] = { id, op, latex: plain, json: node };
-        return { id, latexTagged: wrap(id, tagged), latexPlain: plain };
-      }
-
-      const plain = String.raw`\operatorname{${op}}\left(\dots\right)`;
-      nodes[id] = { id, op, latex: plain, json: node };
-      return { id, latexTagged: wrap(id, plain), latexPlain: plain };
-    }
-
-    // This hack prevents e as being interpreted as \exponentialE
-    if (typeof node === "string" && /^[A-Za-z]$/.test(node)) {
-      const plain = node; // italic by default in math mode
-      nodes[id] = { id, op: "Symbol", latex: plain, json: node };
-      return { id, latexTagged: wrap(id, plain), latexPlain: plain };
-    }
-
-    const plain = ce.box(node).latex;
-    nodes[id] = { id, op: "Unknown", latex: plain, json: node };
-    return { id, latexTagged: wrap(id, plain), latexPlain: plain };
-  };
-
-  const top = emit(mj, null, []);
-  return { latexTagged: top.latexTagged, nodes, parentById, childrenById, childIndexById, pathById, idByPath };
-}
 
 /**
  * Given a PointerEvent composedPath() (DOM ancestry including shadow DOM),
@@ -163,7 +41,7 @@ function makeTaggedLatexFromMathJson(mj: MJ): TaggedRender {
  */
 function findBestNodeIdFromComposedPath(
   path: unknown[],
-  nodesById: Record<string, NodeInfo>,
+  nodesById: Record<string, NodeInfo>
 ): string | null {
   const disallowOnPlainClick = new Set(["Add", "Multiply", "Equal"]);
 
@@ -235,18 +113,23 @@ function setShadowHighlight(mathDivEl: HTMLElement, nodeId: string | null) {
   const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
   if (!sr) return;
 
-  sr.querySelectorAll(".dp-selected").forEach(el => el.classList.remove("dp-selected"));
+  sr.querySelectorAll(".dp-selected").forEach((el) =>
+    el.classList.remove("dp-selected")
+  );
   if (!nodeId) return;
 
   // Highlight all occurrences of the same node-id
-  sr.querySelectorAll<HTMLElement>(`[data-node-id="${CSS.escape(nodeId)}"]`)
-    .forEach(el => el.classList.add("dp-selected"));
+  sr.querySelectorAll<HTMLElement>(
+    `[data-node-id="${CSS.escape(nodeId)}"]`
+  ).forEach((el) => el.classList.add("dp-selected"));
 }
 
 export default function App() {
   const MathDiv = useMemo(() => "math-div" as any, []);
   const MathField = useMemo(() => "math-field" as any, []);
-  const [parentById, setParentById] = useState<Record<string, string | null>>({});
+  const [parentById, setParentById] = useState<Record<string, string | null>>(
+    {}
+  );
   const [selectedId] = useState<string | null>(null);
   const [currentJson, setCurrentJson] = useState<MJ | null>(null);
   const [previewJson, setPreviewJson] = useState<MJ | null>(null);
@@ -254,36 +137,45 @@ export default function App() {
 
   type ExprSelection =
     | { kind: "node"; nodeId: string }
-    | { kind: "span"; parentId: string; op: "Add" | "Multiply"; start: number; end: number };
+    | {
+        kind: "span";
+        parentId: string;
+        op: "Add" | "Multiply";
+        start: number;
+        end: number;
+      };
 
   const [selection, setSelection] = useState<ExprSelection | null>(null);
 
-  type DragState =
-    | null
-    | {
-      kind: "reorder-add";
-      isActive: boolean;
-      pointerId: number;
-      addParentId: string;
-      addPath: number[];
-      baselineChildIds: string[];
-      draggedChildId: string;
-      fromIndex: number;
-      toIndex: number;
-    };
-
+  type DragState = null | {
+    kind: "reorder-add";
+    isActive: boolean;
+    pointerId: number;
+    addParentId: string;
+    addPath: number[];
+    baselineChildIds: string[];
+    draggedChildId: string;
+    fromIndex: number;
+    toIndex: number;
+  };
 
   const [drag, setDrag] = useState<DragState>(null);
 
-  const [childrenById, setChildrenById] = useState<Record<string, string[]>>({});
-  const [childIndexById, setChildIndexById] = useState<Record<string, number>>({});
+  const [childrenById, setChildrenById] = useState<Record<string, string[]>>(
+    {}
+  );
+  const [childIndexById, setChildIndexById] = useState<Record<string, number>>(
+    {}
+  );
   const inputRef = useRef<any>(null);
   const displayRef = useRef<HTMLElement | null>(null);
   const measureRef = useRef<HTMLElement | null>(null);
   const renderBoxRef = useRef<HTMLDivElement | null>(null);
   const mathWrapRef = useRef<HTMLDivElement | null>(null);
   const [nodesById, setNodesById] = useState<Record<string, NodeInfo>>({});
-  const [info, setInfo] = useState<string>("Type an equation, click Add / Update. Then click parts of the rendered equation.");
+  const [info, setInfo] = useState<string>(
+    "Type an equation, click Add / Update. Then click parts of the rendered equation."
+  );
 
   const [overlayRect, setOverlayRect] = useState<{
     left: number;
@@ -298,32 +190,43 @@ export default function App() {
   }
 
   /**
- * Render a MathJSON expression into the MathLive display <math-div>.
- *
- * This is the only function that should write into `displayRef.current.textContent`
- * and call MathLive's `.render()` to update the visible equation.
- *
- * It also keeps a hidden "measure" <math-div> in sync with the *baseline* expression
- * (non-preview) so we can measure stable child rectangles while dragging:
- * - DISPLAY <math-div>: shows preview during drag
- * - MEASURE <math-div>: stays on baseline so rects don't jump mid-drag
- *
- * The `preview` flag is a display-only behavior:
- * - If preview=false: both DISPLAY and MEASURE update to the same equation
- * - If preview=true:  DISPLAY updates with preview ordering, MEASURE does not
- *
- * @param json The MathJSON to render
- * @param opts.preview If true, render a preview (currently only Add reorder preview)
- * @param opts.previewOverride If provided, uses this preview state instead of current `drag`
- */
-  function renderFromMathJson(json: MJ, opts?: { preview: boolean, previewOverride?: { addId: string; draggedChildId: string; fromIndex: number; toIndex: number } }) {
+   * Render a MathJSON expression into the MathLive display <math-div>.
+   *
+   * This is the only function that should write into `displayRef.current.textContent`
+   * and call MathLive's `.render()` to update the visible equation.
+   *
+   * It also keeps a hidden "measure" <math-div> in sync with the *baseline* expression
+   * (non-preview) so we can measure stable child rectangles while dragging:
+   * - DISPLAY <math-div>: shows preview during drag
+   * - MEASURE <math-div>: stays on baseline so rects don't jump mid-drag
+   *
+   * The `preview` flag is a display-only behavior:
+   * - If preview=false: both DISPLAY and MEASURE update to the same equation
+   * - If preview=true:  DISPLAY updates with preview ordering, MEASURE does not
+   *
+   * @param json The MathJSON to render
+   * @param opts.preview If true, render a preview (currently only Add reorder preview)
+   * @param opts.previewOverride If provided, uses this preview state instead of current `drag`
+   */
+  function renderFromMathJson(
+    json: MJ,
+    opts?: {
+      preview: boolean;
+      previewOverride?: {
+        addId: string;
+        draggedChildId: string;
+        fromIndex: number;
+        toIndex: number;
+      };
+    }
+  ) {
     if (!displayRef.current) return;
     if (!measureRef.current) return;
 
-    const rendered = makeTaggedLatexFromMathJson(json);
+    const rendered = ExpressionTree.create(json);
     console.log(rendered);
 
-    setNodesById(rendered.nodes);
+    setNodesById(rendered.nodesById);
     setParentById(rendered.parentById);
     setChildrenById(rendered.childrenById);
     setChildIndexById(rendered.childIndexById);
@@ -344,19 +247,19 @@ export default function App() {
   }
 
   /**
- * Parse the current MathLive <math-field> input and render it into the display.
- *
- * Uses the Compute Engine parse() with `{ canonical: false }` so the term order
- * reflects the user's input (no canonical reordering of commutative Add).
- *
- * Side effects:
- * - Updates `currentJson` (the "source of truth" MathJSON)
- * - Calls renderFromMathJson(json, { preview:false })
- * - Updates the debug textarea with the LaTeX and MathJSON
- */
+   * Parse the current MathLive <math-field> input and render it into the display.
+   *
+   * Uses the Compute Engine parse() with `{ canonical: false }` so the term order
+   * reflects the user's input (no canonical reordering of commutative Add).
+   *
+   * Side effects:
+   * - Updates `currentJson` (the "source of truth" MathJSON)
+   * - Calls renderFromMathJson(json, { preview:false })
+   * - Updates the debug textarea with the LaTeX and MathJSON
+   */
   function onAddEquation() {
     const mf = inputRef.current;
-    console.log(mf.value)
+    console.log(mf.value);
     const latex: string = mf.value;
     const expr = ce.parse(latex, { canonical: false });
     if (!expr) {
@@ -381,19 +284,19 @@ export default function App() {
   }
 
   /**
- * Pointer down handler on the rendered equation.
- *
- * Responsibilities:
- * 1) Hit-test the clicked DOM element (via composedPath + data-node-id tags)
- * 2) Update selection state + overlay rectangle
- * 3) If the click hits a child term inside an Add container, begin a drag-reorder
- *    gesture by setting DragState and capturing the pointer.
- *
- * Notes:
- * - Dragging is currently enabled only for terms whose parent op is "Add".
- * - Selection and dragging are currently started from the same pointerdown;
- *   you may later separate "click to select" vs "drag to reorder".
- */
+   * Pointer down handler on the rendered equation.
+   *
+   * Responsibilities:
+   * 1) Hit-test the clicked DOM element (via composedPath + data-node-id tags)
+   * 2) Update selection state + overlay rectangle
+   * 3) If the click hits a child term inside an Add container, begin a drag-reorder
+   *    gesture by setting DragState and capturing the pointer.
+   *
+   * Notes:
+   * - Dragging is currently enabled only for terms whose parent op is "Add".
+   * - Selection and dragging are currently started from the same pointerdown;
+   *   you may later separate "click to select" vs "drag to reorder".
+   */
   function onDisplayPointerDown(e: React.PointerEvent) {
     const displayEl = displayRef.current;
     if (!displayEl) return;
@@ -411,7 +314,7 @@ export default function App() {
     if (!pId) return;
     const pInfo = pId ? nodesById[pId] : null;
     const idx = childIndexById[clickedId];
-    const addPath = pathById[pId];              // parentId is the Add node id
+    const addPath = pathById[pId]; // parentId is the Add node id
     if (!addPath) return;
     const baselineChildIds = childrenById[pId] ?? [];
     if (baselineChildIds.length < 2) return;
@@ -438,22 +341,28 @@ export default function App() {
     // If shift is held, expand from the *current* selection if there is one;
     // otherwise expand from the clicked node.
     const baseId = e.shiftKey && selectedId ? selectedId : clickedId;
-    const nextSelectedId = e.shiftKey ? (parentById[baseId] ?? baseId) : clickedId;
+    const nextSelectedId = e.shiftKey
+      ? parentById[baseId] ?? baseId
+      : clickedId;
 
     setSelection({ kind: "node", nodeId: nextSelectedId });
     setOverlayForNodeIds([nextSelectedId]);
 
     const hit = nodesById[nextSelectedId];
     if (!hit) {
-      setInfo(prev => prev + `\n\nclicked node-id: ${selectedId}\n(no NodeInfo found)`);
+      setInfo(
+        (prev) =>
+          prev + `\n\nclicked node-id: ${selectedId}\n(no NodeInfo found)`
+      );
       return;
     }
 
-    setInfo(prev =>
+    setInfo((prev) =>
       [
         prev,
         "",
-        `clicked node-id: ${clickedId}` + (e.shiftKey ? ` (shift → parent ${selectedId})` : ""),
+        `clicked node-id: ${clickedId}` +
+          (e.shiftKey ? ` (shift → parent ${selectedId})` : ""),
         `selected node-id: ${hit.id}`,
         `node op: ${hit.op}`,
         `latex (this node): ${hit.latex}`,
@@ -463,20 +372,20 @@ export default function App() {
   }
 
   /**
- * Keyboard handler for span expansion.
- *
- * Current behavior:
- * - Holding SHIFT + ArrowLeft/ArrowRight expands selection inside an Add/Multiply
- *   container by extending the span boundaries.
- *
- * It supports two selection modes:
- * - { kind:"node" }  a single node-id
- * - { kind:"span" }  a contiguous range of child indices within a parent container
- *
- * Side effects:
- * - Updates `selection`
- * - Updates overlay rectangle to cover the selected child node IDs
- */
+   * Keyboard handler for span expansion.
+   *
+   * Current behavior:
+   * - Holding SHIFT + ArrowLeft/ArrowRight expands selection inside an Add/Multiply
+   *   container by extending the span boundaries.
+   *
+   * It supports two selection modes:
+   * - { kind:"node" }  a single node-id
+   * - { kind:"span" }  a contiguous range of child indices within a parent container
+   *
+   * Side effects:
+   * - Updates `selection`
+   * - Updates overlay rectangle to cover the selected child node IDs
+   */
   function onKeyDown(e: React.KeyboardEvent) {
     if (!e.shiftKey) return;
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
@@ -512,7 +421,13 @@ export default function App() {
       if (e.key === "ArrowLeft") newStart = Math.max(0, start - 1);
       else newEnd = Math.min(kids.length - 1, end + 1);
 
-      const span: ExprSelection = { kind: "span", parentId, op, start: newStart, end: newEnd };
+      const span: ExprSelection = {
+        kind: "span",
+        parentId,
+        op,
+        start: newStart,
+        end: newEnd,
+      };
       setSelection(span);
 
       const selectedChildIds = kids.slice(newStart, newEnd + 1);
@@ -532,7 +447,13 @@ export default function App() {
       if (e.key === "ArrowLeft") newStart = Math.max(0, start - 1);
       else newEnd = Math.min(kids.length - 1, end + 1);
 
-      const span: ExprSelection = { kind: "span", parentId, op, start: newStart, end: newEnd };
+      const span: ExprSelection = {
+        kind: "span",
+        parentId,
+        op,
+        start: newStart,
+        end: newEnd,
+      };
       setSelection(span);
 
       setOverlayForNodeIds(kids.slice(newStart, newEnd + 1));
@@ -546,27 +467,39 @@ export default function App() {
     const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
     if (!sr) return [];
 
-    return childIds.map((id) => {
-      // a child may appear multiple times (rare here). take union rect.
-      let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
-      let found = 0;
+    return childIds
+      .map((id) => {
+        // a child may appear multiple times (rare here). take union rect.
+        let left = Infinity,
+          right = -Infinity,
+          top = Infinity,
+          bottom = -Infinity;
+        let found = 0;
 
-      sr.querySelectorAll<HTMLElement>(`[data-node-id="${CSS.escape(id)}"]`).forEach((el) => {
-        const r = el.getBoundingClientRect();
-        left = Math.min(left, r.left);
-        right = Math.max(right, r.right);
-        top = Math.min(top, r.top);
-        bottom = Math.max(bottom, r.bottom);
-        found++;
-      });
+        sr.querySelectorAll<HTMLElement>(
+          `[data-node-id="${CSS.escape(id)}"]`
+        ).forEach((el) => {
+          const r = el.getBoundingClientRect();
+          left = Math.min(left, r.left);
+          right = Math.max(right, r.right);
+          top = Math.min(top, r.top);
+          bottom = Math.max(bottom, r.bottom);
+          found++;
+        });
 
-      if (!found) return null;
-      return { id, rect: { left, right, top, bottom, midX: (left + right) / 2 } };
-    }).filter(Boolean) as { id: string; rect: any }[];
+        if (!found) return null;
+        return {
+          id,
+          rect: { left, right, top, bottom, midX: (left + right) / 2 },
+        };
+      })
+      .filter(Boolean) as { id: string; rect: any }[];
   }
 
-  type NodeRect = { id: string; rect: { left: number; right: number; midX: number } };
-
+  type NodeRect = {
+    id: string;
+    rect: { left: number; right: number; midX: number };
+  };
 
   /*
   Compute the best destination rect given the list.
@@ -588,8 +521,13 @@ export default function App() {
   /*
   If the dragged item will be removed, the destination index is one less than the slot index.
  */
-  function computeDestinationIndex(hoveredExpressionPos: number, fromIndex: number): number {
-    return hoveredExpressionPos <= fromIndex ? hoveredExpressionPos : hoveredExpressionPos - 1;
+  function computeDestinationIndex(
+    hoveredExpressionPos: number,
+    fromIndex: number
+  ): number {
+    return hoveredExpressionPos <= fromIndex
+      ? hoveredExpressionPos
+      : hoveredExpressionPos - 1;
   }
 
   /*
@@ -599,7 +537,7 @@ export default function App() {
   */
   function setOverlayForNodeIds(nodeIds: string[]) {
     const mathDivEl = displayRef.current;
-    const boxEl = mathWrapRef.current;   // ✅ changed
+    const boxEl = mathWrapRef.current; // ✅ changed
     if (!mathDivEl || !boxEl) return;
 
     const padX = 8;
@@ -610,11 +548,16 @@ export default function App() {
 
     const boxRect = boxEl.getBoundingClientRect();
 
-    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+    let left = Infinity,
+      top = Infinity,
+      right = -Infinity,
+      bottom = -Infinity;
     let found = 0;
 
     for (const id of nodeIds) {
-      sr.querySelectorAll<HTMLElement>(`[data-node-id="${CSS.escape(id)}"]`).forEach((el) => {
+      sr.querySelectorAll<HTMLElement>(
+        `[data-node-id="${CSS.escape(id)}"]`
+      ).forEach((el) => {
         const r = el.getBoundingClientRect();
         left = Math.min(left, r.left);
         top = Math.min(top, r.top);
@@ -626,7 +569,10 @@ export default function App() {
 
     if (!found) return null;
 
-    left -= padX; right += padX; top -= padY; bottom += padY;
+    left -= padX;
+    right += padX;
+    top -= padY;
+    bottom += padY;
 
     setOverlayRect({
       left: left - boxRect.left,
@@ -650,7 +596,12 @@ export default function App() {
     return copy;
   }
 
-  function reorderAddAtPath(root: MJ, addPath: number[], fromIndex: number, toIndex: number): MJ {
+  function reorderAddAtPath(
+    root: MJ,
+    addPath: number[],
+    fromIndex: number,
+    toIndex: number
+  ): MJ {
     const addNode = getAtPath(root, addPath);
     if (!Array.isArray(addNode) || addNode[0] !== "Add") return root;
 
@@ -691,7 +642,10 @@ export default function App() {
 
     const hoveredExpressionPosition = pickSlot(rects, e.clientX);
 
-    let toIndex = computeDestinationIndex(hoveredExpressionPosition, drag.fromIndex);
+    let toIndex = computeDestinationIndex(
+      hoveredExpressionPosition,
+      drag.fromIndex
+    );
     toIndex = Math.max(0, Math.min(kids.length - 1, toIndex));
 
     if (toIndex === drag.toIndex) {
@@ -702,7 +656,12 @@ export default function App() {
     setDrag(nextDrag);
 
     // ✅ build previewJson and render it
-    const nextPreview = reorderAddAtPath(currentJson, drag.addPath, drag.fromIndex, toIndex);
+    const nextPreview = reorderAddAtPath(
+      currentJson,
+      drag.addPath,
+      drag.fromIndex,
+      toIndex
+    );
     setPreviewJson(nextPreview);
 
     // preview=true means "don't update MEASURE"
@@ -774,12 +733,14 @@ export default function App() {
         tabIndex={0}
         onKeyDown={onKeyDown}
       >
-
         <div style={{ fontSize: 14, marginBottom: 8, opacity: 0.8 }}>
           Rendered (tagged from MathJSON) — click to inspect + highlight
         </div>
 
-        <div ref={mathWrapRef} style={{ position: "relative", display: "inline-block" }}>
+        <div
+          ref={mathWrapRef}
+          style={{ position: "relative", display: "inline-block" }}
+        >
           {/* measurement math-div: invisible but still laid out */}
           <MathDiv
             ref={measureRef}
@@ -794,7 +755,11 @@ export default function App() {
           />
 
           {/* display math-div: what the user sees */}
-          <MathDiv ref={displayRef} mode="displaystyle" className="math-display" />
+          <MathDiv
+            ref={displayRef}
+            mode="displaystyle"
+            className="math-display"
+          />
 
           {overlayRect && (
             <div
@@ -821,7 +786,8 @@ export default function App() {
           marginTop: 16,
           width: "100%",
           height: 360,
-          fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+          fontFamily:
+            "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
           fontSize: 12,
           padding: 10,
           borderRadius: 8,
