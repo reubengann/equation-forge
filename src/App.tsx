@@ -9,7 +9,8 @@ MathfieldElement.fontsDirectory = "/fonts";
 
 /*
   The main idea here is to interface with Mathlive. However, it only accepts Latex. We don't like this; we actually want to maintain a tree (specifically it's a MathJSON tree). 
-  So we need to convert between the two for anything we want to do with the MathJSON tree in order for it to be rendered.
+  So we need to convert between the two for anything we want to do with the MathJSON tree in order for it to be rendered. As we do this, we also add a node-id tag into the latex
+  via \htmlData{node-id="${id}"}. This allows us to hit test the rendered mathlive and find out which node was clicked.
 */
 
 type MJ = any;
@@ -33,42 +34,22 @@ type AddPreview =
   | null
   | { addId: string; draggedChildId: string; fromIndex: number; toIndex: number };
 
-/**
-* Convert a MathJSON expression into LaTeX that is *tagged* with stable node IDs.
-*
-* This is the core bridge between:
-*   1) Your semantic structure (MathJSON tree), and
-*   2) The rendered DOM inside MathLive's <math-div> shadowRoot.
-*
-* Each emitted subtree is wrapped in a LaTeX `\htmlData{node-id=...}{...}` span.
-* After MathLive renders, these become DOM elements with `data-node-id="nX"`,
-* which you can query for hit-testing, highlighting, and geometry measurement.
-*
-* Also builds several lookup tables used by interaction logic:
-* - nodes:        nodeId -> NodeInfo (op, latex snippet, json subtree)
-* - parentById:   nodeId -> parent nodeId (render-tree parent, not MathJSON index path)
-* - childrenById: nodeId -> ordered child nodeIds (for container ops like Add/Multiply/Divide)
-* - childIndexById: childId -> index within its parent container
-*
-* @param mj MathJSON root expression to render
-* @param addPreview Optional preview state for reordering terms within a specific Add node.
-*                  This is a *display-only* preview: it reorders the rendered children
-*                  but does NOT mutate the MathJSON.
-* @returns TaggedRender containing LaTeX + node relationship tables.
+/*
+  Here we take a MathJson tree and convert it into a tagged LaTeX string. The tags are used for hit testing.
 */
 function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRender {
-  
+
   // Node ID generator
   let nextId = 1;
   const newId = () => `n${nextId++}`;
-  
+
   // Bookkeeping tables
   const childrenById: Record<string, string[]> = {};
   const childIndexById: Record<string, number> = {};
   const nodes: Record<string, NodeInfo> = {};
   const parentById: Record<string, string | null> = {};
 
-  const wrap = (id: string, contentLatex: string) => String.raw`\htmlData{node-id=${id}}{${contentLatex}}`;
+  const wrap = (id: string, contentLatex: string) => String.raw`\htmlData{node-id="${id}"}{${contentLatex}}`;
 
   /**
  * Recursively emit LaTeX for a MathJSON node, tagging each subtree with a unique node-id.
@@ -129,7 +110,6 @@ function makeTaggedLatexFromMathJson(mj: MJ, addPreview?: AddPreview): TaggedRen
 
         // let displayParts = children.map((c) => ({ id: c.id, latexTagged: c.latexTagged, latexPlain: c.latexPlain }));
 
-        console.log(addPreview);
         if (addPreview && addPreview.addId === id) {
           const { fromIndex, toIndex } = addPreview;
           if (fromIndex !== toIndex && fromIndex >= 0 && fromIndex < children.length) {
@@ -555,17 +535,8 @@ export default function App() {
     }
   }
 
-  /**
- * Measure the bounding rectangles of a list of rendered node IDs inside a <math-div>'s shadow DOM.
- *
- * Each node-id may appear multiple times in the DOM; this computes a union rectangle
- * across all matches to produce a single box per node.
- *
- * This is used primarily for drag-reorder hit testing (to decide insertion location).
- *
- * @param mathDivEl The <math-div> whose shadowRoot should be queried (often MEASURE)
- * @param childIds List of node IDs (render IDs, e.g. ["n3","n4","n5"])
- * @returns Array of { id, rect } with rect including left/right/top/bottom/midX
+  /*
+  For an array of child nodes (e.g. children of an Add/Multiply), compute their bounding rects
  */
   function getChildRectsInShadow(mathDivEl: HTMLElement, childIds: string[]) {
     const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
@@ -593,21 +564,9 @@ export default function App() {
   type NodeRect = { id: string; rect: { left: number; right: number; midX: number } };
 
 
-  /**
- * Convert a mouse x-position into a "slot" index between children.
- *
- * The returned value is in the coordinate system of the *original* child list:
- * - slot is in [0..N], where N=rects.length
- * - slot=k corresponds roughly to "insert around child k boundary"
- *
- * Implementation detail:
- * Uses midpoints between adjacent children (average of left boundary of right child
- * and right boundary of left child). This makes operators (like '+') naturally act
- * as stable boundaries for reordering.
- *
- * @param rects Child rectangles in visual order
- * @param clientX Pointer position (viewport coordinates)
- * @returns Slot index in [0..rects.length]
+  /*
+  Compute the best destination rect given the list.
+  In gaps, the midpoint between the left and right of the two slots is used as a boundary.
  */
   function pickSlot(rects: NodeRect[], clientX: number): number {
     for (let i = 1; i < rects.length; i++) {
@@ -622,54 +581,30 @@ export default function App() {
     return rects.length;
   }
 
-  /**
- * Convert an insertion slot from the full list into an insertion index for the list
- * with the dragged item removed.
- *
- * Example:
- * children = [a, b, c], dragging b (fromIndex=1)
- * slots are 0..3 in the original list.
- *
- * If slot <= fromIndex, insertion index is unchanged.
- * If slot >  fromIndex, insertion index shifts left by 1 because the dragged item is removed.
- *
- * @param slot Insertion slot in full list (0..N)
- * @param fromIndex Index of the dragged child in the full list
- * @returns Insertion index in the reduced list (0..N-1)
+  /*
+  If the dragged item will be removed, the destination index is one less than the slot index.
  */
-  function mapSlotToIndexWithoutDragged(slot: number, fromIndex: number) {
-    // slot is 0..N in the original list
-    // return is 0..N-1 for list without dragged
-    return slot <= fromIndex ? slot : slot - 1;
+  function computeDestinationIndex(hoveredExpressionPos: number, fromIndex: number): number {
+    return hoveredExpressionPos <= fromIndex ? hoveredExpressionPos : hoveredExpressionPos - 1;
   }
 
-  /**
- * Compute an overlay rectangle (in render-box local coords) that encloses a set of node IDs.
- *
- * This:
- * - Finds DOM rects for all matching data-node-id elements in the *display* shadowRoot
- * - Unions them
- * - Applies padding
- * - Converts viewport coordinates into coordinates relative to your render container
- *
- * @param mathDivEl Display <math-div> whose shadowRoot contains the tagged nodes
- * @param nodeIds Node IDs to enclose
- * @param padX Horizontal padding (pixels)
- * @param padY Vertical padding (pixels)
- * @param renderBoxEl Element whose rect defines the local coordinate system
- * @returns Rectangle in local coords, or null if nothing found
- */
-  function computeOverlayRectForNodeIds(
-    mathDivEl: HTMLElement,
-    nodeIds: string[],
-    padX: number,
-    padY: number,
-    renderBoxEl: HTMLDivElement
-  ) {
+  /*
+    When selecting elements, we want to show an overlay box around them.
+    We do this by finding the bounding box of _all_ the elements with the same node-id.
+    Then we add padding around that box and set the position of the overlay div to match.
+  */
+  function setOverlayForNodeIds(nodeIds: string[]) {
+    const mathDivEl = displayRef.current;
+    const boxEl = mathWrapRef.current;   // ✅ changed
+    if (!mathDivEl || !boxEl) return;
+
+    const padX = 8;
+    const padY = 3;
+
     const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
     if (!sr || nodeIds.length === 0) return null;
 
-    const boxRect = renderBoxEl.getBoundingClientRect();
+    const boxRect = boxEl.getBoundingClientRect();
 
     let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
     let found = 0;
@@ -689,38 +624,20 @@ export default function App() {
 
     left -= padX; right += padX; top -= padY; bottom += padY;
 
-    return {
+    setOverlayRect({
       left: left - boxRect.left,
       top: top - boxRect.top,
       width: right - left,
       height: bottom - top,
-    };
+    });
   }
 
-  function setOverlayForNodeIds(nodeIds: string[]) {
-    const mathDivEl = displayRef.current;
-    const boxEl = mathWrapRef.current;   // ✅ changed
-    if (!mathDivEl || !boxEl) return;
-
-    const padX = 8;
-    const padY = 3;
-
-    setOverlayRect(computeOverlayRectForNodeIds(mathDivEl, nodeIds, padX, padY, boxEl));
-  }
-
-  /**
- * Pointer move handler during a drag-reorder gesture.
- *
- * Responsibilities:
- * - Use the *measure* math-div (baseline) to compute stable child rectangles
- * - Convert pointer x-position to an insertion slot and then to a toIndex
- * - Update drag state
- * - Re-render DISPLAY with an AddPreview override (visual-only preview)
- *
- * Notes:
- * - This does not modify currentJson.
- * - The preview is created by makeTaggedLatexFromMathJson(addPreview=...)
- *   which reorders emitted children only for display.
+  /*
+    Dragging functionality: Here we determine if there is a valid reorder or move operation possible.
+    Right now this is only within a sum.
+    Then we determine if the cursor is over a valid slot to insert into that is different from
+    where it originally was. Then we re-render the mathlive with the preview.
+    Later, if the mouse is released, we will commit this change
  */
   function onDisplayPointerMove(e: React.PointerEvent) {
     if (!drag?.isActive) return;
@@ -733,20 +650,16 @@ export default function App() {
     const kids = childrenById[drag.addParentId] ?? [];
     if (kids.length < 2) return;
 
-    // Measure from the BASELINE renderer, not the preview renderer
     const rects = getChildRectsInShadow(measureEl, kids) as NodeRect[];
     if (rects.length === 0) return;
 
-    // slot in full list (0..kids.length)
-    const slot = pickSlot(rects, e.clientX);
+    const hoveredExpressionPosition = pickSlot(rects, e.clientX);
 
-    // map to insertion index in list with dragged removed (0..kids.length-1)
-    let toIndex = mapSlotToIndexWithoutDragged(slot, drag.fromIndex);
+    let toIndex = computeDestinationIndex(hoveredExpressionPosition, drag.fromIndex);
     toIndex = Math.max(0, Math.min(kids.length - 1, toIndex));
 
     if (toIndex === drag.toIndex) {
       if (toIndex !== drag.toIndex) {
-        // debugPick(kids, rects, e.clientX, slot, toIndex, drag.fromIndex);
       }
       return;
     }
@@ -754,7 +667,6 @@ export default function App() {
     const nextDrag = { ...drag, toIndex };
     setDrag(nextDrag);
 
-    // show what it would be "if released now"
     renderFromMathJson(currentJson, {
       preview: true,
       previewOverride: {
