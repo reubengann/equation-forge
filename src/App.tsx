@@ -10,7 +10,8 @@ MathfieldElement.fontsDirectory = "/fonts";
 /*
   The main idea here is to interface with Mathlive. However, it only accepts Latex. We don't like this; we actually want to maintain a tree (specifically it's a MathJSON tree). 
   So we need to convert between the two for anything we want to do with the MathJSON tree in order for it to be rendered. As we do this, we also add a node-id tag into the latex
-  via \htmlData{node-id="${id}"}. This allows us to hit test the rendered mathlive and find out which node was clicked.
+  via \htmlData{node-id="${id}"}. This allows us to hit test the rendered mathlive and find out which node was clicked. Finally, since we're already traversing the tree,
+  we build some lookup tables that help with modification later.
 */
 
 type MJ = any;
