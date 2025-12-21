@@ -120,9 +120,8 @@ export default function App() {
   const MathField = useMemo(() => "math-field" as any, []);
 
   const [selectedId] = useState<string | null>(null);
-  const [currentJson, setCurrentJson] = useState<MJ | null>(null);
-  const [previewJson, setPreviewJson] = useState<MJ | null>(null);
   const [tree, setTree] = useState<ExpressionTree | null>(null);
+  const [previewTree, setPreviewTree] = useState<ExpressionTree | null>(null);
 
   type ExprSelection =
     | { kind: "node"; nodeId: string }
@@ -171,57 +170,28 @@ export default function App() {
     setOverlayRect(null);
   }
 
-  /**
-   * Render a MathJSON expression into the MathLive display <math-div>.
-   *
-   * This is the only function that should write into `displayRef.current.textContent`
-   * and call MathLive's `.render()` to update the visible equation.
-   *
-   * It also keeps a hidden "measure" <math-div> in sync with the *baseline* expression
-   * (non-preview) so we can measure stable child rectangles while dragging:
-   * - DISPLAY <math-div>: shows preview during drag
-   * - MEASURE <math-div>: stays on baseline so rects don't jump mid-drag
-   *
-   * The `preview` flag is a display-only behavior:
-   * - If preview=false: both DISPLAY and MEASURE update to the same equation
-   * - If preview=true:  DISPLAY updates with preview ordering, MEASURE does not
-   *
-   * @param json The MathJSON to render
-   * @param opts.preview If true, render a preview (currently only Add reorder preview)
-   * @param opts.previewOverride If provided, uses this preview state instead of current `drag`
-   */
-  function renderFromMathJson(
-    json: MJ,
-    opts?: {
-      preview: boolean;
-      previewOverride?: {
-        addId: string;
-        draggedChildId: string;
-        fromIndex: number;
-        toIndex: number;
-      };
-    }
-  ) {
+  function renderTree(t: ExpressionTree, opts?: { preview: boolean }) {
     if (!displayRef.current) return;
     if (!measureRef.current) return;
 
-    const rendered = ExpressionTree.create(json);
-    console.log(rendered);
-
-    setTree(rendered);
-
-    // Always update the DISPLAY
-    displayRef.current.textContent = rendered.latexTagged;
+    // Always update DISPLAY
+    displayRef.current.textContent = t.latexTagged;
     (displayRef.current as any).render?.();
     installShadowStyle(displayRef.current);
     setShadowHighlight(displayRef.current, null);
 
     // Only update MEASURE when not previewing
     if (!opts?.preview) {
-      measureRef.current.textContent = rendered.latexTagged;
+      measureRef.current.textContent = t.latexTagged;
       (measureRef.current as any).render?.();
-      // no need for highlight CSS on measure
     }
+  }
+
+  function setBaselineJson(json: MJ) {
+    const t = ExpressionTree.create(json);
+    setTree(t);
+    setPreviewTree(null);
+    renderTree(t, { preview: false });
   }
 
   /**
@@ -257,8 +227,7 @@ export default function App() {
         "Now click the rendered equation below.",
       ].join("\n")
     );
-    setCurrentJson(json);
-    renderFromMathJson(json, { preview: false });
+    setBaselineJson(json);
   }
 
   /**
@@ -297,7 +266,7 @@ export default function App() {
     if (!addPath) return;
     const baselineChildIds = tree.childrenById[pId] ?? [];
     if (baselineChildIds.length < 2) return;
-    setPreviewJson(null);
+    setPreviewTree(null);
 
     if (pId && pInfo?.op === "Add" && idx !== undefined) {
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -609,7 +578,6 @@ export default function App() {
   function onDisplayPointerMove(e: React.PointerEvent) {
     if (!drag?.isActive) return;
     if (e.pointerId !== drag.pointerId) return;
-    if (!currentJson) return;
     if (!tree) return;
 
     const measureEl = measureRef.current;
@@ -636,29 +604,31 @@ export default function App() {
     const nextDrag = { ...drag, toIndex };
     setDrag(nextDrag);
 
+    const baselineJson = tree.rootJson;
     // ✅ build previewJson and render it
-    const nextPreview = reorderAddAtPath(
-      currentJson,
+    const nextPreviewJson = reorderAddAtPath(
+      baselineJson,
       drag.addPath,
       drag.fromIndex,
       toIndex
     );
-    setPreviewJson(nextPreview);
+    const pt = ExpressionTree.create(nextPreviewJson);
+    setPreviewTree(pt);
 
     // preview=true means "don't update MEASURE"
-    renderFromMathJson(nextPreview);
+    renderTree(pt, { preview: true });
   }
 
   function onDisplayPointerUp(e: React.PointerEvent) {
     if (!drag?.isActive) return;
     if (e.pointerId !== drag.pointerId) return;
 
-    if (previewJson) {
-      setCurrentJson(previewJson);
-      renderFromMathJson(previewJson, { preview: false });
-      setPreviewJson(null);
-    } else if (currentJson) {
-      renderFromMathJson(currentJson, { preview: false });
+    if (previewTree) {
+      setTree(previewTree);
+      setPreviewTree(null);
+      renderTree(previewTree, { preview: false });
+    } else if (tree) {
+      renderTree(tree, { preview: false });
     }
 
     setDrag(null);

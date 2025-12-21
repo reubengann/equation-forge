@@ -9,6 +9,8 @@ export type NodeInfo = {
 };
 
 export class ExpressionTree {
+  readonly rootJson: MJ;
+
   readonly latexTagged: string;
   readonly nodesById: Record<string, NodeInfo> = {};
   readonly parentById: Record<string, string | null> = {};
@@ -97,6 +99,7 @@ export class ExpressionTree {
   }
 
   constructor(mj: MJ) {
+    this.rootJson = mj;
     this._leafLatex = (x) => String(x);
     const parseResult = this.emit(mj, null, []);
     this.latexTagged = parseResult.latexTagged;
