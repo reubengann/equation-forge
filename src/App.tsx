@@ -3,7 +3,7 @@ import "mathlive";
 import "@cortex-js/compute-engine";
 import { MathfieldElement } from "mathlive";
 import { ComputeEngine } from "@cortex-js/compute-engine";
-import { ExpressionTree } from "./ExpressionTree";
+import { ExpressionTree, type MJ, type NodeInfo } from "./ExpressionTree";
 
 const ce = new ComputeEngine();
 MathfieldElement.fontsDirectory = "/fonts";
@@ -14,15 +14,6 @@ MathfieldElement.fontsDirectory = "/fonts";
   via \htmlData{node-id="${id}"}. This allows us to hit test the rendered mathlive and find out which node was clicked. Finally, since we're already traversing the tree,
   we build some lookup tables that help with modification later.
 */
-
-type MJ = any;
-
-type NodeInfo = {
-  id: string;
-  op: string; // "Symbol" | "Number" | "Add" | ...
-  latex: string; // LaTeX for exactly this subtree (UNtagged)
-  json: MJ; // MathJSON subtree
-};
 
 /**
  * Given a PointerEvent composedPath() (DOM ancestry including shadow DOM),
@@ -254,7 +245,7 @@ export default function App() {
       return;
     }
 
-    const json = expr.json; // ✅ now typed
+    const json = expr.json as MJ; // ✅ now typed
     // debugger
     setInfo(
       [
