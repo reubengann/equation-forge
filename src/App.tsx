@@ -4,7 +4,7 @@ import "@cortex-js/compute-engine";
 import { MathfieldElement } from "mathlive";
 import { ComputeEngine } from "@cortex-js/compute-engine";
 import { ExpressionTree, type MJ, type NodeInfo } from "./ExpressionTree";
-import { pickInsertSlot } from "./rectMath";
+import { pickInsertSlot, unionRects, type RectLTRB } from "./rectMath";
 
 const ce = new ComputeEngine();
 MathfieldElement.fontsDirectory = "/fonts";
@@ -403,6 +403,34 @@ export default function App() {
     }
   }
 
+  function queryElementsByNodeIds(
+    sr: ShadowRoot,
+    nodeIds: string[]
+  ): HTMLElement[] {
+    const out: HTMLElement[] = [];
+    for (const id of nodeIds) {
+      out.push(
+        ...sr.querySelectorAll<HTMLElement>(
+          `[data-node-id="${CSS.escape(id)}"]`
+        )
+      );
+    }
+    return out;
+  }
+
+  function rectFromElement(el: HTMLElement): RectLTRB {
+    const r = el.getBoundingClientRect();
+    return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+  }
+
+  function unionBoundingClientRects(
+    els: Iterable<HTMLElement>
+  ): RectLTRB | null {
+    const rects: RectLTRB[] = [];
+    for (const el of els) rects.push(rectFromElement(el));
+    return unionRects(rects);
+  }
+
   /*
   For an array of child nodes (e.g. children of an Add/Multiply), compute their bounding rects
  */
@@ -412,29 +440,10 @@ export default function App() {
 
     return childIds
       .map((id) => {
-        // a child may appear multiple times (rare here). take union rect.
-        let left = Infinity,
-          right = -Infinity,
-          top = Infinity,
-          bottom = -Infinity;
-        let found = 0;
-
-        sr.querySelectorAll<HTMLElement>(
-          `[data-node-id="${CSS.escape(id)}"]`
-        ).forEach((el) => {
-          const r = el.getBoundingClientRect();
-          left = Math.min(left, r.left);
-          right = Math.max(right, r.right);
-          top = Math.min(top, r.top);
-          bottom = Math.max(bottom, r.bottom);
-          found++;
-        });
-
-        if (!found) return null;
-        return {
-          id,
-          rect: { left, right, top, bottom },
-        };
+        const els = queryElementsByNodeIds(sr, [id]);
+        const rect = unionBoundingClientRects(els);
+        if (!rect) return null;
+        return { id, rect };
       })
       .filter(Boolean) as { id: string; rect: any }[];
   }
@@ -469,27 +478,11 @@ export default function App() {
 
     const boxRect = boxEl.getBoundingClientRect();
 
-    let left = Infinity,
-      top = Infinity,
-      right = -Infinity,
-      bottom = -Infinity;
-    let found = 0;
+    const els = queryElementsByNodeIds(sr, nodeIds);
+    const union = unionBoundingClientRects(els);
+    if (!union) return;
 
-    for (const id of nodeIds) {
-      sr.querySelectorAll<HTMLElement>(
-        `[data-node-id="${CSS.escape(id)}"]`
-      ).forEach((el) => {
-        const r = el.getBoundingClientRect();
-        left = Math.min(left, r.left);
-        top = Math.min(top, r.top);
-        right = Math.max(right, r.right);
-        bottom = Math.max(bottom, r.bottom);
-        found++;
-      });
-    }
-
-    if (!found) return null;
-
+    let { left, top, right, bottom } = union;
     left -= padX;
     right += padX;
     top -= padY;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pickInsertSlot } from "./rectMath";
+import { pickInsertSlot, unionRects, type RectLTRB } from "./rectMath";
 describe("pickInsertSlot (insertion slots)", () => {
   it("returns no slot when x is too far left of the first item", () => {
     const rects = [
@@ -53,5 +53,65 @@ describe("pickInsertSlot (insertion slots)", () => {
 
   it("returns null for empty rect list", () => {
     expect(pickInsertSlot([], 10, 5)).toBe(null);
+  });
+});
+
+describe("unionRects", () => {
+  it("returns null for empty input", () => {
+    expect(unionRects([])).toBeNull();
+  });
+
+  it("returns the same rect for a single rect", () => {
+    const r: RectLTRB = {
+      left: 10,
+      top: 20,
+      right: 30,
+      bottom: 40,
+    };
+
+    expect(unionRects([r])).toEqual(r);
+  });
+
+  it("unions multiple rects by min/max of edges", () => {
+    const rects: RectLTRB[] = [
+      { left: 10, top: 10, right: 30, bottom: 30 },
+      { left: 5, top: 20, right: 40, bottom: 25 },
+      { left: 15, top: 0, right: 20, bottom: 50 },
+    ];
+
+    const u = unionRects(rects)!;
+
+    expect(u).toEqual({
+      left: 5, // min left
+      top: 0, // min top
+      right: 40, // max right
+      bottom: 50, // max bottom
+    });
+  });
+
+  it("handles negative coordinates correctly", () => {
+    const rects: RectLTRB[] = [
+      { left: -10, top: -5, right: 10, bottom: 5 },
+      { left: -20, top: 0, right: 0, bottom: 20 },
+    ];
+
+    expect(unionRects(rects)).toEqual({
+      left: -20,
+      top: -5,
+      right: 10,
+      bottom: 20,
+    });
+  });
+
+  it("does not mutate input rects", () => {
+    const rects: RectLTRB[] = [
+      { left: 0, top: 0, right: 10, bottom: 10 },
+      { left: 5, top: 5, right: 15, bottom: 15 },
+    ];
+
+    const copy = rects.map((r) => ({ ...r }));
+    unionRects(rects);
+
+    expect(rects).toEqual(copy);
   });
 });

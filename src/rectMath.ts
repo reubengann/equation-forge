@@ -38,3 +38,21 @@ export function pickInsertSlot(
   const lastMid = (last.left + last.right) / 2; // (40 + 60)/2 = 50
   return x <= lastMid ? n - 1 : n; // x=36 => return 1
 }
+
+export function unionRects(rects: RectLTRB[]): RectLTRB | null {
+  if (rects.length === 0) return null;
+
+  let left = Infinity,
+    top = Infinity,
+    right = -Infinity,
+    bottom = -Infinity;
+
+  for (const r of rects) {
+    left = Math.min(left, r.left);
+    top = Math.min(top, r.top);
+    right = Math.max(right, r.right);
+    bottom = Math.max(bottom, r.bottom);
+  }
+
+  return { left, top, right, bottom };
+}
