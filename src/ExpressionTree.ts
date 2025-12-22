@@ -19,6 +19,8 @@ export class ExpressionTree {
   readonly pathById: Record<string, number[]> = {};
   readonly idByPath: Record<string, string> = {};
 
+  rootId!: string;
+
   /*
   For each node id, pathById[id] is the MathJSON path from the root to that node.
 
@@ -56,6 +58,9 @@ export class ExpressionTree {
     path: number[]
   ): { id: string; latexTagged: string; latexPlain: string } {
     const id = this.newId();
+    if (parentId == null) {
+      this.rootId = id;
+    }
     this.parentById[id] = parentId;
     this.childrenById[id] = [];
     this.pathById[id] = path;
