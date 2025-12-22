@@ -4,16 +4,10 @@ import "@cortex-js/compute-engine";
 import { MathfieldElement } from "mathlive";
 import { ComputeEngine } from "@cortex-js/compute-engine";
 import { ExpressionTree, type MJ, type NodeInfo } from "./ExpressionTree";
+import { pickInsertSlot } from "./rectMath";
 
 const ce = new ComputeEngine();
 MathfieldElement.fontsDirectory = "/fonts";
-
-/*
-  The main idea here is to interface with Mathlive. However, it only accepts Latex. We don't like this; we actually want to maintain a tree (specifically it's a MathJSON tree). 
-  So we need to convert between the two for anything we want to do with the MathJSON tree in order for it to be rendered. As we do this, we also add a node-id tag into the latex
-  via \htmlData{node-id="${id}"}. This allows us to hit test the rendered mathlive and find out which node was clicked. Finally, since we're already traversing the tree,
-  we build some lookup tables that help with modification later.
-*/
 
 /**
  * Given a PointerEvent composedPath() (DOM ancestry including shadow DOM),
@@ -439,32 +433,10 @@ export default function App() {
         if (!found) return null;
         return {
           id,
-          rect: { left, right, top, bottom, midX: (left + right) / 2 },
+          rect: { left, right, top, bottom },
         };
       })
       .filter(Boolean) as { id: string; rect: any }[];
-  }
-
-  type NodeRect = {
-    id: string;
-    rect: { left: number; right: number; midX: number };
-  };
-
-  /*
-  Compute the best destination rect given the list.
-  In gaps, the midpoint between the left and right of the two slots is used as a boundary.
- */
-  function pickSlot(rects: NodeRect[], clientX: number): number {
-    for (let i = 1; i < rects.length; i++) {
-      const l = rects[i - 1];
-      const r = rects[i];
-      const midpoint = (r.rect.left + l.rect.right) / 2;
-      // debugger
-      if (clientX <= midpoint) {
-        return i - 1;
-      }
-    }
-    return rects.length;
   }
 
   /*
@@ -586,17 +558,22 @@ export default function App() {
     const kids = tree.childrenById[drag.addParentId] ?? [];
     if (kids.length < 2) return;
 
-    const rects = getChildRectsInShadow(measureEl, kids) as NodeRect[];
+    const rects = getChildRectsInShadow(measureEl, kids);
     if (rects.length === 0) return;
 
-    const hoveredExpressionPosition = pickSlot(rects, e.clientX);
-
-    let toIndex = computeDestinationIndex(
-      hoveredExpressionPosition,
-      drag.fromIndex
+    const hoveredSlot = pickInsertSlot(
+      rects.map((r) => r.rect), // RectLTRB[]
+      e.clientX,
+      20 // marginPx (use 5 if you want it tighter like your test)
     );
-    toIndex = Math.max(0, Math.min(kids.length - 1, toIndex));
 
+    if (hoveredSlot == null) {
+      // "no target": don't update preview/toIndex
+      return;
+    }
+    let toIndex = computeDestinationIndex(hoveredSlot, drag.fromIndex);
+    toIndex = Math.max(0, Math.min(kids.length - 1, toIndex));
+    console.log(toIndex);
     if (toIndex === drag.toIndex) {
       return;
     }
