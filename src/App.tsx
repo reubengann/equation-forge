@@ -24,10 +24,28 @@ MathfieldElement.fontsDirectory = "/fonts";
  * @param nodesById Current node registry from the latest render
  * @returns nodeId of the clicked term-like node, or null if nothing usable was clicked
  */
+
+function bubbleThroughUnary(tree: ExpressionTree, nodeId: string): string {
+  let cur = nodeId;
+  while (true) {
+    const p = tree.parentById[cur];
+    if (!p) return cur;
+    const pop = tree.nodesById[p]?.op;
+
+    // unary wrappers that should be draggable as a unit
+    if (pop === "Negate") {
+      cur = p;
+      continue;
+    }
+    return cur;
+  }
+}
+
 function findBestNodeIdFromComposedPath(
   path: unknown[],
   nodesById: Record<string, NodeInfo>
 ): string | null {
+  // debugger;
   const disallowOnPlainClick = new Set(["Add", "Multiply", "Equal"]);
 
   // Walk up the mathjson tree from deepest to shallowest.
@@ -151,6 +169,7 @@ export default function App() {
   const [info, setInfo] = useState<string>(
     "Type an equation, click Add / Update. Then click parts of the rendered equation."
   );
+  const [info2, setInfo2] = useState<string>("");
 
   const [overlayRect, setOverlayRect] = useState<{
     left: number;
@@ -217,8 +236,6 @@ export default function App() {
         "",
         "mf.expression.json:",
         JSON.stringify(json, null, 2),
-        "",
-        "Now click the rendered equation below.",
       ].join("\n")
     );
     setBaselineJson(json);
@@ -252,10 +269,12 @@ export default function App() {
       return;
     }
 
-    const pId = tree.parentById[clickedId];
+    const draggedId = bubbleThroughUnary(tree, clickedId);
+
+    const pId = tree.parentById[draggedId];
     if (!pId) return;
     const pInfo = pId ? tree.nodesById[pId] : null;
-    const idx = tree.childIndexById[clickedId];
+    const idx = tree.childIndexById[draggedId];
     const addPath = tree.pathById[pId]; // parentId is the Add node id
     if (!addPath) return;
     const baselineChildIds = tree.childrenById[pId] ?? [];
@@ -274,7 +293,7 @@ export default function App() {
         addPath,
         baselineChildIds,
 
-        draggedChildId: clickedId,
+        draggedChildId: draggedId,
         fromIndex: idx,
         toIndex: idx,
       });
@@ -282,28 +301,33 @@ export default function App() {
 
     // If shift is held, expand from the *current* selection if there is one;
     // otherwise expand from the clicked node.
-    const baseId = e.shiftKey && selectedId ? selectedId : clickedId;
+    const baseId = e.shiftKey && selectedId ? selectedId : draggedId;
     const nextSelectedId = e.shiftKey
       ? tree.parentById[baseId] ?? baseId
-      : clickedId;
+      : draggedId;
 
     setSelection({ kind: "node", nodeId: nextSelectedId });
-    setOverlayForNodeIds([nextSelectedId]);
+
+    // Overlay the thing that is guaranteed to be rendered.
+    // If nextSelectedId is a unary wrapper like Negate, overlay its child (e.g. "b").
+    const overlayId =
+      tree.nodesById[nextSelectedId]?.op === "Negate"
+        ? tree.childrenById[nextSelectedId]?.[0] ?? nextSelectedId
+        : nextSelectedId;
+
+    setOverlayForNodeIds([overlayId]);
 
     const hit = tree.nodesById[nextSelectedId];
     if (!hit) {
-      setInfo(
-        (prev) =>
-          prev + `\n\nclicked node-id: ${selectedId}\n(no NodeInfo found)`
-      );
+      setInfo2(`\n\nclicked node-id: ${selectedId}\n(no NodeInfo found)`);
       return;
     }
 
-    setInfo((prev) =>
+    setInfo2(
       [
-        prev,
         "",
         `clicked node-id: ${clickedId}` +
+          (draggedId !== clickedId ? ` (drag-handle: ${draggedId})` : "") +
           (e.shiftKey ? ` (shift → parent ${selectedId})` : ""),
         `selected node-id: ${hit.id}`,
         `node op: ${hit.op}`,
@@ -466,6 +490,7 @@ export default function App() {
     Then we add padding around that box and set the position of the overlay div to match.
   */
   function setOverlayForNodeIds(nodeIds: string[]) {
+    debugger;
     const mathDivEl = displayRef.current;
     const boxEl = mathWrapRef.current; // ✅ changed
     if (!mathDivEl || !boxEl) return;
@@ -703,6 +728,21 @@ export default function App() {
       <textarea
         readOnly
         value={info}
+        style={{
+          marginTop: 16,
+          width: "100%",
+          height: 360,
+          fontFamily:
+            "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+          fontSize: 12,
+          padding: 10,
+          borderRadius: 8,
+        }}
+      />
+
+      <textarea
+        readOnly
+        value={info2}
         style={{
           marginTop: 16,
           width: "100%",

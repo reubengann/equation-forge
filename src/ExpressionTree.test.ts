@@ -210,4 +210,17 @@ describe("ExpressionTree", () => {
       String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{a}\,\htmlData{node-id="n3"}{b}}`
     );
   });
+
+  it("Renders subtraction as a - b (not a + -b)", () => {
+    const t = ExpressionTree.create(makeMJfromLatex("a - b = c"));
+    console.log(t.latexTagged);
+    console.log(t.nodesById);
+    expect(t.latexTagged).toBe(
+      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{\htmlData{node-id="n3"}{a} - \htmlData{node-id="n5"}{b}} = \htmlData{node-id="n6"}{c}}`
+    );
+
+    // The "b" term is still represented by a Negate node in the tree.
+    expect(t.nodesById["n4"].op).toBe("Negate");
+    expect(t.childrenById["n4"]).toEqual(["n5"]);
+  });
 });

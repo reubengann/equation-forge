@@ -75,6 +75,23 @@ export class ExpressionTree {
       if (op === "InvisibleOperator") {
         return this.emitImplicitMultiply(node, id, path, op);
       }
+      if (op == "Negate") {
+        const inner = this.emit(node[1], id, [...path, 1]);
+
+        this.childrenById[id] = [inner.id];
+        this.childIndexById[inner.id] = 0;
+
+        // Default unary render; Add will override into binary subtraction when appropriate.
+        const plain = `-${inner.latexPlain}`;
+        const taggedInner = `-${inner.latexTagged}`;
+
+        this.nodesById[id] = { id, op, latex: plain, json: node };
+        return {
+          id,
+          latexPlain: plain,
+          latexTagged: this.wrap(id, taggedInner),
+        };
+      }
       throw Error(`${op} is not a known type of array`);
     }
 
@@ -166,16 +183,72 @@ export class ExpressionTree {
   private emitAdd(node: MJNode, id: string, path: number[], op: string) {
     const children = node
       .slice(1)
-      .map((c, i) => this.emit(c, id, [...path, 1 + i]));
-    this.childrenById[id] = children.map((ch) => ch.id);
-    this.childrenById[id].forEach((cid, idx) => {
-      this.childIndexById[cid] = idx;
-    });
+      .map((childNode, i) => this.emit(childNode, id, [...path, i + 1]));
 
-    const plain = children.map((c) => c.latexPlain).join(" + ");
-    const taggedInner = children
-      .map((c) => c.latexTagged)
-      .join(String.raw` + `);
+    this.childrenById[id] = children.map((c) => c.id);
+    children.forEach((c, i) => (this.childIndexById[c.id] = i));
+
+    // Build plain/tagged by walking children once.
+    const plainParts: string[] = [];
+    const taggedParts: string[] = [];
+
+    for (let i = 0; i < children.length; i++) {
+      const childNode = node[i + 1];
+      const child = children[i];
+
+      if (i === 0) {
+        // first term prints as-is (could be unary neg)
+        plainParts.push(child.latexPlain);
+        taggedParts.push(child.latexTagged);
+        continue;
+      }
+
+      // If this term is Negate(x), render as " - x" (binary minus),
+      // using the *already emitted* inner child of the Negate node.
+      const isNegate =
+        Array.isArray(childNode) &&
+        String((childNode as MJNode)[0]) === "Negate";
+
+      if (isNegate) {
+        const negId = child.id;
+        const innerId = (this.childrenById[negId] ?? [])[0];
+
+        // Safety fallback: if something's off, use the child's latex as-is.
+        if (!innerId) {
+          plainParts.push(`+ ${child.latexPlain}`);
+          taggedParts.push(`+ ${child.latexTagged}`);
+          continue;
+        }
+
+        const innerInfo = this.nodesById[innerId];
+        const innerOp = innerInfo?.op;
+
+        const innerPlain = innerInfo?.latex ?? "";
+
+        const innerEmitted = children.find((c) => c.id === innerId) ?? null;
+
+        const innerTaggedLatex = innerEmitted
+          ? innerEmitted.latexTagged
+          : this.wrap(innerId, innerPlain);
+
+        const needsParens = innerOp === "Add" || innerOp === "Equal";
+        const pPlain = needsParens
+          ? String.raw`\left(${innerPlain}\right)`
+          : innerPlain;
+        const pTagged = needsParens
+          ? String.raw`\left(${innerTaggedLatex}\right)`
+          : innerTaggedLatex;
+
+        plainParts.push(`- ${pPlain}`);
+        taggedParts.push(`- ${pTagged}`);
+      } else {
+        plainParts.push(`+ ${child.latexPlain}`);
+        taggedParts.push(`+ ${child.latexTagged}`);
+      }
+    }
+
+    const plain = plainParts.join(" ");
+    const taggedInner = taggedParts.join(" ");
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
