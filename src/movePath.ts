@@ -1,4 +1,4 @@
-import type { ExpressionTree } from "./ExpressionTree";
+import type { ExpressionTree, MJ } from "./ExpressionTree";
 
 export function ancestorsInclusive(
   tree: ExpressionTree,
@@ -123,4 +123,51 @@ export function isStructurallyValidMove(
     return { reason: "Cannot move an additive term into a denominator." };
   }
   return null;
+}
+
+export function getAtPath(root: any, path: number[]) {
+  let cur = root;
+  for (const i of path) cur = cur[i];
+  return cur;
+}
+
+export function setAtPath(root: any, path: number[], value: any): any {
+  if (path.length === 0) return value;
+  const [i, ...rest] = path;
+  const copy = Array.isArray(root) ? root.slice() : { ...root };
+  copy[i] = setAtPath(copy[i], rest, value);
+  return copy;
+}
+
+export function reorderAddAtPath(
+  root: MJ,
+  addPath: number[],
+  fromIndex: number,
+  toIndex: number
+): MJ {
+  const addNode = getAtPath(root, addPath);
+  if (!Array.isArray(addNode) || addNode[0] !== "Add") return root;
+
+  const kids = addNode.slice(1);
+  if (kids.length < 2) return root;
+  if (fromIndex === toIndex) return root;
+  if (fromIndex < 0 || fromIndex >= kids.length) return root;
+
+  const moved = kids[fromIndex];
+  const rest = kids.filter((_, i) => i !== fromIndex);
+
+  const ins = Math.max(0, Math.min(rest.length, toIndex));
+  const nextKids = [...rest.slice(0, ins), moved, ...rest.slice(ins)];
+
+  const nextAdd: MJ = ["Add", ...nextKids];
+  return setAtPath(root, addPath, nextAdd);
+}
+
+export function computeDestinationIndex(
+  hoveredExpressionPos: number,
+  fromIndex: number
+): number {
+  return hoveredExpressionPos <= fromIndex
+    ? hoveredExpressionPos
+    : hoveredExpressionPos - 1;
 }

@@ -3,10 +3,14 @@ import { ExpressionTree, type MJ } from "./ExpressionTree";
 import { ComputeEngine } from "@cortex-js/compute-engine";
 import {
   ancestorsInclusive,
+  computeDestinationIndex,
+  getAtPath,
   isStructurallyValidMove,
   lowestCommonAncestor,
+  reorderAddAtPath,
   routeBetween,
   routeCrossesOp,
+  setAtPath,
 } from "./movePath";
 
 const ce = new ComputeEngine();
@@ -107,5 +111,58 @@ describe("movePath", () => {
 
     const ban = isStructurallyValidMove(t, aId, cId);
     expect(ban).toBeNull();
+  });
+
+  it("getAtPath returns root when path is empty", () => {
+    const root: MJ = ["Add", "a", "b"];
+    expect(getAtPath(root, [])).toEqual(root);
+  });
+
+  it("setAtPath replaces a nested node immutably", () => {
+    const root: MJ = ["Equal", ["Add", "a", "b"], "c"];
+
+    const next = setAtPath(root, [1], ["Add", "x", "y"]) as MJ;
+
+    // root unchanged
+    expect(root).toEqual(["Equal", ["Add", "a", "b"], "c"]);
+    // updated
+    expect(next).toEqual(["Equal", ["Add", "x", "y"], "c"]);
+    // structural sharing: top-level array is new
+    expect(next).not.toBe(root);
+  });
+
+  it("reorderAddAtPath moves a term within an Add node", () => {
+    // Equal(Add(a,b,c), d)
+    const root: MJ = ["Equal", ["Add", "a", "b", "c"], "d"];
+
+    // move "a" (index 0) after "c" => b,c,a
+    const next = reorderAddAtPath(root, [1], 0, 2);
+
+    expect(next).toEqual(["Equal", ["Add", "b", "c", "a"], "d"]);
+    expect(next).not.toBe(root);
+  });
+
+  it("reorderAddAtPath is a no-op when target at path is not Add", () => {
+    const root: MJ = ["Equal", ["Multiply", "a", "b"], "c"];
+    const next = reorderAddAtPath(root, [1], 0, 1);
+    expect(next).toBe(root); // returns original reference on no-op
+  });
+
+  it("reorderAddAtPath is a no-op for invalid indices or identical indices", () => {
+    const root: MJ = ["Add", "a", "b", "c"];
+
+    expect(reorderAddAtPath(root, [], 1, 1)).toBe(root);
+    expect(reorderAddAtPath(root, [], -1, 1)).toBe(root);
+    expect(reorderAddAtPath(root, [], 999, 1)).toBe(root);
+  });
+
+  it("computeDestinationIndex adjusts for removal when hovering to the right", () => {
+    // If dragged item is removed, inserting after it shifts left by 1.
+    // fromIndex=1, hoveredSlot=3 => destination index = 2
+    expect(computeDestinationIndex(3, 1)).toBe(2);
+
+    // hovering before or at the fromIndex doesn't shift
+    expect(computeDestinationIndex(0, 1)).toBe(0);
+    expect(computeDestinationIndex(1, 1)).toBe(1);
   });
 });
