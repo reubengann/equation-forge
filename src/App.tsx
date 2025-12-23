@@ -6,25 +6,10 @@ import { ComputeEngine } from "@cortex-js/compute-engine";
 import { ExpressionTree, type MJ, type NodeInfo } from "./ExpressionTree";
 import { pickInsertSlot, unionRects, type RectLTRB } from "./rectMath";
 import { computeDestinationIndex, reorderAddAtPath } from "./movePath";
+import { getMathliveShadowRoot } from "./mathliveShadow";
 
 const ce = new ComputeEngine();
 MathfieldElement.fontsDirectory = "/fonts";
-
-/**
- * Given a PointerEvent composedPath() (DOM ancestry including shadow DOM),
- * choose the "best" node-id to treat as clicked.
- *
- * This function walks from deepest element upward and looks for an element
- * with `data-node-id="nX"` (inserted by makeTaggedLatexFromMathJson).
- *
- * It deliberately *avoids* selecting container operators on a plain click
- * (e.g. Add / Multiply / Equal), because users usually mean "a term"
- * rather than "the whole sum" when clicking once.
- *
- * @param path Result of event.composedPath()
- * @param nodesById Current node registry from the latest render
- * @returns nodeId of the clicked term-like node, or null if nothing usable was clicked
- */
 
 function bubbleThroughUnary(tree: ExpressionTree, nodeId: string): string {
   let cur = nodeId;
@@ -87,7 +72,7 @@ function findBestNodeIdFromComposedPath(
  * @param mathDivEl The <math-div> element hosting MathLive's shadow DOM
  */
 function installShadowStyle(mathDivEl: HTMLElement) {
-  const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
+  const sr = getMathliveShadowRoot(mathDivEl);
   if (!sr) return;
 
   // Avoid duplicating style
@@ -114,7 +99,7 @@ function installShadowStyle(mathDivEl: HTMLElement) {
  * @param nodeId Node id to highlight, or null to clear highlight
  */
 function setShadowHighlight(mathDivEl: HTMLElement, nodeId: string | null) {
-  const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
+  const sr = getMathliveShadowRoot(mathDivEl);
   if (!sr) return;
 
   sr.querySelectorAll(".dp-selected").forEach((el) =>
@@ -460,7 +445,7 @@ export default function App() {
   For an array of child nodes (e.g. children of an Add/Multiply), compute their bounding rects
  */
   function getChildRectsInShadow(mathDivEl: HTMLElement, childIds: string[]) {
-    const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
+    const sr = getMathliveShadowRoot(mathDivEl);
     if (!sr) return [];
 
     return childIds
@@ -487,7 +472,7 @@ export default function App() {
     const padX = 8;
     const padY = 3;
 
-    const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
+    const sr = getMathliveShadowRoot(mathDivEl);
     if (!sr || nodeIds.length === 0) return null;
 
     const boxRect = boxEl.getBoundingClientRect();
