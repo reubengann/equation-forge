@@ -5,6 +5,7 @@ import { MathfieldElement } from "mathlive";
 import { ComputeEngine } from "@cortex-js/compute-engine";
 import { ExpressionTree, type MJ, type NodeInfo } from "./ExpressionTree";
 import { pickInsertSlot, unionRects, type RectLTRB } from "./rectMath";
+import { computeDestinationIndex, reorderAddAtPath } from "./movePath";
 
 const ce = new ComputeEngine();
 MathfieldElement.fontsDirectory = "/fonts";
@@ -473,24 +474,12 @@ export default function App() {
   }
 
   /*
-  If the dragged item will be removed, the destination index is one less than the slot index.
- */
-  function computeDestinationIndex(
-    hoveredExpressionPos: number,
-    fromIndex: number
-  ): number {
-    return hoveredExpressionPos <= fromIndex
-      ? hoveredExpressionPos
-      : hoveredExpressionPos - 1;
-  }
-
-  /*
     When selecting elements, we want to show an overlay box around them.
     We do this by finding the bounding box of _all_ the elements with the same node-id.
     Then we add padding around that box and set the position of the overlay div to match.
   */
   function setOverlayForNodeIds(nodeIds: string[]) {
-    debugger;
+    // debugger;
     const mathDivEl = displayRef.current;
     const boxEl = mathWrapRef.current; // ✅ changed
     if (!mathDivEl || !boxEl) return;
@@ -521,43 +510,6 @@ export default function App() {
     });
   }
 
-  function getAtPath(root: any, path: number[]) {
-    let cur = root;
-    for (const i of path) cur = cur[i];
-    return cur;
-  }
-
-  function setAtPath(root: any, path: number[], value: any): any {
-    if (path.length === 0) return value;
-    const [i, ...rest] = path;
-    const copy = Array.isArray(root) ? root.slice() : { ...root };
-    copy[i] = setAtPath(copy[i], rest, value);
-    return copy;
-  }
-
-  function reorderAddAtPath(
-    root: MJ,
-    addPath: number[],
-    fromIndex: number,
-    toIndex: number
-  ): MJ {
-    const addNode = getAtPath(root, addPath);
-    if (!Array.isArray(addNode) || addNode[0] !== "Add") return root;
-
-    const kids = addNode.slice(1);
-    if (kids.length < 2) return root;
-    if (fromIndex === toIndex) return root;
-    if (fromIndex < 0 || fromIndex >= kids.length) return root;
-
-    const moved = kids[fromIndex];
-    const rest = kids.filter((_, i) => i !== fromIndex);
-
-    const ins = Math.max(0, Math.min(rest.length, toIndex));
-    const nextKids = [...rest.slice(0, ins), moved, ...rest.slice(ins)];
-
-    const nextAdd: MJ = ["Add", ...nextKids];
-    return setAtPath(root, addPath, nextAdd);
-  }
   /*
     Dragging functionality: Here we determine if there is a valid reorder or move operation possible.
     Right now this is only within a sum.
