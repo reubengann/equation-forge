@@ -12,6 +12,7 @@ export class ExpressionTree {
   readonly rootJson: MJ;
 
   readonly latexTagged: string;
+  readonly latexPlain: string;
   readonly nodesById: Record<string, NodeInfo> = {};
   readonly parentById: Record<string, string | null> = {};
   readonly childrenById: Record<string, string[]> = {};
@@ -81,22 +82,13 @@ export class ExpressionTree {
         return this.emitImplicitMultiply(node, id, path, op);
       }
       if (op == "Negate") {
-        const inner = this.emit(node[1], id, [...path, 1]);
-
-        this.childrenById[id] = [inner.id];
-        this.childIndexById[inner.id] = 0;
-
-        // Default unary render; Add will override into binary subtraction when appropriate.
-        const plain = `-${inner.latexPlain}`;
-        const taggedInner = `-${inner.latexTagged}`;
-
-        this.nodesById[id] = { id, op, latex: plain, json: node };
-        return {
-          id,
-          latexPlain: plain,
-          latexTagged: this.wrap(id, taggedInner),
-        };
+        return this.emitNegate(node, id, path, op);
       }
+      if (op === "Delimiter")
+        return this.emitGroup(node, id, path, op, "(", ")");
+      if (op === "List") return this.emitGroup(node, id, path, op, "[", "]");
+      if (op === "Set") return this.emitGroup(node, id, path, op, "{", "}");
+
       throw Error(`${op} is not a known type of array`);
     }
 
@@ -125,6 +117,50 @@ export class ExpressionTree {
     this._leafLatex = (x) => String(x);
     const parseResult = this.emit(mj, null, []);
     this.latexTagged = parseResult.latexTagged;
+    this.latexPlain = parseResult.latexPlain;
+  }
+
+  private emitGroup(
+    node: MJNode,
+    id: string,
+    path: number[],
+    op: string,
+    open: string,
+    close: string
+  ) {
+    // Shape is typically ["Delimiter", expr] (or Set/List similarly).
+    const inner = this.emit(node[1], id, [...path, 1]);
+
+    this.childrenById[id] = [inner.id];
+    this.childIndexById[inner.id] = 0;
+
+    // LaTeX escaping for { }
+    const openLatex = open === "{" ? String.raw`\{` : open;
+    const closeLatex = close === "}" ? String.raw`\}` : close;
+
+    const plain = String.raw`\left${openLatex}${inner.latexPlain}\right${closeLatex}`;
+    const taggedInner = String.raw`\left${openLatex}${inner.latexTagged}\right${closeLatex}`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
+  private emitNegate(node: MJNode, id: string, path: number[], op: string) {
+    const inner = this.emit(node[1], id, [...path, 1]);
+
+    this.childrenById[id] = [inner.id];
+    this.childIndexById[inner.id] = 0;
+
+    // Default unary render; Add will override into binary subtraction when appropriate.
+    const plain = `-${inner.latexPlain}`;
+    const taggedInner = `-${inner.latexTagged}`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return {
+      id,
+      latexPlain: plain,
+      latexTagged: this.wrap(id, taggedInner),
+    };
   }
 
   private emitImplicitMultiply(

@@ -3,6 +3,7 @@ import { ExpressionTree, type MJ } from "./ExpressionTree";
 import { ComputeEngine } from "@cortex-js/compute-engine";
 import {
   ancestorsInclusive,
+  isStructurallyValidMove,
   lowestCommonAncestor,
   routeBetween,
   routeCrossesOp,
@@ -76,5 +77,35 @@ describe("movePath", () => {
 
     const route = routeBetween(t, aId, cId)!;
     expect(routeCrossesOp(t, route, "Equal")).toBe(false);
+  });
+
+  it("bans moving an Add term into a fraction denominator", () => {
+    const t = ExpressionTree.create(makeMJfromLatex("(a + b) / c = d"));
+
+    const aId = Object.values(t.nodesById).find(
+      (n) => n.op === "Symbol" && n.json === "a"
+    )!.id;
+    const cId = Object.values(t.nodesById).find(
+      (n) => n.op === "Symbol" && n.json === "c"
+    )!.id;
+
+    // pretend drop target is inside denominator (selecting c is good enough for now)
+    const ban = isStructurallyValidMove(t, aId, cId);
+    expect(ban).not.toBeNull();
+    expect(ban!.reason).toMatch(/denominator/i);
+  });
+
+  it("allows moving an Add term within the same Add", () => {
+    const t = ExpressionTree.create(makeMJfromLatex("a + b + c"));
+
+    const aId = Object.values(t.nodesById).find(
+      (n) => n.op === "Symbol" && n.json === "a"
+    )!.id;
+    const cId = Object.values(t.nodesById).find(
+      (n) => n.op === "Symbol" && n.json === "c"
+    )!.id;
+
+    const ban = isStructurallyValidMove(t, aId, cId);
+    expect(ban).toBeNull();
   });
 });

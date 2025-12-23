@@ -213,8 +213,6 @@ describe("ExpressionTree", () => {
 
   it("Renders subtraction as a - b (not a + -b)", () => {
     const t = ExpressionTree.create(makeMJfromLatex("a - b = c"));
-    console.log(t.latexTagged);
-    console.log(t.nodesById);
     expect(t.latexTagged).toBe(
       String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{\htmlData{node-id="n3"}{a} - \htmlData{node-id="n5"}{b}} = \htmlData{node-id="n6"}{c}}`
     );
@@ -222,5 +220,26 @@ describe("ExpressionTree", () => {
     // The "b" term is still represented by a Negate node in the tree.
     expect(t.nodesById["n4"].op).toBe("Negate");
     expect(t.childrenById["n4"]).toEqual(["n5"]);
+  });
+
+  it("renders Delimiter as parentheses", () => {
+    const t = ExpressionTree.create(makeMJfromLatex("(a+b)"));
+    expect(t.latexPlain).toContain(String.raw`\left(a + b\right)`);
+    expect(Object.values(t.nodesById).some((n) => n.op === "Delimiter")).toBe(
+      true
+    );
+  });
+
+  it("renders List as square brackets", () => {
+    const t = ExpressionTree.create(makeMJfromLatex("[a+b]"));
+    expect(t.latexPlain).toContain(String.raw`\left[a + b\right]`);
+    expect(Object.values(t.nodesById).some((n) => n.op === "List")).toBe(true);
+  });
+
+  it("renders Set as curly braces", () => {
+    const mj: MJ = ["Set", ["Add", "a", "b"]];
+    const t = ExpressionTree.create(mj);
+    expect(t.latexPlain).toContain(String.raw`\left\{a + b\right\}`);
+    expect(Object.values(t.nodesById).some((n) => n.op === "Set")).toBe(true);
   });
 });
