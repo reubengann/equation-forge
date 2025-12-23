@@ -4,9 +4,13 @@ import "@cortex-js/compute-engine";
 import { MathfieldElement } from "mathlive";
 import { ComputeEngine } from "@cortex-js/compute-engine";
 import { ExpressionTree, type MJ, type NodeInfo } from "./ExpressionTree";
-import { pickInsertSlot, unionRects, type RectLTRB } from "./rectMath";
+import { pickInsertSlot } from "./rectMath";
 import { computeDestinationIndex, reorderAddAtPath } from "./movePath";
-import { getMathliveShadowRoot } from "./mathliveShadow";
+import {
+  computeOverlayRectForNodeIds,
+  getChildRectsInShadow,
+  getMathliveShadowRoot,
+} from "./mathliveShadow";
 
 const ce = new ComputeEngine();
 MathfieldElement.fontsDirectory = "/fonts";
@@ -413,86 +417,21 @@ export default function App() {
     }
   }
 
-  function queryElementsByNodeIds(
-    sr: ShadowRoot,
-    nodeIds: string[]
-  ): HTMLElement[] {
-    const out: HTMLElement[] = [];
-    for (const id of nodeIds) {
-      out.push(
-        ...sr.querySelectorAll<HTMLElement>(
-          `[data-node-id="${CSS.escape(id)}"]`
-        )
-      );
-    }
-    return out;
-  }
-
-  function rectFromElement(el: HTMLElement): RectLTRB {
-    const r = el.getBoundingClientRect();
-    return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
-  }
-
-  function unionBoundingClientRects(
-    els: Iterable<HTMLElement>
-  ): RectLTRB | null {
-    const rects: RectLTRB[] = [];
-    for (const el of els) rects.push(rectFromElement(el));
-    return unionRects(rects);
-  }
-
-  /*
-  For an array of child nodes (e.g. children of an Add/Multiply), compute their bounding rects
- */
-  function getChildRectsInShadow(mathDivEl: HTMLElement, childIds: string[]) {
-    const sr = getMathliveShadowRoot(mathDivEl);
-    if (!sr) return [];
-
-    return childIds
-      .map((id) => {
-        const els = queryElementsByNodeIds(sr, [id]);
-        const rect = unionBoundingClientRects(els);
-        if (!rect) return null;
-        return { id, rect };
-      })
-      .filter(Boolean) as { id: string; rect: any }[];
-  }
-
-  /*
-    When selecting elements, we want to show an overlay box around them.
-    We do this by finding the bounding box of _all_ the elements with the same node-id.
-    Then we add padding around that box and set the position of the overlay div to match.
-  */
   function setOverlayForNodeIds(nodeIds: string[]) {
-    // debugger;
     const mathDivEl = displayRef.current;
-    const boxEl = mathWrapRef.current; // ✅ changed
+    const boxEl = mathWrapRef.current;
     if (!mathDivEl || !boxEl) return;
 
-    const padX = 8;
-    const padY = 3;
-
-    const sr = getMathliveShadowRoot(mathDivEl);
-    if (!sr || nodeIds.length === 0) return null;
-
-    const boxRect = boxEl.getBoundingClientRect();
-
-    const els = queryElementsByNodeIds(sr, nodeIds);
-    const union = unionBoundingClientRects(els);
-    if (!union) return;
-
-    let { left, top, right, bottom } = union;
-    left -= padX;
-    right += padX;
-    top -= padY;
-    bottom += padY;
-
-    setOverlayRect({
-      left: left - boxRect.left,
-      top: top - boxRect.top,
-      width: right - left,
-      height: bottom - top,
+    const r = computeOverlayRectForNodeIds({
+      mathDivEl,
+      containerEl: boxEl,
+      nodeIds,
+      padX: 8,
+      padY: 3,
     });
+
+    if (!r) return;
+    setOverlayRect(r);
   }
 
   /*
