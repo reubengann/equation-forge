@@ -242,4 +242,38 @@ describe("ExpressionTree", () => {
     expect(t.latexPlain).toContain(String.raw`\left\{a + b\right\}`);
     expect(Object.values(t.nodesById).some((n) => n.op === "Set")).toBe(true);
   });
+
+  it("renders Sequence as comma-separated", () => {
+    const mj: MJ = ["Sequence", "a", "b"];
+    const t = ExpressionTree.create(mj);
+
+    expect(t.latexPlain).toBe("a, b");
+    expect(Object.values(t.nodesById).some((n) => n.op === "Sequence")).toBe(
+      true
+    );
+  });
+
+  it("renders (a, b) as Delimiter(Sequence(...))", () => {
+    const mj: MJ = ["Delimiter", ["Sequence", "a", "b"]];
+    const t = ExpressionTree.create(mj);
+
+    expect(t.latexPlain).toContain(String.raw`\left(a, b\right)`);
+  });
+
+  it("renders OverVector as \\vec{...}", () => {
+    const mj: MJ = ["OverVector", "v"];
+    const t = ExpressionTree.create(mj);
+
+    expect(t.latexPlain).toBe(String.raw`\vec{v}`);
+    expect(Object.values(t.nodesById).some((n) => n.op === "OverVector")).toBe(
+      true
+    );
+  });
+
+  it("renders OverVector over a grouped expression", () => {
+    const mj: MJ = ["OverVector", ["Delimiter", ["Add", "a", "b"]]];
+    const t = ExpressionTree.create(mj);
+
+    expect(t.latexPlain).toContain(String.raw`\vec{`);
+  });
 });

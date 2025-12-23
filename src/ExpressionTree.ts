@@ -88,7 +88,10 @@ export class ExpressionTree {
         return this.emitGroup(node, id, path, op, "(", ")");
       if (op === "List") return this.emitGroup(node, id, path, op, "[", "]");
       if (op === "Set") return this.emitGroup(node, id, path, op, "{", "}");
-
+      if (op == "Sequence") return this.emitSequence(node, id, path, op);
+      if (op === "OverVector") {
+        return this.emitOverVector(node, id, path, op);
+      }
       throw Error(`${op} is not a known type of array`);
     }
 
@@ -207,6 +210,19 @@ export class ExpressionTree {
     };
   }
 
+  private emitOverVector(node: MJNode, id: string, path: number[], op: string) {
+    const inner = this.emit(node[1], id, [...path, 1]);
+
+    this.childrenById[id] = [inner.id];
+    this.childIndexById[inner.id] = 0;
+
+    const plain = String.raw`\vec{${inner.latexPlain}}`;
+    const taggedInner = String.raw`\vec{${inner.latexTagged}}`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
   private emitEqual(node: MJNode, id: string, path: number[], op: string) {
     const L = this.emit(node[1], id, [...path, 1]);
     const R = this.emit(node[2], id, [...path, 2]);
@@ -290,6 +306,21 @@ export class ExpressionTree {
 
     const plain = plainParts.join(" ");
     const taggedInner = taggedParts.join(" ");
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
+  private emitSequence(node: MJNode, id: string, path: number[], op: string) {
+    const kids = node
+      .slice(1)
+      .map((childNode, i) => this.emit(childNode, id, [...path, i + 1]));
+
+    this.childrenById[id] = kids.map((k) => k.id);
+    kids.forEach((k, i) => (this.childIndexById[k.id] = i));
+
+    const plain = kids.map((k) => k.latexPlain).join(", ");
+    const taggedInner = kids.map((k) => k.latexTagged).join(", ");
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
