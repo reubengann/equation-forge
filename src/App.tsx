@@ -39,9 +39,21 @@ function installShadowStyle(mathDivEl: HTMLElement) {
   const style = document.createElement("style");
   style.setAttribute("data-derivation-pad", "1");
   style.textContent = `
-    .dp-selected { color: #ff9800;}
-    .dp-faded { opacity: 0.25; }
-    .dp-dragging { color: #7c4dff; font-weight: 600; }
+
+  /* Any element whose class includes ML__vlist and any descendant.
+     Disable clicks on Mathlive's fraction layout scaffolding */
+  .ML__vlist {
+    pointer-events: none !important;
+  }
+
+  [data-node-id] [data-node-id] {
+    pointer-events: auto !important;
+  }
+
+  /* But still allow clicks on our tagged nodes (and their descendants) */
+  .dp-selected { color: #ff9800;}
+  .dp-faded { opacity: 0.25; }
+  .dp-dragging { color: #7c4dff; font-weight: 600; }
   `;
   sr.appendChild(style);
 }
