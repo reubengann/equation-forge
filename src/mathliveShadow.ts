@@ -46,35 +46,3 @@ export function getChildRectsInShadow(
     })
     .filter(Boolean) as { id: string; rect: any }[];
 }
-
-export function computeOverlayRectForNodeIds(args: {
-  mathDivEl: HTMLElement;
-  containerEl: HTMLElement; // the element you're positioning overlay within
-  nodeIds: string[];
-  padX?: number;
-  padY?: number;
-}): { left: number; top: number; width: number; height: number } | null {
-  const { mathDivEl, containerEl, nodeIds, padX = 8, padY = 3 } = args;
-
-  const sr = getMathliveShadowRoot(mathDivEl);
-  if (!sr || nodeIds.length === 0) return null;
-
-  const containerRect = containerEl.getBoundingClientRect();
-
-  const els = queryElementsByNodeIds(sr, nodeIds);
-  const union = unionBoundingClientRects(els);
-  if (!union) return null;
-
-  let { left, top, right, bottom } = union;
-  left -= padX;
-  right += padX;
-  top -= padY;
-  bottom += padY;
-
-  return {
-    left: left - containerRect.left,
-    top: top - containerRect.top,
-    width: right - left,
-    height: bottom - top,
-  };
-}

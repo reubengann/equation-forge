@@ -4,11 +4,7 @@ import "mathlive";
 import { MathfieldElement } from "mathlive";
 import { useMemo, useRef, useState } from "react";
 import { ExpressionTree, type MJ, type NodeInfo } from "./ExpressionTree";
-import {
-  computeOverlayRectForNodeIds,
-  getChildRectsInShadow,
-  getMathliveShadowRoot,
-} from "./mathliveShadow";
+import { getChildRectsInShadow, getMathliveShadowRoot } from "./mathliveShadow";
 import { computeDestinationIndex, reorderAddAtPath } from "./movePath";
 import { pickInsertSlot } from "./rectMath";
 import {
@@ -75,9 +71,9 @@ function installShadowStyle(mathDivEl: HTMLElement) {
   const style = document.createElement("style");
   style.setAttribute("data-derivation-pad", "1");
   style.textContent = `
-    .dp-selected { outline: 2px solid #ff9800; outline-offset: 2px; border-radius: 3px; }
+    .dp-selected { color: #ff9800;}
   .dp-faded { opacity: 0.25; }
-  .dp-dragging { outline: 2px solid #7c4dff; outline-offset: 2px; border-radius: 3px; }
+  .dp-dragging { color: #7c4dff; font-weight: 600; }
   `;
   sr.appendChild(style);
 }
@@ -92,26 +88,27 @@ function installShadowStyle(mathDivEl: HTMLElement) {
  * @param mathDivEl The display <math-div>
  * @param nodeId Node id to highlight, or null to clear highlight
  */
-function setShadowHighlight(mathDivEl: HTMLElement, nodeId: string | null) {
+function setShadowHighlight(mathDivEl: HTMLElement, nodeIds?: string[] | null) {
   const sr = getMathliveShadowRoot(mathDivEl);
   if (!sr) return;
 
   sr.querySelectorAll(".dp-selected").forEach((el) =>
     el.classList.remove("dp-selected")
   );
-  if (!nodeId) return;
 
-  // Highlight all occurrences of the same node-id
-  sr.querySelectorAll<HTMLElement>(
-    `[data-node-id="${CSS.escape(nodeId)}"]`
-  ).forEach((el) => el.classList.add("dp-selected"));
+  const ids = nodeIds ?? [];
+  for (const id of ids) {
+    sr.querySelectorAll<HTMLElement>(
+      `[data-node-id="${CSS.escape(id)}"]`
+    ).forEach((el) => el.classList.add("dp-selected"));
+  }
 }
 
 export default function App() {
   const MathDiv = useMemo(() => "math-div" as any, []);
   const MathField = useMemo(() => "math-field" as any, []);
 
-  const [selectedId] = useState<string | null>(null);
+  // const [selectedId] = useState<string | null>(null);
   const [tree, setTree] = useState<ExpressionTree | null>(null);
   const [previewTree, setPreviewTree] = useState<ExpressionTree | null>(null);
 
@@ -141,16 +138,37 @@ export default function App() {
   );
   const [info2, setInfo2] = useState<string>("");
 
-  const [overlayRect, setOverlayRect] = useState<{
-    left: number;
-    top: number;
-    width: number;
-    height: number;
-  } | null>(null);
+  // const [overlayRect, setOverlayRect] = useState<{
+  //   left: number;
+  //   top: number;
+  //   width: number;
+  //   height: number;
+  // } | null>(null);
 
   function clearSelection() {
     setSelection(null);
-    setOverlayRect(null);
+    const el = displayRef.current;
+    if (el) setShadowHighlight(el, []);
+  }
+
+  function applySelectionHighlight(sel: ExprSelection | null) {
+    const el = displayRef.current;
+    if (!el || !tree) return;
+
+    if (!sel) {
+      setShadowHighlight(el, []);
+      return;
+    }
+
+    if (sel.kind === "node") {
+      setShadowHighlight(el, getDescendantNodeIds(tree, [sel.nodeId]));
+      return;
+    }
+
+    // span
+    const kids = tree.childrenById[sel.parentId] ?? [];
+    const ids = kids.slice(sel.start, sel.end + 1);
+    setShadowHighlight(el, getDescendantNodeIds(tree, ids));
   }
 
   function renderTree(t: ExpressionTree, opts?: { preview: boolean }) {
@@ -161,7 +179,10 @@ export default function App() {
     displayRef.current.textContent = t.latexTagged;
     (displayRef.current as any).render?.();
     installShadowStyle(displayRef.current);
-    setShadowHighlight(displayRef.current, null);
+
+    // after MathLive render, re-apply highlight
+    applySelectionHighlight(selection);
+    // setShadowHighlight(displayRef.current, null);
 
     // Only update MEASURE when not previewing
     if (!opts?.preview) {
@@ -271,25 +292,28 @@ export default function App() {
 
     // If shift is held, expand from the *current* selection if there is one;
     // otherwise expand from the clicked node.
-    const baseId = e.shiftKey && selectedId ? selectedId : draggedId;
+    // const baseId = e.shiftKey && selectedId ? selectedId : draggedId;
     const nextSelectedId = e.shiftKey
-      ? tree.parentById[baseId] ?? baseId
+      ? tree.parentById[clickedId] ?? clickedId
       : draggedId;
 
     setSelection({ kind: "node", nodeId: nextSelectedId });
 
     // Overlay the thing that is guaranteed to be rendered.
     // If nextSelectedId is a unary wrapper like Negate, overlay its child (e.g. "b").
-    const overlayId =
-      tree.nodesById[nextSelectedId]?.op === "Negate"
-        ? tree.childrenById[nextSelectedId]?.[0] ?? nextSelectedId
-        : nextSelectedId;
+    // const overlayId =
+    //   tree.nodesById[nextSelectedId]?.op === "Negate"
+    //     ? tree.childrenById[nextSelectedId]?.[0] ?? nextSelectedId
+    //     : nextSelectedId;
 
-    setOverlayForNodeIds([overlayId]);
+    // setOverlayForNodeIds([overlayId]);
+    const nextSel: ExprSelection = { kind: "node", nodeId: nextSelectedId };
+    setSelection(nextSel);
+    applySelectionHighlight(nextSel);
 
     const hit = tree.nodesById[nextSelectedId];
     if (!hit) {
-      setInfo2(`\n\nclicked node-id: ${selectedId}\n(no NodeInfo found)`);
+      setInfo2(`\n\nclicked node-id: ${clickedId}\n(no NodeInfo found)`);
       return;
     }
 
@@ -298,7 +322,7 @@ export default function App() {
         "",
         `clicked node-id: ${clickedId}` +
           (draggedId !== clickedId ? ` (drag-handle: ${draggedId})` : "") +
-          (e.shiftKey ? ` (shift → parent ${selectedId})` : ""),
+          (e.shiftKey ? ` (shift → parent ${clickedId})` : ""),
         `selected node-id: ${hit.id}`,
         `node op: ${hit.op}`,
         `latex (this node): ${hit.latex}`,
@@ -383,7 +407,7 @@ export default function App() {
     }
 
     setSelection(r.next);
-    setOverlayForNodeIds(r.nodeIdsToOverlay);
+    applySelectionHighlight(r.next);
     setInfo2(
       [
         "",
@@ -401,33 +425,6 @@ export default function App() {
     );
   }
 
-  function setOverlayForNodeIds(nodeIds: string[]) {
-    const mathDivEl = displayRef.current;
-    const boxEl = mathWrapRef.current;
-    if (!mathDivEl || !boxEl) return;
-    if (!tree) return;
-
-    const idsForMeasure = getDescendantNodeIds(tree, nodeIds);
-
-    const r = computeOverlayRectForNodeIds({
-      mathDivEl,
-      containerEl: boxEl,
-      nodeIds: idsForMeasure,
-      padX: 8,
-      padY: 3,
-    });
-
-    if (!r) return;
-    setOverlayRect(r);
-  }
-
-  /*
-    Dragging functionality: Here we determine if there is a valid reorder or move operation possible.
-    Right now this is only within a sum.
-    Then we determine if the cursor is over a valid slot to insert into that is different from
-    where it originally was. Then we re-render the mathlive with the preview.
-    Later, if the mouse is released, we will commit this change
- */
   function onDisplayPointerMove(e: React.PointerEvent) {
     if (!drag?.isActive) return;
     if (e.pointerId !== drag.pointerId) return;
@@ -550,7 +547,6 @@ export default function App() {
           ref={mathWrapRef}
           style={{ position: "relative", display: "inline-block" }}
         >
-          {/* measurement math-div: invisible but still laid out */}
           <MathDiv
             ref={measureRef}
             mode="displaystyle"
@@ -563,28 +559,12 @@ export default function App() {
             }}
           />
 
-          {/* display math-div: what the user sees */}
           <MathDiv
             ref={displayRef}
             mode="displaystyle"
             className="math-display"
+            style={{ "font-size": "1.2rem" }}
           />
-
-          {overlayRect && (
-            <div
-              style={{
-                position: "absolute",
-                left: overlayRect.left,
-                top: overlayRect.top,
-                width: overlayRect.width,
-                height: overlayRect.height,
-                border: "2px solid #ff9800",
-                borderRadius: 6,
-                pointerEvents: "none",
-                boxSizing: "border-box",
-              }}
-            />
-          )}
         </div>
       </div>
 
