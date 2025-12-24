@@ -4,6 +4,7 @@ import {
   normalizeSelection,
   expandSelection,
   type ExprSelection,
+  chooseBestAllowedSelectedNode,
 } from "./selectionSemantics";
 
 /**
@@ -214,5 +215,70 @@ describe("selectionSemantics.bubbleThroughUnary", () => {
 
     expect(r1!.nodeIdsToOverlay).toEqual(kids);
     expect(r2!.nodeIdsToOverlay).toEqual(kids);
+  });
+
+  it("returns the first allowed node in the nodeIds list", () => {
+    // a + b
+    const mj: MJ = ["Add", "a", "b"];
+    const tree = ExpressionTree.create(mj);
+
+    const addId = findNodeId(tree, (n: any) => n.op === "Add");
+    const aId = findNodeId(tree, (n: any) => n.latex === "a");
+
+    // composedPath order is typically deepest -> shallowest:
+    // leaf first, then container
+    const nodeIds = [aId, addId];
+
+    expect(chooseBestAllowedSelectedNode(nodeIds, tree)).toBe(aId);
+  });
+
+  it("skips disallowed ops like Add/Equal/InvisibleOperator", () => {
+    // a + b = c
+    const mj: MJ = ["Equal", ["Add", "a", "b"], "c"];
+    const tree = ExpressionTree.create(mj);
+
+    const eqId = findNodeId(tree, (n: any) => n.op === "Equal");
+    const addId = findNodeId(tree, (n: any) => n.op === "Add");
+
+    // Simulate clicking on '=' or '+': only structural nodes show up
+    const nodeIds = [addId, eqId];
+
+    expect(chooseBestAllowedSelectedNode(nodeIds, tree)).toBeNull();
+  });
+
+  it("returns null when all candidates are disallowed", () => {
+    const mj: MJ = ["Add", "a", "b", "c"];
+    const tree = ExpressionTree.create(mj);
+
+    const addId = findNodeId(tree, (n: any) => n.op === "Add");
+
+    expect(chooseBestAllowedSelectedNode([addId], tree)).toBeNull();
+  });
+
+  it("ignores unknown nodeIds (not present in tree.nodesById) and continues", () => {
+    const mj: MJ = ["Add", "a", "b"];
+    const tree = ExpressionTree.create(mj);
+
+    const bId = findNodeId(tree, (n: any) => n.latex === "b");
+    const addId = findNodeId(tree, (n: any) => n.op === "Add");
+
+    // unknown id first, then a disallowed node, then an allowed leaf
+    const nodeIds = ["does-not-exist", addId, bId];
+
+    expect(chooseBestAllowedSelectedNode(nodeIds, tree)).toBe(bId);
+  });
+
+  it("treats implicit multiplication container (InvisibleOperator) as disallowed but still allows its terms", () => {
+    // "a b c" represented as implicit multiplication
+    const mj: MJ = ["InvisibleOperator", "a", "b", "c"];
+    const tree = ExpressionTree.create(mj);
+
+    const invId = findNodeId(tree, (n: any) => n.op === "InvisibleOperator");
+    const bId = findNodeId(tree, (n: any) => n.latex === "b");
+
+    // leaf then container
+    const nodeIds = [bId, invId];
+
+    expect(chooseBestAllowedSelectedNode(nodeIds, tree)).toBe(bId);
   });
 });

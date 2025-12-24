@@ -3,11 +3,12 @@ import { ComputeEngine } from "@cortex-js/compute-engine";
 import "mathlive";
 import { MathfieldElement } from "mathlive";
 import { useMemo, useRef, useState } from "react";
-import { ExpressionTree, type MJ, type NodeInfo } from "./ExpressionTree";
+import { ExpressionTree, type MJ } from "./ExpressionTree";
 import { getChildRectsInShadow, getMathliveShadowRoot } from "./mathliveShadow";
 import { computeDestinationIndex, reorderAddAtPath } from "./movePath";
 import { pickInsertSlot } from "./rectMath";
 import {
+  chooseBestAllowedSelectedNode,
   expandSelection,
   getDescendantNodeIds,
   normalizeSelection,
@@ -17,78 +18,35 @@ import {
 const ce = new ComputeEngine();
 MathfieldElement.fontsDirectory = "/fonts";
 
-function findBestNodeIdFromComposedPath(
-  path: unknown[],
-  nodesById: Record<string, NodeInfo>
-): string | null {
-  // debugger;
-  const disallowOnPlainClick = new Set(["Add", "Multiply", "Equal"]);
-
-  // Walk up the mathjson tree from deepest to shallowest.
-  // Prefer the first tagged node whose op is NOT disallowed.
-  let firstTagged: string | null = null;
+function getNodeIdsFromComposedPath(path: unknown[]): string[] {
+  const ids: string[] = [];
 
   for (const p of path) {
-    if (!(p instanceof Element)) continue;
-    const h = p as HTMLElement;
-    const nodeId = h.dataset?.nodeId;
-    if (!nodeId) continue;
-
-    if (!firstTagged) firstTagged = nodeId;
-
-    const info = nodesById[nodeId];
-    if (!info) continue;
-
-    if (!disallowOnPlainClick.has(info.op)) {
-      return nodeId; // ✅ pick a term-like node
-    }
+    if (!(p instanceof HTMLElement)) continue;
+    const id = p.dataset?.nodeId;
+    if (id) ids.push(id);
   }
 
-  // If the only thing we found was a container (like Add), treat it as "no selection"
-  return null;
+  return ids;
 }
 
-/**
- * Inject CSS into the shadowRoot of a MathLive <math-div>.
- *
- * MathLive renders into shadow DOM, so global CSS won't reach it.
- * We add a small style tag once per <math-div> instance to support:
- *   - .dp-selected  (selection outline)
- *   - .dp-faded     (preview fade)
- *   - .dp-dragging  (drag outline)
- *
- * Safe to call repeatedly; it no-ops if the style is already installed.
- *
- * @param mathDivEl The <math-div> element hosting MathLive's shadow DOM
- */
 function installShadowStyle(mathDivEl: HTMLElement) {
   const sr = getMathliveShadowRoot(mathDivEl);
   if (!sr) return;
 
-  // Avoid duplicating style
   if (sr.querySelector("style[data-derivation-pad]")) return;
 
   const style = document.createElement("style");
   style.setAttribute("data-derivation-pad", "1");
   style.textContent = `
     .dp-selected { color: #ff9800;}
-  .dp-faded { opacity: 0.25; }
-  .dp-dragging { color: #7c4dff; font-weight: 600; }
+    .dp-faded { opacity: 0.25; }
+    .dp-dragging { color: #7c4dff; font-weight: 600; }
   `;
   sr.appendChild(style);
 }
 
-/**
- * Apply/remove selection highlighting inside a MathLive <math-div> shadowRoot.
- *
- * Because the same node-id can appear multiple times in the rendered DOM
- * (rare now, but possible later), we highlight *all* elements with the given
- * data-node-id.
- *
- * @param mathDivEl The display <math-div>
- * @param nodeId Node id to highlight, or null to clear highlight
- */
-function setShadowHighlight(mathDivEl: HTMLElement, nodeIds?: string[] | null) {
+function setHighlightedText(mathDivEl: HTMLElement, nodeIds?: string[] | null) {
   const sr = getMathliveShadowRoot(mathDivEl);
   if (!sr) return;
 
@@ -138,17 +96,10 @@ export default function App() {
   );
   const [info2, setInfo2] = useState<string>("");
 
-  // const [overlayRect, setOverlayRect] = useState<{
-  //   left: number;
-  //   top: number;
-  //   width: number;
-  //   height: number;
-  // } | null>(null);
-
   function clearSelection() {
     setSelection(null);
     const el = displayRef.current;
-    if (el) setShadowHighlight(el, []);
+    if (el) setHighlightedText(el, []);
   }
 
   function applySelectionHighlight(sel: ExprSelection | null) {
@@ -156,35 +107,31 @@ export default function App() {
     if (!el || !tree) return;
 
     if (!sel) {
-      setShadowHighlight(el, []);
+      setHighlightedText(el, []);
       return;
     }
 
     if (sel.kind === "node") {
-      setShadowHighlight(el, getDescendantNodeIds(tree, [sel.nodeId]));
+      setHighlightedText(el, getDescendantNodeIds(tree, [sel.nodeId]));
       return;
     }
 
     // span
     const kids = tree.childrenById[sel.parentId] ?? [];
     const ids = kids.slice(sel.start, sel.end + 1);
-    setShadowHighlight(el, getDescendantNodeIds(tree, ids));
+    setHighlightedText(el, getDescendantNodeIds(tree, ids));
   }
 
   function renderTree(t: ExpressionTree, opts?: { preview: boolean }) {
     if (!displayRef.current) return;
     if (!measureRef.current) return;
 
-    // Always update DISPLAY
     displayRef.current.textContent = t.latexTagged;
     (displayRef.current as any).render?.();
     installShadowStyle(displayRef.current);
 
-    // after MathLive render, re-apply highlight
     applySelectionHighlight(selection);
-    // setShadowHighlight(displayRef.current, null);
 
-    // Only update MEASURE when not previewing
     if (!opts?.preview) {
       measureRef.current.textContent = t.latexTagged;
       (measureRef.current as any).render?.();
@@ -198,17 +145,6 @@ export default function App() {
     renderTree(t, { preview: false });
   }
 
-  /**
-   * Parse the current MathLive <math-field> input and render it into the display.
-   *
-   * Uses the Compute Engine parse() with `{ canonical: false }` so the term order
-   * reflects the user's input (no canonical reordering of commutative Add).
-   *
-   * Side effects:
-   * - Updates `currentJson` (the "source of truth" MathJSON)
-   * - Calls renderFromMathJson(json, { preview:false })
-   * - Updates the debug textarea with the LaTeX and MathJSON
-   */
   function onAddEquation() {
     const mf = inputRef.current;
     console.log(mf.value);
@@ -232,20 +168,6 @@ export default function App() {
     setBaselineJson(json);
   }
 
-  /**
-   * Pointer down handler on the rendered equation.
-   *
-   * Responsibilities:
-   * 1) Hit-test the clicked DOM element (via composedPath + data-node-id tags)
-   * 2) Update selection state + overlay rectangle
-   * 3) If the click hits a child term inside an Add container, begin a drag-reorder
-   *    gesture by setting DragState and capturing the pointer.
-   *
-   * Notes:
-   * - Dragging is currently enabled only for terms whose parent op is "Add".
-   * - Selection and dragging are currently started from the same pointerdown;
-   *   you may later separate "click to select" vs "drag to reorder".
-   */
   function onDisplayPointerDown(e: React.PointerEvent) {
     const displayEl = displayRef.current;
     if (!displayEl) return;
@@ -253,7 +175,8 @@ export default function App() {
 
     const ne = e.nativeEvent as PointerEvent;
     const path = typeof ne.composedPath === "function" ? ne.composedPath() : [];
-    const clickedId = findBestNodeIdFromComposedPath(path, tree.nodesById);
+    const ids = getNodeIdsFromComposedPath(path);
+    const clickedId = chooseBestAllowedSelectedNode(ids, tree);
 
     if (!clickedId) {
       clearSelection();
@@ -290,23 +213,12 @@ export default function App() {
       });
     }
 
-    // If shift is held, expand from the *current* selection if there is one;
-    // otherwise expand from the clicked node.
-    // const baseId = e.shiftKey && selectedId ? selectedId : draggedId;
     const nextSelectedId = e.shiftKey
       ? tree.parentById[clickedId] ?? clickedId
       : draggedId;
 
     setSelection({ kind: "node", nodeId: nextSelectedId });
 
-    // Overlay the thing that is guaranteed to be rendered.
-    // If nextSelectedId is a unary wrapper like Negate, overlay its child (e.g. "b").
-    // const overlayId =
-    //   tree.nodesById[nextSelectedId]?.op === "Negate"
-    //     ? tree.childrenById[nextSelectedId]?.[0] ?? nextSelectedId
-    //     : nextSelectedId;
-
-    // setOverlayForNodeIds([overlayId]);
     const nextSel: ExprSelection = { kind: "node", nodeId: nextSelectedId };
     setSelection(nextSel);
     applySelectionHighlight(nextSel);
@@ -330,22 +242,6 @@ export default function App() {
       ].join("\n")
     );
   }
-
-  /**
-   * Keyboard handler for span expansion.
-   *
-   * Current behavior:
-   * - Holding SHIFT + ArrowLeft/ArrowRight expands selection inside an Add/Multiply
-   *   container by extending the span boundaries.
-   *
-   * It supports two selection modes:
-   * - { kind:"node" }  a single node-id
-   * - { kind:"span" }  a contiguous range of child indices within a parent container
-   *
-   * Side effects:
-   * - Updates `selection`
-   * - Updates overlay rectangle to cover the selected child node IDs
-   */
 
   function selectionDebugText(
     tree: ExpressionTree,
@@ -563,7 +459,7 @@ export default function App() {
             ref={displayRef}
             mode="displaystyle"
             className="math-display"
-            style={{ "font-size": "1.2rem" }}
+            style={{ fontSize: "1.2rem" }}
           />
         </div>
       </div>

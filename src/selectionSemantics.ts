@@ -101,3 +101,25 @@ export function getDescendantNodeIds(
   for (const id of rootIds) visit(id);
   return out;
 }
+
+export function chooseBestAllowedSelectedNode(
+  nodeIds: string[],
+  tree: ExpressionTree
+): string | null {
+  const disallow = new Set(["Add", "Equal", "InvisibleOperator"]);
+
+  let firstTagged: string | null = null;
+
+  for (const id of nodeIds) {
+    if (!firstTagged) firstTagged = id;
+
+    const info = tree.nodesById[id];
+    if (!info) continue;
+
+    if (!disallow.has(info.op)) {
+      return id;
+    }
+  }
+
+  return null;
+}
