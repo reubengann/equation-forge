@@ -1,0 +1,218 @@
+import { describe, it, expect } from "vitest";
+import { ExpressionTree, type MJ } from "./ExpressionTree";
+import {
+  normalizeSelection,
+  expandSelection,
+  type ExprSelection,
+} from "./selectionSemantics";
+
+/**
+ * Helper: find a node id by (op, latex). Keeps tests robust when IDs are generated.
+ */
+function findNodeId(tree: ExpressionTree, pred: (n: any) => boolean): string {
+  const hit = Object.values(tree.nodesById).find(pred);
+  if (!hit) {
+    throw new Error(
+      "Node not found. Existing nodes:\n" +
+        Object.values(tree.nodesById)
+          .map(
+            (n: any) => `${n.id} op=${n.op} latex=${JSON.stringify(n.latex)}`
+          )
+          .join("\n")
+    );
+  }
+  return hit.id;
+}
+
+describe("selectionSemantics.bubbleThroughUnary", () => {
+  it("bubbles from a leaf under Negate up to the Negate node", () => {
+    // Add(a, Negate(b))
+    const mj: MJ = ["Add", "a", ["Negate", "b"]];
+    const tree = ExpressionTree.create(mj);
+
+    const bId = findNodeId(tree, (n: any) => n.latex === "b");
+    const bubbled = normalizeSelection(tree, bId);
+
+    expect(tree.nodesById[bubbled]?.op).toBe("Negate");
+  });
+
+  it("does not bubble past Negate into higher container nodes", () => {
+    const mj: MJ = ["Add", "a", ["Negate", "b"]];
+    const tree = ExpressionTree.create(mj);
+
+    const bId = findNodeId(tree, (n: any) => n.latex === "b");
+    const bubbled = normalizeSelection(tree, bId);
+
+    // Parent of the Negate should be Add; we should stop at Negate.
+    const parent = tree.parentById[bubbled];
+    expect(parent).toBeTruthy();
+    expect(tree.nodesById[parent!]?.op).toBe("Add");
+    expect(tree.nodesById[bubbled]?.op).toBe("Negate");
+  });
+
+  it("returns the same id when node is not under a unary wrapper", () => {
+    const mj: MJ = ["Add", "a", "b"];
+    const tree = ExpressionTree.create(mj);
+
+    const bId = findNodeId(tree, (n: any) => n.latex === "b");
+    expect(normalizeSelection(tree, bId)).toBe(bId);
+  });
+
+  it("bubbles from a leaf under Negate up to the Negate node", () => {
+    const mj: MJ = ["Add", "a", ["Negate", "b"]];
+    const tree = ExpressionTree.create(mj);
+
+    const bId = findNodeId(tree, (n: any) => n.latex === "b");
+    const normId = normalizeSelection(tree, bId);
+
+    expect(tree.nodesById[normId]?.op).toBe("Negate");
+  });
+
+  it("does not bubble past Negate into the parent container", () => {
+    const mj: MJ = ["Add", "a", ["Negate", "b"]];
+    const tree = ExpressionTree.create(mj);
+
+    const bId = findNodeId(tree, (n: any) => n.latex === "b");
+    const normId = normalizeSelection(tree, bId);
+
+    expect(tree.nodesById[normId]?.op).toBe("Negate");
+    const parentId = tree.parentById[normId];
+    expect(parentId).toBeTruthy();
+    expect(tree.nodesById[parentId!]?.op).toBe("Add");
+  });
+
+  it("returns same id when node is not under a unary wrapper", () => {
+    const mj: MJ = ["Add", "a", "b"];
+    const tree = ExpressionTree.create(mj);
+
+    const bId = findNodeId(tree, (n: any) => n.latex === "b");
+    expect(normalizeSelection(tree, bId)).toBe(bId);
+  });
+
+  it("node selection inside Add expands to a span (right)", () => {
+    const mj: MJ = ["Add", "a", "b", "c"];
+    const tree = ExpressionTree.create(mj);
+
+    const bId = findNodeId(tree, (n: any) => n.latex === "b");
+
+    const sel: ExprSelection = { kind: "node", nodeId: bId };
+    const r = expandSelection(tree, sel, "right");
+    expect(r).not.toBeNull();
+
+    expect(r!.next.kind).toBe("span");
+    const span = r!.next as Extract<ExprSelection, { kind: "span" }>;
+    expect(span.op).toBe("Add");
+    expect(span.start).toBe(1);
+    expect(span.end).toBe(2);
+
+    // overlay should cover b and c
+    expect(r!.nodeIdsToOverlay.length).toBe(2);
+    expect(r!.nodeIdsToOverlay[0]).toBe(bId);
+  });
+
+  it("node selection inside Add expands to a span (left)", () => {
+    const mj: MJ = ["Add", "a", "b", "c"];
+    const tree = ExpressionTree.create(mj);
+
+    const bId = findNodeId(tree, (n: any) => n.latex === "b");
+
+    const sel: ExprSelection = { kind: "node", nodeId: bId };
+    const r = expandSelection(tree, sel, "left");
+    expect(r).not.toBeNull();
+
+    const span = r!.next as Extract<ExprSelection, { kind: "span" }>;
+    expect(span.op).toBe("Add");
+    expect(span.start).toBe(0);
+    expect(span.end).toBe(1);
+
+    // overlay should cover a and b (so last should be bId)
+    expect(r!.nodeIdsToOverlay.length).toBe(2);
+    expect(r!.nodeIdsToOverlay[1]).toBe(bId);
+  });
+
+  it("span selection inside Add expands further (right)", () => {
+    const mj: MJ = ["Add", "a", "b", "c", "d"];
+    const tree = ExpressionTree.create(mj);
+
+    const addId = findNodeId(tree, (n: any) => n.op === "Add");
+    const kids = tree.childrenById[addId] ?? [];
+    expect(kids.length).toBe(4);
+
+    // start with b..c
+    const sel: ExprSelection = {
+      kind: "span",
+      parentId: addId,
+      op: "Add",
+      start: 1,
+      end: 2,
+    };
+
+    const r = expandSelection(tree, sel, "right");
+    expect(r).not.toBeNull();
+
+    const span = r!.next as Extract<ExprSelection, { kind: "span" }>;
+    expect(span.start).toBe(1);
+    expect(span.end).toBe(3); // now b..d
+    expect(r!.nodeIdsToOverlay).toEqual(kids.slice(1, 4));
+  });
+
+  it("returns null when node selection is not inside Add/Multiply", () => {
+    const mj: MJ = ["Equal", "a", "b"];
+    const tree = ExpressionTree.create(mj);
+
+    const aId = findNodeId(tree, (n: any) => n.latex === "a");
+    const sel: ExprSelection = { kind: "node", nodeId: aId };
+
+    expect(expandSelection(tree, sel, "right")).toBeNull();
+  });
+
+  it("works for Multiply as well", () => {
+    const mj: MJ = ["InvisibleOperator", "a", "b", "c"];
+    const tree = ExpressionTree.create(mj);
+
+    const bId = findNodeId(tree, (n: any) => n.latex === "b");
+    const sel: ExprSelection = { kind: "node", nodeId: bId };
+
+    const r = expandSelection(tree, sel, "right");
+    expect(r).not.toBeNull();
+
+    const span = r!.next as Extract<ExprSelection, { kind: "span" }>;
+    expect(span.op).toBe("InvisibleOperator");
+    expect(span.start).toBe(1);
+    expect(span.end).toBe(2);
+  });
+
+  it("clamps span expansion at container boundaries", () => {
+    const mj: MJ = ["Add", "a", "b"];
+    const tree = ExpressionTree.create(mj);
+
+    const addId = findNodeId(tree, (n: any) => n.op === "Add");
+    const kids = tree.childrenById[addId] ?? [];
+    expect(kids.length).toBe(2);
+
+    const sel: ExprSelection = {
+      kind: "span",
+      parentId: addId,
+      op: "Add",
+      start: 0,
+      end: 1,
+    };
+
+    // expand right past end -> should stay at end
+    const r1 = expandSelection(tree, sel, "right");
+    expect(r1).not.toBeNull();
+    const s1 = r1!.next as Extract<ExprSelection, { kind: "span" }>;
+    expect(s1.start).toBe(0);
+    expect(s1.end).toBe(1);
+
+    // expand left past start -> should stay at start
+    const r2 = expandSelection(tree, sel, "left");
+    expect(r2).not.toBeNull();
+    const s2 = r2!.next as Extract<ExprSelection, { kind: "span" }>;
+    expect(s2.start).toBe(0);
+    expect(s2.end).toBe(1);
+
+    expect(r1!.nodeIdsToOverlay).toEqual(kids);
+    expect(r2!.nodeIdsToOverlay).toEqual(kids);
+  });
+});

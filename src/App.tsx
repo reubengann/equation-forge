@@ -1,35 +1,25 @@
-import { useMemo, useRef, useState } from "react";
-import "mathlive";
 import "@cortex-js/compute-engine";
-import { MathfieldElement } from "mathlive";
 import { ComputeEngine } from "@cortex-js/compute-engine";
+import "mathlive";
+import { MathfieldElement } from "mathlive";
+import { useMemo, useRef, useState } from "react";
 import { ExpressionTree, type MJ, type NodeInfo } from "./ExpressionTree";
-import { pickInsertSlot } from "./rectMath";
-import { computeDestinationIndex, reorderAddAtPath } from "./movePath";
 import {
   computeOverlayRectForNodeIds,
   getChildRectsInShadow,
   getMathliveShadowRoot,
 } from "./mathliveShadow";
+import { computeDestinationIndex, reorderAddAtPath } from "./movePath";
+import { pickInsertSlot } from "./rectMath";
+import {
+  expandSelection,
+  getDescendantNodeIds,
+  normalizeSelection,
+  type ExprSelection,
+} from "./selectionSemantics";
 
 const ce = new ComputeEngine();
 MathfieldElement.fontsDirectory = "/fonts";
-
-function bubbleThroughUnary(tree: ExpressionTree, nodeId: string): string {
-  let cur = nodeId;
-  while (true) {
-    const p = tree.parentById[cur];
-    if (!p) return cur;
-    const pop = tree.nodesById[p]?.op;
-
-    // unary wrappers that should be draggable as a unit
-    if (pop === "Negate") {
-      cur = p;
-      continue;
-    }
-    return cur;
-  }
-}
 
 function findBestNodeIdFromComposedPath(
   path: unknown[],
@@ -124,16 +114,6 @@ export default function App() {
   const [selectedId] = useState<string | null>(null);
   const [tree, setTree] = useState<ExpressionTree | null>(null);
   const [previewTree, setPreviewTree] = useState<ExpressionTree | null>(null);
-
-  type ExprSelection =
-    | { kind: "node"; nodeId: string }
-    | {
-        kind: "span";
-        parentId: string;
-        op: "Add" | "Multiply";
-        start: number;
-        end: number;
-      };
 
   const [selection, setSelection] = useState<ExprSelection | null>(null);
 
@@ -259,7 +239,7 @@ export default function App() {
       return;
     }
 
-    const draggedId = bubbleThroughUnary(tree, clickedId);
+    const draggedId = normalizeSelection(tree, clickedId);
 
     const pId = tree.parentById[draggedId];
     if (!pId) return;
@@ -342,6 +322,42 @@ export default function App() {
    * - Updates `selection`
    * - Updates overlay rectangle to cover the selected child node IDs
    */
+
+  function selectionDebugText(
+    tree: ExpressionTree,
+    sel: ExprSelection
+  ): string {
+    if (sel.kind === "node") {
+      const n = tree.nodesById[sel.nodeId];
+      if (!n) return `selection: node ${sel.nodeId} (missing NodeInfo)`;
+
+      return [
+        "KEYBOARD SELECTION",
+        `kind: node`,
+        `nodeId: ${sel.nodeId}`,
+        `op: ${n.op}`,
+        `latex: ${n.latex}`,
+        `parent: ${tree.parentById[sel.nodeId] ?? "(none)"}`,
+      ].join("\n");
+    }
+
+    const kids = tree.childrenById[sel.parentId] ?? [];
+    const ids = kids.slice(sel.start, sel.end + 1);
+    const ops = ids.map((id) => tree.nodesById[id]?.op ?? "?").join(", ");
+    const latex = ids.map((id) => tree.nodesById[id]?.latex ?? "?").join(" | ");
+
+    return [
+      "KEYBOARD SELECTION",
+      `kind: span`,
+      `parentId: ${sel.parentId}`,
+      `parentOp: ${sel.op}`,
+      `range: [${sel.start}..${sel.end}] of ${kids.length}`,
+      `childIds: ${ids.join(", ")}`,
+      `childOps: ${ops}`,
+      `childLatex: ${latex}`,
+    ].join("\n");
+  }
+
   function onKeyDown(e: React.KeyboardEvent) {
     if (!e.shiftKey) return;
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
@@ -351,81 +367,52 @@ export default function App() {
 
     e.preventDefault();
 
-    // Turn a node selection into a span selection when appropriate
-    if (selection.kind === "node") {
-      const nodeId = selection.nodeId;
-      const parentId = tree.parentById[nodeId];
-      if (!parentId) return;
+    const dir = e.key === "ArrowLeft" ? "left" : "right";
 
-      const parentInfo = tree.nodesById[parentId];
-      if (!parentInfo) return;
-
-      const op = parentInfo.op;
-      if (op !== "Add" && op !== "Multiply") return;
-
-      const idx = tree.childIndexById[nodeId];
-      if (idx === undefined) return;
-
-      const start = idx;
-      const end = idx;
-
-      // Now expand one step in the requested direction
-      const kids = tree.childrenById[parentId] ?? [];
-
-      let newStart = start;
-      let newEnd = end;
-
-      if (e.key === "ArrowLeft") newStart = Math.max(0, start - 1);
-      else newEnd = Math.min(kids.length - 1, end + 1);
-
-      const span: ExprSelection = {
-        kind: "span",
-        parentId,
-        op,
-        start: newStart,
-        end: newEnd,
-      };
-      setSelection(span);
-
-      const selectedChildIds = kids.slice(newStart, newEnd + 1);
-      setOverlayForNodeIds(selectedChildIds);
+    const r = expandSelection(tree, selection, dir);
+    if (!r) {
+      setInfo2(
+        [
+          "",
+          "KEYBOARD SELECTION",
+          `shift+${e.key} → no expansion (not in Add/InvisibleOperator or no parent/kids)`,
+          selectionDebugText(tree, selection),
+        ].join("\n")
+      );
       return;
     }
 
-    // Expand an existing span
-    if (selection.kind === "span") {
-      const { parentId, op, start, end } = selection;
-      const kids = tree.childrenById[parentId] ?? [];
-      if (kids.length === 0) return;
-
-      let newStart = start;
-      let newEnd = end;
-
-      if (e.key === "ArrowLeft") newStart = Math.max(0, start - 1);
-      else newEnd = Math.min(kids.length - 1, end + 1);
-
-      const span: ExprSelection = {
-        kind: "span",
-        parentId,
-        op,
-        start: newStart,
-        end: newEnd,
-      };
-      setSelection(span);
-
-      setOverlayForNodeIds(kids.slice(newStart, newEnd + 1));
-    }
+    setSelection(r.next);
+    setOverlayForNodeIds(r.nodeIdsToOverlay);
+    setInfo2(
+      [
+        "",
+        "KEYBOARD SELECTION",
+        `shift+${e.key} → expanded`,
+        "",
+        "BEFORE:",
+        selectionDebugText(tree, selection),
+        "",
+        "AFTER:",
+        selectionDebugText(tree, r.next),
+        "",
+        `overlay nodeIds: ${r.nodeIdsToOverlay.join(", ")}`,
+      ].join("\n")
+    );
   }
 
   function setOverlayForNodeIds(nodeIds: string[]) {
     const mathDivEl = displayRef.current;
     const boxEl = mathWrapRef.current;
     if (!mathDivEl || !boxEl) return;
+    if (!tree) return;
+
+    const idsForMeasure = getDescendantNodeIds(tree, nodeIds);
 
     const r = computeOverlayRectForNodeIds({
       mathDivEl,
       containerEl: boxEl,
-      nodeIds,
+      nodeIds: idsForMeasure,
       padX: 8,
       padY: 3,
     });
