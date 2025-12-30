@@ -54,7 +54,7 @@ export function getSlotForAddReorder(
   measureEl: HTMLElement,
   addId: string,
   clientX: number
-): Slot | null {
+): Slot {
   const childIds = tree.childrenById[addId] ?? [];
   if (childIds.length < 2) return null;
 
@@ -62,9 +62,9 @@ export function getSlotForAddReorder(
   if (!nodeRects.length) return null;
   const rects: RectLTRB[] = nodeRects.map((nr) => nr.rect);
 
-  const slotIndex = pickInsertSlot(rects, clientX, 10); // your existing helper: returns 0..n
+  const slotIndex = pickInsertSlot(rects, clientX, 0); // your existing helper: returns 0..n
   if (slotIndex == null) return null;
-  return { containerId: addId, index: slotIndex };
+  return slotIndex;
 }
 
 function rectContains(r: RectLTRB, x: number, y: number) {
@@ -83,21 +83,43 @@ export function hitTestNodeIdInMathliveShadow(
   let bestArea = Infinity;
 
   const els = sr.querySelectorAll<HTMLElement>("[data-node-id]");
+  // let logStmt = "";
+  // const print = (s: any) => (logStmt += s.toString() + "\n");
   for (const el of els) {
     const id = el.dataset.nodeId;
-    if (!id) continue;
+    if (!id) {
+      // print("No id for this dataset");
+      continue;
+    }
 
     const r = el.getBoundingClientRect();
     const rect = { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
 
-    if (!rectContains(rect, clientX, clientY)) continue;
+    const host = mathDivEl.getBoundingClientRect();
+    // print(
+    //   `HOST rect: ${host.left}, ${host.right}, ${host.top}, ${host.bottom}`
+    // );
+    if (!rectContains(rect, clientX, clientY)) {
+      // console.log(el.attributes[0].nodeValue);
+      // if (el.attributes[0].nodeValue == "n2")
+      //   print(
+      //     `rect ${el.attributes[0].nodeValue} ${rect.left}, ${rect.right}, ${rect.top}, ${rect.bottom} does not contain ${clientX}, ${clientY}`
+      //   );
+      continue;
+    }
 
     const area = (rect.right - rect.left) * (rect.bottom - rect.top);
     if (area < bestArea) {
       bestArea = area;
       bestId = id;
+      // if (el.attributes[0].nodeValue == "n2")
+      //   print(
+      //     `Best so far: rect ${el.attributes[0].nodeValue} ${rect.left}, ${rect.right}, ${rect.top}, ${rect.bottom} DOES contain ${clientX}, ${clientY}`
+      //   );
     }
   }
 
+  // print(`returning ${bestId}`);
+  // console.log(logStmt);
   return bestId;
 }

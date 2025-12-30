@@ -2,19 +2,14 @@ import "@cortex-js/compute-engine";
 import { ComputeEngine } from "@cortex-js/compute-engine";
 import "mathlive";
 import { MathfieldElement } from "mathlive";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ExpressionTree, type MJ } from "./ExpressionTree";
 import {
-  getChildRectsInShadow,
   getMathliveShadowRoot,
   getSlotForAddReorder,
   hitTestNodeIdInMathliveShadow,
 } from "./mathliveShadow";
-import { computeDestinationIndex, reorderAddAtPath } from "./movePath";
-import {
-  getReorderContainerForSelection as maybeGetAddContainer,
-  pickInsertSlot,
-} from "./rectMath";
+import { getReorderContainerForSelection } from "./rectMath";
 import {
   chooseBestAllowedSelectedNode,
   expandSelection,
@@ -22,6 +17,8 @@ import {
   normalizeSelection,
   type ExprSelection,
 } from "./selectionSemantics";
+import type { Slot } from "./moveExpression/types";
+import { applyMove } from "./moveExpression/applyMove";
 
 const ce = new ComputeEngine();
 MathfieldElement.fontsDirectory = "/fonts";
@@ -96,6 +93,7 @@ export default function App() {
     pointerId: number;
     selectedIds: string[];
     currentHoverId: string | null;
+    currentSlot: Slot | null;
   };
 
   const [drag, setDrag] = useState<DragState>(null);
@@ -103,6 +101,7 @@ export default function App() {
   const inputRef = useRef<any>(null);
   const displayRef = useRef<HTMLElement | null>(null);
   const measureRef = useRef<HTMLElement | null>(null);
+  const debugOverlayRef = useRef<HTMLDivElement | null>(null);
   const renderBoxRef = useRef<HTMLDivElement | null>(null);
   const mathWrapRef = useRef<HTMLDivElement | null>(null);
   const [info, setInfo] = useState<string>(
@@ -112,6 +111,9 @@ export default function App() {
 
   const [dragStartInfo, setDragStartInfo] = useState<string>("");
   const [dragHoverInfo, setDragHoverInfo] = useState<string>("");
+  const [dragSlot, setDragSlot] = useState<string>("");
+  const [parentAddId, setParentAddId] = useState<string>("");
+  const [debugBoxes, setDebugBoxes] = useState(false);
 
   function clearSelection() {
     setSelection(null);
@@ -164,7 +166,7 @@ export default function App() {
 
   function onAddEquation() {
     const mf = inputRef.current;
-    console.log(mf.value);
+    // console.log(mf.value);
     const latex: string = mf.value;
     const expr = ce.parse(latex, { canonical: false });
     if (!expr) {
@@ -216,7 +218,9 @@ export default function App() {
       pointerId: e.pointerId,
       selectedIds: [normalizedId],
       currentHoverId: normalizedId,
+      currentSlot: null,
     });
+    setDragSlot("");
 
     const nextSel: ExprSelection = { kind: "node", nodeId: normalizedId };
     setSelection(nextSel);
@@ -329,6 +333,7 @@ export default function App() {
       setDragStartInfo("Nothing!");
       return;
     }
+    // console.log(drag);
     // debugger;
 
     setDragStartInfo(`${drag.currentHoverId}`);
@@ -341,23 +346,44 @@ export default function App() {
       e.clientX,
       e.clientY
     );
-    if (hoverId === drag.currentHoverId) {
-      setDragHoverInfo(`${hoverId} === ${drag.currentHoverId}`);
-      return;
-    } else {
-      setDragHoverInfo(`${hoverId} !== ${drag.currentHoverId}`);
+    // if (hoverId === drag.currentHoverId) {
+    //   setDragHoverInfo(`${hoverId} === ${drag.currentHoverId}`);
+    //   return;
+    // } else {
+    //   setDragHoverInfo(`${hoverId} !== ${drag.currentHoverId}`);
+    // }
+    if (!hoverId) setDragHoverInfo("None");
+    else {
+      const hoveredNode = tree.nodesById[hoverId];
+      setDragHoverInfo(
+        `id: ${hoveredNode.id} op: ${hoveredNode.op} latex: ${hoveredNode.latex}`
+      );
     }
-
-    // setDragHoverInfo(`${hoverId}`);
     // Maybe choose a slot
     if (!hoverId || hoverId === drag.currentHoverId) return;
-    const addId = maybeGetAddContainer(tree, hoverId);
 
+    const addId = getReorderContainerForSelection(tree, hoverId);
+    setParentAddId(addId ?? "None");
     const targetSlot = addId
       ? getSlotForAddReorder(tree, measureEl, addId, e.clientX)
       : null;
 
-    if (targetSlot) console.log("Target slot is", targetSlot.index);
+    if (targetSlot) console.log("Target slot is", targetSlot);
+    setDrag({
+      ...drag,
+      currentHoverId: hoverId,
+      currentSlot: targetSlot,
+    });
+    setDragSlot(`${targetSlot}`);
+
+    const preview = applyMove({
+      tree,
+      selectedIds: drag.selectedIds,
+      hoverId,
+      targetSlot,
+      // include modifiers if you need them: add vs multiply, etc.
+    });
+    setPreviewTree(preview);
 
     // const kids = tree.childrenById[drag.addParentId] ?? [];
     // if (kids.length < 2) return;
@@ -413,6 +439,117 @@ export default function App() {
     }
 
     setDrag(null);
+  }
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "`") {
+        e.preventDefault();
+        setDebugBoxes((v) => !v);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const overlay = debugOverlayRef.current;
+    const mathDivEl = displayRef.current;
+    if (!overlay) return;
+
+    overlay.replaceChildren();
+
+    if (!debugBoxes || !tree || !mathDivEl) return;
+
+    renderNodeIdBoxes(tree, mathDivEl, overlay);
+  }, [debugBoxes, tree]);
+
+  type Box = { left: number; top: number; width: number; height: number };
+
+  function clearOverlay(overlay: HTMLElement) {
+    overlay.replaceChildren();
+  }
+
+  function drawRect(
+    overlay: HTMLElement,
+    box: Box,
+    label: string,
+    opts?: { stroke?: string; fill?: string; dash?: boolean }
+  ) {
+    const el = document.createElement("div");
+    el.style.position = "absolute";
+    el.style.left = `${box.left}px`;
+    el.style.top = `${box.top}px`;
+    el.style.width = `${box.width}px`;
+    el.style.height = `${box.height}px`;
+    el.style.border = `1px solid ${opts?.stroke ?? "lime"}`;
+    el.style.background = opts?.fill ?? "transparent";
+    if (opts?.dash) el.style.borderStyle = "dashed";
+    el.style.boxSizing = "border-box";
+
+    const tag = document.createElement("div");
+    tag.textContent = label;
+    tag.style.position = "absolute";
+    tag.style.left = "0";
+    tag.style.top = "0";
+    tag.style.transform = "translateY(-100%)";
+    tag.style.fontSize = "10px";
+    tag.style.lineHeight = "10px";
+    tag.style.padding = "1px 2px";
+    tag.style.color = opts?.stroke ?? "lime";
+    tag.style.background = "rgba(0,0,0,0.65)";
+    tag.style.whiteSpace = "nowrap";
+
+    el.appendChild(tag);
+    overlay.appendChild(el);
+  }
+
+  function drawPoint(overlay: HTMLElement, x: number, y: number) {
+    const p = document.createElement("div");
+    p.style.position = "absolute";
+    p.style.left = `${x - 3}px`;
+    p.style.top = `${y - 3}px`;
+    p.style.width = "6px";
+    p.style.height = "6px";
+    p.style.borderRadius = "50%";
+    p.style.background = "red";
+    overlay.appendChild(p);
+  }
+
+  function renderNodeIdBoxes(
+    tree: ExpressionTree,
+    mathDivEl: HTMLElement,
+    overlay: HTMLElement
+  ) {
+    const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
+    if (!sr) return;
+
+    const hostRect = mathDivEl.getBoundingClientRect();
+
+    const nodes = sr.querySelectorAll<HTMLElement>("[data-node-id]");
+    for (const el of nodes) {
+      const id = el.dataset.nodeId;
+      if (!id) continue;
+      const info = tree.nodesById[id];
+      if (!info) continue;
+
+      // ✅ FILTER HERE
+      if (info.op !== "Add") continue;
+
+      const r = el.getBoundingClientRect();
+      const box: Box = {
+        left: r.left - hostRect.left,
+        top: r.top - hostRect.top,
+        width: r.right - r.left,
+        height: r.bottom - r.top,
+      };
+
+      const op = tree.nodesById[id]?.op ?? "?";
+      drawRect(overlay, box, `${id} ${op}`, {
+        stroke: op === "Equal" ? "orange" : "lime",
+        fill: "rgba(0,255,0,0.06)",
+      });
+    }
   }
 
   return (
@@ -482,15 +619,30 @@ export default function App() {
               inset: 0,
               opacity: 0,
               pointerEvents: "none",
+              fontSize: "1.2rem",
             }}
           />
-
-          <MathDiv
-            ref={displayRef}
-            mode="displaystyle"
-            className="math-display"
-            style={{ fontSize: "1.2rem" }}
-          />
+          <div style={{ position: "relative" }}>
+            <MathDiv
+              ref={displayRef}
+              mode="displaystyle"
+              className="math-display"
+              style={{ fontSize: "1.2rem" }}
+            />
+            {/* Debug overlay */}
+            <div
+              ref={debugOverlayRef}
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+                pointerEvents: "none",
+                zIndex: 9999,
+              }}
+            />
+          </div>
         </div>
       </div>
 
@@ -515,7 +667,7 @@ export default function App() {
         style={{
           marginTop: 16,
           width: "100%",
-          height: 300,
+          height: 200,
           fontFamily:
             "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
           fontSize: 12,
@@ -526,6 +678,8 @@ export default function App() {
 
       <p>Start Drag: {dragStartInfo}</p>
       <p>Hover Drag: {dragHoverInfo}</p>
+      <p>Drag slot: {dragSlot}</p>
+      <p>Parent Add: {parentAddId}</p>
     </div>
   );
 }

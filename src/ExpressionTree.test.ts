@@ -1,12 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { ExpressionTree, type MJ } from "./ExpressionTree";
 import { ComputeEngine } from "@cortex-js/compute-engine";
+import { makeMJfromLatex } from "./testHelpers";
 
-const ce = new ComputeEngine();
-
-function makeMJfromLatex(x: string): MJ {
-  return ce.parse(x, { canonical: false }).json as MJ;
-}
+export const ce = new ComputeEngine();
 
 describe("ExpressionTree", () => {
   it("Wraps each node", () => {

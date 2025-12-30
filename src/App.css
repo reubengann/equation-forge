@@ -44,15 +44,3 @@
 .math-wrap {
   position: relative;
 }
-
-.math-display {
-  width: 100%;
-}
-
-.math-measure {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  opacity: 0;
-  pointer-events: none;
-}

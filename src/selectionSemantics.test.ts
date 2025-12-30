@@ -6,24 +6,7 @@ import {
   type ExprSelection,
   chooseBestAllowedSelectedNode,
 } from "./selectionSemantics";
-
-/**
- * Helper: find a node id by (op, latex). Keeps tests robust when IDs are generated.
- */
-function findNodeId(tree: ExpressionTree, pred: (n: any) => boolean): string {
-  const hit = Object.values(tree.nodesById).find(pred);
-  if (!hit) {
-    throw new Error(
-      "Node not found. Existing nodes:\n" +
-        Object.values(tree.nodesById)
-          .map(
-            (n: any) => `${n.id} op=${n.op} latex=${JSON.stringify(n.latex)}`
-          )
-          .join("\n")
-    );
-  }
-  return hit.id;
-}
+import { findNodeId } from "./testHelpers";
 
 describe("selectionSemantics.bubbleThroughUnary", () => {
   it("bubbles from a leaf under Negate up to the Negate node", () => {

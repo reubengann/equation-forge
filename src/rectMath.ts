@@ -11,7 +11,19 @@ export function getReorderContainerForSelection(
   tree: ExpressionTree,
   selectedId: string
 ): string | null {
+  // debugger;
+  if (tree.nodesById[selectedId].op == "Add") return selectedId;
   const pId = tree.parentById[selectedId];
+  if (!pId) {
+    console.log("selected", tree.nodesById[selectedId], "No parent");
+    return null;
+  }
+  console.log(
+    "selected",
+    tree.nodesById[selectedId],
+    "parent",
+    tree.nodesById[pId]
+  );
   if (!pId) return null;
   return tree.nodesById[pId]?.op === "Add" ? pId : null;
 }
