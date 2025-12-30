@@ -4,9 +4,17 @@ import "mathlive";
 import { MathfieldElement } from "mathlive";
 import { useMemo, useRef, useState } from "react";
 import { ExpressionTree, type MJ } from "./ExpressionTree";
-import { getChildRectsInShadow, getMathliveShadowRoot } from "./mathliveShadow";
+import {
+  getChildRectsInShadow,
+  getMathliveShadowRoot,
+  getSlotForAddReorder,
+  hitTestNodeIdInMathliveShadow,
+} from "./mathliveShadow";
 import { computeDestinationIndex, reorderAddAtPath } from "./movePath";
-import { pickInsertSlot } from "./rectMath";
+import {
+  getReorderContainerForSelection as maybeGetAddContainer,
+  pickInsertSlot,
+} from "./rectMath";
 import {
   chooseBestAllowedSelectedNode,
   expandSelection,
@@ -85,15 +93,9 @@ export default function App() {
   const [selection, setSelection] = useState<ExprSelection | null>(null);
 
   type DragState = null | {
-    kind: "reorder-add";
-    isActive: boolean;
     pointerId: number;
-    addParentId: string;
-    addPath: number[];
-    baselineChildIds: string[];
-    draggedChildId: string;
-    fromIndex: number;
-    toIndex: number;
+    selectedIds: string[];
+    currentHoverId: string | null;
   };
 
   const [drag, setDrag] = useState<DragState>(null);
@@ -107,6 +109,9 @@ export default function App() {
     "Type an equation, click Add / Update. Then click parts of the rendered equation."
   );
   const [info2, setInfo2] = useState<string>("");
+
+  const [dragStartInfo, setDragStartInfo] = useState<string>("");
+  const [dragHoverInfo, setDragHoverInfo] = useState<string>("");
 
   function clearSelection() {
     setSelection(null);
@@ -180,14 +185,20 @@ export default function App() {
     setBaselineJson(json);
   }
 
+  function getNodeIdsFromPointerEvent(e: React.PointerEvent): string[] {
+    const ne = e.nativeEvent as PointerEvent;
+    const path = typeof ne.composedPath === "function" ? ne.composedPath() : [];
+    return getNodeIdsFromComposedPath(path);
+  }
+
   function onDisplayPointerDown(e: React.PointerEvent) {
+    // debugger;
     const displayEl = displayRef.current;
     if (!displayEl) return;
     if (!tree) return;
 
-    const ne = e.nativeEvent as PointerEvent;
-    const path = typeof ne.composedPath === "function" ? ne.composedPath() : [];
-    const ids = getNodeIdsFromComposedPath(path);
+    const ids = getNodeIdsFromPointerEvent(e);
+    // Usually something like ML__mathit. Need to traverse the tree upward until we find a data-node
     const clickedId = chooseBestAllowedSelectedNode(ids, tree);
 
     if (!clickedId) {
@@ -195,57 +206,37 @@ export default function App() {
       return;
     }
 
-    const draggedId = normalizeSelection(tree, clickedId);
+    // If we select b in "-b", choose the whole negation
+    const normalizedId = normalizeSelection(tree, clickedId);
 
-    const pId = tree.parentById[draggedId];
-    if (!pId) return;
-    const pInfo = pId ? tree.nodesById[pId] : null;
-    const idx = tree.childIndexById[draggedId];
-    const addPath = tree.pathById[pId]; // parentId is the Add node id
-    if (!addPath) return;
-    const baselineChildIds = tree.childrenById[pId] ?? [];
-    if (baselineChildIds.length < 2) return;
     setPreviewTree(null);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 
-    if (pId && pInfo?.op === "Add" && idx !== undefined) {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setDrag({
+      pointerId: e.pointerId,
+      selectedIds: [normalizedId],
+      currentHoverId: normalizedId,
+    });
 
-      setDrag({
-        kind: "reorder-add",
-        isActive: true,
-        pointerId: e.pointerId,
-
-        addParentId: pId,
-        addPath,
-        baselineChildIds,
-
-        draggedChildId: draggedId,
-        fromIndex: idx,
-        toIndex: idx,
-      });
-    }
-
-    const nextSelectedId = e.shiftKey
-      ? tree.parentById[clickedId] ?? clickedId
-      : draggedId;
-
-    setSelection({ kind: "node", nodeId: nextSelectedId });
-
-    const nextSel: ExprSelection = { kind: "node", nodeId: nextSelectedId };
+    const nextSel: ExprSelection = { kind: "node", nodeId: normalizedId };
     setSelection(nextSel);
     applySelectionHighlight(nextSel);
 
-    const hit = tree.nodesById[nextSelectedId];
+    // Logging
+    const hit = tree.nodesById[normalizedId];
     if (!hit) {
       setInfo2(`\n\nclicked node-id: ${clickedId}\n(no NodeInfo found)`);
       return;
     }
+    setDragStartInfo(`${clickedId}`);
 
     setInfo2(
       [
         "",
         `clicked node-id: ${clickedId}` +
-          (draggedId !== clickedId ? ` (drag-handle: ${draggedId})` : "") +
+          (normalizedId !== clickedId
+            ? ` (drag-handle: ${normalizedId})`
+            : "") +
           (e.shiftKey ? ` (shift → parent ${clickedId})` : ""),
         `selected node-id: ${hit.id}`,
         `node op: ${hit.op}`,
@@ -334,57 +325,84 @@ export default function App() {
   }
 
   function onDisplayPointerMove(e: React.PointerEvent) {
-    if (!drag?.isActive) return;
+    if (!drag) {
+      setDragStartInfo("Nothing!");
+      return;
+    }
+    // debugger;
+
+    setDragStartInfo(`${drag.currentHoverId}`);
     if (e.pointerId !== drag.pointerId) return;
     if (!tree) return;
-
     const measureEl = measureRef.current;
     if (!measureEl) return;
-
-    const kids = tree.childrenById[drag.addParentId] ?? [];
-    if (kids.length < 2) return;
-
-    const rects = getChildRectsInShadow(measureEl, kids);
-    if (rects.length === 0) return;
-
-    const hoveredSlot = pickInsertSlot(
-      rects.map((r) => r.rect), // RectLTRB[]
+    const hoverId = hitTestNodeIdInMathliveShadow(
+      measureEl,
       e.clientX,
-      20 // marginPx (use 5 if you want it tighter like your test)
+      e.clientY
     );
-
-    if (hoveredSlot == null) {
-      // "no target": don't update preview/toIndex
+    if (hoverId === drag.currentHoverId) {
+      setDragHoverInfo(`${hoverId} === ${drag.currentHoverId}`);
       return;
-    }
-    let toIndex = computeDestinationIndex(hoveredSlot, drag.fromIndex);
-    toIndex = Math.max(0, Math.min(kids.length - 1, toIndex));
-    console.log(toIndex);
-    if (toIndex === drag.toIndex) {
-      return;
+    } else {
+      setDragHoverInfo(`${hoverId} !== ${drag.currentHoverId}`);
     }
 
-    const nextDrag = { ...drag, toIndex };
-    setDrag(nextDrag);
+    // setDragHoverInfo(`${hoverId}`);
+    // Maybe choose a slot
+    if (!hoverId || hoverId === drag.currentHoverId) return;
+    const addId = maybeGetAddContainer(tree, hoverId);
 
-    const baselineJson = tree.rootJson;
-    // ✅ build previewJson and render it
-    const nextPreviewJson = reorderAddAtPath(
-      baselineJson,
-      drag.addPath,
-      drag.fromIndex,
-      toIndex
-    );
-    const pt = ExpressionTree.create(nextPreviewJson);
-    setPreviewTree(pt);
+    const targetSlot = addId
+      ? getSlotForAddReorder(tree, measureEl, addId, e.clientX)
+      : null;
 
-    // preview=true means "don't update MEASURE"
-    renderTree(pt, { preview: true });
+    if (targetSlot) console.log("Target slot is", targetSlot.index);
+
+    // const kids = tree.childrenById[drag.addParentId] ?? [];
+    // if (kids.length < 2) return;
+
+    // const rects = getChildRectsInShadow(measureEl, kids);
+    // if (rects.length === 0) return;
+
+    // const hoveredSlot = pickInsertSlot(
+    //   rects.map((r) => r.rect), // RectLTRB[]
+    //   e.clientX,
+    //   20 // marginPx (use 5 if you want it tighter like your test)
+    // );
+
+    // if (hoveredSlot == null) {
+    //   // "no target": don't update preview/toIndex
+    //   return;
+    // }
+    // let toIndex = computeDestinationIndex(hoveredSlot, drag.fromIndex);
+    // toIndex = Math.max(0, Math.min(kids.length - 1, toIndex));
+    // console.log(toIndex);
+    // if (toIndex === drag.toIndex) {
+    //   return;
+    // }
+
+    // const nextDrag = { ...drag, toIndex };
+    // setDrag(nextDrag);
+
+    // const baselineJson = tree.rootJson;
+    // // ✅ build previewJson and render it
+    // const nextPreviewJson = reorderAddAtPath(
+    //   baselineJson,
+    //   drag.addPath,
+    //   drag.fromIndex,
+    //   toIndex
+    // );
+    // const pt = ExpressionTree.create(nextPreviewJson);
+    // setPreviewTree(pt);
+
+    // // preview=true means "don't update MEASURE"
+    // renderTree(pt, { preview: true });
   }
 
   function onDisplayPointerUp(e: React.PointerEvent) {
-    if (!drag?.isActive) return;
-    if (e.pointerId !== drag.pointerId) return;
+    // if (!drag?.isActive) return;
+    // if (e.pointerId !== drag.pointerId) return;
 
     if (previewTree) {
       setTree(previewTree);
@@ -412,7 +430,7 @@ export default function App() {
               borderRadius: 8,
             }}
           >
-            {String.raw`\frac{a+b}{2}+c+d=e+f`}
+            {String.raw`\frac{a+b}{2}+c+d=e-f`}
           </MathField>
         </div>
 
@@ -482,7 +500,7 @@ export default function App() {
         style={{
           marginTop: 16,
           width: "100%",
-          height: 360,
+          height: 300,
           fontFamily:
             "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
           fontSize: 12,
@@ -497,7 +515,7 @@ export default function App() {
         style={{
           marginTop: 16,
           width: "100%",
-          height: 360,
+          height: 300,
           fontFamily:
             "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
           fontSize: 12,
@@ -505,6 +523,9 @@ export default function App() {
           borderRadius: 8,
         }}
       />
+
+      <p>Start Drag: {dragStartInfo}</p>
+      <p>Hover Drag: {dragHoverInfo}</p>
     </div>
   );
 }

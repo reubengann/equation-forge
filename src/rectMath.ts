@@ -1,9 +1,20 @@
+import type { ExpressionTree } from "./ExpressionTree";
+
 export type RectLTRB = {
   left: number;
   right: number;
   top: number;
   bottom: number;
 };
+
+export function getReorderContainerForSelection(
+  tree: ExpressionTree,
+  selectedId: string
+): string | null {
+  const pId = tree.parentById[selectedId];
+  if (!pId) return null;
+  return tree.nodesById[pId]?.op === "Add" ? pId : null;
+}
 
 // Given a type of n-ary expression, and its elements' bounding boxes,
 // where would we want to insert an element?

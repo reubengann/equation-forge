@@ -1,4 +1,6 @@
-import { unionRects, type RectLTRB } from "./rectMath";
+import type { ExpressionTree } from "./ExpressionTree";
+import type { Slot } from "./moveExpression/types";
+import { pickInsertSlot, unionRects, type RectLTRB } from "./rectMath";
 
 export function getMathliveShadowRoot(mathDivEl: HTMLElement) {
   return (mathDivEl as any).shadowRoot as ShadowRoot | null;
@@ -45,4 +47,57 @@ export function getChildRectsInShadow(
       return { id, rect };
     })
     .filter(Boolean) as { id: string; rect: any }[];
+}
+
+export function getSlotForAddReorder(
+  tree: ExpressionTree,
+  measureEl: HTMLElement,
+  addId: string,
+  clientX: number
+): Slot | null {
+  const childIds = tree.childrenById[addId] ?? [];
+  if (childIds.length < 2) return null;
+
+  const nodeRects = getChildRectsInShadow(measureEl, childIds); // your existing helper
+  if (!nodeRects.length) return null;
+  const rects: RectLTRB[] = nodeRects.map((nr) => nr.rect);
+
+  const slotIndex = pickInsertSlot(rects, clientX, 10); // your existing helper: returns 0..n
+  if (slotIndex == null) return null;
+  return { containerId: addId, index: slotIndex };
+}
+
+function rectContains(r: RectLTRB, x: number, y: number) {
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+}
+
+export function hitTestNodeIdInMathliveShadow(
+  mathDivEl: HTMLElement,
+  clientX: number,
+  clientY: number
+): string | null {
+  const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
+  if (!sr) return null;
+
+  let bestId: string | null = null;
+  let bestArea = Infinity;
+
+  const els = sr.querySelectorAll<HTMLElement>("[data-node-id]");
+  for (const el of els) {
+    const id = el.dataset.nodeId;
+    if (!id) continue;
+
+    const r = el.getBoundingClientRect();
+    const rect = { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+
+    if (!rectContains(rect, clientX, clientY)) continue;
+
+    const area = (rect.right - rect.left) * (rect.bottom - rect.top);
+    if (area < bestArea) {
+      bestArea = area;
+      bestId = id;
+    }
+  }
+
+  return bestId;
 }
