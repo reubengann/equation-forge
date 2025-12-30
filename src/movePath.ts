@@ -164,10 +164,8 @@ export function reorderAddAtPath(
 }
 
 export function computeDestinationIndex(
-  hoveredExpressionPos: number,
+  targetSlot: number,
   fromIndex: number
 ): number {
-  return hoveredExpressionPos <= fromIndex
-    ? hoveredExpressionPos
-    : hoveredExpressionPos - 1;
+  return targetSlot > fromIndex ? targetSlot - 1 : targetSlot;
 }

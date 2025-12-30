@@ -15,15 +15,15 @@ export function getReorderContainerForSelection(
   if (tree.nodesById[selectedId].op == "Add") return selectedId;
   const pId = tree.parentById[selectedId];
   if (!pId) {
-    console.log("selected", tree.nodesById[selectedId], "No parent");
+    // console.log("selected", tree.nodesById[selectedId], "No parent");
     return null;
   }
-  console.log(
-    "selected",
-    tree.nodesById[selectedId],
-    "parent",
-    tree.nodesById[pId]
-  );
+  // console.log(
+  //   "selected",
+  //   tree.nodesById[selectedId],
+  //   "parent",
+  //   tree.nodesById[pId]
+  // );
   if (!pId) return null;
   return tree.nodesById[pId]?.op === "Add" ? pId : null;
 }
@@ -38,28 +38,15 @@ export function pickInsertSlot(
   const n = rects.length;
   if (n === 0) return null;
 
-  const first = rects[0];
-  if (x < first.left - marginPx) return null;
+  rects = [...rects].sort((a, b) => a.left - b.left);
 
-  if (n === 1) {
-    const mid = (first.left + first.right) / 2;
-    return x <= mid ? 0 : 1;
+  if (x < rects[0].left - marginPx) return null;
+
+  for (let i = 0; i < n; i++) {
+    const mid = (rects[i].left + rects[i].right) / 2;
+    if (x < mid) return i; // before item i
   }
-
-  for (let i = 1; i < n; i++) {
-    const l = rects[i - 1];
-    const r = rects[i];
-    const gapMid = (l.right + r.left) / 2;
-
-    // slot i-1 is "before r" (between l and r)
-    if (x <= gapMid) {
-      return i - 1;
-    }
-  }
-
-  const last = rects[n - 1]; // rect[1]
-  const lastMid = (last.left + last.right) / 2; // (40 + 60)/2 = 50
-  return x <= lastMid ? n - 1 : n; // x=36 => return 1
+  return n; // after last
 }
 
 export function unionRects(rects: RectLTRB[]): RectLTRB | null {

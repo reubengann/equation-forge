@@ -23,6 +23,9 @@ import { applyMove } from "./moveExpression/applyMove";
 const ce = new ComputeEngine();
 MathfieldElement.fontsDirectory = "/fonts";
 
+// let found2: any = null;
+// let found3: any = null;
+
 function getNodeIdsFromComposedPath(path: unknown[]): string[] {
   const ids: string[] = [];
 
@@ -92,8 +95,8 @@ export default function App() {
   type DragState = null | {
     pointerId: number;
     selectedIds: string[];
-    currentHoverId: string | null;
-    currentSlot: Slot | null;
+    addId: string | null;
+    targetSlot: Slot | null;
   };
 
   const [drag, setDrag] = useState<DragState>(null);
@@ -225,8 +228,8 @@ export default function App() {
     setDrag({
       pointerId: e.pointerId,
       selectedIds: [normalizedId],
-      currentHoverId: normalizedId,
-      currentSlot: null,
+      addId: null,
+      targetSlot: null,
     });
     setDragSlot("");
 
@@ -344,7 +347,6 @@ export default function App() {
     // console.log(drag);
     // debugger;
 
-    setDragStartInfo(displayNodeInfo(drag.currentHoverId));
     if (e.pointerId !== drag.pointerId) return;
     if (!tree) return;
     const measureEl = measureRef.current;
@@ -354,6 +356,7 @@ export default function App() {
       e.clientX,
       e.clientY
     );
+    setDragStartInfo(drag.addId ? displayNodeInfo(drag.addId) : "No add");
     // if (hoverId === drag.currentHoverId) {
     //   setDragHoverInfo(`${hoverId} === ${drag.currentHoverId}`);
     //   return;
@@ -364,76 +367,57 @@ export default function App() {
     else {
       setDragHoverInfo(displayNodeInfo(hoverId));
     }
-    // Maybe choose a slot
-    if (!hoverId || hoverId === drag.currentHoverId) return;
-
-    const addId = getReorderContainerForSelection(tree, hoverId);
-    setParentAddId(displayNodeInfo(addId));
-    const targetSlot = addId
-      ? getSlotForAddReorder(tree, measureEl, addId, e.clientX)
+    const nextAddId = hoverId
+      ? getReorderContainerForSelection(tree, hoverId)
+      : null;
+    const nextSlot: Slot | null = nextAddId
+      ? getSlotForAddReorder(tree, measureEl, nextAddId, e.clientX)
       : null;
 
-    if (targetSlot) console.log("Target slot is", targetSlot);
+    // Update UI debug
+    setParentAddId(displayNodeInfo(nextAddId));
+    setDragSlot(`${nextSlot}`);
+
+    // Early-out BEFORE expensive applyMove:
+    // Only skip if both the reorder container AND the computed slot are unchanged.
+    if (nextAddId === drag.addId && nextSlot === drag.targetSlot) {
+      return;
+    }
+
+    // Commit new hover/slot into drag state
     setDrag({
       ...drag,
-      currentHoverId: hoverId,
-      currentSlot: targetSlot,
+      addId: nextAddId,
+      targetSlot: nextSlot,
     });
-    setDragSlot(`${targetSlot}`);
 
+    // If we're not in a valid slot, clear preview and stop.
+    if (!nextAddId || nextSlot == null) {
+      setPreviewTree(null);
+      if (tree) renderTree(tree, { preview: true }); // optional: or just do nothing
+      return;
+    }
+
+    // Expensive preview only when valid and changed
     const preview = applyMove({
       tree,
       selectedIds: drag.selectedIds,
-      hoverId,
-      targetSlot,
-      // include modifiers if you need them: add vs multiply, etc.
+      hoverId: nextAddId, // <-- IMPORTANT: applyMove should receive the Add container
+      targetSlot: nextSlot,
     });
-    setPreviewTree(preview);
 
-    // const kids = tree.childrenById[drag.addParentId] ?? [];
-    // if (kids.length < 2) return;
-
-    // const rects = getChildRectsInShadow(measureEl, kids);
-    // if (rects.length === 0) return;
-
-    // const hoveredSlot = pickInsertSlot(
-    //   rects.map((r) => r.rect), // RectLTRB[]
-    //   e.clientX,
-    //   20 // marginPx (use 5 if you want it tighter like your test)
-    // );
-
-    // if (hoveredSlot == null) {
-    //   // "no target": don't update preview/toIndex
-    //   return;
-    // }
-    // let toIndex = computeDestinationIndex(hoveredSlot, drag.fromIndex);
-    // toIndex = Math.max(0, Math.min(kids.length - 1, toIndex));
-    // console.log(toIndex);
-    // if (toIndex === drag.toIndex) {
-    //   return;
-    // }
-
-    // const nextDrag = { ...drag, toIndex };
-    // setDrag(nextDrag);
-
-    // const baselineJson = tree.rootJson;
-    // // ✅ build previewJson and render it
-    // const nextPreviewJson = reorderAddAtPath(
-    //   baselineJson,
-    //   drag.addPath,
-    //   drag.fromIndex,
-    //   toIndex
-    // );
-    // const pt = ExpressionTree.create(nextPreviewJson);
-    // setPreviewTree(pt);
-
-    // // preview=true means "don't update MEASURE"
-    // renderTree(pt, { preview: true });
+    if (preview) {
+      setPreviewTree(preview);
+      renderTree(preview, { preview: true });
+    } else {
+      setPreviewTree(null);
+      renderTree(tree, { preview: true });
+    }
   }
 
   function onDisplayPointerUp(e: React.PointerEvent) {
-    // if (!drag?.isActive) return;
-    // if (e.pointerId !== drag.pointerId) return;
+    if (!drag) return;
+    if (e.pointerId !== drag.pointerId) return;
 
     if (previewTree) {
       setTree(previewTree);

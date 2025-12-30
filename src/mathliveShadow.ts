@@ -58,13 +58,19 @@ export function getSlotForAddReorder(
   const childIds = tree.childrenById[addId] ?? [];
   if (childIds.length < 2) return null;
 
-  const nodeRects = getChildRectsInShadow(measureEl, childIds); // your existing helper
-  if (!nodeRects.length) return null;
-  const rects: RectLTRB[] = nodeRects.map((nr) => nr.rect);
+  // debugger;
+  // Only exclude ids that are *direct children* of this Add (reorder case)
 
-  const slotIndex = pickInsertSlot(rects, clientX, 0); // your existing helper: returns 0..n
-  if (slotIndex == null) return null;
-  return slotIndex;
+  const nodeRects = getChildRectsInShadow(measureEl, childIds);
+  if (!nodeRects.length) return null;
+
+  const rects: RectLTRB[] = nodeRects
+    .map((nr) => nr.rect)
+    .sort((a, b) => a.left - b.left);
+
+  const insertSlot = pickInsertSlot(rects, clientX, 0);
+  // console.log("picked insert slot", insertSlot, "from", rects, "at", clientX);
+  return insertSlot;
 }
 
 function rectContains(r: RectLTRB, x: number, y: number) {
