@@ -1,23 +1,11 @@
-import { ExpressionTree, type MJ } from "../ExpressionTree";
+import { ExpressionTree } from "../ExpressionTree";
 import {
   computeDestinationIndex,
   isStructurallyValidMove,
   reorderAddAtPath,
 } from "../movePath";
+import { normalizeSelection } from "../selectionSemantics";
 import type { Slot } from "./types";
-
-function nearestAddContainerId(
-  tree: ExpressionTree,
-  nodeId: string
-): string | null {
-  const self = tree.nodesById[nodeId];
-  if (self?.op === "Add") return nodeId;
-
-  const p = tree.parentById[nodeId];
-  if (!p) return null;
-
-  return tree.nodesById[p]?.op === "Add" ? p : null;
-}
 
 export function applyMove(args: {
   tree: ExpressionTree;
@@ -26,32 +14,27 @@ export function applyMove(args: {
   targetSlot: Slot;
 }): ExpressionTree | null {
   const { tree, selectedIds, hoverId, targetSlot } = args;
-
+  if (targetSlot == null) return null;
   // TODO
   if (selectedIds.length !== 1) return null;
-  if (targetSlot == null) return null;
-  const movedId = selectedIds[0];
-  const ban = isStructurallyValidMove(tree, movedId, hoverId);
-  if (ban) return null;
 
-  // If we're over a member of the sum or we're over the sum itself
-  const addId = nearestAddContainerId(tree, hoverId);
-  if (!addId) return null;
+  const movedId = normalizeSelection(tree, selectedIds[0]);
 
-  // For now, we can only move to the same sum
+  const addId = hoverId;
+  if (tree.nodesById[addId]?.op !== "Add") return null;
   if (tree.parentById[movedId] !== addId) return null;
 
-  // If we are the only term in the sum (should not happen, bail)
+  const ban = isStructurallyValidMove(tree, movedId, addId);
+  if (ban) return null;
+
   const kids = tree.childrenById[addId] ?? [];
-  if (kids.length < 2) return null;
+  if (kids.length < 2) return tree;
 
   const fromIndex = tree.childIndexById[movedId];
   if (fromIndex == null) return null;
 
   let toIndex = computeDestinationIndex(targetSlot, fromIndex);
   toIndex = Math.max(0, Math.min(kids.length - 1, toIndex));
-
-  // Nothing to do, we're already here
   if (toIndex === fromIndex) return null;
 
   const addPath = tree.pathById[addId];

@@ -55,4 +55,26 @@ describe("applyMove", () => {
     expect(out).not.toBeNull();
     expect(out!.latexPlain).toBe("a + c + b");
   });
+
+  it("can reorder subtraction as -f + e", () => {
+    const tree = treefromLatex("e - f");
+    const fId = findNodeByLatex(tree, "f");
+    const negId = tree.parentById[fId];
+    expect(negId).not.toBeNull();
+    expect(tree.nodesById[negId!]?.op).toBe("Negate");
+
+    const addId = tree.parentById[negId!];
+    expect(addId).not.toBeNull();
+    expect(tree.nodesById[addId!]?.op).toBe("Add");
+
+    const out = applyMove({
+      tree,
+      selectedIds: [fId], // selecting f should drag the whole Negate(f)
+      hoverId: addId!,
+      targetSlot: 0,
+    });
+
+    expect(out).not.toBeNull();
+    expect(out!.latexPlain).toBe("-f + e");
+  });
 });
