@@ -95,7 +95,7 @@ export function hitTestNodeIdInMathliveShadow(
     const r = el.getBoundingClientRect();
     const rect = { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
 
-    const host = mathDivEl.getBoundingClientRect();
+    // const host = mathDivEl.getBoundingClientRect();
     // print(
     //   `HOST rect: ${host.left}, ${host.right}, ${host.top}, ${host.bottom}`
     // );

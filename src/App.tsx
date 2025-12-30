@@ -193,6 +193,14 @@ export default function App() {
     return getNodeIdsFromComposedPath(path);
   }
 
+  function displayNodeInfo(nodeId: string | null): string {
+    if (!nodeId) return "No id";
+    if (!tree) return "No tree";
+    if (!tree.nodesById[nodeId]) return `Node ${nodeId} not found`;
+    const node = tree.nodesById[nodeId];
+    return `${node.id} ${node.latex}`;
+  }
+
   function onDisplayPointerDown(e: React.PointerEvent) {
     // debugger;
     const displayEl = displayRef.current;
@@ -330,13 +338,13 @@ export default function App() {
 
   function onDisplayPointerMove(e: React.PointerEvent) {
     if (!drag) {
-      setDragStartInfo("Nothing!");
+      setDragStartInfo("Not dragging");
       return;
     }
     // console.log(drag);
     // debugger;
 
-    setDragStartInfo(`${drag.currentHoverId}`);
+    setDragStartInfo(displayNodeInfo(drag.currentHoverId));
     if (e.pointerId !== drag.pointerId) return;
     if (!tree) return;
     const measureEl = measureRef.current;
@@ -352,18 +360,15 @@ export default function App() {
     // } else {
     //   setDragHoverInfo(`${hoverId} !== ${drag.currentHoverId}`);
     // }
-    if (!hoverId) setDragHoverInfo("None");
+    if (!hoverId) setDragHoverInfo("No current hover");
     else {
-      const hoveredNode = tree.nodesById[hoverId];
-      setDragHoverInfo(
-        `id: ${hoveredNode.id} op: ${hoveredNode.op} latex: ${hoveredNode.latex}`
-      );
+      setDragHoverInfo(displayNodeInfo(hoverId));
     }
     // Maybe choose a slot
     if (!hoverId || hoverId === drag.currentHoverId) return;
 
     const addId = getReorderContainerForSelection(tree, hoverId);
-    setParentAddId(addId ?? "None");
+    setParentAddId(displayNodeInfo(addId));
     const targetSlot = addId
       ? getSlotForAddReorder(tree, measureEl, addId, e.clientX)
       : null;
@@ -466,9 +471,9 @@ export default function App() {
 
   type Box = { left: number; top: number; width: number; height: number };
 
-  function clearOverlay(overlay: HTMLElement) {
-    overlay.replaceChildren();
-  }
+  // function clearOverlay(overlay: HTMLElement) {
+  //   overlay.replaceChildren();
+  // }
 
   function drawRect(
     overlay: HTMLElement,
@@ -504,17 +509,17 @@ export default function App() {
     overlay.appendChild(el);
   }
 
-  function drawPoint(overlay: HTMLElement, x: number, y: number) {
-    const p = document.createElement("div");
-    p.style.position = "absolute";
-    p.style.left = `${x - 3}px`;
-    p.style.top = `${y - 3}px`;
-    p.style.width = "6px";
-    p.style.height = "6px";
-    p.style.borderRadius = "50%";
-    p.style.background = "red";
-    overlay.appendChild(p);
-  }
+  // function drawPoint(overlay: HTMLElement, x: number, y: number) {
+  //   const p = document.createElement("div");
+  //   p.style.position = "absolute";
+  //   p.style.left = `${x - 3}px`;
+  //   p.style.top = `${y - 3}px`;
+  //   p.style.width = "6px";
+  //   p.style.height = "6px";
+  //   p.style.borderRadius = "50%";
+  //   p.style.background = "red";
+  //   overlay.appendChild(p);
+  // }
 
   function renderNodeIdBoxes(
     tree: ExpressionTree,
@@ -676,7 +681,7 @@ export default function App() {
         }}
       />
 
-      <p>Start Drag: {dragStartInfo}</p>
+      <p>Previous hover target: {dragStartInfo}</p>
       <p>Hover Drag: {dragHoverInfo}</p>
       <p>Drag slot: {dragSlot}</p>
       <p>Parent Add: {parentAddId}</p>
