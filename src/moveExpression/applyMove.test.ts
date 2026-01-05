@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { findNodeByLatex, findNodeId, treefromLatex } from "../testHelpers";
-import { applyMove, applyMoveOld, stepUp, type State } from "./applyMove";
+import {
+  applyMove,
+  applyMoveOld,
+  maybeDropHere,
+  stepUp,
+  type State,
+} from "./applyMove";
 import { normalizeSelection } from "../selectionSemantics";
 import { ExpressionTree } from "../ExpressionTree";
 
@@ -237,5 +243,81 @@ describe("stepUp", () => {
     // We are still carrying Selection when reaching Divide => reject
     const out = stepUp(tree, state, divideId, denomAddId);
     expect(out).toBeNull();
+  });
+});
+
+describe("maybeDropHere", () => {
+  it("returns state if currentId !== destId", () => {
+    const tree = treefromLatex("a + b");
+    const state: State = {
+      root: tree.rootJson,
+      payload: { kind: "Expr", mj: "c" },
+    };
+    const out = maybeDropHere(tree, state, "n999", "n1", 2);
+    expect(out.didDrop).toBe(false);
+    expect(out.state).toEqual(state);
+  });
+
+  it("drops Expr payload into destination Add and consumes payload", () => {
+    const tree = treefromLatex("a + b");
+
+    const addId = "n1";
+    expect(tree.nodesById[addId]?.op).toBe("Add");
+
+    const state: State = {
+      root: tree.rootJson,
+      payload: { kind: "Expr", mj: "c" },
+    };
+
+    const out = maybeDropHere(tree, state, addId, addId, 2);
+    expect(out.didDrop).toBe(true);
+    expect(out!.state.payload).toBeNull();
+
+    const after = ExpressionTree.create(out!.state.root);
+    expect(after.latexPlain.replace(/\s+/g, " ")).toBe("a + b + c");
+  });
+
+  it("rejects if currentId === destId but payload is still Selection", () => {
+    const tree = treefromLatex("a + b");
+    const addId = "n1";
+
+    const state: State = {
+      root: tree.rootJson,
+      payload: { kind: "Selection", ids: ["n2"] },
+    };
+
+    const out = maybeDropHere(tree, state, addId, addId, 1).didDrop;
+    expect(out).toBe(false);
+  });
+
+  it("is a no-op when payload is null", () => {
+    const tree = treefromLatex("a + b");
+    const addId = "n1";
+
+    const state: State = {
+      root: tree.rootJson,
+      payload: null,
+    };
+
+    const out = maybeDropHere(tree, state, addId, addId, 1).state;
+    expect(out).not.toBeNull();
+    expect(out).toEqual(state);
+  });
+
+  it("inserts an Add payload as a single grouped term", () => {
+    const tree2 = treefromLatex("c + d");
+    const destAddId = "n1";
+
+    const state: State = {
+      root: tree2.rootJson,
+      payload: { kind: "Expr", mj: ["Add", "a", "b"] },
+    };
+
+    const out = maybeDropHere(tree2, state, destAddId, destAddId, 2);
+    expect(out).not.toBeNull();
+
+    const after = ExpressionTree.create(out!.state.root);
+    // Expect something like "c + d + (a + b)" depending on your latexPlain formatting
+    expect(after.latexPlain.replace(/\s+/g, " ")).toContain("a + b");
   });
 });

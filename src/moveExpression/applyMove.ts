@@ -224,3 +224,52 @@ export function stepUp(
   // -------------------------
   return null;
 }
+
+function asAddChildren(expr: MJ): MJ[] {
+  if (Array.isArray(expr) && expr[0] === "Add") return expr.slice(1);
+  return [expr];
+}
+
+function buildAdd(children: MJ[]): MJ {
+  if (children.length === 0) return 0;
+  if (children.length === 1) return children[0];
+  return ["Add", ...children] as MJNode;
+}
+
+type StepResult =
+  | { ok: true; state: State; didDrop: boolean }
+  | { ok: false; state?: State; reason: string };
+
+export function maybeDropHere(
+  tree: ExpressionTree,
+  state: State,
+  currentId: string,
+  destId: string,
+  targetSlot: Slot
+): { state: State; didDrop: boolean } {
+  if (currentId !== destId) return { state, didDrop: false };
+  if (state.payload == null) return { state, didDrop: false };
+  if (state.payload.kind !== "Expr") return { state, didDrop: false };
+
+  // TODO
+  // v1: only drop into Add containers
+  if (tree.nodesById[destId]?.op !== "Add") return { state, didDrop: false };
+  const addPath = tree.pathById[destId];
+  if (!addPath) return { state, didDrop: false };
+  const addExpr = getAtPath(state.root, addPath);
+  const kids = asAddChildren(addExpr);
+
+  // Interpret targetSlot as insertion index in term-space for now
+  const insRaw = typeof targetSlot === "number" ? targetSlot : kids.length;
+  const ins = Math.max(0, Math.min(kids.length, insRaw));
+
+  const nextKids = [
+    ...kids.slice(0, ins),
+    state.payload.mj,
+    ...kids.slice(ins),
+  ];
+  const nextAddExpr = buildAdd(nextKids);
+  const rootAfter = setAtPath(state.root, addPath, nextAddExpr);
+
+  return { state: { root: rootAfter, payload: null }, didDrop: true };
+}
