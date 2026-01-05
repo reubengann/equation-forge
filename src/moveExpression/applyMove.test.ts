@@ -147,7 +147,7 @@ describe("stepUp", () => {
     expect((payloadMJ as any[])[0]).toBe("Negate");
   });
 
-  it("is a no-op when payload is already Expr or null", () => {
+  it("is a null when payload is already Expr or null", () => {
     const tree = treefromLatex("a + b");
 
     const stateExpr: State = {
@@ -156,7 +156,7 @@ describe("stepUp", () => {
     };
 
     const out1 = stepUp(tree, stateExpr, "n1");
-    expect(out1).toEqual(stateExpr);
+    expect(out1).toBeNull();
 
     const stateNull: State = {
       root: tree.rootJson,
@@ -165,5 +165,77 @@ describe("stepUp", () => {
 
     const out2 = stepUp(tree, stateNull, "n1");
     expect(out2).toEqual(stateNull);
+  });
+
+  it("removes a from (a+b)/2 and carries payload as a/2", () => {
+    const tree = treefromLatex(String.raw`\frac{a+b}{2} + c`);
+
+    const aId = normalizeSelection(tree, "n4"); // adjust if needed
+    const innerAddId = "n3";
+    const divideId = "n2";
+
+    let state: State = {
+      root: tree.rootJson,
+      payload: { kind: "Selection", ids: [aId] },
+    };
+
+    // Up: a -> innerAdd (lift) -> divide (wrap payload as /2)
+    // Note: we don't go to outerAddId here; up phase ends at LCA in executor.
+    state = stepUp(tree, state, innerAddId, aId)!;
+    state = stepUp(tree, state, divideId, innerAddId)!;
+
+    const after = ExpressionTree.create(state.root);
+    expect(after.latexPlain.replace(/\s+/g, " ")).toBe(
+      String.raw`\frac{b}{2} + c`
+    );
+
+    expect(state.payload?.kind).toBe("Expr");
+    if (state.payload?.kind !== "Expr")
+      throw new Error("expected Expr payload");
+
+    const payloadTree = ExpressionTree.create(state.payload.mj);
+    expect(payloadTree.latexPlain.replace(/\s+/g, " ")).toBe(
+      String.raw`\frac{a}{2}`
+    );
+  });
+
+  it("rejects additive lift when selection is in the denominator", () => {
+    const tree = treefromLatex(String.raw`\frac{a+b}{2} + c`);
+
+    // Select denominator "2"
+    const twoId = normalizeSelection(tree, "n6"); // adjust if needed
+
+    let state: State = {
+      root: tree.rootJson,
+      payload: { kind: "Selection", ids: [twoId] },
+    };
+
+    // Walk up until we hit the Divide. No lift will happen (we're not in an Add that contains "2").
+    // Then attempt to cross Divide from denominator side => must reject (null).
+    // Route: 2 -> Divide
+    const out = stepUp(tree, state, "n2", twoId);
+    expect(out).toBeNull();
+  });
+
+  it("rejects moving d out of (a+b)/(c+d)", () => {
+    const tree = treefromLatex(String.raw`\frac{a+b}{c+d}`);
+
+    const divideId = "n1";
+    const denomAddId = "n3";
+    const dIdRaw = "n7";
+
+    expect(tree.nodesById[divideId].op).toBe("Divide");
+    expect(findNodeByLatex(tree, "d")).toBe(dIdRaw);
+
+    const dId = normalizeSelection(tree, dIdRaw);
+
+    const state: State = {
+      root: tree.rootJson,
+      payload: { kind: "Selection", ids: [dId] },
+    };
+
+    // We are still carrying Selection when reaching Divide => reject
+    const out = stepUp(tree, state, divideId, denomAddId);
+    expect(out).toBeNull();
   });
 });

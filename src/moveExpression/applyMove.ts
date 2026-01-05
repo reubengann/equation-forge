@@ -144,56 +144,83 @@ function rewriteAddRemovingChildren(
 export function stepUp(
   tree: ExpressionTree,
   state: State,
-  id: string
+  id: string,
+  fromChildId?: string
 ): State | null {
-  if (state.payload == null || state.payload.kind !== "Selection") return state;
+  const op = tree.nodesById[id]?.op;
 
-  // Only an Add can be the “lift point” for an additive selection.
-  if (tree.nodesById[id]?.op !== "Add") return state;
+  // -------------------------
+  // 1) Extract from Add (only while carrying Selection)
+  // -------------------------
+  if (state.payload?.kind === "Selection") {
+    if (op === "Divide") return null; // Reject an *additive* move selection from a quotient itself.
+    if (op !== "Add") return state;
 
-  const addId = id;
-  const selected = state.payload.ids;
+    const addId = id;
+    const selected = state.payload.ids;
 
-  // Require: all selected ids are direct children of this Add.
-  // If not, this isn't the lift point; keep walking up.
-  for (const sid of selected) {
-    if (tree.parentById[sid] !== addId) return state;
+    // Require: all selected ids are direct children of this Add.
+    for (const sid of selected) {
+      if (tree.parentById[sid] !== addId) return state; // not lift point
+    }
+
+    const childIdxs = selected
+      .map((sid) => tree.childIndexById[sid])
+      .filter((x): x is number => typeof x === "number")
+      .sort((a, b) => a - b);
+    if (childIdxs.length !== selected.length) return null;
+
+    const addPath = tree.pathById[addId];
+    if (!addPath) return null;
+
+    const addExpr = getAtPath(state.root, addPath);
+    if (!Array.isArray(addExpr) || addExpr[0] !== "Add") return null;
+
+    const nKids = addExpr.length - 1;
+    const remove = new Set<number>();
+    for (const i of childIdxs) {
+      if (i < 0 || i >= nKids) return null;
+      remove.add(i);
+    }
+
+    const payloadMJ = buildLiftPayloadFromSelectedChildren(addExpr as MJNode, [
+      ...remove,
+    ]);
+    const rewrittenAdd = rewriteAddRemovingChildren(addExpr as MJNode, remove);
+    const rootAfter = setAtPath(state.root, addPath, rewrittenAdd);
+
+    return { root: rootAfter, payload: { kind: "Expr", mj: payloadMJ } };
   }
 
-  const childIdxs = selected
-    .map((sid) => tree.childIndexById[sid])
-    .filter((x): x is number => typeof x === "number")
-    .sort((a, b) => a - b);
+  // If we don't have an Expr payload, nothing to carry upward.
+  if (state.payload == null || state.payload.kind !== "Expr") return state;
 
-  if (childIdxs.length !== selected.length) return null;
+  // -------------------------
+  // 2) CARRY through Divide (payload transform only)
+  // -------------------------
+  if (op === "Divide") {
+    // Need direction (numerator vs denominator)
+    if (!fromChildId) return null;
 
-  // Need the MathJSON path to rewrite the Add.
-  const addPath = tree.pathById[addId];
-  if (!addPath) return null;
+    const kids = tree.childrenById[id] ?? [];
+    if (kids.length !== 2) return null;
+    const [numId, denId] = kids;
 
-  const addExpr = getAtPath(state.root, addPath);
-  if (!Array.isArray(addExpr) || addExpr[0] !== "Add") return null;
+    // Only allowed to lift additively through a Divide when coming from numerator
+    if (fromChildId !== numId) return null;
 
-  const nKids = addExpr.length - 1;
-  // Validate indices are in range and unique
-  const remove = new Set<number>();
-  for (const i of childIdxs) {
-    if (i < 0 || i >= nKids) return null;
-    remove.add(i);
+    const denPath = tree.pathById[denId];
+    if (!denPath) return null;
+    const denExpr = getAtPath(state.root, denPath);
+
+    // Wrap the payload in the same denominator: payload := payload / denom
+    const nextPayload: MJ = ["Divide", state.payload.mj, denExpr] as MJNode;
+
+    return { ...state, payload: { kind: "Expr", mj: nextPayload } };
   }
 
-  // Build payload MJ: either a single child or a new Add of selected children.
-  const payloadMJ = buildLiftPayloadFromSelectedChildren(addExpr as MJNode, [
-    ...remove,
-  ]);
-
-  // Rewrite source Add: remove selected children; collapse singleton; empty->0
-  const rewrittenAdd = rewriteAddRemovingChildren(addExpr as MJNode, remove);
-
-  const rootAfter = setAtPath(state.root, addPath, rewrittenAdd);
-
-  return {
-    root: rootAfter,
-    payload: { kind: "Expr", mj: payloadMJ },
-  };
+  // -------------------------
+  // 3) Default: no-op for other ops (for now)
+  // -------------------------
+  return null;
 }
