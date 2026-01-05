@@ -4,6 +4,7 @@ import {
   applyMove,
   applyMoveOld,
   maybeDropHere,
+  stepDown,
   stepUp,
   type State,
 } from "./applyMove";
@@ -319,5 +320,112 @@ describe("maybeDropHere", () => {
     const after = ExpressionTree.create(out!.state.root);
     // Expect something like "c + d + (a + b)" depending on your latexPlain formatting
     expect(after.latexPlain.replace(/\s+/g, " ")).toContain("a + b");
+  });
+});
+
+describe("stepDown", () => {
+  it("throws if payload is still Selection", () => {
+    const tree = treefromLatex("a + b");
+    const state: State = {
+      root: tree.rootJson,
+      payload: { kind: "Selection", ids: ["n2"] },
+    };
+
+    expect(() =>
+      stepDown({
+        tree,
+        state,
+        currentId: "n1",
+        childId: "n1",
+        destId: "n1",
+        targetSlot: 1,
+      })
+    ).toThrow(/Selection payload/);
+  });
+
+  it("carries an Expr payload through non-destination nodes", () => {
+    const tree = treefromLatex("a + b");
+    const state: State = {
+      root: tree.rootJson,
+      payload: { kind: "Expr", mj: "c" },
+    };
+
+    const out = stepDown({
+      tree,
+      state,
+      currentId: "n2",
+      childId: "n1",
+      destId: "n1",
+      targetSlot: 2,
+    });
+
+    expect(out).not.toBeNull();
+    expect(out!.didDrop).toBe(false);
+    expect(out!.state).toEqual(state);
+  });
+
+  it("drops at destination and consumes payload", () => {
+    const tree = treefromLatex("a + b");
+    const addId = "n1";
+
+    const state: State = {
+      root: tree.rootJson,
+      payload: { kind: "Expr", mj: "c" },
+    };
+
+    const out = stepDown({
+      tree,
+      state,
+      currentId: addId,
+      childId: addId,
+      destId: addId,
+      targetSlot: 2,
+    });
+
+    expect(out).not.toBeNull();
+    expect(out!.didDrop).toBe(true);
+    expect(out!.state.payload).toBeNull();
+
+    const after = ExpressionTree.create(out!.state.root);
+    expect(after.latexPlain.replace(/\s+/g, " ")).toBe("a + b + c");
+  });
+
+  it("allows descending into numerator and multiplies payload by denominator", () => {
+    const tree = treefromLatex(String.raw`\frac{b+d}{2}`);
+
+    const divideId = Object.entries(tree.nodesById).find(
+      ([, n]) => n.op === "Divide"
+    )?.[0];
+    expect(divideId).toBeTruthy();
+
+    const [numId, denId] = tree.childrenById[divideId!] ?? [];
+    expect(numId).toBeTruthy();
+    expect(denId).toBeTruthy();
+
+    const state: State = {
+      root: tree.rootJson,
+      payload: { kind: "Expr", mj: "a" },
+    };
+
+    const out = stepDown({
+      tree,
+      state,
+      currentId: divideId!,
+      childId: numId,
+      destId: "somewhereElse",
+      targetSlot: 0,
+    });
+
+    expect(out).not.toBeNull();
+    expect(out!.didDrop).toBe(false);
+    expect(out!.state.payload?.kind).toBe("Expr");
+
+    // Narrow for TS:
+    if (out!.state.payload?.kind !== "Expr")
+      throw new Error("expected Expr payload");
+
+    const mj = out!.state.payload.mj;
+    expect(Array.isArray(mj)).toBe(true);
+    expect((mj as any[])[0]).toBe("InvisibleOperator");
   });
 });

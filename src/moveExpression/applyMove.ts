@@ -60,6 +60,25 @@ export type State = {
     | null; // after drop
 };
 
+export function stepCrossEqual(state: State): State | null {
+  if (state.payload == null) return null;
+  if (state.payload.kind !== "Expr") return null;
+
+  const mj = state.payload.mj;
+
+  // Nice-to-have: cancel double negate for cleaner results.
+  if (Array.isArray(mj) && mj[0] === "Negate") {
+    return { ...state, payload: { kind: "Expr", mj: mj[1] as MJ } };
+  }
+
+  return { ...state, payload: { kind: "Expr", mj: ["Negate", mj] as MJNode } };
+}
+
+/*
+The thinking here is the following: We start with a tree, a selection of nodes, and a destination.
+We need to extract the expression from the tree (possibly pruning the tree afterwards). Then we need to find
+where to drop it. The drop point may be at the LCA or it may be while traveling down the tree.
+*/
 export function applyMove(args: {
   tree: ExpressionTree;
   selectedIds: string[];
@@ -67,7 +86,13 @@ export function applyMove(args: {
   targetSlot: Slot;
 }): ExpressionTree | null {
   const { tree, selectedIds, hoverId, targetSlot } = args;
-  if (!targetSlot) return null;
+  if (targetSlot == null) return null;
+  // TEMP
+  // TEMP
+  // TEMP
+  // TEMP
+  console.log(targetSlot);
+  if (targetSlot == 3) debugger;
   if (selectedIds.length < 1) return null;
 
   // TODO: Generalize to multiple nodes
@@ -80,36 +105,68 @@ export function applyMove(args: {
   if (!r) return null;
 
   // Stepwise executor state
-  let root: MJ = tree.rootJson;
-  let payload: Payload = null;
+  let state: State = {
+    root: tree.rootJson,
+    payload: { kind: "Selection", ids: [fromId] },
+  };
+  let prevChildId: string | undefined = undefined;
 
   // 1) walk UP applying lift rules when we hit an Add container
   for (const id of r.up) {
-    // minimal v1: when we see the parent Add of fromId, lift it out
-    // (implementation detail: you probably lift when op === "Add" AND id === parent(fromId))
-    // root, payload = stepLiftFromAdd(root, payload, ...)
-    // if we attempt to lift through unsupported ops, return null
+    const nextState = stepUp(tree, state, id, prevChildId);
+    if (!nextState) return null;
+
+    state = nextState;
+    prevChildId = id;
   }
 
-  // 2) at LCA: cross equal
+  // Must have lifted into an Expr by now
+  if (state.payload == null) return null;
+  if (state.payload.kind !== "Expr") return null;
+
+  // 2) at LCA: cross Equal if applicable (optional)
   if (tree.nodesById[r.lcaId]?.op === "Equal") {
-    // root, payload = stepCrossEqual(root, payload)
-  } else {
-    // for v1 test, require crossing Equal
-    return null;
+    const crossed = stepCrossEqual(state);
+    if (!crossed) return null;
+    state = crossed;
   }
 
-  // 3) walk DOWN applying drop rules when we reach destination Add
-  for (const id of r.down) {
-    const op = tree.nodesById[id]?.op;
+  // 3) If destination *is* the LCA, try to drop right now
+  if (toId === r.lcaId) {
+    const dropped = maybeDropHere(tree, state, toId, toId, targetSlot);
+    state = dropped.state;
 
-    // when id === toId and op === "Add": drop payload into it
-    // root, payload = stepDropIntoAdd(root, payload, ...targetSlot)
+    if (state.payload !== null) return null;
+    return ExpressionTree.create(state.root);
   }
 
-  if (payload !== null) return null; // must have been consumed
+  // 4) walk DOWN (edge-aware)
+  let currentId = r.lcaId;
+  for (const childId of r.down) {
+    const out = stepDown({
+      tree,
+      state,
+      currentId,
+      childId,
+      destId: toId,
+      targetSlot,
+    });
+    if (!out) return null;
 
-  return ExpressionTree.create(root);
+    state = out.state;
+    if (out.didDrop) break;
+
+    currentId = childId;
+  }
+
+  // 5) final drop at destination
+  {
+    const dropped = maybeDropHere(tree, state, toId, toId, targetSlot);
+    state = dropped.state;
+
+    if (state.payload !== null) return null;
+    return ExpressionTree.create(state.root);
+  }
 }
 
 function buildLiftPayloadFromSelectedChildren(
@@ -236,10 +293,6 @@ function buildAdd(children: MJ[]): MJ {
   return ["Add", ...children] as MJNode;
 }
 
-type StepResult =
-  | { ok: true; state: State; didDrop: boolean }
-  | { ok: false; state?: State; reason: string };
-
 export function maybeDropHere(
   tree: ExpressionTree,
   state: State,
@@ -272,4 +325,71 @@ export function maybeDropHere(
   const rootAfter = setAtPath(state.root, addPath, nextAddExpr);
 
   return { state: { root: rootAfter, payload: null }, didDrop: true };
+}
+
+type StepDownArgs = {
+  tree: ExpressionTree;
+  state: State;
+  currentId: string;
+  childId: string; // the child we're stepping into
+  destId: string;
+  targetSlot: Slot;
+};
+
+export function stepDown({
+  tree,
+  state,
+  currentId,
+  childId,
+  destId,
+  targetSlot,
+}: StepDownArgs): { state: State; didDrop: boolean } | null {
+  // The payload should have been extracted by the LCA. If not, throw. This should never happen.
+  if (state.payload?.kind === "Selection") {
+    throw new Error(
+      "Invariant violation: stepDown called with Selection payload"
+    );
+  }
+
+  // Already dropped → carry
+  if (state.payload == null) return { state, didDrop: false };
+
+  const cur = tree.nodesById[currentId];
+  if (!cur) return null;
+
+  // Divide-specific logic
+  if (cur.op === "Divide") {
+    const kids = tree.childrenById[currentId] ?? [];
+    if (kids.length !== 2) return null;
+
+    const [numId, denId] = kids;
+
+    // Denominator forbidden
+    if (childId === denId) return null;
+
+    // Numerator allowed: multiply payload by denominator
+    if (childId === numId) {
+      if (state.payload.kind !== "Expr") return null;
+
+      const denMJ = tree.nodesById[denId]?.json;
+      if (!denMJ) return null;
+
+      return {
+        state: {
+          ...state,
+          payload: {
+            kind: "Expr",
+            mj: ["InvisibleOperator", state.payload.mj, denMJ],
+          },
+        },
+        didDrop: false,
+      };
+    }
+  }
+
+  // Try dropping if we're at the destination
+  const dropped = maybeDropHere(tree, state, currentId, destId, targetSlot);
+  if (dropped.didDrop) return dropped;
+
+  return { state, didDrop: false };
 }
