@@ -18,7 +18,7 @@ import {
   type ExprSelection,
 } from "./selectionSemantics";
 import type { Slot } from "./moveExpression/types";
-import { applyMove } from "./moveExpression/applyMove";
+import { applyMoveOld } from "./moveExpression/applyMove";
 
 const ce = new ComputeEngine();
 MathfieldElement.fontsDirectory = "/fonts";
@@ -399,7 +399,7 @@ export default function App() {
     }
 
     // Expensive preview only when valid and changed
-    const preview = applyMove({
+    const preview = applyMoveOld({
       tree,
       selectedIds: drag.selectedIds,
       hoverId: nextAddId, // <-- IMPORTANT: applyMove should receive the Add container
