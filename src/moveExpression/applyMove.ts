@@ -87,12 +87,6 @@ export function applyMove(args: {
 }): ExpressionTree | null {
   const { tree, selectedIds, hoverId, targetSlot } = args;
   if (targetSlot == null) return null;
-  // TEMP
-  // TEMP
-  // TEMP
-  // TEMP
-  console.log(targetSlot);
-  if (targetSlot == 3) debugger;
   if (selectedIds.length < 1) return null;
 
   // TODO: Generalize to multiple nodes
@@ -118,6 +112,16 @@ export function applyMove(args: {
 
     state = nextState;
     prevChildId = id;
+  }
+
+  // if lift point is the LCA (common for leaf moves within an Add), lift there
+  if (
+    state.payload?.kind === "Selection" &&
+    tree.nodesById[r.lcaId]?.op === "Add"
+  ) {
+    const nextState = stepUp(tree, state, r.lcaId, prevChildId);
+    if (!nextState) return null;
+    state = nextState;
   }
 
   // Must have lifted into an Expr by now
