@@ -109,6 +109,17 @@ describe("applyMove", () => {
     expect(next).not.toBeNull();
     expect(next!.latexPlain).toContain(String.raw`e = g + h + f`);
   });
+
+  it("treats bare symbol in equality as implicit sum", () => {
+    const tree = treefromLatex(String.raw`a=b`);
+    const next = applyMove({
+      tree,
+      selectedIds: ["n2"],
+      hoverId: "n3",
+      targetSlot: 0,
+    });
+    expect(next).not.toBeNull();
+  });
 });
 
 describe("stepUp", () => {

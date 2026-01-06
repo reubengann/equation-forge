@@ -18,7 +18,7 @@ import {
   type ExprSelection,
 } from "./selectionSemantics";
 import type { Slot } from "./moveExpression/types";
-import { applyMoveOld, applyMove } from "./moveExpression/applyMove";
+import { applyMove } from "./moveExpression/applyMove";
 
 const ce = new ComputeEngine();
 MathfieldElement.fontsDirectory = "/fonts";
@@ -541,6 +541,9 @@ export default function App() {
     }
   }
 
+  // const defaultString = String.raw`\frac{a+b}{2}+c+d=e-f`
+  const defaultString = String.raw`a=b`;
+
   return (
     <div style={{ padding: 24, maxWidth: 1000 }}>
       <h2>Derivation Pad — Confirm Selection</h2>
@@ -556,7 +559,7 @@ export default function App() {
               borderRadius: 8,
             }}
           >
-            {String.raw`\frac{a+b}{2}+c+d=e-f`}
+            {defaultString}
           </MathField>
         </div>
 
