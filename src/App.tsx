@@ -7,12 +7,10 @@ import { ExpressionTree, type MJ } from "./ExpressionTree";
 import {
   getMathliveShadowRoot,
   getMoveContainerForHover,
-  getSlotForAddReorder,
   getSlotForMoveContainer,
   hitTestNodeIdInMathliveShadow,
   remapEqualHoverToSide,
 } from "./mathliveShadow";
-import { getReorderContainerForSelection } from "./rectMath";
 import {
   chooseBestAllowedSelectedNode,
   expandSelection,

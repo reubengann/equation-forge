@@ -47,11 +47,6 @@ export function applyMoveOld(args: {
   return ExpressionTree.create(nextJson);
 }
 
-type Payload =
-  | { kind: "Selection"; ids: string[] } // only before lift
-  | { kind: "Expr"; mj: MJ } // after lift (what we carry)
-  | null; // after drop (consumed)
-
 export type State = {
   root: MJ;
   payload:
