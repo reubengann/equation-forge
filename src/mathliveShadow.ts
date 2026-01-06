@@ -19,6 +19,86 @@ export function queryElementsByNodeIds(
   return out;
 }
 
+export function remapEqualHoverToSide(
+  tree: ExpressionTree,
+  measureEl: HTMLElement,
+  hoverId: string,
+  clientX: number
+): string {
+  const n = tree.nodesById[hoverId];
+  if (!n || n.op !== "Equal") return hoverId;
+
+  const kids = tree.childrenById[hoverId] ?? [];
+  if (kids.length !== 2) return hoverId;
+
+  const [lhsId, rhsId] = kids;
+
+  // Find rects for LHS and RHS expressions; pick whichever side the cursor is closer to.
+  const rects = getChildRectsInShadow(measureEl, [lhsId, rhsId]);
+  const lhsRect = rects.find((r) => r.id === lhsId)?.rect;
+  const rhsRect = rects.find((r) => r.id === rhsId)?.rect;
+
+  if (!lhsRect || !rhsRect) return hoverId;
+
+  const lhsCenter = (lhsRect.left + lhsRect.right) / 2;
+  const rhsCenter = (rhsRect.left + rhsRect.right) / 2;
+
+  return Math.abs(clientX - lhsCenter) <= Math.abs(clientX - rhsCenter)
+    ? lhsId
+    : rhsId;
+}
+
+function isAdditiveBoundaryParentOp(op: string | undefined): boolean {
+  return op === "Add" || op === "Equal";
+}
+
+export function getMoveContainerForHover(
+  tree: ExpressionTree,
+  hoverId: string
+): string | null {
+  // 1) If we're under an Add, always use that Add
+  let cur: string | null = hoverId;
+  while (cur) {
+    if (tree.nodesById[cur]?.op === "Add") return cur;
+    cur = tree.parentById[cur];
+  }
+
+  // 2) Otherwise choose the "term root": climb until parent is Add/Equal/null
+  let term: string = hoverId;
+  while (true) {
+    const p = tree.parentById[term];
+    if (!p) return term;
+
+    const pOp = tree.nodesById[p]?.op;
+    if (isAdditiveBoundaryParentOp(pOp)) return term;
+
+    term = p;
+  }
+}
+
+export function getSlotForMoveContainer(
+  tree: ExpressionTree,
+  measureEl: HTMLElement,
+  containerId: string,
+  clientX: number
+): Slot {
+  if (tree.nodesById[containerId]?.op === "Add") {
+    // existing behavior
+    return getSlotForAddReorder(tree, measureEl, containerId, clientX);
+  }
+
+  // singleton term: treat as 1-child list
+  const nodeRects = getChildRectsInShadow(measureEl, [containerId]);
+  if (!nodeRects.length) return null;
+
+  const rects: RectLTRB[] = nodeRects
+    .map((nr) => nr.rect)
+    .sort((a, b) => a.left - b.left);
+
+  // insertion index in [0..1]
+  return pickInsertSlot(rects, clientX, 0);
+}
+
 export function rectFromElement(el: HTMLElement): RectLTRB {
   const r = el.getBoundingClientRect();
   return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };

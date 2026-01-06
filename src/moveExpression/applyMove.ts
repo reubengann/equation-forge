@@ -74,6 +74,22 @@ export function stepCrossEqual(state: State): State | null {
   return { ...state, payload: { kind: "Expr", mj: ["Negate", mj] as MJNode } };
 }
 
+function equalSideChild(
+  tree: ExpressionTree,
+  equalId: string,
+  id: string
+): string | null {
+  // Returns the direct child of Equal (LHS or RHS root) that contains `id`
+  let cur: string | null = id;
+  while (cur) {
+    const p: string | null = tree.parentById[cur];
+    if (!p) return null;
+    if (p === equalId) return cur; // cur is the side-root
+    cur = p;
+  }
+  return null;
+}
+
 /*
 The thinking here is the following: We start with a tree, a selection of nodes, and a destination.
 We need to extract the expression from the tree (possibly pruning the tree afterwards). Then we need to find
@@ -122,6 +138,37 @@ export function applyMove(args: {
     const nextState = stepUp(tree, state, r.lcaId, prevChildId);
     if (!nextState) return null;
     state = nextState;
+  }
+
+  // It's possible that the target is a single term that is a child of an equals sign. If so,
+  // and providing we've moved it to the other side, implicitly insert a sum there.
+  if (state.payload?.kind === "Selection") {
+    const movedId = state.payload.ids[0];
+    const p = tree.parentById[movedId];
+
+    // Only if the selected node is a direct child of an Equal
+    if (p && tree.nodesById[p]?.op === "Equal") {
+      const equalId = p;
+
+      // Determine if destination is on the other side of this Equal
+      const fromSide = equalSideChild(tree, equalId, movedId);
+      const toSide = equalSideChild(tree, equalId, toId);
+
+      // If we couldn't resolve sides or it's the same side, don't do the "0 replacement" lift.
+      // This is what prevents "0 + a = b" when dragging within LHS.
+      if (!fromSide || !toSide || fromSide === toSide) {
+        return null; // (or return ExpressionTree.create(tree.rootJson) if you want "no-op")
+      }
+
+      // Cross-equal move: lift by replacing the moved term with 0 and carrying it as Expr
+      const movedPath = tree.pathById[movedId];
+      if (!movedPath) return null;
+
+      const movedExpr = getAtPath(state.root, movedPath);
+      const rootAfter = setAtPath(state.root, movedPath, "0");
+
+      state = { root: rootAfter, payload: { kind: "Expr", mj: movedExpr } };
+    }
   }
 
   // Must have lifted into an Expr by now
@@ -304,29 +351,77 @@ export function maybeDropHere(
   destId: string,
   targetSlot: Slot
 ): { state: State; didDrop: boolean } {
+  // Only drop when we're at the destination node.
   if (currentId !== destId) return { state, didDrop: false };
+
+  // Must have an Expr payload to drop.
   if (state.payload == null) return { state, didDrop: false };
   if (state.payload.kind !== "Expr") return { state, didDrop: false };
 
-  // TODO
-  // v1: only drop into Add containers
-  if (tree.nodesById[destId]?.op !== "Add") return { state, didDrop: false };
-  const addPath = tree.pathById[destId];
-  if (!addPath) return { state, didDrop: false };
-  const addExpr = getAtPath(state.root, addPath);
-  const kids = asAddChildren(addExpr);
+  const destPath = tree.pathById[destId];
+  if (!destPath) return { state, didDrop: false };
 
-  // Interpret targetSlot as insertion index in term-space for now
-  const insRaw = typeof targetSlot === "number" ? targetSlot : kids.length;
-  const ins = Math.max(0, Math.min(kids.length, insRaw));
+  const destExpr = getAtPath(state.root, destPath);
+  const slotRaw = typeof targetSlot === "number" ? targetSlot : null;
 
-  const nextKids = [
-    ...kids.slice(0, ins),
-    state.payload.mj,
-    ...kids.slice(ins),
-  ];
+  const destIsAdd =
+    tree.nodesById[destId]?.op === "Add" ||
+    (Array.isArray(destExpr) && destExpr[0] === "Add");
+
+  // -----------------------------------------
+  // Case A: destination is (or has become) Add
+  // -----------------------------------------
+  if (destIsAdd) {
+    const kids = asAddChildren(destExpr);
+
+    // Interpret targetSlot as insertion index in term-space
+    const insRaw = slotRaw ?? kids.length;
+    const ins = Math.max(0, Math.min(kids.length, insRaw));
+
+    const nextKids = [
+      ...kids.slice(0, ins),
+      state.payload.mj,
+      ...kids.slice(ins),
+    ];
+    const nextAddExpr = buildAdd(nextKids);
+    const rootAfter = setAtPath(state.root, destPath, nextAddExpr);
+
+    return { state: { root: rootAfter, payload: null }, didDrop: true };
+  }
+
+  // -----------------------------------------
+  // Case B: destination is not Add -> wrap into an implicit sum
+  //
+  // SAFETY:
+  // - If dest is inside a non-additive parent (Multiply/Divide/etc), refuse.
+  //   This prevents (a + c)b style edits; UI should have chosen the term-root.
+  // - If parent is Add, the call site should have targeted the parent Add instead.
+  // -----------------------------------------
+  const parentId = tree.parentById[destId];
+  if (parentId) {
+    const pOp = tree.nodesById[parentId]?.op;
+
+    if (pOp === "Add") {
+      return { state, didDrop: false };
+    }
+    if (pOp && pOp !== "Equal") {
+      // Not directly under an additive boundary; refuse.
+      // (If you later add more additive boundaries, extend this condition.)
+      return { state, didDrop: false };
+    }
+  }
+
+  // For a singleton, only "before" (0) or "after" (1) are meaningful.
+  const wrapSlotRaw = slotRaw ?? 1;
+  const wrapSlot = wrapSlotRaw <= 0 ? 0 : 1;
+
+  const nextKids =
+    wrapSlot === 0
+      ? [state.payload.mj, destExpr]
+      : [destExpr, state.payload.mj];
+
   const nextAddExpr = buildAdd(nextKids);
-  const rootAfter = setAtPath(state.root, addPath, nextAddExpr);
+  const rootAfter = setAtPath(state.root, destPath, nextAddExpr);
 
   return { state: { root: rootAfter, payload: null }, didDrop: true };
 }

@@ -6,8 +6,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ExpressionTree, type MJ } from "./ExpressionTree";
 import {
   getMathliveShadowRoot,
+  getMoveContainerForHover,
   getSlotForAddReorder,
+  getSlotForMoveContainer,
   hitTestNodeIdInMathliveShadow,
+  remapEqualHoverToSide,
 } from "./mathliveShadow";
 import { getReorderContainerForSelection } from "./rectMath";
 import {
@@ -356,6 +359,12 @@ export default function App() {
       e.clientX,
       e.clientY
     );
+
+    let hover = hoverId;
+    if (hover && tree.nodesById[hover]?.op === "Equal") {
+      hover = remapEqualHoverToSide(tree, measureEl, hover, e.clientX);
+    }
+
     setDragStartInfo(drag.addId ? displayNodeInfo(drag.addId) : "No add");
     // if (hoverId === drag.currentHoverId) {
     //   setDragHoverInfo(`${hoverId} === ${drag.currentHoverId}`);
@@ -367,42 +376,46 @@ export default function App() {
     else {
       setDragHoverInfo(displayNodeInfo(hoverId));
     }
-    const nextAddId = hoverId
-      ? getReorderContainerForSelection(tree, hoverId)
+
+    // Where could we potentially drop things? Clearly if we're over a sum or over any element of a sum.
+
+    const nextContainerId = hover
+      ? getMoveContainerForHover(tree, hover)
       : null;
-    const nextSlot: Slot | null = nextAddId
-      ? getSlotForAddReorder(tree, measureEl, nextAddId, e.clientX)
+    const nextSlot: Slot | null = nextContainerId
+      ? getSlotForMoveContainer(tree, measureEl, nextContainerId, e.clientX)
       : null;
 
     // Update UI debug
-    setParentAddId(displayNodeInfo(nextAddId));
+    setParentAddId(displayNodeInfo(nextContainerId));
     setDragSlot(`${nextSlot}`);
 
     // Early-out BEFORE expensive applyMove:
     // Only skip if both the reorder container AND the computed slot are unchanged.
-    if (nextAddId === drag.addId && nextSlot === drag.targetSlot) {
+    if (nextContainerId === drag.addId && nextSlot === drag.targetSlot) {
       return;
     }
 
     // Commit new hover/slot into drag state
     setDrag({
       ...drag,
-      addId: nextAddId,
+      addId: nextContainerId,
       targetSlot: nextSlot,
     });
 
     // If we're not in a valid slot, clear preview and stop.
-    if (!nextAddId || nextSlot == null) {
+    if (!nextContainerId || nextSlot == null) {
       setPreviewTree(null);
       if (tree) renderTree(tree, { preview: true }); // optional: or just do nothing
       return;
     }
 
+    if (nextContainerId == "n1") debugger;
     // Expensive preview only when valid and changed
     const preview = applyMove({
       tree,
       selectedIds: drag.selectedIds,
-      hoverId: nextAddId, // <-- IMPORTANT: applyMove should receive the Add container
+      hoverId: nextContainerId, // <-- IMPORTANT: applyMove should receive the Add container
       targetSlot: nextSlot,
     });
 
@@ -541,8 +554,8 @@ export default function App() {
     }
   }
 
-  // const defaultString = String.raw`\frac{a+b}{2}+c+d=e-f`
-  const defaultString = String.raw`a=b`;
+  const defaultString = String.raw`\frac{a+b}{2}+c+d=e-f`;
+  // const defaultString = String.raw`a=b`;
 
   return (
     <div style={{ padding: 24, maxWidth: 1000 }}>
