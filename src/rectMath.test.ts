@@ -7,27 +7,28 @@ describe("pickInsertSlot (insertion slots)", () => {
       { left: 40, right: 60, top: 0, bottom: 10 },
     ];
     expect(pickInsertSlot(rects, 0, 5)).toBe(null); // 0 < (10-5)
-    expect(pickInsertSlot(rects, 19, 5)).toBe(0); // inside/near first => before first gap boundary
+    expect(pickInsertSlot(rects, 19, 5)).toBe(0); // inside first => before its midpoint
   });
 
-  it("for 2 items: uses gap midpoint to choose slot 0 vs 1, and last midpoint to choose 1 vs 2", () => {
+  it("for 2 items: midpoint of each item is the boundary", () => {
     const rects = [
       { left: 10, right: 30, top: 0, bottom: 10 }, // A
       { left: 40, right: 60, top: 0, bottom: 10 }, // B
     ];
-    const gapMid = (30 + 40) / 2; // 35
-    const lastMid = (40 + 60) / 2; // 50
+    const midA = (10 + 30) / 2; // 20
+    const midB = (40 + 60) / 2; // 50
 
-    // Left of / at the gap midpoint => slot 0 (before B / between "before first" vs "between")
-    expect(pickInsertSlot(rects, gapMid, 0)).toBe(0);
-    expect(pickInsertSlot(rects, gapMid - 1, 0)).toBe(0);
+    // Before midpoint of A -> slot 0
+    expect(pickInsertSlot(rects, midA - 1, 0)).toBe(0);
 
-    // Just right of gap midpoint but still on left half of last item => slot 1 (between A and B)
-    expect(pickInsertSlot(rects, gapMid + 1, 0)).toBe(1);
-    expect(pickInsertSlot(rects, lastMid, 0)).toBe(1);
+    // At/after midpoint of A but before midpoint of B -> slot 1
+    expect(pickInsertSlot(rects, midA, 0)).toBe(1);
+    expect(pickInsertSlot(rects, midA + 1, 0)).toBe(1);
+    expect(pickInsertSlot(rects, midB - 1, 0)).toBe(1);
 
-    // Right of last midpoint => slot 2 (after last)
-    expect(pickInsertSlot(rects, lastMid + 1, 0)).toBe(2);
+    // At/after midpoint of B -> slot 2
+    expect(pickInsertSlot(rects, midB, 0)).toBe(2);
+    expect(pickInsertSlot(rects, midB + 1, 0)).toBe(2);
   });
 
   it("for 3 items: can return 0, 1, 2, or 3", () => {
@@ -36,19 +37,18 @@ describe("pickInsertSlot (insertion slots)", () => {
       { left: 40, right: 60, top: 0, bottom: 10 }, // B
       { left: 80, right: 100, top: 0, bottom: 10 }, // C
     ];
-    const midAB = (30 + 40) / 2; // 35
-    const midBC = (60 + 80) / 2; // 70
+    const midA = (10 + 30) / 2; // 20
+    const midB = (40 + 60) / 2; // 50
     const midC = (80 + 100) / 2; // 90
 
-    expect(pickInsertSlot(rects, midAB, 0)).toBe(0);
-    expect(pickInsertSlot(rects, midAB + 1, 0)).toBe(1);
+    expect(pickInsertSlot(rects, midA - 1, 0)).toBe(0); // before A midpoint
+    expect(pickInsertSlot(rects, midA, 0)).toBe(1); // boundary to B
 
-    expect(pickInsertSlot(rects, midBC, 0)).toBe(1);
-    expect(pickInsertSlot(rects, midBC + 1, 0)).toBe(2);
+    expect(pickInsertSlot(rects, midB - 1, 0)).toBe(1); // still before B midpoint
+    expect(pickInsertSlot(rects, midB, 0)).toBe(2); // boundary to C
 
-    // last item midpoint splits slot 2 vs 3
-    expect(pickInsertSlot(rects, midC, 0)).toBe(2);
-    expect(pickInsertSlot(rects, midC + 1, 0)).toBe(3);
+    expect(pickInsertSlot(rects, midC - 1, 0)).toBe(2); // before C midpoint
+    expect(pickInsertSlot(rects, midC, 0)).toBe(3); // after last midpoint
   });
 
   it("returns null for empty rect list", () => {
