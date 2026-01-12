@@ -19,6 +19,7 @@ import {
   type ExprSelection,
 } from "./selectionSemantics";
 import { planMove, type MovePlan } from "./planMove";
+import { applyMove } from "./moveExpression/applyMove";
 import type { RectLTRB } from "./rectMath";
 
 const ce = new ComputeEngine();
@@ -116,6 +117,7 @@ export default function App() {
   const [parentAddId, setParentAddId] = useState<string>("");
   const [debugBoxes, setDebugBoxes] = useState(false);
   const insertOverlayRef = useRef<HTMLDivElement | null>(null);
+  const lastPlanRef = useRef<MovePlan | null>(null);
 
   function rectForNodeId(nodeId: string): RectLTRB | null {
     const measureEl = measureRef.current;
@@ -127,6 +129,21 @@ export default function App() {
     if (!els.length) return null;
 
     return unionBoundingClientRects(els);
+  }
+
+  function rectForVisual(nodeId: string): RectLTRB | null {
+    const base = rectForNodeId(nodeId);
+    const n = tree?.nodesById[nodeId];
+
+    if (n?.op === "Negate") {
+      const kids = tree?.childrenById[nodeId] ?? [];
+      if (kids.length === 1) {
+        const kidRect = rectForNodeId(kids[0]);
+        if (kidRect) return kidRect;
+      }
+    }
+
+    return base;
   }
 
   function describeMovePlan(plan: MovePlan | null): string {
@@ -171,7 +188,7 @@ export default function App() {
     if (!childIds.length) return null;
 
     const rects: Array<RectLTRB | null> = childIds.map((id) =>
-      rectForNodeId(id)
+      rectForVisual(id)
     );
 
     const n = childIds.length;
@@ -203,7 +220,19 @@ export default function App() {
     if (!plan) return null;
 
     if (plan.kind === "ReorderAdd") {
-      return insertXForAdd(plan.addId, plan.toIndex);
+      const childIds = tree ? tree.childrenById[plan.addId] ?? [] : [];
+      const n = childIds.length;
+      const slot =
+        n > 0
+          ? Math.max(
+              0,
+              Math.min(
+                n,
+                plan.toIndex + (plan.toIndex >= plan.fromIndex ? 1 : 0)
+              )
+            )
+          : plan.toIndex;
+      return insertXForAdd(plan.addId, slot);
     }
     if (plan.kind === "InsertIntoAdd") {
       return insertXForAdd(plan.toAddId, plan.toIndex);
@@ -262,6 +291,32 @@ export default function App() {
     line.style.pointerEvents = "none";
 
     overlay.appendChild(line);
+  }
+
+  function planToApplyMoveTarget(plan: MovePlan | null): {
+    hoverId: string;
+    targetSlot: number | null;
+  } | null {
+    if (!plan) return null;
+
+    switch (plan.kind) {
+      case "ReorderAdd":
+        return { hoverId: plan.addId, targetSlot: plan.toIndex };
+      case "InsertIntoAdd":
+        return { hoverId: plan.toAddId, targetSlot: plan.toIndex };
+      case "WrapIntoAddThenInsert":
+        return { hoverId: plan.replaceId, targetSlot: plan.insertIndex };
+      case "MoveAcrossEqual":
+        if (plan.drop.kind === "intoAdd") {
+          return { hoverId: plan.drop.addId, targetSlot: plan.drop.toIndex };
+        }
+        return {
+          hoverId: plan.drop.replaceId,
+          targetSlot: plan.drop.insertIndex,
+        };
+      default:
+        return null;
+    }
   }
 
   function clearSelection() {
@@ -373,6 +428,7 @@ export default function App() {
       pointerId: e.pointerId,
       selectedIds: [normalizedId],
     });
+    lastPlanRef.current = null;
     setDragSlot("");
 
     const nextSel: ExprSelection = { kind: "node", nodeId: normalizedId };
@@ -519,6 +575,7 @@ export default function App() {
     setInfo2(describeMovePlan(plan));
     setDragSlot(plan ? plan.kind : "");
     setParentAddId(hover ? hover : "");
+    lastPlanRef.current = plan;
     renderInsertOverlay(plan);
   }
 
@@ -526,9 +583,29 @@ export default function App() {
     if (!drag) return;
     if (e.pointerId !== drag.pointerId) return;
 
-    if (tree) renderTree(tree, { preview: false });
+    const plan = lastPlanRef.current;
+    const moveTarget = planToApplyMoveTarget(plan);
+
+    if (tree && plan && moveTarget) {
+      const next = applyMove({
+        tree,
+        selectedIds: drag.selectedIds,
+        hoverId: moveTarget.hoverId,
+        targetSlot: moveTarget.targetSlot,
+      });
+      if (next) {
+        setTree(next);
+        renderTree(next, { preview: false });
+      } else {
+        renderTree(tree, { preview: false });
+      }
+    } else if (tree) {
+      renderTree(tree, { preview: false });
+    }
+
     renderInsertOverlay(null);
     setDrag(null);
+    lastPlanRef.current = null;
   }
 
   useEffect(() => {
