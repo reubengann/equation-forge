@@ -6,10 +6,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ExpressionTree, type MJ } from "./ExpressionTree";
 import {
   getMathliveShadowRoot,
-  getMoveContainerForHover,
-  getSlotForMoveContainer,
   hitTestNodeIdInMathliveShadow,
+  queryElementsByNodeIds,
   remapEqualHoverToSide,
+  unionBoundingClientRects,
 } from "./mathliveShadow";
 import {
   chooseBestAllowedSelectedNode,
@@ -18,8 +18,8 @@ import {
   normalizeSelection,
   type ExprSelection,
 } from "./selectionSemantics";
-import type { Slot } from "./moveExpression/types";
-import { applyMove } from "./moveExpression/applyMove";
+import { planMove, type MovePlan } from "./planMove";
+import type { RectLTRB } from "./rectMath";
 
 const ce = new ComputeEngine();
 MathfieldElement.fontsDirectory = "/fonts";
@@ -89,15 +89,12 @@ export default function App() {
 
   // const [selectedId] = useState<string | null>(null);
   const [tree, setTree] = useState<ExpressionTree | null>(null);
-  const [previewTree, setPreviewTree] = useState<ExpressionTree | null>(null);
 
   const [selection, setSelection] = useState<ExprSelection | null>(null);
 
   type DragState = null | {
     pointerId: number;
     selectedIds: string[];
-    addId: string | null;
-    targetSlot: Slot | null;
   };
 
   const [drag, setDrag] = useState<DragState>(null);
@@ -118,6 +115,154 @@ export default function App() {
   const [dragSlot, setDragSlot] = useState<string>("");
   const [parentAddId, setParentAddId] = useState<string>("");
   const [debugBoxes, setDebugBoxes] = useState(false);
+  const insertOverlayRef = useRef<HTMLDivElement | null>(null);
+
+  function rectForNodeId(nodeId: string): RectLTRB | null {
+    const measureEl = measureRef.current;
+    if (!measureEl) return null;
+    const sr = getMathliveShadowRoot(measureEl);
+    if (!sr) return null;
+
+    const els = queryElementsByNodeIds(sr, [nodeId]);
+    if (!els.length) return null;
+
+    return unionBoundingClientRects(els);
+  }
+
+  function describeMovePlan(plan: MovePlan | null): string {
+    if (!plan) return "No move intent (planMove returned null)";
+
+    switch (plan.kind) {
+      case "ReorderAdd":
+        return `Reorder ${plan.movedId} within Add ${plan.addId} from ${plan.fromIndex} to ${plan.toIndex}`;
+      case "InsertIntoAdd":
+        return `Insert ${plan.movedId} from Add ${plan.fromAddId}[${plan.fromIndex}] into Add ${plan.toAddId} at slot ${plan.toIndex}`;
+      case "WrapIntoAddThenInsert":
+        return [
+          `Wrap ${plan.replaceId} (slot ${plan.replaceSlot}) under parent ${plan.replaceParentId}`,
+          `then insert ${plan.movedId} from Add ${plan.fromAddId}[${
+            plan.fromIndex
+          }] ${plan.insertIndex === 0 ? "before" : "after"} it`,
+        ].join(" — ");
+      case "MoveAcrossEqual": {
+        const sideLabel = (side: 0 | 1) => (side === 0 ? "LHS" : "RHS");
+        if (plan.drop.kind === "intoAdd") {
+          return `Move ${plan.movedId} across '=' ${sideLabel(
+            plan.fromSide
+          )} → ${sideLabel(plan.toSide)} into Add ${plan.drop.addId} at slot ${
+            plan.drop.toIndex
+          }`;
+        }
+        const posLabel = plan.drop.insertIndex === 0 ? "before" : "after";
+        return `Move ${plan.movedId} across '=' ${sideLabel(
+          plan.fromSide
+        )} → ${sideLabel(plan.toSide)} by wrapping ${
+          plan.drop.replaceId
+        } and inserting ${posLabel}`;
+      }
+      default:
+        return "Unknown plan";
+    }
+  }
+
+  function insertXForAdd(addId: string, slot: number): number | null {
+    if (!tree) return null;
+    const childIds = tree.childrenById[addId] ?? [];
+    if (!childIds.length) return null;
+
+    const rects: Array<RectLTRB | null> = childIds.map((id) =>
+      rectForNodeId(id)
+    );
+
+    const n = childIds.length;
+    const s = Math.max(0, Math.min(n, slot));
+
+    const prevRect = (() => {
+      for (let i = s - 1; i >= 0; i--) {
+        if (rects[i]) return rects[i]!;
+      }
+      return null;
+    })();
+
+    const nextRect = (() => {
+      for (let i = s; i < n; i++) {
+        if (rects[i]) return rects[i]!;
+      }
+      return null;
+    })();
+
+    if (!prevRect && !nextRect) return null;
+    if (!prevRect) return nextRect ? nextRect.left : null;
+    if (!nextRect) return prevRect.right;
+
+    // Use a midpoint between the nearest visible neighbors.
+    return (prevRect.right + nextRect.left) / 2;
+  }
+
+  function computeInsertX(plan: MovePlan | null): number | null {
+    if (!plan) return null;
+
+    if (plan.kind === "ReorderAdd") {
+      return insertXForAdd(plan.addId, plan.toIndex);
+    }
+    if (plan.kind === "InsertIntoAdd") {
+      return insertXForAdd(plan.toAddId, plan.toIndex);
+    }
+    if (plan.kind === "WrapIntoAddThenInsert") {
+      const r = rectForNodeId(plan.replaceId);
+      if (!r) return null;
+      return plan.insertIndex === 0 ? r.left : r.right;
+    }
+    if (plan.kind === "MoveAcrossEqual") {
+      if (plan.drop.kind === "intoAdd") {
+        return insertXForAdd(plan.drop.addId, plan.drop.toIndex);
+      }
+      const r = rectForNodeId(plan.drop.replaceId);
+      if (!r) return null;
+      return plan.drop.insertIndex === 0 ? r.left : r.right;
+    }
+
+    return null;
+  }
+
+  function targetRectForPlan(plan: MovePlan | null): RectLTRB | null {
+    if (!plan) return null;
+    if (plan.kind === "ReorderAdd") return rectForNodeId(plan.addId);
+    if (plan.kind === "InsertIntoAdd") return rectForNodeId(plan.toAddId);
+    if (plan.kind === "WrapIntoAddThenInsert")
+      return rectForNodeId(plan.replaceId);
+    if (plan.kind === "MoveAcrossEqual") {
+      if (plan.drop.kind === "intoAdd") return rectForNodeId(plan.drop.addId);
+      return rectForNodeId(plan.drop.replaceId);
+    }
+    return null;
+  }
+
+  function renderInsertOverlay(plan: MovePlan | null) {
+    const overlay = insertOverlayRef.current;
+    const mathDivEl = displayRef.current;
+    if (!overlay || !mathDivEl) return;
+
+    overlay.replaceChildren();
+    if (!plan) return;
+
+    const hostRect = mathDivEl.getBoundingClientRect();
+    const x = computeInsertX(plan);
+    if (x == null) return;
+
+    const targetRect = targetRectForPlan(plan) ?? hostRect;
+
+    const line = document.createElement("div");
+    line.style.position = "absolute";
+    line.style.left = `${x - hostRect.left}px`;
+    line.style.top = `${targetRect.top - hostRect.top}px`;
+    line.style.width = "2px";
+    line.style.height = `${targetRect.bottom - targetRect.top}px`;
+    line.style.background = "rgba(124, 77, 255, 0.9)";
+    line.style.pointerEvents = "none";
+
+    overlay.appendChild(line);
+  }
 
   function clearSelection() {
     setSelection(null);
@@ -164,7 +309,6 @@ export default function App() {
   function setBaselineJson(json: MJ) {
     const t = ExpressionTree.create(json);
     setTree(t);
-    setPreviewTree(null);
     renderTree(t, { preview: false });
   }
 
@@ -223,14 +367,11 @@ export default function App() {
     // If we select b in "-b", choose the whole negation
     const normalizedId = normalizeSelection(tree, clickedId);
 
-    setPreviewTree(null);
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 
     setDrag({
       pointerId: e.pointerId,
       selectedIds: [normalizedId],
-      addId: null,
-      targetSlot: null,
     });
     setDragSlot("");
 
@@ -343,6 +484,7 @@ export default function App() {
   function onDisplayPointerMove(e: React.PointerEvent) {
     if (!drag) {
       setDragStartInfo("Not dragging");
+      renderInsertOverlay(null);
       return;
     }
     // console.log(drag);
@@ -358,86 +500,34 @@ export default function App() {
       e.clientY
     );
 
-    let hover = hoverId;
-    if (hover && tree.nodesById[hover]?.op === "Equal") {
-      hover = remapEqualHoverToSide(tree, measureEl, hover, e.clientX);
-    }
+    const hover =
+      hoverId && tree.nodesById[hoverId]?.op === "Equal"
+        ? remapEqualHoverToSide(tree, measureEl, hoverId, e.clientX)
+        : hoverId;
 
-    setDragStartInfo(drag.addId ? displayNodeInfo(drag.addId) : "No add");
-    // if (hoverId === drag.currentHoverId) {
-    //   setDragHoverInfo(`${hoverId} === ${drag.currentHoverId}`);
-    //   return;
-    // } else {
-    //   setDragHoverInfo(`${hoverId} !== ${drag.currentHoverId}`);
-    // }
-    if (!hoverId) setDragHoverInfo("No current hover");
-    else {
-      setDragHoverInfo(displayNodeInfo(hoverId));
-    }
+    setDragStartInfo(displayNodeInfo(drag.selectedIds[0] ?? null));
+    setDragHoverInfo(hover ? displayNodeInfo(hover) : "No current hover");
 
-    // Where could we potentially drop things? Clearly if we're over a sum or over any element of a sum.
-
-    const nextContainerId = hover
-      ? getMoveContainerForHover(tree, hover)
-      : null;
-    const nextSlot: Slot | null = nextContainerId
-      ? getSlotForMoveContainer(tree, measureEl, nextContainerId, e.clientX)
-      : null;
-
-    // Update UI debug
-    setParentAddId(displayNodeInfo(nextContainerId));
-    setDragSlot(`${nextSlot}`);
-
-    // Early-out BEFORE expensive applyMove:
-    // Only skip if both the reorder container AND the computed slot are unchanged.
-    if (nextContainerId === drag.addId && nextSlot === drag.targetSlot) {
-      return;
-    }
-
-    // Commit new hover/slot into drag state
-    setDrag({
-      ...drag,
-      addId: nextContainerId,
-      targetSlot: nextSlot,
-    });
-
-    // If we're not in a valid slot, clear preview and stop.
-    if (!nextContainerId || nextSlot == null) {
-      setPreviewTree(null);
-      if (tree) renderTree(tree, { preview: true }); // optional: or just do nothing
-      return;
-    }
-
-    if (nextContainerId == "n1") debugger;
-    // Expensive preview only when valid and changed
-    const preview = applyMove({
+    const plan = planMove({
       tree,
       selectedIds: drag.selectedIds,
-      hoverId: nextContainerId, // <-- IMPORTANT: applyMove should receive the Add container
-      targetSlot: nextSlot,
+      hoverId: hover,
+      pointer: { x: e.clientX, y: e.clientY },
+      rectFor: rectForNodeId,
     });
 
-    if (preview) {
-      setPreviewTree(preview);
-      renderTree(preview, { preview: true });
-    } else {
-      setPreviewTree(null);
-      renderTree(tree, { preview: true });
-    }
+    setInfo2(describeMovePlan(plan));
+    setDragSlot(plan ? plan.kind : "");
+    setParentAddId(hover ? hover : "");
+    renderInsertOverlay(plan);
   }
 
   function onDisplayPointerUp(e: React.PointerEvent) {
     if (!drag) return;
     if (e.pointerId !== drag.pointerId) return;
 
-    if (previewTree) {
-      setTree(previewTree);
-      setPreviewTree(null);
-      renderTree(previewTree, { preview: false });
-    } else if (tree) {
-      renderTree(tree, { preview: false });
-    }
-
+    if (tree) renderTree(tree, { preview: false });
+    renderInsertOverlay(null);
     setDrag(null);
   }
 
@@ -595,7 +685,7 @@ export default function App() {
           border: "1px solid #ddd",
           padding: 14,
           borderRadius: 10,
-          cursor: "crosshair",
+          cursor: drag ? "default" : "crosshair",
           userSelect: "none",
         }}
         onPointerDown={onDisplayPointerDown}
@@ -631,6 +721,19 @@ export default function App() {
               mode="displaystyle"
               className="math-display"
               style={{ fontSize: "1.2rem" }}
+            />
+            {/* Insert marker overlay */}
+            <div
+              ref={insertOverlayRef}
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 0,
+                pointerEvents: "none",
+                zIndex: 9998,
+              }}
             />
             {/* Debug overlay */}
             <div
