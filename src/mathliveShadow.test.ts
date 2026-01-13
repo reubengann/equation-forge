@@ -4,6 +4,9 @@ import {
   getSlotForMoveContainer,
   getMoveContainerForHover,
   remapEqualHoverToSide,
+  getChildRectsInShadow,
+  getSlotForAddReorder,
+  hitTestNodeIdInMathliveShadow,
 } from "./mathliveShadow";
 
 type Rect = { left: number; right: number; top: number; bottom: number };
@@ -26,11 +29,14 @@ class StubShadowRoot {
     this.elements = elements;
   }
   querySelectorAll(selector: string): StubEl[] {
-    // selector is `[data-node-id="id"]`
+    // selector can be `[data-node-id="id"]` or `[data-node-id]`
     const m = selector.match(/data-node-id="([^"]+)"/);
-    if (!m) return [];
-    const id = m[1];
-    return this.elements.filter((el) => el.dataset.nodeId === id);
+    if (m) {
+      const id = m[1];
+      return this.elements.filter((el) => el.dataset.nodeId === id);
+    }
+    if (selector === "[data-node-id]") return this.elements;
+    return [];
   }
 }
 
@@ -87,5 +93,33 @@ describe("mathliveShadow helpers", () => {
     expect(getSlotForMoveContainer(tree, mathDiv, addId, 1)).toBe(0);
     expect(getSlotForMoveContainer(tree, mathDiv, addId, 15)).toBe(1);
     expect(getSlotForMoveContainer(tree, mathDiv, addId, 40)).toBe(2);
+  });
+
+  it("getChildRectsInShadow returns [] when no shadowRoot", () => {
+    const els: StubEl[] = [];
+    const mathDiv = { shadowRoot: null } as any;
+    expect(getChildRectsInShadow(mathDiv, ["n1"])).toEqual([]);
+  });
+
+  it("getSlotForAddReorder returns null when not enough children or no rects", () => {
+    const tree = treefromLatex("a");
+    const addId = tree.rootId!;
+    const mathDiv = stubMathDiv([]);
+    expect(getSlotForAddReorder(tree, mathDiv, addId, 10)).toBeNull();
+  });
+
+  it("hitTestNodeIdInMathliveShadow picks smallest containing area", () => {
+    const el1 = new StubEl("n1", { left: 0, right: 50, top: 0, bottom: 50 });
+    const el2 = new StubEl("n2", { left: 10, right: 20, top: 10, bottom: 20 });
+    const mathDiv = { shadowRoot: new StubShadowRoot([el1, el2]) } as any;
+
+    expect(hitTestNodeIdInMathliveShadow(mathDiv, 15, 15)).toBe("n2");
+  });
+
+  it("getSlotForMoveContainer on singleton uses pickInsertSlot and returns null when no rects", () => {
+    const tree = treefromLatex("a");
+    const addId = tree.rootId!;
+    const mathDiv = stubMathDiv([]); // no rects
+    expect(getSlotForMoveContainer(tree, mathDiv, addId, 5)).toBeNull();
   });
 });

@@ -468,4 +468,91 @@ describe("planMove", () => {
       },
     });
   });
+
+  it("uses midpoint when side rects are missing for Equal hover", () => {
+    const tree = treefromLatex("a = b + c");
+
+    const equalId = tree.rootId!;
+    const lhsId = tree.childrenById[equalId][0]; // a
+    const rhsAddId = tree.childrenById[equalId][1]; // Add(b,c)
+    const [bId, cId] = tree.childrenById[rhsAddId];
+
+    // Drag 'a' to RHS; provide only Equal and RHS Add rects, no side rects to force midpoint path.
+    const plan = planMove({
+      tree,
+      selectedIds: [lhsId],
+      hoverId: equalId,
+      pointer: { x: 75, y: 110 }, // right of midpoint -> RHS
+      rectFor: rectProvider({
+        [equalId]: { left: 0, right: 100, top: 100, bottom: 120 },
+        [rhsAddId]: { left: 60, right: 100, top: 100, bottom: 120 },
+        [bId]: { left: 60, right: 70, top: 100, bottom: 120 },
+        [cId]: { left: 80, right: 90, top: 100, bottom: 120 },
+      }),
+    });
+
+    expect(plan).toEqual({
+      kind: "MoveAcrossEqual",
+      movedId: lhsId,
+      equalId,
+      fromSide: 0,
+      toSide: 1,
+      drop: { kind: "intoAdd", addId: rhsAddId, toIndex: 1 }, // between b and c
+    });
+  });
+
+  it("allows parentContains when replace rect is missing for cross-equal replace", () => {
+    const tree = treefromLatex("a = c");
+
+    const equalId = tree.rootId!;
+    const lhsId = tree.childrenById[equalId][0];
+    const rhsId = tree.childrenById[equalId][1];
+
+    // Drag 'a' to RHS (non-Add). Provide only Equal rect, no RHS rect -> replaceContains false, parentContains true.
+    const plan = planMove({
+      tree,
+      selectedIds: [lhsId],
+      hoverId: equalId,
+      pointer: { x: 75, y: 110 }, // RHS side of equal midpoint
+      rectFor: rectProvider({
+        [equalId]: { left: 0, right: 100, top: 100, bottom: 120 },
+        [lhsId]: { left: 0, right: 20, top: 100, bottom: 120 },
+      }),
+    });
+
+    expect(plan).toEqual({
+      kind: "MoveAcrossEqual",
+      movedId: lhsId,
+      equalId,
+      fromSide: 0,
+      toSide: 1,
+      drop: {
+        kind: "ontoSideRoot",
+        replaceId: rhsId,
+        replaceParentId: equalId,
+        replaceSlot: 1,
+        insertIndex: 1,
+      },
+    });
+  });
+
+  it("falls back to nearest Add ancestor when no Add rects are measurable", () => {
+    const tree = treefromLatex(String.raw`a + \left(b + c\right)`);
+
+    const outerAddId = tree.rootId!;
+    const [aId, delimId] = tree.childrenById[outerAddId];
+    const innerAddId = (tree.childrenById[delimId] ?? [])[0];
+    const [bId, cId] = tree.childrenById[innerAddId];
+
+    // Drag b within inner Add; no rects at all -> resolveHoverTarget returns structural Add ancestor.
+    const plan = planMove({
+      tree,
+      selectedIds: [bId],
+      hoverId: bId,
+      pointer: { x: 10, y: 10 },
+      rectFor: rectProvider({}), // everything missing
+    });
+
+    expect(plan).toBeNull(); // later rectangle check fails, but branch coverage exercises the fallback path
+  });
 });

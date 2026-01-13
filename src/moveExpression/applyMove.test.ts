@@ -110,6 +110,29 @@ describe("applyMove", () => {
     expect(next!.latexPlain).toContain(String.raw`e = g + h + f`);
   });
 
+  it("moves two contiguous terms across Equal into RHS Add and negates as a group", () => {
+    const tree = treefromLatex(String.raw`a + b + c = d + e`);
+
+    const bId = findNodeByLatex(tree, "b");
+    const cId = findNodeByLatex(tree, "c");
+
+    const rhsAddId = findNodeId(
+      tree,
+      (n) => n.op === "Add" && n.latex.includes("d") && n.latex.includes("e")
+    );
+
+    const next = applyMove({
+      tree,
+      selectedIds: [bId, cId],
+      hoverId: rhsAddId,
+      targetSlot: 2, // append after d,e
+    });
+
+    expect(next).not.toBeNull();
+    const latex = next!.latexPlain.replace(/\s+/g, " ");
+    expect(latex).toContain(String.raw`a = d + e - \left(b + c\right)`);
+  });
+
   it("treats bare symbol in equality as implicit sum", () => {
     const tree = treefromLatex(String.raw`a=b`);
     const next = applyMove({
@@ -313,6 +336,19 @@ describe("stepUp", () => {
 
     // We are still carrying Selection when reaching Divide => reject
     const out = stepUp(tree, state, divideId, denomAddId);
+    expect(out).toBeNull();
+  });
+
+  it("returns null when carrying Expr through Divide without fromChildId", () => {
+    const tree = treefromLatex(String.raw`\frac{a}{b}`);
+    const divideId = tree.rootId!;
+
+    const state: State = {
+      root: tree.rootJson,
+      payload: { kind: "Expr", mj: "x" },
+    };
+
+    const out = stepUp(tree, state, divideId);
     expect(out).toBeNull();
   });
 });
@@ -547,5 +583,19 @@ describe("stepDown", () => {
     });
 
     expect(out).toBeNull();
+  });
+
+  it("returns state unchanged when stepping up with Selection at non-Add/non-Divide ancestor", () => {
+    const tree = treefromLatex(String.raw`a = b`);
+    const equalId = tree.rootId!;
+    const lhsId = tree.childrenById[equalId][0];
+
+    const state: State = {
+      root: tree.rootJson,
+      payload: { kind: "Selection", ids: [lhsId] },
+    };
+
+    const out = stepUp(tree, state, equalId, lhsId);
+    expect(out).toBe(state);
   });
 });

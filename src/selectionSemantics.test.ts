@@ -5,6 +5,7 @@ import {
   expandSelection,
   type ExprSelection,
   chooseBestAllowedSelectedNode,
+  getDescendantNodeIds,
 } from "./selectionSemantics";
 import { findNodeId } from "./testHelpers";
 
@@ -263,5 +264,19 @@ describe("selectionSemantics.bubbleThroughUnary", () => {
     const nodeIds = [bId, invId];
 
     expect(chooseBestAllowedSelectedNode(nodeIds, tree)).toBe(bId);
+  });
+
+  it("collects descendants without duplicates even if roots overlap", () => {
+    const mj: MJ = ["Add", "a", ["Negate", "b"]];
+    const tree = ExpressionTree.create(mj);
+
+    const addId = findNodeId(tree, (n: any) => n.op === "Add");
+    const negId = findNodeId(tree, (n: any) => n.op === "Negate");
+
+    const ids = getDescendantNodeIds(tree, [addId, negId]);
+
+    expect(ids).toContain(addId);
+    expect(ids).toContain(negId);
+    expect(ids.filter((v, i) => ids.indexOf(v) === i).length).toBe(ids.length);
   });
 });

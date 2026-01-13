@@ -54,6 +54,20 @@ describe("pickInsertSlot (insertion slots)", () => {
   it("returns null for empty rect list", () => {
     expect(pickInsertSlot([], 10, 5)).toBe(null);
   });
+
+  it("returns null when x is left of first rect beyond margin", () => {
+    const rects = [{ left: 10, right: 20, top: 0, bottom: 10 }];
+    expect(pickInsertSlot(rects, 0, 0)).toBeNull(); // 0 < 10
+    expect(pickInsertSlot(rects, 4, 5)).toBeNull(); // 4 < 10-5
+  });
+
+  it("returns n when x is past the last midpoint", () => {
+    const rects = [
+      { left: 0, right: 10, top: 0, bottom: 10 },
+      { left: 20, right: 30, top: 0, bottom: 10 },
+    ];
+    expect(pickInsertSlot(rects, 100, 0)).toBe(2);
+  });
 });
 
 describe("unionRects", () => {
