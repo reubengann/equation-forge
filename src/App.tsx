@@ -415,7 +415,17 @@ export default function App() {
     }
   }
 
-  function setBaselineJson(json: MJ) {
+  function setInfoFromTree(t: ExpressionTree, latex?: string) {
+    const parts = [
+      latex ? `LaTeX: ${latex}` : undefined,
+      latex ? "" : undefined,
+      "expression.json:",
+      JSON.stringify(t.rootJson, null, 2),
+    ].filter((x) => x !== undefined) as string[];
+    setInfo(parts.join("\n"));
+  }
+
+  function setBaselineJson(json: MJ, opts?: { latex?: string }) {
     const t = ExpressionTree.create(json);
     setTree(t);
     renderTree(t, {
@@ -423,6 +433,7 @@ export default function App() {
       selectionOverride: null,
       clearHighlightAfterRender: true,
     });
+    setInfoFromTree(t, opts?.latex);
   }
 
   function onAddEquation() {
@@ -436,16 +447,7 @@ export default function App() {
     }
 
     const json = expr.json as MJ; // ✅ now typed
-    // debugger
-    setInfo(
-      [
-        `mf.value (LaTeX): ${latex}`,
-        "",
-        "mf.expression.json:",
-        JSON.stringify(json, null, 2),
-      ].join("\n")
-    );
-    setBaselineJson(json);
+    setBaselineJson(json, { latex });
   }
 
   function getNodeIdsFromPointerEvent(e: React.PointerEvent): string[] {
@@ -749,6 +751,7 @@ export default function App() {
           selectionOverride: null,
           clearHighlightAfterRender: true,
         });
+        setInfoFromTree(next, next.latexPlain);
       } else {
         // Failed move -> keep current selection/highlight
         renderTree(tree, { preview: false });
