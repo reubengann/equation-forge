@@ -265,7 +265,11 @@ export function applyMove(args: {
     return ExpressionTree.create(rootAfterInsert);
   }
 
-  const fromId = normalizeSelection(tree, selectedIds[0]);
+  const fromIdRaw = selectedIds[0];
+  const fromId = normalizeSelection(tree, fromIdRaw);
+  // Allow moving a whole fraction (Divide) as a term, but still forbid lifting
+  // through Divide when the selection is inside numerator/denominator. The actual
+  // gate remains in stepUp; this comment documents intended allowance.
   const toId = hoverId;
 
   const r = routeBetween(tree, fromId, toId);
@@ -418,7 +422,16 @@ export function stepUp(
   // 1) Extract from Add (only while carrying Selection)
   // -------------------------
   if (state.payload?.kind === "Selection") {
-    if (op === "Divide") return null; // Reject an *additive* move selection from a quotient itself.
+    if (op === "Divide") {
+      // Reject lifting when the selection is INSIDE a fraction; allow only if the
+      // selected node IS the Divide term itself (handled earlier in applyMove).
+      const selectionIds = new Set(state.payload.ids);
+      const dividesId = id;
+      // If any selected id is not the Divide node itself, bail.
+      if (![dividesId].every((x) => selectionIds.has(x))) return null;
+      // Otherwise fall through (no-op here); the Divide term will be lifted by an Add ancestor.
+      return state;
+    }
     if (op !== "Add") return state;
 
     const addId = id;

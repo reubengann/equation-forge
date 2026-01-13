@@ -345,7 +345,14 @@ export default function App() {
     setHighlightedText(el, getDescendantNodeIds(tree, ids));
   }
 
-  function renderTree(t: ExpressionTree, opts?: { preview: boolean }) {
+  function renderTree(
+    t: ExpressionTree,
+    opts?: {
+      preview?: boolean;
+      selectionOverride?: ExprSelection | null;
+      clearHighlightAfterRender?: boolean;
+    }
+  ) {
     if (!displayRef.current) return;
     if (!measureRef.current) return;
 
@@ -353,18 +360,29 @@ export default function App() {
     (displayRef.current as any).render?.();
     installShadowStyle(displayRef.current);
 
-    applySelectionHighlight(selection);
+    const sel = opts?.selectionOverride ?? selection;
+    applySelectionHighlight(sel);
 
     if (!opts?.preview) {
       measureRef.current.textContent = t.latexTagged;
       (measureRef.current as any).render?.();
+    }
+
+    // Clear highlights after the render if requested (useful after a completed move).
+    if (opts?.clearHighlightAfterRender) {
+      const el = displayRef.current;
+      if (el) setHighlightedText(el, []);
     }
   }
 
   function setBaselineJson(json: MJ) {
     const t = ExpressionTree.create(json);
     setTree(t);
-    renderTree(t, { preview: false });
+    renderTree(t, {
+      preview: false,
+      selectionOverride: null,
+      clearHighlightAfterRender: true,
+    });
   }
 
   function onAddEquation() {
@@ -661,12 +679,24 @@ export default function App() {
       });
       if (next) {
         setTree(next);
-        renderTree(next, { preview: false });
+        renderTree(next, {
+          preview: false,
+          selectionOverride: null,
+          clearHighlightAfterRender: true,
+        });
       } else {
-        renderTree(tree, { preview: false });
+        renderTree(tree, {
+          preview: false,
+          selectionOverride: null,
+          clearHighlightAfterRender: true,
+        });
       }
     } else if (tree) {
-      renderTree(tree, { preview: false });
+      renderTree(tree, {
+        preview: false,
+        selectionOverride: null,
+        clearHighlightAfterRender: true,
+      });
     }
 
     renderInsertOverlay(null);

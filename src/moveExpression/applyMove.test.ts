@@ -110,6 +110,24 @@ describe("applyMove", () => {
     expect(next!.latexPlain).toContain(String.raw`e = g + h + f`);
   });
 
+  it("moves a whole fraction across Equal additively (negates on RHS)", () => {
+    const tree = treefromLatex(String.raw`\frac{a}{b} + c = d`);
+
+    const divideId = findNodeId(tree, (n) => n.op === "Divide");
+    const rhsId = findNodeByLatex(tree, "d");
+
+    const next = applyMove({
+      tree,
+      selectedIds: [divideId],
+      hoverId: rhsId,
+      targetSlot: 1, // wrap onto RHS side, after existing root
+    });
+
+    expect(next).not.toBeNull();
+    const latex = next!.latexPlain.replace(/\s+/g, " ");
+    expect(latex).toContain(String.raw`c = d - \frac{a}{b}`);
+  });
+
   it("moves two contiguous terms across Equal into RHS Add and negates as a group", () => {
     const tree = treefromLatex(String.raw`a + b + c = d + e`);
 
