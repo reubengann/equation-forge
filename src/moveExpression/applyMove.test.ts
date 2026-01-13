@@ -120,6 +120,40 @@ describe("applyMove", () => {
     });
     expect(next).not.toBeNull();
   });
+
+  it("moves c+d into the numerator at slot 2 (append) with grouping and factor", () => {
+    const tree = treefromLatex(String.raw`\frac{a+b}{2} + c + d`);
+
+    const cId = findNodeByLatex(tree, "c");
+    const dId = findNodeByLatex(tree, "d");
+    const numeratorAddId = findNodeId(
+      tree,
+      (n) =>
+        n.op === "Add" &&
+        (() => {
+          const p = tree.parentById[n.id];
+          return p != null && tree.nodesById[p]?.op === "Divide";
+        })()
+    );
+
+    const result = applyMove({
+      tree,
+      selectedIds: [cId, dId],
+      hoverId: numeratorAddId,
+      targetSlot: 2, // after a,b
+    });
+
+    expect(result).not.toBeNull();
+    const plain = result!.latexPlain;
+    console.log("multi-term numerator move latexPlain:", plain);
+    const normalized = plain.replace(/\s+/g, "");
+    const normalizedNoLeftRight = normalized.replace(/\\left|\\right/g, "");
+
+    // Expect: (a + b + 2(c + d)) / 2  or a + b + 2(c + d) as numerator over 2
+    expect(normalized.includes("a+b+2")).toBe(true);
+    expect((normalized.match(/b/g) || []).length).toBe(1);
+    expect(normalizedNoLeftRight).toContain(String.raw`\frac{a+b+2(c+d)}{2}`);
+  });
 });
 
 describe("stepUp", () => {

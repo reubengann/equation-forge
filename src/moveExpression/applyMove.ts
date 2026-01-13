@@ -96,12 +96,174 @@ export function applyMove(args: {
   hoverId: string;
   targetSlot: Slot;
 }): ExpressionTree | null {
+  // debugger;
   const { tree, selectedIds, hoverId, targetSlot } = args;
   if (targetSlot == null) return null;
   if (selectedIds.length < 1) return null;
 
-  // TODO: Generalize to multiple nodes
-  if (selectedIds.length !== 1) return null;
+  // Handle multi-term moves when all selected terms are contiguous siblings in an Add
+  if (selectedIds.length > 1) {
+    const normIds = selectedIds.map((id) => normalizeSelection(tree, id));
+    const parentId = tree.parentById[normIds[0]];
+    if (!parentId) return null;
+    const parentOp = tree.nodesById[parentId]?.op;
+    if (parentOp !== "Add") return null;
+
+    const idxs = normIds
+      .map((id) => tree.childIndexById[id])
+      .filter((i) => i != null) as number[];
+    if (idxs.length !== normIds.length) return null;
+    idxs.sort((a, b) => a - b);
+
+    // Ensure the ids are exactly the slice in order
+    const kids = tree.childrenById[parentId] ?? [];
+    const start = idxs[0];
+    const end = idxs[idxs.length - 1];
+    if (end - start + 1 !== idxs.length) return null;
+    const sliceIds = kids.slice(start, end + 1);
+    if (sliceIds.some((id) => normIds.indexOf(id) === -1)) return null;
+
+    // Only support dropping into an Add target for now; if hoverId is not Add, climb to nearest Add ancestor.
+    let targetAddId: string | null = hoverId;
+    while (
+      targetAddId &&
+      tree.nodesById[targetAddId] &&
+      tree.nodesById[targetAddId].op !== "Add"
+    ) {
+      targetAddId = tree.parentById[targetAddId] ?? null;
+    }
+    if (!targetAddId || tree.nodesById[targetAddId]?.op !== "Add") return null;
+
+    const destPath = tree.pathById[targetAddId];
+    const srcPath = tree.pathById[parentId];
+    if (!destPath || !srcPath) return null;
+
+    const srcEqualId = tree.parentById[parentId];
+    const srcEqualOp = srcEqualId ? tree.nodesById[srcEqualId]?.op : null;
+    const isSrcEqual = srcEqualOp === "Equal";
+
+    const destEqualId = isSrcEqual ? srcEqualId : null;
+    const srcSideRoot =
+      isSrcEqual && srcEqualId
+        ? equalSideChild(tree, srcEqualId, parentId)
+        : null;
+    const destSideRoot =
+      isSrcEqual && destEqualId
+        ? equalSideChild(tree, destEqualId, hoverId)
+        : null;
+    const crossEqual =
+      isSrcEqual && srcSideRoot && destSideRoot && srcSideRoot !== destSideRoot;
+
+    const normalizeSum = (
+      terms: MJ[],
+      opts?: { preserveWrapper?: boolean }
+    ): MJ => {
+      if (terms.length === 0) return 0;
+      if (terms.length === 1) {
+        if (opts?.preserveWrapper) return ["Add", ...terms] as MJNode;
+        return terms[0];
+      }
+      return ["Add", ...terms] as MJNode;
+    };
+
+    const negateExpr = (mj: MJ): MJ => {
+      if (Array.isArray(mj) && mj[0] === "Negate") return mj[1] as MJ;
+      return ["Negate", mj] as MJNode;
+    };
+
+    // Remove from source
+    const srcMJ = getAtPath(tree.rootJson, srcPath) as MJ;
+    if (!Array.isArray(srcMJ) || srcMJ[0] !== "Add") return null;
+    const srcTerms = srcMJ.slice(1);
+    const movedTerms = srcTerms.slice(start, end + 1);
+    const remaining = [...srcTerms.slice(0, start), ...srcTerms.slice(end + 1)];
+
+    let rootAfterRemoval: MJ = tree.rootJson;
+    rootAfterRemoval = setAtPath(
+      rootAfterRemoval,
+      srcPath,
+      normalizeSum(remaining, { preserveWrapper: true })
+    );
+
+    // Re-read destination terms. Prefer the structural Add JSON from the original tree.
+    const destBaseline = tree.nodesById[targetAddId]?.json;
+    let destMJRaw: MJ | null = null;
+    if (Array.isArray(destBaseline) && destBaseline[0] === "Add") {
+      destMJRaw = destBaseline;
+    } else {
+      const atPath = getAtPath(rootAfterRemoval, destPath) as MJ;
+      destMJRaw = atPath;
+    }
+
+    const destAddExpr =
+      Array.isArray(destMJRaw) && destMJRaw[0] === "Add"
+        ? destMJRaw
+        : (["Add", destMJRaw] as MJNode);
+    const destTerms = destAddExpr.slice(1);
+
+    const toIndexRaw =
+      typeof targetSlot === "number" ? targetSlot : destTerms.length;
+    const toIndex = Math.max(0, Math.min(destTerms.length, toIndexRaw));
+
+    const wrapIfAdd = (mj: MJ): MJ => {
+      if (Array.isArray(mj) && mj[0] === "Add")
+        return ["Delimiter", mj] as MJNode;
+      if (
+        Array.isArray(mj) &&
+        mj[0] === "Negate" &&
+        Array.isArray(mj[1]) &&
+        mj[1][0] === "Add"
+      ) {
+        return ["Negate", ["Delimiter", mj[1]]] as MJNode;
+      }
+      return mj;
+    };
+
+    let payloadExpr = crossEqual
+      ? negateExpr(normalizeSum(movedTerms))
+      : normalizeSum(movedTerms);
+
+    payloadExpr = wrapIfAdd(payloadExpr);
+
+    // If we're inserting into the numerator of a Divide, multiply by denominator.
+    const destParentId = tree.parentById[targetAddId];
+    if (destParentId) {
+      const parentNode = tree.nodesById[destParentId];
+      const kidsOfParent = tree.childrenById[destParentId] ?? [];
+      if (parentNode?.op === "Divide" && kidsOfParent[0] === hoverId) {
+        const denId = kidsOfParent[1];
+        const denMJ = denId ? tree.nodesById[denId]?.json : null;
+        if (denMJ) {
+          const isNumericLiteral =
+            typeof denMJ === "number" ||
+            (Array.isArray(denMJ) &&
+              denMJ.length === 2 &&
+              denMJ[0] === "Negate" &&
+              typeof denMJ[1] === "number");
+
+          const wrappedPayload = wrapIfAdd(payloadExpr);
+          const factors = isNumericLiteral
+            ? [denMJ, wrappedPayload]
+            : [wrappedPayload, denMJ];
+
+          payloadExpr = ["InvisibleOperator", ...factors] as MJNode;
+        }
+      }
+    }
+
+    const nextDestTerms = [
+      ...destTerms.slice(0, toIndex),
+      payloadExpr,
+      ...destTerms.slice(toIndex),
+    ];
+    const rootAfterInsert = setAtPath(
+      rootAfterRemoval,
+      destPath,
+      normalizeSum(nextDestTerms)
+    );
+
+    return ExpressionTree.create(rootAfterInsert);
+  }
 
   const fromId = normalizeSelection(tree, selectedIds[0]);
   const toId = hoverId;
@@ -468,13 +630,21 @@ export function stepDown({
       const denMJ = tree.nodesById[denId]?.json;
       if (!denMJ) return null;
 
+      const isNumericLiteral =
+        typeof denMJ === "number" ||
+        (Array.isArray(denMJ) &&
+          denMJ.length === 2 &&
+          denMJ[0] === "Negate" &&
+          typeof denMJ[1] === "number");
+
+      const factors = isNumericLiteral
+        ? [denMJ, state.payload.mj]
+        : [state.payload.mj, denMJ];
+
       return {
         state: {
           ...state,
-          payload: {
-            kind: "Expr",
-            mj: ["InvisibleOperator", state.payload.mj, denMJ],
-          },
+          payload: { kind: "Expr", mj: ["InvisibleOperator", ...factors] },
         },
         didDrop: false,
       };

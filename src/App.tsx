@@ -422,18 +422,84 @@ export default function App() {
     // If we select b in "-b", choose the whole negation
     const normalizedId = normalizeSelection(tree, clickedId);
 
+    // If we already have a span selection within an additive parent, honor it for drag
+    let dragIds: string[] = [normalizedId];
+    const existingSel = selection;
+    let useExistingSpan = false;
+    if (existingSel?.kind === "span") {
+      const kids = tree.childrenById[existingSel.parentId] ?? [];
+      const clickedIdx = tree.childIndexById[normalizedId];
+      if (
+        clickedIdx != null &&
+        clickedIdx >= existingSel.start &&
+        clickedIdx <= existingSel.end &&
+        tree.parentById[normalizedId] === existingSel.parentId
+      ) {
+        dragIds = kids.slice(existingSel.start, existingSel.end + 1);
+        useExistingSpan = true;
+      }
+    }
+
+    // SHIFT+click → range selection within same Add parent
+    if (e.shiftKey && selection && tree) {
+      const targetParentId = tree.parentById[normalizedId];
+      const targetIdx = tree.childIndexById[normalizedId];
+
+      // Derive anchor from existing selection
+      const anchorParentId =
+        selection.kind === "node"
+          ? tree.parentById[selection.nodeId]
+          : selection.parentId;
+      const anchorIdx =
+        selection.kind === "node"
+          ? tree.childIndexById[selection.nodeId]
+          : selection.start;
+
+      const parentOp = targetParentId
+        ? tree.nodesById[targetParentId]?.op
+        : undefined;
+      const additive = parentOp === "Add" || parentOp === "InvisibleOperator";
+      const sameParent =
+        targetParentId && anchorParentId && targetParentId === anchorParentId;
+      const valid =
+        sameParent && targetIdx != null && anchorIdx != null && additive;
+
+      if (valid) {
+        const start = Math.min(anchorIdx!, targetIdx!);
+        const end = Math.max(anchorIdx!, targetIdx!);
+        const spanSel: ExprSelection = {
+          kind: "span",
+          parentId: targetParentId!,
+          start,
+          end,
+          op: parentOp!,
+        };
+        setSelection(spanSel);
+        applySelectionHighlight(spanSel);
+        setInfo2(selectionDebugText(tree, spanSel));
+        return;
+      }
+    }
+
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 
     setDrag({
       pointerId: e.pointerId,
-      selectedIds: [normalizedId],
+      selectedIds: dragIds,
     });
     lastPlanRef.current = null;
     setDragSlot("");
 
-    const nextSel: ExprSelection = { kind: "node", nodeId: normalizedId };
-    setSelection(nextSel);
-    applySelectionHighlight(nextSel);
+    if (useExistingSpan && existingSel?.kind === "span") {
+      // Preserve the existing span selection when clicking inside it
+      applySelectionHighlight(existingSel);
+      setSelection(existingSel);
+      setInfo2(selectionDebugText(tree, existingSel));
+    } else {
+      const nextSel: ExprSelection = { kind: "node", nodeId: normalizedId };
+      setSelection(nextSel);
+      applySelectionHighlight(nextSel);
+    }
 
     // Logging
     const hit = tree.nodesById[normalizedId];

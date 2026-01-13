@@ -245,7 +245,7 @@ function resolveHoverTarget(args: {
 export function planMove(args: PlanMoveArgs): MovePlan | null {
   const { tree, selectedIds, hoverId, pointer, rectFor } = args;
 
-  if (selectedIds.length !== 1) return null;
+  if (selectedIds.length < 1) return null;
   if (!hoverId) return null;
 
   const movedId = selectedIds[0];
