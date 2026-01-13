@@ -58,19 +58,36 @@ const fractionDerivativeEntry: LatexDictionaryEntry = {
     const denOperand = extractDerivativeOperand(denominator);
 
     if (numOperand && denOperand) {
-      return ["FractionDerivative", numOperand, denOperand];
+      return [
+        "FractionDerivative",
+        ["Differential", numOperand],
+        ["Differential", denOperand],
+      ];
     }
 
     return ["Divide", numerator, denominator];
   },
   serialize: (serializer, expr) => {
-    const numerator = Array.isArray(expr) ? (expr[1] as Expression) : null;
-    const denominator = Array.isArray(expr) ? (expr[2] as Expression) : null;
+    if (!Array.isArray(expr)) return serializer.serialize(expr);
 
-    const numLatex = serializer.serialize(numerator);
-    const denLatex = serializer.serialize(denominator);
+    const numerator = expr[1] as Expression;
+    const denominator = expr[2] as Expression;
 
-    return String.raw`\\dfrac{\\mathrm{d}{${numLatex}}}{\\mathrm{d}{${denLatex}}}`;
+    const renderDifferential = (part: Expression): string => {
+      if (Array.isArray(part) && part[0] === "Differential") {
+        const inner = (part[1] ?? null) as Expression | null;
+        const innerLatex = serializer.wrap(inner, 0);
+        return String.raw`\\mathrm{d}{${innerLatex}}`;
+      }
+      // If it isn't wrapped, still render the operand and prepend d.
+      const innerLatex = serializer.wrap(part, 0);
+      return String.raw`\\mathrm{d}{${innerLatex}}`;
+    };
+
+    const numLatex = renderDifferential(numerator);
+    const denLatex = renderDifferential(denominator);
+
+    return String.raw`\\dfrac{${numLatex}}{${denLatex}}`;
   },
 };
 

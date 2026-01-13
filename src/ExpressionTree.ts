@@ -84,6 +84,9 @@ export class ExpressionTree {
       if (op === "FractionDerivative") {
         return this.emitFractionDerivative(node, id, path, op);
       }
+      if (op === "Multiply") {
+        return this.emitMultiply(node, id, path, op);
+      }
       if (op === "InvisibleOperator") {
         return this.emitImplicitMultiply(node, id, path, op);
       }
@@ -103,6 +106,9 @@ export class ExpressionTree {
       }
       if (op === "Apply") {
         return this.emitApply(node, id, path, op);
+      }
+      if (op === "Differential") {
+        return this.emitDifferential(node, id, path, op);
       }
       throw Error(`${op} is not a known type of array`);
     }
@@ -207,6 +213,25 @@ export class ExpressionTree {
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
   }
 
+  private emitMultiply(node: MJNode, id: string, path: number[], op: string) {
+    // Explicit multiplication: render like implicit multiplication (no dot).
+    const children = node
+      .slice(1)
+      .map((c: MJ, i: number) => this.emit(c, id, [...path, 1 + i]));
+
+    this.childrenById[id] = children.map((ch) => ch.id);
+    this.childrenById[id].forEach((cid, idx) => {
+      this.childIndexById[cid] = idx;
+    });
+
+    const sep = String.raw`\,`; // thin space for readability
+    const plain = children.map((c) => c.latexPlain).join(" ");
+    const taggedInner = children.map((c) => c.latexTagged).join(sep);
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
   private emitDivide(node: MJNode, id: string, path: number[], op: string) {
     const num = this.emit(node[1], id, [...path, 1]);
     const den = this.emit(node[2], id, [...path, 2]);
@@ -240,13 +265,8 @@ export class ExpressionTree {
     this.childIndexById[num.id] = 0;
     this.childIndexById[den.id] = 1;
 
-    const numPlain = String.raw`\mathrm{d}{${num.latexPlain}}`;
-    const denPlain = String.raw`\mathrm{d}{${den.latexPlain}}`;
-    const numTagged = String.raw`\mathrm{d}{${num.latexTagged}}`;
-    const denTagged = String.raw`\mathrm{d}{${den.latexTagged}}`;
-
-    const plain = String.raw`\frac{${numPlain}}{${denPlain}}`;
-    const taggedInner = String.raw`\frac{${numTagged}}{${denTagged}}`;
+    const plain = String.raw`\frac{${num.latexPlain}}{${den.latexPlain}}`;
+    const taggedInner = String.raw`\frac{${num.latexTagged}}{${den.latexTagged}}`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return {
@@ -424,6 +444,25 @@ export class ExpressionTree {
 
     const plain = `${fn.latexPlain}\\left(${argsPlain}\\right)`;
     const taggedInner = `${fn.latexTagged}\\left(${argsTagged}\\right)`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
+  private emitDifferential(
+    node: MJNode,
+    id: string,
+    path: number[],
+    op: string
+  ) {
+    const inner = this.emit(node[1], id, [...path, 1]);
+
+    this.childrenById[id] = [inner.id];
+    this.childIndexById[inner.id] = 0;
+
+    const plain = String.raw`\mathrm{d}{${inner.latexPlain}}`;
+    // Do not tag the inner operand; keep the differential atomic for selection.
+    const taggedInner = String.raw`\mathrm{d}{${inner.latexPlain}}`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };

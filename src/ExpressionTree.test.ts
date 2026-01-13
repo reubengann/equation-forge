@@ -206,7 +206,11 @@ describe("ExpressionTree", () => {
     const mj = makeMJfromLatex(
       String.raw`\dfrac{\differentialD f}{\differentialD x}`
     );
-    expect(mj).toEqual(["FractionDerivative", "f", "x"]);
+    expect(mj).toEqual([
+      "FractionDerivative",
+      ["Differential", "f"],
+      ["Differential", "x"],
+    ]);
   });
 
   it("parses derivative fraction with composite expressions", () => {
@@ -215,16 +219,16 @@ describe("ExpressionTree", () => {
     );
     expect(mj).toEqual([
       "FractionDerivative",
-      ["Multiply", "g", ["Delimiter", "x"]],
-      ["Power", "x", 2],
+      ["Differential", ["Multiply", "g", ["Delimiter", "x"]]],
+      ["Differential", ["Power", "x", 2]],
     ]);
   });
 
   it("renders FractionDerivative to derivative-style LaTeX", () => {
     const t = ExpressionTree.create([
       "FractionDerivative",
-      "f",
-      ["Power", "x", 2],
+      ["Differential", "f"],
+      ["Differential", ["Power", "x", 2]],
     ]);
 
     expect(t.latexPlain).toBe(
@@ -252,6 +256,16 @@ describe("ExpressionTree", () => {
 
     expect(t.latexTagged).toBe(
       String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{a}\,\htmlData{node-id="n3"}{b}}`
+    );
+  });
+
+  it("renders Multiply as implicit multiplication (no dot)", () => {
+    const mj: MJ = ["Multiply", "a", "b", "c"];
+    const t = ExpressionTree.create(mj);
+
+    expect(t.latexPlain).toBe(String.raw`a b c`);
+    expect(t.latexTagged).toBe(
+      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{a}\,\htmlData{node-id="n3"}{b}\,\htmlData{node-id="n4"}{c}}`
     );
   });
 
