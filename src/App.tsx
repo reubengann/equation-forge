@@ -16,6 +16,7 @@ import {
   expandSelection,
   getDescendantNodeIds,
   normalizeSelection,
+  promoteSelection,
   type ExprSelection,
 } from "./selectionSemantics";
 import { planMove, type MovePlan } from "./planMove";
@@ -118,6 +119,27 @@ export default function App() {
   const [debugBoxes, setDebugBoxes] = useState(false);
   const insertOverlayRef = useRef<HTMLDivElement | null>(null);
   const lastPlanRef = useRef<MovePlan | null>(null);
+  const lastClickRef = useRef<{
+    nodeId: string | null;
+    ts: number;
+    count: number;
+  }>({ nodeId: null, ts: 0, count: 0 });
+
+  function selectionContainsId(
+    sel: ExprSelection,
+    id: string,
+    tree: ExpressionTree
+  ) {
+    if (sel.kind === "node") return sel.nodeId === id;
+    const kids = tree.childrenById[sel.parentId] ?? [];
+    const idx = tree.childIndexById[id];
+    return (
+      idx != null &&
+      idx >= sel.start &&
+      idx <= sel.end &&
+      tree.parentById[id] === sel.parentId
+    );
+  }
 
   function rectForNodeId(nodeId: string): RectLTRB | null {
     const measureEl = measureRef.current;
@@ -440,18 +462,42 @@ export default function App() {
     // If we select b in "-b", choose the whole negation
     const normalizedId = normalizeSelection(tree, clickedId);
 
+    // Multi-click promotion: synthesize click count manually because PointerEvent.detail
+    // is often 0 in this environment. If current selection already covers the click,
+    // reuse it (start drag) and do NOT reset the click counter; allow promotion on subsequent distinct clicks.
+    const now = performance.now();
+    const last = lastClickRef.current;
+    const reuseExisting =
+      selection && selectionContainsId(selection, normalizedId, tree);
+
+    const withinWindow = last.nodeId === normalizedId && now - last.ts < 600;
+    const clickCount = withinWindow ? last.count + 1 : 1;
+    lastClickRef.current = { nodeId: normalizedId, ts: now, count: clickCount };
+
+    const promotedId =
+      clickCount > 1
+        ? promoteSelection(tree, normalizedId, clickCount - 1)
+        : normalizedId;
+
     // If we already have a span selection within an additive parent, honor it for drag
-    let dragIds: string[] = [normalizedId];
+    let dragIds: string[] = reuseExisting
+      ? selection?.kind === "span"
+        ? (tree.childrenById[selection.parentId] ?? []).slice(
+            selection.start,
+            selection.end + 1
+          )
+        : [selection!.nodeId]
+      : [promotedId];
     const existingSel = selection;
     let useExistingSpan = false;
     if (existingSel?.kind === "span") {
       const kids = tree.childrenById[existingSel.parentId] ?? [];
-      const clickedIdx = tree.childIndexById[normalizedId];
+      const clickedIdx = tree.childIndexById[promotedId];
       if (
         clickedIdx != null &&
         clickedIdx >= existingSel.start &&
         clickedIdx <= existingSel.end &&
-        tree.parentById[normalizedId] === existingSel.parentId
+        tree.parentById[promotedId] === existingSel.parentId
       ) {
         dragIds = kids.slice(existingSel.start, existingSel.end + 1);
         useExistingSpan = true;
@@ -460,8 +506,8 @@ export default function App() {
 
     // SHIFT+click → range selection within same Add parent
     if (e.shiftKey && selection && tree) {
-      const targetParentId = tree.parentById[normalizedId];
-      const targetIdx = tree.childIndexById[normalizedId];
+      const targetParentId = tree.parentById[promotedId];
+      const targetIdx = tree.childIndexById[promotedId];
 
       // Derive anchor from existing selection
       const anchorParentId =
@@ -514,7 +560,7 @@ export default function App() {
       setSelection(existingSel);
       setInfo2(selectionDebugText(tree, existingSel));
     } else {
-      const nextSel: ExprSelection = { kind: "node", nodeId: normalizedId };
+      const nextSel: ExprSelection = { kind: "node", nodeId: promotedId };
       setSelection(nextSel);
       applySelectionHighlight(nextSel);
     }
@@ -679,24 +725,19 @@ export default function App() {
       });
       if (next) {
         setTree(next);
+        setSelection(null);
         renderTree(next, {
           preview: false,
           selectionOverride: null,
           clearHighlightAfterRender: true,
         });
       } else {
-        renderTree(tree, {
-          preview: false,
-          selectionOverride: null,
-          clearHighlightAfterRender: true,
-        });
+        // Failed move -> keep current selection/highlight
+        renderTree(tree, { preview: false });
       }
     } else if (tree) {
-      renderTree(tree, {
-        preview: false,
-        selectionOverride: null,
-        clearHighlightAfterRender: true,
-      });
+      // No plan -> keep current selection/highlight
+      renderTree(tree, { preview: false });
     }
 
     renderInsertOverlay(null);

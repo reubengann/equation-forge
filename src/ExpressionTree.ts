@@ -155,8 +155,13 @@ export class ExpressionTree {
     this.childIndexById[inner.id] = 0;
 
     // Default unary render; Add will override into binary subtraction when appropriate.
-    const plain = `-${inner.latexPlain}`;
-    const taggedInner = `-${inner.latexTagged}`;
+    const innerInfo = this.nodesById[inner.id];
+    const needsParens = innerInfo?.op === "Add" || innerInfo?.op === "Equal";
+    const wrap = (s: string) =>
+      needsParens ? String.raw`\left(${s}\right)` : s;
+
+    const plain = `-${wrap(inner.latexPlain)}`;
+    const taggedInner = `-${wrap(inner.latexTagged)}`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return {

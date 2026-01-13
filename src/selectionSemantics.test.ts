@@ -6,6 +6,7 @@ import {
   type ExprSelection,
   chooseBestAllowedSelectedNode,
   getDescendantNodeIds,
+  promoteSelection,
 } from "./selectionSemantics";
 import { findNodeId } from "./testHelpers";
 
@@ -278,5 +279,21 @@ describe("selectionSemantics.bubbleThroughUnary", () => {
     expect(ids).toContain(addId);
     expect(ids).toContain(negId);
     expect(ids.filter((v, i) => ids.indexOf(v) === i).length).toBe(ids.length);
+  });
+
+  it("promotes selection upward and stops before Equal", () => {
+    const mj: MJ = ["Equal", ["Add", ["Negate", "a"], "b"], "c"];
+    const tree = ExpressionTree.create(mj);
+
+    const aId = findNodeId(tree, (n: any) => n.latex === "a");
+    const negateId = tree.parentById[aId]!;
+    const addId = tree.parentById[negateId]!;
+    const equalId = tree.parentById[addId]!;
+
+    expect(promoteSelection(tree, aId, 0)).toBe(aId);
+    expect(promoteSelection(tree, aId, 1)).toBe(negateId);
+    expect(promoteSelection(tree, aId, 2)).toBe(addId);
+    expect(promoteSelection(tree, aId, 3)).toBe(addId); // stop before Equal
+    expect(promoteSelection(tree, equalId, 1)).toBe(equalId); // cannot climb past Equal
   });
 });

@@ -27,6 +27,28 @@ export type ExprSelection =
       end: number;
     };
 
+/**
+ * Promote a node selection upward by `steps`, stopping before reaching an Equal.
+ * Useful for multi-click selection climbing: leaf -> Negate/Divide/etc -> Add -> (stop at Equal).
+ */
+export function promoteSelection(
+  tree: ExpressionTree,
+  nodeId: string,
+  steps: number
+): string {
+  let cur: string | null = nodeId;
+  let remaining = steps;
+  while (cur && remaining > 0) {
+    const parent: string | null | undefined = tree.parentById[cur];
+    if (!parent) break;
+    const op = tree.nodesById[parent]?.op;
+    if (op === "Equal") break; // never select Equal
+    cur = parent;
+    remaining -= 1;
+  }
+  return cur ?? nodeId;
+}
+
 export function expandSelection(
   tree: ExpressionTree,
   sel: ExprSelection,

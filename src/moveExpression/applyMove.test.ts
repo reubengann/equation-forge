@@ -128,6 +128,24 @@ describe("applyMove", () => {
     expect(latex).toContain(String.raw`c = d - \frac{a}{b}`);
   });
 
+  it("moves entire LHS across Equal and wraps negated sum", () => {
+    const tree = treefromLatex(String.raw`\frac{a+b}{2} + c + d = e - f`);
+
+    const lhsAddId = tree.childrenById[tree.rootId!][0];
+    const rhsAddId = tree.childrenById[tree.rootId!][1];
+
+    const next = applyMove({
+      tree,
+      selectedIds: [lhsAddId],
+      hoverId: rhsAddId,
+      targetSlot: 2, // append after existing RHS terms
+    });
+
+    expect(next).not.toBeNull();
+    const latex = next!.latexPlain.replace(/\s+/g, "");
+    expect(latex).toContain(String.raw`0=e-f-\left(\frac{a+b}{2}+c+d\right)`);
+  });
+
   it("moves two contiguous terms across Equal into RHS Add and negates as a group", () => {
     const tree = treefromLatex(String.raw`a + b + c = d + e`);
 
