@@ -25,6 +25,21 @@ describe("ExpressionTree", () => {
     );
   });
 
+  it("renders Power and wraps additive base", () => {
+    const t1 = ExpressionTree.create(["Power", "x", 2]);
+    expect(t1.latexPlain).toBe(String.raw`x^{2}`);
+
+    const t2 = ExpressionTree.create(["Power", ["Add", "a", "b"], 2]);
+    expect(t2.latexPlain.replace(/\s+/g, "")).toBe(
+      String.raw`\left(a+b\right)^{2}`
+    );
+  });
+
+  it("renders Subscript", () => {
+    const t = ExpressionTree.create(["Subscript", "v", "x"]);
+    expect(t.latexPlain).toBe(String.raw`v_{x}`);
+  });
+
   it("Can parse an equality", () => {
     const t = ExpressionTree.create(makeMJfromLatex("a = b"));
     expect(t.latexTagged).toBe(

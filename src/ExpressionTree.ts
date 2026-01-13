@@ -72,6 +72,9 @@ export class ExpressionTree {
       if (op === "Add") {
         return this.emitAdd(node, id, path, op);
       }
+      if (op === "Power") {
+        return this.emitPower(node, id, path, op);
+      }
       if (op === "Equal") {
         return this.emitEqual(node, id, path, op);
       }
@@ -91,6 +94,9 @@ export class ExpressionTree {
       if (op == "Sequence") return this.emitSequence(node, id, path, op);
       if (op === "OverVector") {
         return this.emitOverVector(node, id, path, op);
+      }
+      if (op === "Subscript") {
+        return this.emitSubscript(node, id, path, op);
       }
       throw Error(`${op} is not a known type of array`);
     }
@@ -215,6 +221,26 @@ export class ExpressionTree {
     };
   }
 
+  private emitPower(node: MJNode, id: string, path: number[], op: string) {
+    // Shape: ["Power", base, exponent]
+    const base = this.emit(node[1], id, [...path, 1]);
+    const exp = this.emit(node[2], id, [...path, 2]);
+
+    this.childrenById[id] = [base.id, exp.id];
+    this.childIndexById[base.id] = 0;
+    this.childIndexById[exp.id] = 1;
+
+    const baseNeedsParen = this.nodesById[base.id]?.op === "Add";
+    const wrap = (s: string) =>
+      baseNeedsParen ? String.raw`\left(${s}\right)` : s;
+
+    const plain = `${wrap(base.latexPlain)}^{${exp.latexPlain}}`;
+    const taggedInner = `${wrap(base.latexTagged)}^{${exp.latexTagged}}`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
   private emitOverVector(node: MJNode, id: string, path: number[], op: string) {
     const inner = this.emit(node[1], id, [...path, 1]);
 
@@ -223,6 +249,22 @@ export class ExpressionTree {
 
     const plain = String.raw`\vec{${inner.latexPlain}}`;
     const taggedInner = String.raw`\vec{${inner.latexTagged}}`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
+  private emitSubscript(node: MJNode, id: string, path: number[], op: string) {
+    // Shape: ["Subscript", base, sub]
+    const base = this.emit(node[1], id, [...path, 1]);
+    const sub = this.emit(node[2], id, [...path, 2]);
+
+    this.childrenById[id] = [base.id, sub.id];
+    this.childIndexById[base.id] = 0;
+    this.childIndexById[sub.id] = 1;
+
+    const plain = `${base.latexPlain}_{${sub.latexPlain}}`;
+    const taggedInner = `${base.latexTagged}_{${sub.latexTagged}}`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };

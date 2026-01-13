@@ -125,6 +125,26 @@ export default function App() {
     count: number;
   }>({ nodeId: null, ts: 0, count: 0 });
 
+  // Example expressions for quick testing
+  const examples = [
+    String.raw`\frac{a+b}{2}+c+d=e-f`,
+    String.raw`x^2 + v_x = m a`,
+    String.raw`\frac{d x}{d t} = v`,
+    String.raw`\sum_{i=1}^{n} a_i = S`,
+    String.raw`\vec{F} = m \vec{a}`,
+  ];
+  const [exampleIdx, setExampleIdx] = useState(0);
+  const [exampleLatex, setExampleLatex] = useState(examples[0]);
+
+  useEffect(() => {
+    const mf = inputRef.current;
+    const latex = examples[exampleIdx] ?? examples[0];
+    setExampleLatex(latex);
+    if (mf) {
+      mf.value = latex;
+    }
+  }, [exampleIdx]);
+
   function selectionContainsId(
     sel: ExprSelection,
     id: string,
@@ -856,15 +876,14 @@ export default function App() {
     }
   }
 
-  const defaultString = String.raw`\frac{a+b}{2}+c+d=e-f`;
   // const defaultString = String.raw`a=b`;
 
   return (
     <div style={{ padding: 24, maxWidth: 1000 }}>
       <h2>Derivation Pad — Confirm Selection</h2>
 
-      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <div style={{ flex: 1 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ width: "100%" }}>
           <MathField
             ref={inputRef}
             style={{
@@ -874,22 +893,46 @@ export default function App() {
               borderRadius: 8,
             }}
           >
-            {defaultString}
+            {exampleLatex}
           </MathField>
         </div>
 
-        <button
-          onClick={onAddEquation}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 8,
-            border: "1px solid #888",
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Add / Update
-        </button>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              minWidth: 200,
+            }}
+          >
+            <label style={{ fontSize: 12, opacity: 0.8 }}>Examples</label>
+            <select
+              value={exampleIdx}
+              onChange={(e) => setExampleIdx(Number(e.target.value))}
+              style={{ padding: "6px 8px", borderRadius: 6, width: "100%" }}
+            >
+              {examples.map((ex, idx) => (
+                <option key={idx} value={idx}>
+                  {ex}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            onClick={onAddEquation}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 8,
+              border: "1px solid #888",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Add / Update
+          </button>
+        </div>
       </div>
 
       <div

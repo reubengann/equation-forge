@@ -296,4 +296,15 @@ describe("selectionSemantics.bubbleThroughUnary", () => {
     expect(promoteSelection(tree, aId, 3)).toBe(addId); // stop before Equal
     expect(promoteSelection(tree, equalId, 1)).toBe(equalId); // cannot climb past Equal
   });
+
+  it("normalizeSelection bubbles through Subscript so v selects v_x", () => {
+    const mj: MJ = ["Subscript", "v", "x"];
+    const tree = ExpressionTree.create(mj);
+
+    const vId = findNodeId(tree, (n: any) => n.latex === "v");
+    const subId = tree.parentById[vId];
+    expect(subId).toBeTruthy();
+    const norm = normalizeSelection(tree, vId);
+    expect(norm).toBe(subId);
+  });
 });
