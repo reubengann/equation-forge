@@ -199,6 +199,31 @@ describe("stepUp", () => {
     expect((payloadMJ as any[])[0]).toBe("Negate");
   });
 
+  it("rewrites Add with multiple remaining terms when lifting a middle term", () => {
+    const tree = treefromLatex("a + b + c");
+    const bId = findNodeByLatex(tree, "b");
+    const addId = tree.parentById[bId]!;
+    expect(tree.nodesById[addId]?.op).toBe("Add");
+
+    const state0: State = {
+      root: tree.rootJson,
+      payload: { kind: "Selection", ids: [bId] },
+    };
+
+    const state1 = stepUp(tree, state0, addId);
+    expect(state1).not.toBeNull();
+    if (!state1) throw new Error("expected state after stepUp");
+
+    const after = ExpressionTree.create(state1.root);
+    expect(after.latexPlain.replace(/\s+/g, " ")).toBe("a + c");
+
+    expect(state1.payload?.kind).toBe("Expr");
+    if (state1.payload?.kind === "Expr") {
+      const payloadTree = ExpressionTree.create(state1.payload.mj);
+      expect(payloadTree.latexPlain).toBe("b");
+    }
+  });
+
   it("is a null when payload is already Expr or null", () => {
     const tree = treefromLatex("a + b");
 
@@ -366,6 +391,34 @@ describe("maybeDropHere", () => {
     // Expect something like "c + d + (a + b)" depending on your latexPlain formatting
     expect(after.latexPlain.replace(/\s+/g, " ")).toContain("a + b");
   });
+
+  it("refuses to wrap-drop when parent is Add (should target the Add instead)", () => {
+    const tree = treefromLatex("a + b");
+    const aId = findNodeByLatex(tree, "a");
+
+    const state: State = {
+      root: tree.rootJson,
+      payload: { kind: "Expr", mj: "c" },
+    };
+
+    const out = maybeDropHere(tree, state, aId, aId, 0);
+    expect(out.didDrop).toBe(false);
+    expect(out.state).toEqual(state);
+  });
+
+  it("refuses to wrap-drop into a non-additive parent (e.g., Divide numerator)", () => {
+    const tree = treefromLatex(String.raw`\frac{a}{b}`);
+    const divideId = tree.rootId;
+    const [numId] = tree.childrenById[divideId] ?? [];
+    const state: State = {
+      root: tree.rootJson,
+      payload: { kind: "Expr", mj: "c" },
+    };
+
+    const out = maybeDropHere(tree, state, numId, numId, 0);
+    expect(out.didDrop).toBe(false);
+    expect(out.state).toEqual(state);
+  });
 });
 
 describe("stepDown", () => {
@@ -472,5 +525,27 @@ describe("stepDown", () => {
     const mj = out!.state.payload.mj;
     expect(Array.isArray(mj)).toBe(true);
     expect((mj as any[])[0]).toBe("InvisibleOperator");
+  });
+
+  it("rejects descending into denominator of a Divide", () => {
+    const tree = treefromLatex(String.raw`\frac{a}{b}`);
+    const divideId = tree.rootId!;
+    const [, denId] = tree.childrenById[divideId] ?? [];
+
+    const state: State = {
+      root: tree.rootJson,
+      payload: { kind: "Expr", mj: "x" },
+    };
+
+    const out = stepDown({
+      tree,
+      state,
+      currentId: divideId,
+      childId: denId,
+      destId: "nowhere",
+      targetSlot: 0,
+    });
+
+    expect(out).toBeNull();
   });
 });
