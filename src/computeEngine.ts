@@ -16,16 +16,39 @@ function unwrapGroup(expr: Expression | null): Expression | null {
 function extractDerivativeOperand(expr: Expression | null): Expression | null {
   const inner = unwrapGroup(expr);
 
+  if (Array.isArray(inner) && inner[0] === "Differential") {
+    return (inner[1] as Expression) ?? null;
+  }
+
+  if (Array.isArray(inner) && inner[0] === "Power") {
+    const base = inner[1];
+    const exp = inner[2];
+    if (Array.isArray(base) && base[0] === "Differential") {
+      return ["Power", base[1] as Expression, exp] as Expression;
+    }
+    if (base === "DifferentialD") {
+      return ["Power", "1", exp] as Expression;
+    }
+  }
+
   if (
     Array.isArray(inner) &&
     (inner[0] === "Multiply" || inner[0] === "InvisibleOperator")
   ) {
     const factors = inner.slice(1);
-    if (factors[0] === "DifferentialD" && factors.length >= 2) {
-      if (factors.length === 2) {
-        return factors[1] as Expression;
-      }
-      return ["Multiply", ...factors.slice(1)] as Expression;
+    const first = factors[0];
+
+    const isDiffD = first === "DifferentialD";
+    const isDiffNode = Array.isArray(first) && first[0] === "Differential";
+
+    if ((isDiffD || isDiffNode) && factors.length >= 2) {
+      const op = inner[0] as string;
+      const base =
+        isDiffNode && Array.isArray(first) && first[1]
+          ? (first[1] as Expression)
+          : (factors[1] as Expression);
+
+      return [op, base, ...factors.slice(1)] as Expression;
     }
   }
 
@@ -37,11 +60,20 @@ function extractDerivativeOperand(expr: Expression | null): Expression | null {
 }
 
 const differentialEntry: LatexDictionaryEntry = {
-  name: "DifferentialD",
-  kind: "symbol",
+  name: "Differential",
+  kind: "expression",
   latexTrigger: "\\differentialD",
-  parse: "DifferentialD",
-  serialize: "\\mathrm{d}",
+  parse: (parser) => {
+    const arg = parser.parseGroup() ?? parser.parseToken();
+    if (!arg) return "DifferentialD";
+    return ["Differential", arg];
+  },
+  serialize: (serializer, expr) => {
+    if (!Array.isArray(expr)) return "\\mathrm{d}";
+    const operand = expr[1] as Expression;
+    const inner = serializer.wrap(operand, 0);
+    return String.raw`\\mathrm{d}{${inner}}`;
+  },
 };
 
 const fractionDerivativeEntry: LatexDictionaryEntry = {

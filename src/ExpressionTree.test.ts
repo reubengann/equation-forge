@@ -219,7 +219,7 @@ describe("ExpressionTree", () => {
     );
     expect(mj).toEqual([
       "FractionDerivative",
-      ["Differential", ["Multiply", "g", ["Delimiter", "x"]]],
+      ["Differential", ["InvisibleOperator", "g", ["Delimiter", "x"]]],
       ["Differential", ["Power", "x", 2]],
     ]);
   });
@@ -243,11 +243,26 @@ describe("ExpressionTree", () => {
 
   it("does not treat partial differential as FractionDerivative", () => {
     const mj = makeMJfromLatex(String.raw`\dfrac{\differentialD f}{b}`);
+    expect(mj).toEqual(["Divide", ["Differential", "f"], "b"]);
+  });
+
+  it("parses standalone differentials in sums", () => {
+    const mj = makeMJfromLatex(
+      String.raw`\differentialD x + \differentialD y = \differentialD y`
+    );
     expect(mj).toEqual([
-      "Divide",
-      ["InvisibleOperator", "DifferentialD", "f"],
-      "b",
+      "Equal",
+      ["Add", ["Differential", "x"], ["Differential", "y"]],
+      ["Differential", "y"],
     ]);
+  });
+
+  it("does not inject InvisibleOperator into differential sums", () => {
+    const mj = makeMJfromLatex(
+      String.raw`\differentialD x + \differentialD y = \differentialD y`
+    );
+    const jsonStr = JSON.stringify(mj);
+    expect(jsonStr).not.toContain("InvisibleOperator");
   });
 
   it("Does not canonicalize commutative Add (b + a stays b + a)", () => {
