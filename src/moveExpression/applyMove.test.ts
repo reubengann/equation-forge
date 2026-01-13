@@ -144,6 +144,29 @@ describe("applyMove", () => {
     expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe("-b = a");
   });
 
+  it("treats df and dx as atomic when moving across Equal into an Add", () => {
+    const tree = treefromLatex(
+      String.raw`\dfrac{\differentialD f}{\differentialD x} = a + b`
+    );
+
+    const fracId = findNodeId(tree, (n) => n.op === "FractionDerivative");
+    const rhsAddId = findNodeId(
+      tree,
+      (n) => n.op === "Add" && n.latex.includes("a") && n.latex.includes("b")
+    );
+
+    const next = applyMove({
+      tree,
+      selectedIds: [fracId],
+      hoverId: rhsAddId,
+      targetSlot: 0,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain).toContain(String.raw`\mathrm{d}{f}`);
+    expect(next!.latexPlain).toContain(String.raw`\mathrm{d}{x}`);
+  });
+
   it("moves a whole fraction across Equal additively (negates on RHS)", () => {
     const tree = treefromLatex(String.raw`\frac{a}{b} + c = d`);
 

@@ -241,6 +241,15 @@ describe("ExpressionTree", () => {
     expect(mj).toEqual(["Divide", "a", "b"]);
   });
 
+  it("does not treat partial differential as FractionDerivative", () => {
+    const mj = makeMJfromLatex(String.raw`\dfrac{\differentialD f}{b}`);
+    expect(mj).toEqual([
+      "Divide",
+      ["InvisibleOperator", "DifferentialD", "f"],
+      "b",
+    ]);
+  });
+
   it("Does not canonicalize commutative Add (b + a stays b + a)", () => {
     const mj: MJ = ["Add", "b", "a"];
     const t = ExpressionTree.create(mj);
