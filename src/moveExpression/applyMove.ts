@@ -343,6 +343,15 @@ export function applyMove(args: {
     state = crossed;
   }
 
+  // 2b) at LCA: if it's a Negate, flip the payload sign when exiting the negated group.
+  if (tree.nodesById[r.lcaId]?.op === "Negate") {
+    if (state.payload?.kind !== "Expr") return null;
+    state = {
+      ...state,
+      payload: { kind: "Expr", mj: ["Negate", state.payload.mj] },
+    };
+  }
+
   // 3) If destination *is* the LCA, try to drop right now
   if (toId === r.lcaId) {
     const dropped = maybeDropHere(tree, state, toId, toId, targetSlot);
@@ -474,7 +483,17 @@ export function stepUp(
   if (state.payload == null || state.payload.kind !== "Expr") return state;
 
   // -------------------------
-  // 2) CARRY through Divide (payload transform only)
+  // 2) Flip sign when exiting a Negate wrapper
+  // -------------------------
+  if (op === "Negate") {
+    return {
+      ...state,
+      payload: { kind: "Expr", mj: ["Negate", state.payload.mj] },
+    };
+  }
+
+  // -------------------------
+  // 3) CARRY through Divide (payload transform only)
   // -------------------------
   if (op === "Divide") {
     // Need direction (numerator vs denominator)

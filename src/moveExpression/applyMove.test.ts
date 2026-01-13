@@ -146,6 +146,24 @@ describe("applyMove", () => {
     expect(latex).toContain(String.raw`0=e-f-\left(\frac{a+b}{2}+c+d\right)`);
   });
 
+  it("pulls a term out of -(a+b+c) and flips its sign", () => {
+    const tree = ExpressionTree.create(["Negate", ["Add", "a", "b", "c"]]);
+
+    const negateId = tree.rootId!;
+    const cId = findNodeByLatex(tree, "c");
+
+    const next = applyMove({
+      tree,
+      selectedIds: [cId],
+      hoverId: negateId,
+      targetSlot: 1, // after the negated group
+    });
+
+    expect(next).not.toBeNull();
+    const latex = next!.latexPlain.replace(/\s+/g, " ");
+    expect(latex).toContain(String.raw`-\left(a + b\right) - c`);
+  });
+
   it("moves two contiguous terms across Equal into RHS Add and negates as a group", () => {
     const tree = treefromLatex(String.raw`a + b + c = d + e`);
 
