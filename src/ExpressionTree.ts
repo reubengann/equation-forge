@@ -81,6 +81,9 @@ export class ExpressionTree {
       if (op == "Divide") {
         return this.emitDivide(node, id, path, op);
       }
+      if (op === "FractionDerivative") {
+        return this.emitFractionDerivative(node, id, path, op);
+      }
       if (op === "InvisibleOperator") {
         return this.emitImplicitMultiply(node, id, path, op);
       }
@@ -97,6 +100,9 @@ export class ExpressionTree {
       }
       if (op === "Subscript") {
         return this.emitSubscript(node, id, path, op);
+      }
+      if (op === "Apply") {
+        return this.emitApply(node, id, path, op);
       }
       throw Error(`${op} is not a known type of array`);
     }
@@ -212,6 +218,35 @@ export class ExpressionTree {
 
     const plain = String.raw`\frac{${num.latexPlain}}{${den.latexPlain}}`;
     const taggedInner = String.raw`\frac{${num.latexTagged}}{${den.latexTagged}}`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return {
+      id,
+      latexPlain: plain,
+      latexTagged: this.wrap(id, taggedInner),
+    };
+  }
+
+  private emitFractionDerivative(
+    node: MJNode,
+    id: string,
+    path: number[],
+    op: string
+  ) {
+    const num = this.emit(node[1], id, [...path, 1]);
+    const den = this.emit(node[2], id, [...path, 2]);
+
+    this.childrenById[id] = [num.id, den.id];
+    this.childIndexById[num.id] = 0;
+    this.childIndexById[den.id] = 1;
+
+    const numPlain = String.raw`\mathrm{d}{${num.latexPlain}}`;
+    const denPlain = String.raw`\mathrm{d}{${den.latexPlain}}`;
+    const numTagged = String.raw`\mathrm{d}{${num.latexTagged}}`;
+    const denTagged = String.raw`\mathrm{d}{${den.latexTagged}}`;
+
+    const plain = String.raw`\frac{${numPlain}}{${denPlain}}`;
+    const taggedInner = String.raw`\frac{${numTagged}}{${denTagged}}`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return {
@@ -368,6 +403,27 @@ export class ExpressionTree {
 
     const plain = kids.map((k) => k.latexPlain).join(", ");
     const taggedInner = kids.map((k) => k.latexTagged).join(", ");
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
+  private emitApply(node: MJNode, id: string, path: number[], op: string) {
+    // Shape: ["Apply", fn, ...args]
+    const fn = this.emit(node[1], id, [...path, 1]);
+    const args = node
+      .slice(2)
+      .map((childNode, i) => this.emit(childNode, id, [...path, i + 2]));
+
+    this.childrenById[id] = [fn.id, ...args.map((a) => a.id)];
+    this.childIndexById[fn.id] = 0;
+    args.forEach((arg, i) => (this.childIndexById[arg.id] = i + 1));
+
+    const argsPlain = args.map((a) => a.latexPlain).join(", ");
+    const argsTagged = args.map((a) => a.latexTagged).join(", ");
+
+    const plain = `${fn.latexPlain}\\left(${argsPlain}\\right)`;
+    const taggedInner = `${fn.latexTagged}\\left(${argsTagged}\\right)`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };

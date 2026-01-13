@@ -1,9 +1,9 @@
 import "@cortex-js/compute-engine";
-import { ComputeEngine } from "@cortex-js/compute-engine";
 import "mathlive";
 import { MathfieldElement } from "mathlive";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ExpressionTree, type MJ } from "./ExpressionTree";
+import { ce } from "./computeEngine";
 import {
   getMathliveShadowRoot,
   hitTestNodeIdInMathliveShadow,
@@ -22,8 +22,6 @@ import {
 import { planMove, type MovePlan } from "./planMove";
 import { applyMove } from "./moveExpression/applyMove";
 import type { RectLTRB } from "./rectMath";
-
-const ce = new ComputeEngine();
 MathfieldElement.fontsDirectory = "/fonts";
 
 // let found2: any = null;

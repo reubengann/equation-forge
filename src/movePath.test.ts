@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { ExpressionTree, type MJ } from "./ExpressionTree";
-import { ComputeEngine } from "@cortex-js/compute-engine";
 import {
   ancestorsInclusive,
   computeDestinationIndex,
@@ -12,12 +11,7 @@ import {
   routeCrossesOp,
   setAtPath,
 } from "./movePath";
-
-const ce = new ComputeEngine();
-
-function makeMJfromLatex(x: string): MJ {
-  return ce.parse(x, { canonical: false }).json as MJ;
-}
+import { makeMJfromLatex } from "./testHelpers";
 
 describe("movePath", () => {
   it("computes ancestors from a leaf to root", () => {

@@ -1,6 +1,5 @@
-import { ComputeEngine } from "@cortex-js/compute-engine";
 import { ExpressionTree, type MJ } from "./ExpressionTree";
-export const ce = new ComputeEngine();
+import { ce } from "./computeEngine";
 
 export function makeMJfromLatex(x: string): MJ {
   return ce.parse(x, { canonical: false }).json as MJ;

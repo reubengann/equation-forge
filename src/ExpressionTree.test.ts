@@ -1,9 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { ExpressionTree, type MJ } from "./ExpressionTree";
-import { ComputeEngine } from "@cortex-js/compute-engine";
 import { makeMJfromLatex } from "./testHelpers";
-
-export const ce = new ComputeEngine();
 
 describe("ExpressionTree", () => {
   it("Wraps each node", () => {
@@ -203,6 +200,41 @@ describe("ExpressionTree", () => {
     expect(t.latexTagged).toBe(
       String.raw`\htmlData{node-id="n1"}{\frac{\htmlData{node-id="n2"}{\htmlData{node-id="n3"}{a} + \htmlData{node-id="n4"}{b}}}{\htmlData{node-id="n5"}{2}}}`
     );
+  });
+
+  it("parses derivative fraction into FractionDerivative", () => {
+    const mj = makeMJfromLatex(
+      String.raw`\dfrac{\differentialD f}{\differentialD x}`
+    );
+    expect(mj).toEqual(["FractionDerivative", "f", "x"]);
+  });
+
+  it("parses derivative fraction with composite expressions", () => {
+    const mj = makeMJfromLatex(
+      String.raw`\dfrac{\differentialD g(x)}{\differentialD x^2}`
+    );
+    expect(mj).toEqual([
+      "FractionDerivative",
+      ["Multiply", "g", ["Delimiter", "x"]],
+      ["Power", "x", 2],
+    ]);
+  });
+
+  it("renders FractionDerivative to derivative-style LaTeX", () => {
+    const t = ExpressionTree.create([
+      "FractionDerivative",
+      "f",
+      ["Power", "x", 2],
+    ]);
+
+    expect(t.latexPlain).toBe(
+      String.raw`\frac{\mathrm{d}{f}}{\mathrm{d}{x^{2}}}`
+    );
+  });
+
+  it("keeps ordinary dfrac as Divide", () => {
+    const mj = makeMJfromLatex(String.raw`\dfrac{a}{b}`);
+    expect(mj).toEqual(["Divide", "a", "b"]);
   });
 
   it("Does not canonicalize commutative Add (b + a stays b + a)", () => {
