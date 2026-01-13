@@ -55,6 +55,33 @@ export type State = {
     | null; // after drop
 };
 
+function isZeroTerm(mj: MJ): boolean {
+  if (mj === 0 || mj === "0") return true;
+  if (
+    Array.isArray(mj) &&
+    mj[0] === "Negate" &&
+    ((mj[1] as MJ) === 0 || (mj[1] as MJ) === "0")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function normalizeAdd(
+  terms: MJ[],
+  opts?: { preserveWrapper?: boolean }
+): MJ {
+  const filtered = terms.filter((t) => !isZeroTerm(t));
+  const use = filtered.length === 0 ? [0] : filtered;
+
+  if (use.length === 0) return 0;
+  if (use.length === 1) {
+    if (opts?.preserveWrapper) return ["Add", ...use] as MJNode;
+    return use[0];
+  }
+  return ["Add", ...use] as MJNode;
+}
+
 export function stepCrossEqual(state: State): State | null {
   if (state.payload == null) return null;
   if (state.payload.kind !== "Expr") return null;
@@ -157,14 +184,7 @@ export function applyMove(args: {
     const normalizeSum = (
       terms: MJ[],
       opts?: { preserveWrapper?: boolean }
-    ): MJ => {
-      if (terms.length === 0) return 0;
-      if (terms.length === 1) {
-        if (opts?.preserveWrapper) return ["Add", ...terms] as MJNode;
-        return terms[0];
-      }
-      return ["Add", ...terms] as MJNode;
-    };
+    ): MJ => normalizeAdd(terms, opts);
 
     const negateExpr = (mj: MJ): MJ => {
       if (Array.isArray(mj) && mj[0] === "Negate") return mj[1] as MJ;
@@ -326,7 +346,7 @@ export function applyMove(args: {
       if (!movedPath) return null;
 
       const movedExpr = getAtPath(state.root, movedPath);
-      const rootAfter = setAtPath(state.root, movedPath, "0");
+      const rootAfter = setAtPath(state.root, movedPath, 0);
 
       state = { root: rootAfter, payload: { kind: "Expr", mj: movedExpr } };
     }
@@ -412,11 +432,7 @@ function rewriteAddRemovingChildren(
   for (let i = 0; i < kids.length; i++) {
     if (!removeIdxs.has(i)) remain.push(kids[i]);
   }
-
-  // Normalize shape (not algebra):
-  if (remain.length === 0) return 0; // convention: empty sum -> 0
-  if (remain.length === 1) return remain[0];
-  return ["Add", ...remain] as MJNode;
+  return normalizeAdd(remain);
 }
 
 export function stepUp(
@@ -528,9 +544,7 @@ function asAddChildren(expr: MJ): MJ[] {
 }
 
 function buildAdd(children: MJ[]): MJ {
-  if (children.length === 0) return 0;
-  if (children.length === 1) return children[0];
-  return ["Add", ...children] as MJNode;
+  return normalizeAdd(children);
 }
 
 export function maybeDropHere(

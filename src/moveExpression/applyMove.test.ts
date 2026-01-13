@@ -110,6 +110,40 @@ describe("applyMove", () => {
     expect(next!.latexPlain).toContain(String.raw`e = g + h + f`);
   });
 
+  it("removes zero when moving a term from LHS to RHS", () => {
+    const tree = treefromLatex(String.raw`a + b = 0`);
+
+    const bId = findNodeByLatex(tree, "b");
+    const zeroId = findNodeByLatex(tree, "0");
+
+    const next = applyMove({
+      tree,
+      selectedIds: [bId],
+      hoverId: zeroId,
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe("a = -b");
+  });
+
+  it("removes zero when moving a term from RHS to LHS", () => {
+    const tree = treefromLatex(String.raw`0 = a + b`);
+
+    const bId = findNodeByLatex(tree, "b");
+    const zeroId = findNodeByLatex(tree, "0");
+
+    const next = applyMove({
+      tree,
+      selectedIds: [bId],
+      hoverId: zeroId,
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe("-b = a");
+  });
+
   it("moves a whole fraction across Equal additively (negates on RHS)", () => {
     const tree = treefromLatex(String.raw`\frac{a}{b} + c = d`);
 
