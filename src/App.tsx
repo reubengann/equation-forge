@@ -151,7 +151,6 @@ export default function App() {
     tree: ExpressionTree
   ) {
     if (sel.kind === "node") return sel.nodeId === id;
-    const kids = tree.childrenById[sel.parentId] ?? [];
     const idx = tree.childIndexById[id];
     return (
       idx != null &&
