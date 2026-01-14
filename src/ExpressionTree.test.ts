@@ -224,6 +224,17 @@ describe("ExpressionTree", () => {
     ]);
   });
 
+  it("parses partial derivative fraction", () => {
+    const mj = makeMJfromLatex(
+      String.raw`\dfrac{\partial f}{\partial x}`
+    );
+    expect(mj).toEqual([
+      "FractionPartialDerivative",
+      ["Partial", "f"],
+      ["Partial", "x"],
+    ]);
+  });
+
   it("renders FractionDerivative to derivative-style LaTeX", () => {
     const t = ExpressionTree.create([
       "FractionDerivative",
@@ -233,6 +244,18 @@ describe("ExpressionTree", () => {
 
     expect(t.latexPlain).toBe(
       String.raw`\frac{\mathrm{d}{f}}{\mathrm{d}{x^{2}}}`
+    );
+  });
+
+  it("renders FractionPartialDerivative to partial-derivative LaTeX", () => {
+    const t = ExpressionTree.create([
+      "FractionPartialDerivative",
+      ["Partial", "f"],
+      ["Partial", ["Power", "x", 2]],
+    ]);
+
+    expect(t.latexPlain).toBe(
+      String.raw`\frac{\partial{f}}{\partial{x^{2}}}`
     );
   });
 

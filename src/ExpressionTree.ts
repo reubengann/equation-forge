@@ -84,6 +84,12 @@ export class ExpressionTree {
       if (op === "FractionDerivative") {
         return this.emitFractionDerivative(node, id, path, op);
       }
+      if (op === "FractionPartialDerivative") {
+        return this.emitFractionPartialDerivative(node, id, path, op);
+      }
+      if (op === "Partial") {
+        return this.emitPartial(node, id, path, op);
+      }
       if (op === "Multiply") {
         return this.emitMultiply(node, id, path, op);
       }
@@ -267,6 +273,50 @@ export class ExpressionTree {
 
     const plain = String.raw`\frac{${num.latexPlain}}{${den.latexPlain}}`;
     const taggedInner = String.raw`\frac{${num.latexTagged}}{${den.latexTagged}}`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return {
+      id,
+      latexPlain: plain,
+      latexTagged: this.wrap(id, taggedInner),
+    };
+  }
+
+  private emitFractionPartialDerivative(
+    node: MJNode,
+    id: string,
+    path: number[],
+    op: string
+  ) {
+    const num = this.emit(node[1], id, [...path, 1]);
+    const den = this.emit(node[2], id, [...path, 2]);
+
+    const innerPlain = (childId: string, fallback: string): string => {
+      const info = this.nodesById[childId];
+      if (info?.op === "Partial") {
+        const innerId = this.childrenById[childId]?.[0];
+        if (innerId && this.nodesById[innerId]) {
+          return this.nodesById[innerId].latex;
+        }
+      }
+      return fallback;
+    };
+
+    this.childrenById[id] = [num.id, den.id];
+    this.childIndexById[num.id] = 0;
+    this.childIndexById[den.id] = 1;
+
+    const numInner = innerPlain(num.id, num.latexPlain);
+    const denInner = innerPlain(den.id, den.latexPlain);
+
+    const numPlain = String.raw`\partial{${numInner}}`;
+    const denPlain = String.raw`\partial{${denInner}}`;
+    // Atomic: no inner tagging
+    const numTagged = String.raw`\partial{${numInner}}`;
+    const denTagged = String.raw`\partial{${denInner}}`;
+
+    const plain = String.raw`\frac{${numPlain}}{${denPlain}}`;
+    const taggedInner = String.raw`\frac{${numTagged}}{${denTagged}}`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return {
@@ -460,9 +510,30 @@ export class ExpressionTree {
     this.childrenById[id] = [inner.id];
     this.childIndexById[inner.id] = 0;
 
-    const plain = String.raw`\mathrm{d}{${inner.latexPlain}}`;
-    // Do not tag the inner operand; keep the differential atomic for selection.
-    const taggedInner = String.raw`\mathrm{d}{${inner.latexPlain}}`;
+    const innerPlain = inner.latexPlain;
+    const plain = String.raw`\mathrm{d}{${innerPlain}}`;
+    // Keep differential atomic for selection: no tags inside.
+    const taggedInner = String.raw`\mathrm{d}{${innerPlain}}`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
+  private emitPartial(
+    node: MJNode,
+    id: string,
+    path: number[],
+    op: string
+  ) {
+    const inner = this.emit(node[1], id, [...path, 1]);
+
+    this.childrenById[id] = [inner.id];
+    this.childIndexById[inner.id] = 0;
+
+    const innerPlain = inner.latexPlain;
+    const plain = String.raw`\partial{${innerPlain}}`;
+    // Keep partial atomic for selection: no tags inside.
+    const taggedInner = String.raw`\partial{${innerPlain}}`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };

@@ -125,6 +125,7 @@ export default function App() {
 
   // Example expressions for quick testing
   const examples = [
+    String.raw`\dfrac{\partial f}{\partial x}`,
     String.raw`\dfrac{\differentialD f(x)}{\differentialD x}`,
     String.raw`\frac{a+b}{2}+c+d=e-f`,
     String.raw`x^2 + v_x = m a`,
