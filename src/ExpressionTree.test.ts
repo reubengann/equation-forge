@@ -259,6 +259,33 @@ describe("ExpressionTree", () => {
     );
   });
 
+  it("keeps FractionDerivative operands untagged internally for selection", () => {
+    const t = ExpressionTree.create([
+      "FractionDerivative",
+      ["Differential", "f"],
+      ["Differential", "x"],
+    ]);
+    // Should tag the fraction + each differential, but not inner f/x.
+    expect(t.latexTagged).toContain(`node-id="n1"`);
+    expect(t.latexTagged).toContain(`node-id="n2"`);
+    expect(t.latexTagged).toContain(`node-id="n4"`);
+    expect(t.latexTagged).not.toContain(`node-id="n3"`);
+    expect(t.latexTagged).not.toContain(`node-id="n5"`);
+  });
+
+  it("keeps FractionPartialDerivative operands untagged internally for selection", () => {
+    const t = ExpressionTree.create([
+      "FractionPartialDerivative",
+      ["Partial", "f"],
+      ["Partial", "x"],
+    ]);
+    expect(t.latexTagged).toContain(`node-id="n1"`);
+    expect(t.latexTagged).not.toContain(`node-id="n2"`);
+    expect(t.latexTagged).not.toContain(`node-id="n3"`);
+    expect(t.latexTagged).not.toContain(`node-id="n4"`);
+    expect(t.latexTagged).not.toContain(`node-id="n5"`);
+  });
+
   it("keeps ordinary dfrac as Divide", () => {
     const mj = makeMJfromLatex(String.raw`\dfrac{a}{b}`);
     expect(mj).toEqual(["Divide", "a", "b"]);
