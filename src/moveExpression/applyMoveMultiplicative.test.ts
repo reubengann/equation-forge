@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyMove } from "./applyMove";
-import { findNodeByLatex, treefromLatex } from "../testHelpers";
+import { findNodeByLatex, findNodeId, treefromLatex } from "../testHelpers";
 
 function runMove({
   latex,
@@ -36,5 +36,29 @@ describe("applyMoveMultiplicative executor", () => {
 
     expect(next).not.toBeNull();
     expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe("b c a");
+  });
+
+  it("moves denominator m a across '=' to RHS", () => {
+    const next = runMove({
+      latex: String.raw`\frac{x^{2} + v_{x}}{m a} = 1`,
+      select: (tree) => {
+        const denomId = findNodeId(
+          tree,
+          (n) => n.op === "InvisibleOperator" && n.latex.includes("m") && n.latex.includes("a")
+        );
+        return [denomId];
+      },
+      hover: (tree) => {
+        const rhsId = tree.childrenById[tree.rootId!]?.[1];
+        if (!rhsId) throw new Error("Missing RHS");
+        return rhsId;
+      },
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`x^{2} + v_{x} = m a`
+    );
   });
 });

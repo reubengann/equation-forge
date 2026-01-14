@@ -14,31 +14,27 @@ function normalizeMul(factors: MJ[]): MJ {
   return ["InvisibleOperator", ...use] as MJNode;
 }
 
-function sideOfEqual(
+function findEqualSideRoot(
   tree: ExpressionTree,
-  equalId: string,
   nodeId: string
-): 0 | 1 | null {
-  const kids = tree.childrenById[equalId] ?? [];
-  if (kids.length < 2) return null;
-  if (nodeId === kids[0]) return 0;
-  if (nodeId === kids[1]) return 1;
-  return null;
-}
-
-function sideRootContaining(
-  tree: ExpressionTree,
-  equalId: string,
-  nodeId: string
-): { rootId: string; side: 0 | 1 } | null {
-  const kids = tree.childrenById[equalId] ?? [];
-  if (kids.length < 2) return null;
-  const [lhsId, rhsId] = kids;
+): { equalId: string; sideRootId: string; sideSlot: 0 | 1 } | null {
   let cur: string | null = nodeId;
   while (cur) {
-    if (cur === lhsId) return { rootId: lhsId, side: 0 };
-    if (cur === rhsId) return { rootId: rhsId, side: 1 };
-    cur = tree.parentById[cur] ?? null;
+    const parent = tree.parentById[cur];
+    if (!parent) return null;
+    if (tree.nodesById[parent]?.op === "Equal") {
+      const kids = tree.childrenById[parent] ?? [];
+      if (kids.length >= 2) {
+        const lhsId = kids[0];
+        const rhsId = kids[1];
+        if (cur === lhsId)
+          return { equalId: parent, sideRootId: lhsId, sideSlot: 0 };
+        if (cur === rhsId)
+          return { equalId: parent, sideRootId: rhsId, sideSlot: 1 };
+      }
+      return null;
+    }
+    cur = parent;
   }
   return null;
 }
@@ -141,22 +137,22 @@ export function applyMoveMultiplicative(
   const equalId = route.lcaId;
   if (tree.nodesById[equalId]?.op !== "Equal") return null;
 
-  const sideInfoFrom = sideRootContaining(tree, equalId, movedId);
-  const sideInfoTo = sideRootContaining(tree, equalId, hover);
+  const sideInfoFrom = findEqualSideRoot(tree, movedId);
+  const sideInfoTo = findEqualSideRoot(tree, hover);
   if (!sideInfoFrom || !sideInfoTo) return null;
-  if (sideInfoFrom.side === sideInfoTo.side) return null;
+  if (sideInfoFrom.sideSlot === sideInfoTo.sideSlot) return null;
 
   const movedPath = tree.pathById[movedId];
   if (!movedPath) return null;
 
   const movedExpr = getAtPath(tree.rootJson, movedPath) as MJ;
-  const destRootId = sideInfoTo.rootId;
+  const destRootId = sideInfoTo.sideRootId;
   const destRootPath = tree.pathById[destRootId];
   if (!destRootPath) return null;
 
   const movedWasDivisor = isUnderDenominatorOfSideRoot(
     tree,
-    sideInfoFrom.rootId,
+    sideInfoFrom.sideRootId,
     movedId
   );
 
@@ -192,14 +188,25 @@ export function applyMoveMultiplicative(
 
   // Default: update the entire destination side.
   const destExpr = getAtPath(nextRoot, destRootPath) as MJ;
-  const updatedDest: MJ =
-    movedWasDivisor && destExpr
-      ? normalizeMul([destExpr, movedExpr])
-      : (["Divide", destExpr, movedExpr] as MJNode);
+  let updatedDest: MJ;
+  if (movedWasDivisor && destExpr) {
+    // denom moved across → multiply dest by moved
+    updatedDest = normalizeMul([destExpr, movedExpr]);
+  } else {
+    updatedDest = ["Divide", destExpr, movedExpr] as MJNode;
+    // Normalize Divide(expr, 1) to expr
+    if (
+      Array.isArray(updatedDest) &&
+      updatedDest[0] === "Divide" &&
+      isOneTerm(updatedDest[2] as MJ)
+    ) {
+      updatedDest = updatedDest[1] as MJ;
+    }
+  }
   nextRoot = setAtPath(nextRoot, destRootPath, updatedDest);
 
   // If the source side root was a Divide and its denominator became 1, collapse it.
-  const fromRootPath = tree.pathById[sideInfoFrom.rootId];
+  const fromRootPath = tree.pathById[sideInfoFrom.sideRootId];
   if (fromRootPath) {
     const node = getAtPath(nextRoot, fromRootPath);
     if (
@@ -208,6 +215,15 @@ export function applyMoveMultiplicative(
       isOneTerm(node[2] as MJ)
     ) {
       nextRoot = setAtPath(nextRoot, fromRootPath, node[1] as MJ);
+      // If the numerator is itself a Divide(...,1), collapse it too.
+      const numerator = node[1] as MJ;
+      if (
+        Array.isArray(numerator) &&
+        numerator[0] === "Divide" &&
+        isOneTerm(numerator[2] as MJ)
+      ) {
+        nextRoot = setAtPath(nextRoot, fromRootPath, numerator[1] as MJ);
+      }
     }
   }
 

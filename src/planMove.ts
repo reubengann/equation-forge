@@ -127,6 +127,31 @@ function findContainerAncestors(
   return ids; // closest-first
 }
 
+function findEqualSideRoot(
+  tree: ExpressionTree,
+  nodeId: string
+): { equalId: string; sideRootId: string; sideSlot: 0 | 1 } | null {
+  let cur: string | null = nodeId;
+  while (cur) {
+    const parent = tree.parentById[cur];
+    if (!parent) return null;
+    if (tree.nodesById[parent]?.op === "Equal") {
+      const kids = tree.childrenById[parent] ?? [];
+      if (kids.length >= 2) {
+        const lhsId = kids[0];
+        const rhsId = kids[1];
+        if (cur === lhsId)
+          return { equalId: parent, sideRootId: lhsId, sideSlot: 0 };
+        if (cur === rhsId)
+          return { equalId: parent, sideRootId: rhsId, sideSlot: 1 };
+      }
+      return null;
+    }
+    cur = parent;
+  }
+  return null;
+}
+
 /**
  * Slot is in [0..n], meaning "before 0", "between 0&1", ..., "after last".
  * We approximate slot boundaries by each child's midpoint.
@@ -272,6 +297,33 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
   const movedParentId = tree.parentById[movedId];
   if (!movedParentId) return null;
 
+  // Multiplicative cross-equal: if source and hover are on opposite sides of the same Equal, synthesize a plan immediately.
+  if (mode === "multiplicative") {
+    const fromSide = findEqualSideRoot(tree, movedId);
+    const toSide = hoverId ? findEqualSideRoot(tree, hoverId) : null;
+    if (
+      fromSide &&
+      toSide &&
+      fromSide.equalId === toSide.equalId &&
+      fromSide.sideSlot !== toSide.sideSlot
+    ) {
+      return {
+        kind: "MoveAcrossEqual",
+        movedId,
+        equalId: fromSide.equalId,
+        fromSide: fromSide.sideSlot,
+        toSide: toSide.sideSlot,
+        drop: {
+          kind: "ontoSideRoot",
+          replaceId: toSide.sideRootId,
+          replaceParentId: fromSide.equalId,
+          replaceSlot: toSide.sideSlot,
+          insertIndex: 1,
+        },
+      };
+    }
+  }
+
   const movedParent = tree.nodesById[movedParentId];
   const isDirectEqualChild = movedParent?.op === "Equal";
 
@@ -407,6 +459,65 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
     rectFor,
     isContainerOp,
   });
+
+  // Multiplicative cross-equal: if source and hover are on opposite Equal sides, synthesize a MoveAcrossEqual.
+  if (mode === "multiplicative") {
+    const fromSide = findEqualSideRoot(tree, movedId);
+    const toSide = hoverId ? findEqualSideRoot(tree, hoverId) : null;
+    if (
+      fromSide &&
+      toSide &&
+      fromSide.equalId === toSide.equalId &&
+      fromSide.sideSlot !== toSide.sideSlot
+    ) {
+      return {
+        kind: "MoveAcrossEqual",
+        movedId,
+        equalId: fromSide.equalId,
+        fromSide: fromSide.sideSlot,
+        toSide: toSide.sideSlot,
+        drop: {
+          kind: "ontoSideRoot",
+          replaceId: toSide.sideRootId,
+          replaceParentId: fromSide.equalId,
+          replaceSlot: toSide.sideSlot,
+          insertIndex: 1,
+        },
+      };
+    }
+  }
+
+  // Multiplicative cross-equal: if source/target are on opposite sides of the same Equal, synthesize a MoveAcrossEqual.
+  if (mode === "multiplicative") {
+    const fromSide = findEqualSideRoot(tree, movedId);
+    const toSide =
+      target && target.kind === "replace"
+        ? findEqualSideRoot(tree, target.replaceId)
+        : target && target.kind === "add"
+        ? findEqualSideRoot(tree, target.addId)
+        : null;
+    if (
+      fromSide &&
+      toSide &&
+      fromSide.equalId === toSide.equalId &&
+      fromSide.sideSlot !== toSide.sideSlot
+    ) {
+      return {
+        kind: "MoveAcrossEqual",
+        movedId,
+        equalId: fromSide.equalId,
+        fromSide: fromSide.sideSlot,
+        toSide: toSide.sideSlot,
+        drop: {
+          kind: "ontoSideRoot",
+          replaceId: toSide.sideRootId,
+          replaceParentId: fromSide.equalId,
+          replaceSlot: toSide.sideSlot,
+          insertIndex: 1,
+        },
+      };
+    }
+  }
   if (!target) return null;
 
   // --- If we’re over an Add, we can either reorder or insert into another Add ---

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { treefromLatex } from "./testHelpers";
+import { treefromLatex, findNodeId } from "./testHelpers";
 import type { RectLTRB } from "./rectMath";
 import { planMove } from "./planMove";
 
@@ -583,5 +583,51 @@ describe("planMove", () => {
     });
 
     expect(plan).toBeNull(); // later rectangle check fails, but branch coverage exercises the fallback path
+  });
+});
+
+describe("planMove multiplicative cross-equal", () => {
+  it("returns a MoveAcrossEqual plan when dragging denominator product onto RHS literal", () => {
+    const tree = treefromLatex(String.raw`\frac{x^{2} + v_{x}}{m a} = 1`);
+
+    const equalId = tree.rootId!;
+    const lhsId = tree.childrenById[equalId][0];
+    const rhsId = tree.childrenById[equalId][1];
+
+    const denomId = findNodeId(
+      tree,
+      (n) => n.op === "InvisibleOperator" && n.latex.includes("m") && n.latex.includes("a")
+    );
+    expect(denomId).toBeTruthy();
+
+    const rects: Record<string, RectLTRB> = {
+      [lhsId]: { left: 0, right: 80, top: 90, bottom: 120 },
+      [rhsId]: { left: 120, right: 160, top: 90, bottom: 120 },
+    };
+    const rectFor = (id: string) => rects[id] ?? null;
+
+    const plan = planMove({
+      tree,
+      selectedIds: [denomId!],
+      hoverId: rhsId,
+      pointer: { x: 140, y: 100 },
+      rectFor,
+      mode: "multiplicative",
+    });
+
+    expect(plan).toEqual({
+      kind: "MoveAcrossEqual",
+      movedId: denomId,
+      equalId,
+      fromSide: 0,
+      toSide: 1,
+      drop: {
+        kind: "ontoSideRoot",
+        replaceId: rhsId,
+        replaceParentId: equalId,
+        replaceSlot: 1,
+        insertIndex: 1,
+      },
+    });
   });
 });

@@ -109,6 +109,7 @@ export default function App() {
     "Type an equation, click Add / Update. Then click parts of the rendered equation."
   );
   const [info2, setInfo2] = useState<string>("");
+  const [info3, setInfo3] = useState<string>("");
 
   const [dragStartInfo, setDragStartInfo] = useState<string>("");
   const [dragHoverInfo, setDragHoverInfo] = useState<string>("");
@@ -116,6 +117,7 @@ export default function App() {
   const [parentAddId, setParentAddId] = useState<string>("");
   const [debugBoxes, setDebugBoxes] = useState(false);
   const [moveMode, setMoveMode] = useState<MoveMode>("additive");
+  const [infoArgs, setInfoArgs] = useState<string>("");
   const insertOverlayRef = useRef<HTMLDivElement | null>(null);
   const lastPlanRef = useRef<MovePlan | null>(null);
   const lastClickRef = useRef<{
@@ -411,6 +413,23 @@ export default function App() {
     if (!opts?.preview) {
       measureRef.current.textContent = t.latexTagged;
       (measureRef.current as any).render?.();
+    }
+
+    // Publish test-only centers for Playwright via window.
+    if (!opts?.preview) {
+      const centers: Record<string, { x: number; y: number }> = {};
+      const centersByLatex: Record<string, { x: number; y: number }> = {};
+      for (const id of Object.keys(t.nodesById)) {
+        const r = rectForVisual(id);
+        if (r) {
+          const c = { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 };
+          centers[id] = c;
+          const latex = t.nodesById[id]?.latex;
+          if (latex && !centersByLatex[latex]) centersByLatex[latex] = c;
+        }
+      }
+      (window as any).__dpCenters = centers;
+      (window as any).__dpCentersByLatex = centersByLatex;
     }
 
     // Clear highlights after the render if requested (useful after a completed move).
@@ -718,6 +737,21 @@ export default function App() {
     );
   }
 
+  // Collapse multiplicative selection to container if all selected ids share the same Multiply/InvisibleOperator parent.
+  function collapseMultiplicativeSelection(ids: string[]): string[] {
+    if (moveMode !== "multiplicative" || ids.length <= 1 || !tree) return ids;
+    const parents = ids.map((id) => tree.parentById[id]).filter(Boolean);
+    const uniqueParents = Array.from(new Set(parents));
+    if (uniqueParents.length === 1) {
+      const parentId = uniqueParents[0]!;
+      const pop = tree.nodesById[parentId]?.op;
+      if (pop === "InvisibleOperator" || pop === "Multiply") {
+        return [parentId];
+      }
+    }
+    return ids;
+  }
+
   function onDisplayPointerMove(e: React.PointerEvent) {
     if (!drag) {
       setDragStartInfo("Not dragging");
@@ -745,9 +779,13 @@ export default function App() {
     setDragStartInfo(displayNodeInfo(drag.selectedIds[0] ?? null));
     setDragHoverInfo(hover ? displayNodeInfo(hover) : "No current hover");
 
+    const effectiveSelectedIds = collapseMultiplicativeSelection(
+      drag.selectedIds
+    );
+
     const plan = planMove({
       tree,
-      selectedIds: drag.selectedIds,
+      selectedIds: effectiveSelectedIds,
       hoverId: hover,
       pointer: { x: e.clientX, y: e.clientY },
       rectFor: rectForNodeId,
@@ -755,6 +793,19 @@ export default function App() {
     });
 
     setInfo2(describeMovePlan(plan));
+    setInfo3(plan ? JSON.stringify(plan, null, 2) : "planMove returned null");
+    setInfoArgs(
+      JSON.stringify(
+        {
+          selectedIds: effectiveSelectedIds,
+          hoverId: hover,
+          pointer: { x: e.clientX, y: e.clientY },
+          mode: moveMode,
+        },
+        null,
+        2
+      )
+    );
     setDragSlot(plan ? plan.kind : "");
     setParentAddId(hover ? hover : "");
     lastPlanRef.current = plan;
@@ -812,9 +863,12 @@ export default function App() {
     const effectiveMode: MoveMode = shouldFallbackToAdd ? "additive" : moveMode;
 
     if (tree && plan && moveTarget) {
+      const effectiveSelectedIds = collapseMultiplicativeSelection(
+        drag.selectedIds
+      );
       const next = applyMove({
         tree,
-        selectedIds: drag.selectedIds,
+        selectedIds: effectiveSelectedIds,
         hoverId: moveTarget.hoverId,
         targetSlot: moveTarget.targetSlot,
         mode: effectiveMode,
@@ -830,6 +884,12 @@ export default function App() {
         setInfoFromTree(next, next.latexPlain);
       } else {
         // Failed move -> keep current selection/highlight
+        setInfo3(
+          [
+            "applyMove returned null",
+            plan ? JSON.stringify(plan, null, 2) : "no plan",
+          ].join("\n")
+        );
         renderTree(tree, { preview: false });
       }
     } else if (tree) {
@@ -864,6 +924,55 @@ export default function App() {
 
     renderNodeIdBoxes(tree, mathDivEl, overlay);
   }, [debugBoxes, tree]);
+
+  // Test helper: expose node-center lookup by visible text within MathLive shadow DOM.
+  useEffect(() => {
+    (window as any).__dpGetNodeCenter = (text: string) => {
+      const hosts = [displayRef.current, measureRef.current].filter(
+        Boolean
+      ) as HTMLElement[];
+      const findInHost = (host: HTMLElement | null) => {
+        if (!host) return null;
+        const sr = getMathliveShadowRoot(host) ?? (host as any).shadowRoot;
+        const scope: ParentNode | null = sr ?? host;
+        if (!scope) return null;
+        const el = Array.from(
+          scope.querySelectorAll<HTMLElement>("[data-node-id]")
+        ).find((n) => n.textContent?.trim()?.includes(text));
+        return el ?? null;
+      };
+      let el: HTMLElement | null = null;
+      for (const h of hosts) {
+        el = findInHost(h);
+        if (el) break;
+      }
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    };
+    (window as any).__dpFindNodeIdByLatex = (latex: string) => {
+      if (!tree) return null;
+      const match = Object.values(tree.nodesById).find(
+        (n) => n?.latex === latex
+      );
+      return match?.id ?? null;
+    };
+    (window as any).__dpGetRectForNodeId = (nodeId: string) => {
+      const r = rectForNodeId(nodeId);
+      return r
+        ? { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 }
+        : null;
+    };
+    (window as any).__dpGetCenterByLatex = (latex: string) => {
+      if (!tree) return null;
+      const id = (window as any).__dpFindNodeIdByLatex(latex);
+      if (!id) return null;
+      const r = rectForNodeId(id);
+      return r
+        ? { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 }
+        : null;
+    };
+  }, [tree]);
 
   type Box = { left: number; top: number; width: number; height: number };
 
@@ -969,6 +1078,7 @@ export default function App() {
               border: "1px solid #ccc",
               borderRadius: 8,
             }}
+            data-testid="latex-input"
           >
             {exampleLatex}
           </MathField>
@@ -988,6 +1098,7 @@ export default function App() {
               value={exampleIdx}
               onChange={(e) => setExampleIdx(Number(e.target.value))}
               style={{ padding: "6px 8px", borderRadius: 6, width: "100%" }}
+              data-testid="examples-select"
             >
               {examples.map((ex, idx) => (
                 <option key={idx} value={idx}>
@@ -1021,6 +1132,7 @@ export default function App() {
                       cursor: "pointer",
                       textTransform: "capitalize",
                     }}
+                    data-testid={`mode-${mode}`}
                   >
                     {mode}
                   </button>
@@ -1038,6 +1150,7 @@ export default function App() {
               cursor: "pointer",
               whiteSpace: "nowrap",
             }}
+            data-testid="add-update"
           >
             Add / Update
           </button>
@@ -1086,6 +1199,7 @@ export default function App() {
               ref={displayRef}
               mode="displaystyle"
               className="math-display"
+              data-testid="math-display"
               style={{ fontSize: "1.2rem" }}
             />
             {/* Insert marker overlay */}
@@ -1131,6 +1245,7 @@ export default function App() {
           padding: 10,
           borderRadius: 8,
         }}
+        data-testid="info-text"
       />
 
       <textarea
@@ -1146,6 +1261,38 @@ export default function App() {
           padding: 10,
           borderRadius: 8,
         }}
+      />
+
+      <textarea
+        readOnly
+        value={info3}
+        style={{
+          marginTop: 16,
+          width: "100%",
+          height: 200,
+          fontFamily:
+            "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+          fontSize: 12,
+          padding: 10,
+          borderRadius: 8,
+        }}
+        data-testid="info3-text"
+      />
+
+      <textarea
+        readOnly
+        value={infoArgs}
+        style={{
+          marginTop: 16,
+          width: "100%",
+          height: 160,
+          fontFamily:
+            "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+          fontSize: 12,
+          padding: 10,
+          borderRadius: 8,
+        }}
+        data-testid="info-args"
       />
 
       <p>Previous hover target: {dragStartInfo}</p>

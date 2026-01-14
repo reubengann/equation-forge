@@ -13,6 +13,8 @@ dist-ssr
 *.local
 coverage
 coverage-final.json
+test-results
+.playwright
 
 # Editor directories and files
 .vscode/*
