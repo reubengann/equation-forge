@@ -288,6 +288,22 @@ describe("ExpressionTree", () => {
     expect(jsonStr).not.toContain("InvisibleOperator");
   });
 
+  it("does not tag inside Differential (atomic selection)", () => {
+    const t = ExpressionTree.create(["Differential", "f"]);
+    expect(t.latexTagged).toBe(
+      String.raw`\htmlData{node-id="n1"}{\mathrm{d}{f}}`
+    );
+    expect(t.latexTagged).not.toContain(`node-id="n2"`);
+  });
+
+  it("does not tag inside Partial (atomic selection)", () => {
+    const t = ExpressionTree.create(["Partial", ["Power", "x", 2]]);
+    expect(t.latexTagged).toBe(
+      String.raw`\htmlData{node-id="n1"}{\partial{x^{2}}}`
+    );
+    expect(t.latexTagged).not.toContain(`node-id="n2"`);
+  });
+
   it("Does not canonicalize commutative Add (b + a stays b + a)", () => {
     const mj: MJ = ["Add", "b", "a"];
     const t = ExpressionTree.create(mj);
