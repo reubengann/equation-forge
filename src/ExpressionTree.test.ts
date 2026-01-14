@@ -275,7 +275,9 @@ describe("ExpressionTree", () => {
     ]);
 
     expect(t.latexPlain.replace(/\s+/g, " ").trim()).toBe(
-      String.raw`\int f \left(x\right) \,\mathrm{d}{x}`.replace(/\s+/g, " ").trim()
+      String.raw`\int f \left(x\right) \,\mathrm{d}{x}`
+        .replace(/\s+/g, " ")
+        .trim()
     );
   });
 
@@ -446,13 +448,23 @@ describe("ExpressionTree", () => {
   });
 
   it("renders Sin with implicit argument", () => {
-    const t = ExpressionTree.create(["Sin", "x"]);
+    const t = ExpressionTree.create(makeMJfromLatex(String.raw`\sin x`));
     expect(t.latexPlain).toBe(String.raw`\sin\left(x\right)`);
   });
 
   it("renders Cos of a sum with parens", () => {
-    const t = ExpressionTree.create(["Cos", ["Add", "a", "b"]]);
+    const t = ExpressionTree.create(makeMJfromLatex(String.raw`\cos(a+b)`));
     expect(t.latexPlain).toBe(String.raw`\cos\left(a + b\right)`);
+  });
+
+  it("renders Exp as \\exp()", () => {
+    const t = ExpressionTree.create(makeMJfromLatex(String.raw`\exp(a+b)`));
+    expect(t.latexPlain).toBe(String.raw`\exp\left(a + b\right)`);
+  });
+
+  it("renders InvisibleOperator Exp x as function call", () => {
+    const t = ExpressionTree.create(makeMJfromLatex(String.raw`\exp x`));
+    expect(t.latexPlain).toBe(String.raw`\exp\left(x\right)`);
   });
 
   it("renders Abs with vertical bars", () => {

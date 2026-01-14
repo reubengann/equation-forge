@@ -221,6 +221,44 @@ export class ExpressionTree {
       this.childIndexById[cid] = idx;
     });
 
+    const funcNameRaw = node[1];
+    if (
+      typeof funcNameRaw === "string" &&
+      FUNCTION_OPS.has(funcNameRaw) &&
+      children.length >= 2
+    ) {
+      const args = children.slice(1);
+      const nameMap: Record<string, string> = {
+        Sin: String.raw`\sin`,
+        Cos: String.raw`\cos`,
+        Tan: String.raw`\tan`,
+        Exp: String.raw`\exp`,
+        Log: String.raw`\log`,
+        Ln: String.raw`\ln`,
+        Abs: String.raw`\left|`,
+      };
+      const fnLatex = nameMap[funcNameRaw] ?? funcNameRaw;
+      const argsPlain = args.map((a) => a.latexPlain).join(", ");
+      const argsTagged = args.map((a) => a.latexTagged).join(", ");
+      const singleIsDelimiter =
+        args.length === 1 && this.nodesById[args[0].id]?.op === "Delimiter";
+      const plain =
+        funcNameRaw === "Abs"
+          ? String.raw`${fnLatex}${argsPlain}\right|`
+          : singleIsDelimiter
+          ? `${fnLatex}${argsPlain}`
+          : `${fnLatex}\\left(${argsPlain}\\right)`;
+      const taggedInner =
+        funcNameRaw === "Abs"
+          ? String.raw`${fnLatex}${argsTagged}\right|`
+          : singleIsDelimiter
+          ? `${fnLatex}${argsTagged}`
+          : `${fnLatex}\\left(${argsTagged}\\right)`;
+
+      this.nodesById[id] = { id, op, latex: plain, json: node };
+      return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+    }
+
     // Thin space for implicit multiplication
     const sep = String.raw`\,`;
     const plain = children.map((c) => c.latexPlain).join(" ");
@@ -613,13 +651,20 @@ export class ExpressionTree {
     const argsPlain = args.map((a) => a.latexPlain).join(", ");
     const argsTagged = args.map((a) => a.latexTagged).join(", ");
 
+    const singleIsDelimiter =
+      args.length === 1 && this.nodesById[args[0].id]?.op === "Delimiter";
+
     const plain =
       op === "Abs"
         ? String.raw`${fnLatex}${argsPlain}\right|`
+        : singleIsDelimiter
+        ? `${fnLatex}${argsPlain}`
         : `${fnLatex}\\left(${argsPlain}\\right)`;
     const taggedInner =
       op === "Abs"
         ? String.raw`${fnLatex}${argsTagged}\right|`
+        : singleIsDelimiter
+        ? `${fnLatex}${argsTagged}`
         : `${fnLatex}\\left(${argsTagged}\\right)`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
