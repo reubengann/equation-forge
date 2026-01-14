@@ -125,6 +125,7 @@ export default function App() {
 
   // Example expressions for quick testing
   const examples = [
+    String.raw`\int_{0}^{5} x^2\,\mathrm{d}x`,
     String.raw`\dfrac{\partial f}{\partial x}`,
     String.raw`\dfrac{\differentialD f(x)}{\differentialD x}`,
     String.raw`\frac{a+b}{2}+c+d=e-f`,

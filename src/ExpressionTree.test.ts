@@ -225,9 +225,7 @@ describe("ExpressionTree", () => {
   });
 
   it("parses partial derivative fraction", () => {
-    const mj = makeMJfromLatex(
-      String.raw`\dfrac{\partial f}{\partial x}`
-    );
+    const mj = makeMJfromLatex(String.raw`\dfrac{\partial f}{\partial x}`);
     expect(mj).toEqual([
       "FractionPartialDerivative",
       ["Partial", "f"],
@@ -254,8 +252,18 @@ describe("ExpressionTree", () => {
       ["Partial", ["Power", "x", 2]],
     ]);
 
-    expect(t.latexPlain).toBe(
-      String.raw`\frac{\partial{f}}{\partial{x^{2}}}`
+    expect(t.latexPlain).toBe(String.raw`\frac{\partial{f}}{\partial{x^{2}}}`);
+  });
+
+  it("renders Integrate with bounds and differential", () => {
+    const t = ExpressionTree.create([
+      "Integrate",
+      ["Power", "x", 2],
+      ["Tuple", "x", 0, 5],
+    ]);
+
+    expect(t.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\int_{0}^{5} x^{2} \,\mathrm{d}{x}`.replace(/\s+/g, " ").trim()
     );
   });
 

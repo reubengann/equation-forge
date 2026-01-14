@@ -87,8 +87,14 @@ export class ExpressionTree {
       if (op === "FractionPartialDerivative") {
         return this.emitFractionPartialDerivative(node, id, path, op);
       }
+      if (op === "Integrate") {
+        return this.emitIntegrate(node, id, path, op);
+      }
       if (op === "Partial") {
         return this.emitPartial(node, id, path, op);
+      }
+      if (op === "Tuple") {
+        return this.emitTuple(node, id, path, op);
       }
       if (op === "Multiply") {
         return this.emitMultiply(node, id, path, op);
@@ -476,6 +482,79 @@ export class ExpressionTree {
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
+  private emitTuple(node: MJNode, id: string, path: number[], op: string) {
+    const kids = node
+      .slice(1)
+      .map((childNode, i) => this.emit(childNode, id, [...path, i + 1]));
+
+    this.childrenById[id] = kids.map((k) => k.id);
+    kids.forEach((k, i) => (this.childIndexById[k.id] = i));
+
+    const plain = kids.map((k) => k.latexPlain).join(", ");
+    const taggedInner = kids.map((k) => k.latexTagged).join(", ");
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
+  private emitIntegrate(
+    node: MJNode,
+    id: string,
+    path: number[],
+    op: string
+  ) {
+    // Shape: ["Integrate", integrand, ["Tuple", sym, lower?, upper?]]
+    const integrand = this.emit(node[1], id, [...path, 1]);
+    const tupleNode =
+      Array.isArray(node[2]) && node[2][0] === "Tuple" ? node[2] : null;
+
+    let sym: ReturnType<ExpressionTree["emit"]> | null = null;
+    let lower: ReturnType<ExpressionTree["emit"]> | null = null;
+    let upper: ReturnType<ExpressionTree["emit"]> | null = null;
+
+    if (tupleNode) {
+      sym = this.emit(tupleNode[1] ?? "x", id, [...path, 2, 1]);
+      if (tupleNode.length >= 3) {
+        lower = this.emit(tupleNode[2], id, [...path, 2, 2]);
+      }
+      if (tupleNode.length >= 4) {
+        upper = this.emit(tupleNode[3], id, [...path, 2, 3]);
+      }
+    }
+
+    this.childrenById[id] = [integrand.id];
+    this.childIndexById[integrand.id] = 0;
+    if (sym) {
+      this.childrenById[id].push(sym.id);
+      this.childIndexById[sym.id] = this.childrenById[id].length - 1;
+    }
+    if (lower) {
+      this.childrenById[id].push(lower.id);
+      this.childIndexById[lower.id] = this.childrenById[id].length - 1;
+    }
+    if (upper) {
+      this.childrenById[id].push(upper.id);
+      this.childIndexById[upper.id] = this.childrenById[id].length - 1;
+    }
+
+    const boundsPlain =
+      lower || upper
+        ? `_{${lower?.latexPlain ?? ""}}^{${upper?.latexPlain ?? ""}}`
+        : "";
+    const dVarPlain = sym ? sym.latexPlain : "";
+    const dVarTagged = sym ? sym.latexTagged : "";
+
+    const plain = String.raw`\int${boundsPlain} ${integrand.latexPlain} \,\mathrm{d}{${dVarPlain}}`;
+    const taggedInner = String.raw`\int${boundsPlain} ${integrand.latexTagged} \,\mathrm{d}{${dVarTagged}}`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return {
+      id,
+      latexPlain: plain,
+      latexTagged: this.wrap(id, taggedInner),
+    };
   }
 
   private emitApply(node: MJNode, id: string, path: number[], op: string) {
