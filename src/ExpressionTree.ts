@@ -8,6 +8,8 @@ export type NodeInfo = {
   json: MJ;
 };
 
+const FUNCTION_OPS = new Set(["Sin", "Cos", "Tan", "Exp", "Log", "Ln", "Abs"]);
+
 export class ExpressionTree {
   readonly rootJson: MJ;
 
@@ -121,6 +123,9 @@ export class ExpressionTree {
       }
       if (op === "Differential") {
         return this.emitDifferential(node, id, path, op);
+      }
+      if (FUNCTION_OPS.has(op)) {
+        return this.emitFunctionCall(node, id, path, op);
       }
       throw Error(`${op} is not a known type of array`);
     }
@@ -499,12 +504,7 @@ export class ExpressionTree {
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
   }
 
-  private emitIntegrate(
-    node: MJNode,
-    id: string,
-    path: number[],
-    op: string
-  ) {
+  private emitIntegrate(node: MJNode, id: string, path: number[], op: string) {
     // Shape: ["Integrate", integrand, ["Tuple", sym, lower?, upper?]]
     const integrand = this.emit(node[1], id, [...path, 1]);
     const tupleNode =
@@ -580,6 +580,52 @@ export class ExpressionTree {
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
   }
 
+  private emitFunctionCall(
+    node: MJNode,
+    id: string,
+    path: number[],
+    op: string
+  ) {
+    // Generic function call for known FUNCTION_OPS: [op, arg1, arg2, ...]
+    if (!FUNCTION_OPS.has(op)) {
+      throw Error(`${op} is not a known function`);
+    }
+
+    const args = node
+      .slice(1)
+      .map((childNode, i) => this.emit(childNode, id, [...path, i + 1]));
+
+    this.childrenById[id] = args.map((a) => a.id);
+    args.forEach((a, i) => (this.childIndexById[a.id] = i));
+
+    const nameMap: Record<string, string> = {
+      Sin: String.raw`\sin`,
+      Cos: String.raw`\cos`,
+      Tan: String.raw`\tan`,
+      Exp: String.raw`\exp`,
+      Log: String.raw`\log`,
+      Ln: String.raw`\ln`,
+      Abs: String.raw`\left|`,
+    };
+
+    const fnLatex = nameMap[op] ?? op;
+
+    const argsPlain = args.map((a) => a.latexPlain).join(", ");
+    const argsTagged = args.map((a) => a.latexTagged).join(", ");
+
+    const plain =
+      op === "Abs"
+        ? String.raw`${fnLatex}${argsPlain}\right|`
+        : `${fnLatex}\\left(${argsPlain}\\right)`;
+    const taggedInner =
+      op === "Abs"
+        ? String.raw`${fnLatex}${argsTagged}\right|`
+        : `${fnLatex}\\left(${argsTagged}\\right)`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
   private emitDifferential(
     node: MJNode,
     id: string,
@@ -600,12 +646,7 @@ export class ExpressionTree {
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
   }
 
-  private emitPartial(
-    node: MJNode,
-    id: string,
-    path: number[],
-    op: string
-  ) {
+  private emitPartial(node: MJNode, id: string, path: number[], op: string) {
     const inner = this.emit(node[1], id, [...path, 1]);
 
     this.childrenById[id] = [inner.id];

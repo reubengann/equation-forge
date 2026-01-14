@@ -444,4 +444,19 @@ describe("ExpressionTree", () => {
 
     expect(t.latexPlain).toContain(String.raw`\vec{`);
   });
+
+  it("renders Sin with implicit argument", () => {
+    const t = ExpressionTree.create(["Sin", "x"]);
+    expect(t.latexPlain).toBe(String.raw`\sin\left(x\right)`);
+  });
+
+  it("renders Cos of a sum with parens", () => {
+    const t = ExpressionTree.create(["Cos", ["Add", "a", "b"]]);
+    expect(t.latexPlain).toBe(String.raw`\cos\left(a + b\right)`);
+  });
+
+  it("renders Abs with vertical bars", () => {
+    const t = ExpressionTree.create(["Abs", ["Add", "a", "b"]]);
+    expect(t.latexPlain).toBe(String.raw`\left|a + b\right|`);
+  });
 });
