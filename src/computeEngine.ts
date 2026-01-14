@@ -205,11 +205,37 @@ const fractionDerivativeEntry: LatexDictionaryEntry = {
   },
 };
 
+const fractionPartialDerivativeEntry: LatexDictionaryEntry = {
+  name: "FractionPartialDerivative",
+  kind: "expression",
+  serialize: (serializer, expr) => {
+    if (!Array.isArray(expr)) return serializer.serialize(expr);
+    const numerator = expr[1] as Expression;
+    const denominator = expr[2] as Expression;
+
+    const renderPartial = (part: Expression): string => {
+      if (Array.isArray(part) && part[0] === "Partial") {
+        const inner = (part[1] ?? null) as Expression | null;
+        const innerLatex = serializer.wrap(inner, 0);
+        return String.raw`\\partial{${innerLatex}}`;
+      }
+      const innerLatex = serializer.wrap(part, 0);
+      return String.raw`\\partial{${innerLatex}}`;
+    };
+
+    const numLatex = renderPartial(numerator);
+    const denLatex = renderPartial(denominator);
+
+    return String.raw`\\dfrac{${numLatex}}{${denLatex}}`;
+  },
+};
+
 const baseDictionary = ComputeEngine.getLatexDictionary("all");
 
 ce.latexDictionary = [
   partialEntry,
   differentialEntry,
+  fractionPartialDerivativeEntry,
   fractionDerivativeEntry,
   ...baseDictionary,
 ];

@@ -8,6 +8,7 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "html"],
       include: ["src/moveExpression/applyMove.ts", "src/**/*.ts"],
+      exclude: ["src/testHelpers.ts"],
     },
   },
 });
