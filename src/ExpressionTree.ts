@@ -522,6 +522,8 @@ export class ExpressionTree {
       if (tupleNode.length >= 4) {
         upper = this.emit(tupleNode[3], id, [...path, 2, 3]);
       }
+    } else if (node.length >= 3) {
+      sym = this.emit(node[2], id, [...path, 2]);
     }
 
     this.childrenById[id] = [integrand.id];

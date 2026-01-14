@@ -267,6 +267,18 @@ describe("ExpressionTree", () => {
     );
   });
 
+  it("renders indefinite Integrate with differential", () => {
+    const t = ExpressionTree.create([
+      "Integrate",
+      ["InvisibleOperator", "f", ["Delimiter", "x"]],
+      "x",
+    ]);
+
+    expect(t.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\int f \left(x\right) \,\mathrm{d}{x}`.replace(/\s+/g, " ").trim()
+    );
+  });
+
   it("keeps FractionDerivative operands untagged internally for selection", () => {
     const t = ExpressionTree.create([
       "FractionDerivative",
