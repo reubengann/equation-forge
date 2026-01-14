@@ -125,7 +125,7 @@ export default function App() {
 
   // Example expressions for quick testing
   const examples = [
-    String.raw`\sin x + \cos x`,
+    String.raw`\sin (x+y) + \cos x`,
     String.raw`\int_{0}^{5} x^2\,\mathrm{d}x`,
     String.raw`\dfrac{\partial f}{\partial x}`,
     String.raw`\dfrac{\differentialD f(x)}{\differentialD x}`,
