@@ -84,6 +84,35 @@ describe("planMove", () => {
     expect(plan).toBeNull();
   });
 
+  it("plans a reorder within a product when mode is multiplicative", () => {
+    const tree = treefromLatex("a b c");
+
+    const mulId = tree.rootId!;
+    const [aId, bId, cId] = tree.childrenById[mulId];
+
+    const plan = planMove({
+      tree,
+      selectedIds: [aId],
+      hoverId: cId, // hover inside same product
+      pointer: { x: 35, y: 110 },
+      rectFor: rectProvider({
+        [mulId]: { left: 0, right: 60, top: 100, bottom: 120 },
+        [aId]: { left: 0, right: 10, top: 100, bottom: 120 },
+        [bId]: { left: 20, right: 30, top: 100, bottom: 120 },
+        [cId]: { left: 40, right: 50, top: 100, bottom: 120 },
+      }),
+      mode: "multiplicative",
+    });
+
+    expect(plan).toEqual({
+      kind: "ReorderAdd",
+      addId: mulId,
+      movedId: aId,
+      fromIndex: 0,
+      toIndex: 1,
+    });
+  });
+
   it("returns null if the index does not change", () => {
     const tree = treefromLatex("a + b");
 

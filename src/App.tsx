@@ -20,7 +20,7 @@ import {
   type ExprSelection,
 } from "./selectionSemantics";
 import { planMove, type MovePlan } from "./planMove";
-import { applyMove } from "./moveExpression/applyMove";
+import { applyMove, type MoveMode } from "./moveExpression/applyMove";
 import type { RectLTRB } from "./rectMath";
 MathfieldElement.fontsDirectory = "/fonts";
 
@@ -115,6 +115,7 @@ export default function App() {
   const [dragSlot, setDragSlot] = useState<string>("");
   const [parentAddId, setParentAddId] = useState<string>("");
   const [debugBoxes, setDebugBoxes] = useState(false);
+  const [moveMode, setMoveMode] = useState<MoveMode>("additive");
   const insertOverlayRef = useRef<HTMLDivElement | null>(null);
   const lastPlanRef = useRef<MovePlan | null>(null);
   const lastClickRef = useRef<{
@@ -528,6 +529,28 @@ export default function App() {
       }
     }
 
+    // If the promoted node is a multiplicative container, treat the selection as its factors span.
+    const promotedOp = tree.nodesById[promotedId]?.op;
+    const isMulContainer =
+      promotedOp === "InvisibleOperator" || promotedOp === "Multiply";
+    let multiplicativeSpan: ExprSelection | null = null;
+    if (
+      !useExistingSpan &&
+      isMulContainer &&
+      tree.childrenById[promotedId]?.length
+    ) {
+      const kids = tree.childrenById[promotedId] ?? [];
+      // Drag the whole product as a single unit (container id), while highlighting the factors.
+      dragIds = [promotedId];
+      multiplicativeSpan = {
+        kind: "span",
+        parentId: promotedId,
+        op: promotedOp as "InvisibleOperator" | "Add",
+        start: 0,
+        end: kids.length - 1,
+      };
+    }
+
     // SHIFT+click → range selection within same Add parent
     if (e.shiftKey && selection && tree) {
       const targetParentId = tree.parentById[promotedId];
@@ -583,6 +606,10 @@ export default function App() {
       applySelectionHighlight(existingSel);
       setSelection(existingSel);
       setInfo2(selectionDebugText(tree, existingSel));
+    } else if (multiplicativeSpan) {
+      applySelectionHighlight(multiplicativeSpan);
+      setSelection(multiplicativeSpan);
+      setInfo2(selectionDebugText(tree, multiplicativeSpan));
     } else {
       const nextSel: ExprSelection = { kind: "node", nodeId: promotedId };
       setSelection(nextSel);
@@ -724,6 +751,7 @@ export default function App() {
       hoverId: hover,
       pointer: { x: e.clientX, y: e.clientY },
       rectFor: rectForNodeId,
+      mode: moveMode,
     });
 
     setInfo2(describeMovePlan(plan));
@@ -740,12 +768,56 @@ export default function App() {
     const plan = lastPlanRef.current;
     const moveTarget = planToApplyMoveTarget(plan);
 
+    // If the computed plan is additive-only (Reorder/Insert/Wrap into Add) AND
+    // both source/target containers are actually Add nodes, allow additive fallback.
+    // Otherwise, preserve the user-chosen moveMode (important for multiplicative moves).
+    const planIsAdditiveKind =
+      plan &&
+      (plan.kind === "ReorderAdd" ||
+        plan.kind === "InsertIntoAdd" ||
+        plan.kind === "WrapIntoAddThenInsert");
+
+    const containerIds: string[] = [];
+    if (plan) {
+      if (plan.kind === "ReorderAdd") containerIds.push(plan.addId);
+      if (plan.kind === "InsertIntoAdd") {
+        containerIds.push(plan.fromAddId, plan.toAddId);
+      }
+      if (plan.kind === "WrapIntoAddThenInsert") {
+        containerIds.push(plan.replaceParentId, plan.fromAddId);
+      }
+      if (plan.kind === "MoveAcrossEqual" && plan.drop.kind === "intoAdd") {
+        containerIds.push(plan.drop.addId);
+      }
+    }
+
+    const containersAreAdd =
+      planIsAdditiveKind &&
+      containerIds.length > 0 &&
+      containerIds.every((id) => tree?.nodesById[id]?.op === "Add");
+
+    const selectionParentsAreAdd =
+      planIsAdditiveKind &&
+      drag.selectedIds.every((id) => {
+        const pid = tree?.parentById[id];
+        return pid ? tree?.nodesById[pid]?.op === "Add" : false;
+      });
+
+    const shouldFallbackToAdd =
+      moveMode === "multiplicative" &&
+      planIsAdditiveKind &&
+      containersAreAdd &&
+      selectionParentsAreAdd;
+
+    const effectiveMode: MoveMode = shouldFallbackToAdd ? "additive" : moveMode;
+
     if (tree && plan && moveTarget) {
       const next = applyMove({
         tree,
         selectedIds: drag.selectedIds,
         hoverId: moveTarget.hoverId,
         targetSlot: moveTarget.targetSlot,
+        mode: effectiveMode,
       });
       if (next) {
         setTree(next);
@@ -923,6 +995,38 @@ export default function App() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              minWidth: 220,
+            }}
+          >
+            <label style={{ fontSize: 12, opacity: 0.8 }}>Move mode</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              {(["additive", "multiplicative"] as MoveMode[]).map((mode) => {
+                const active = moveMode === mode;
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => setMoveMode(mode)}
+                    style={{
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      border: active ? "2px solid #7c4dff" : "1px solid #888",
+                      background: active ? "rgba(124, 77, 255, 0.1)" : "#fff",
+                      cursor: "pointer",
+                      textTransform: "capitalize",
+                    }}
+                  >
+                    {mode}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <button

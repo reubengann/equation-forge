@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { findNodeByLatex, findNodeId, treefromLatex } from "../testHelpers";
 import {
-  applyMove,
+  applyMoveAdditive as applyMove,
   applyMoveOld,
   maybeDropHere,
   stepDown,
   stepUp,
   type State,
-} from "./applyMove";
+} from "./applyMoveAdditive";
 import { normalizeSelection } from "../selectionSemantics";
 import { ExpressionTree } from "../ExpressionTree";
 

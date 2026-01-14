@@ -1,4 +1,5 @@
 import type { ExpressionTree } from "./ExpressionTree";
+import type { MoveMode } from "./moveExpression/applyMove";
 import type { RectLTRB } from "./rectMath";
 import { isStructurallyValidMove } from "./movePath";
 
@@ -63,6 +64,7 @@ export interface PlanMoveArgs {
   hoverId: string | null;
   pointer: { x: number; y: number };
   rectFor: RectProvider;
+  mode?: MoveMode;
 }
 
 function midX(r: RectLTRB): number {
@@ -110,12 +112,16 @@ function isAncestorOrSelf(
   return false;
 }
 
-function findAddAncestors(tree: ExpressionTree, startId: string): string[] {
+function findContainerAncestors(
+  tree: ExpressionTree,
+  startId: string,
+  isContainerOp: (op?: string) => boolean
+): string[] {
   const ids: string[] = [];
   let cur: string | null = startId;
   while (cur) {
     const n = tree.nodesById[cur];
-    if (n?.op === "Add") ids.push(cur);
+    if (isContainerOp(n?.op)) ids.push(cur);
     cur = tree.parentById[cur] ?? null;
   }
   return ids; // closest-first
@@ -163,11 +169,12 @@ function resolveHoverTarget(args: {
   hoverId: string;
   pointer: { x: number; y: number };
   rectFor: RectProvider;
+  isContainerOp: (op?: string) => boolean;
 }): HoverTarget | null {
-  const { tree, hoverId, pointer, rectFor } = args;
+  const { tree, hoverId, pointer, rectFor, isContainerOp } = args;
 
   // 1) Add ancestors, choose closest by rect containment
-  const addAncestors = findAddAncestors(tree, hoverId);
+  const addAncestors = findContainerAncestors(tree, hoverId, isContainerOp);
   if (addAncestors.length > 0) {
     const PAD = 6;
     for (const addId of addAncestors) {
@@ -232,7 +239,7 @@ function resolveHoverTarget(args: {
   }
 
   const sideNode = tree.nodesById[sideId];
-  if (sideNode?.op === "Add") return { kind: "add", addId: sideId };
+  if (isContainerOp(sideNode?.op)) return { kind: "add", addId: sideId };
 
   return {
     kind: "replace",
@@ -243,7 +250,19 @@ function resolveHoverTarget(args: {
 }
 
 export function planMove(args: PlanMoveArgs): MovePlan | null {
-  const { tree, selectedIds, hoverId, pointer, rectFor } = args;
+  const {
+    tree,
+    selectedIds,
+    hoverId,
+    pointer,
+    rectFor,
+    mode = "additive",
+  } = args;
+
+  const isMulOp = (op?: string) =>
+    op === "InvisibleOperator" || op === "Multiply";
+  const isContainerOp = (op?: string) =>
+    mode === "multiplicative" ? isMulOp(op) : op === "Add";
 
   if (selectedIds.length < 1) return null;
   if (!hoverId) return null;
@@ -269,7 +288,13 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
     else if (movedId === rhsId) fromSide = 1;
     else return null;
 
-    const target = resolveHoverTarget({ tree, hoverId, pointer, rectFor });
+    const target = resolveHoverTarget({
+      tree,
+      hoverId,
+      pointer,
+      rectFor,
+      isContainerOp,
+    });
     if (!target) return null;
 
     // Determine which side the drop is on
@@ -367,7 +392,7 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
   if (!fromAddId) return null;
 
   const fromAddNode = tree.nodesById[fromAddId];
-  if (!fromAddNode || fromAddNode.op !== "Add") return null;
+  if (!fromAddNode || !isContainerOp(fromAddNode.op)) return null;
 
   const fromChildren = tree.childrenById[fromAddId] ?? [];
   if (fromChildren.length < 2) return null;
@@ -375,7 +400,13 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
   const fromIndex = fromChildren.indexOf(movedId);
   if (fromIndex < 0) return null;
 
-  const target = resolveHoverTarget({ tree, hoverId, pointer, rectFor });
+  const target = resolveHoverTarget({
+    tree,
+    hoverId,
+    pointer,
+    rectFor,
+    isContainerOp,
+  });
   if (!target) return null;
 
   // --- If we’re over an Add, we can either reorder or insert into another Add ---
