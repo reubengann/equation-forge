@@ -1484,9 +1484,12 @@ export default function App() {
 
         <div style={fieldFullStyle}>
           <label style={labelStyle}>Planner args</label>
-          <div style={readonlyBoxStyle} data-testid="info-args">
-            {infoArgs || "—"}
-          </div>
+          <textarea
+            style={{ ...textareaStyle, minHeight: 140 }}
+            readOnly
+            value={infoArgs || "—"}
+            data-testid="info-args"
+          />
         </div>
 
         <div style={miniGridStyle}>
