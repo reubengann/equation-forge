@@ -6,7 +6,7 @@ export default defineConfig({
   timeout: 60_000,
   use: {
     baseURL: "http://localhost:4173",
-    headless: false,
+    headless: !(process.env.HEADED || process.env.PWDEBUG),
     trace: "on-first-retry",
   },
   webServer: {

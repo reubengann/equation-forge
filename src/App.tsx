@@ -415,23 +415,6 @@ export default function App() {
       (measureRef.current as any).render?.();
     }
 
-    // Publish test-only centers for Playwright via window.
-    if (!opts?.preview) {
-      const centers: Record<string, { x: number; y: number }> = {};
-      const centersByLatex: Record<string, { x: number; y: number }> = {};
-      for (const id of Object.keys(t.nodesById)) {
-        const r = rectForVisual(id);
-        if (r) {
-          const c = { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 };
-          centers[id] = c;
-          const latex = t.nodesById[id]?.latex;
-          if (latex && !centersByLatex[latex]) centersByLatex[latex] = c;
-        }
-      }
-      (window as any).__dpCenters = centers;
-      (window as any).__dpCentersByLatex = centersByLatex;
-    }
-
     // Clear highlights after the render if requested (useful after a completed move).
     if (opts?.clearHighlightAfterRender) {
       const el = displayRef.current;
@@ -926,54 +909,6 @@ export default function App() {
   }, [debugBoxes, tree]);
 
   // Test helper: expose node-center lookup by visible text within MathLive shadow DOM.
-  useEffect(() => {
-    (window as any).__dpGetNodeCenter = (text: string) => {
-      const hosts = [displayRef.current, measureRef.current].filter(
-        Boolean
-      ) as HTMLElement[];
-      const findInHost = (host: HTMLElement | null) => {
-        if (!host) return null;
-        const sr = getMathliveShadowRoot(host) ?? (host as any).shadowRoot;
-        const scope: ParentNode | null = sr ?? host;
-        if (!scope) return null;
-        const el = Array.from(
-          scope.querySelectorAll<HTMLElement>("[data-node-id]")
-        ).find((n) => n.textContent?.trim()?.includes(text));
-        return el ?? null;
-      };
-      let el: HTMLElement | null = null;
-      for (const h of hosts) {
-        el = findInHost(h);
-        if (el) break;
-      }
-      if (!el) return null;
-      const r = el.getBoundingClientRect();
-      return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-    };
-    (window as any).__dpFindNodeIdByLatex = (latex: string) => {
-      if (!tree) return null;
-      const match = Object.values(tree.nodesById).find(
-        (n) => n?.latex === latex
-      );
-      return match?.id ?? null;
-    };
-    (window as any).__dpGetRectForNodeId = (nodeId: string) => {
-      const r = rectForNodeId(nodeId);
-      return r
-        ? { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 }
-        : null;
-    };
-    (window as any).__dpGetCenterByLatex = (latex: string) => {
-      if (!tree) return null;
-      const id = (window as any).__dpFindNodeIdByLatex(latex);
-      if (!id) return null;
-      const r = rectForNodeId(id);
-      return r
-        ? { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 }
-        : null;
-    };
-  }, [tree]);
-
   type Box = { left: number; top: number; width: number; height: number };
 
   // function clearOverlay(overlay: HTMLElement) {
