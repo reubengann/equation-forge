@@ -61,4 +61,22 @@ describe("applyMoveMultiplicative executor", () => {
       String.raw`x^{2} + v_{x} = m a`
     );
   });
+
+  it("moves multiplicative factor across '=' without leaving 1 on RHS", () => {
+    const next = runMove({
+      latex: String.raw`\vec{F} = m \vec{a}`,
+      select: (tree) => [findNodeByLatex(tree, "m")],
+      hover: (tree) => {
+        const lhsId = tree.childrenById[tree.rootId!]?.[0];
+        if (!lhsId) throw new Error("Missing LHS");
+        return lhsId;
+      },
+      targetSlot: 0,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\frac{\vec{F}}{m} = \vec{a}`
+    );
+  });
 });

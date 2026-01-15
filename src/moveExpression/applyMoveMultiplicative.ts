@@ -161,8 +161,28 @@ export function applyMoveMultiplicative(
     destHoverNode?.op === "InvisibleOperator" ||
     destHoverNode?.op === "Multiply";
 
-  // Replace moved side with multiplicative identity 1
-  let nextRoot = setAtPath(tree.rootJson, movedPath, 1);
+  // Remove the moved factor from its origin.
+  let nextRoot: MJ = tree.rootJson;
+  const movedParentId = tree.parentById[movedId];
+  const movedParentOp = movedParentId ? tree.nodesById[movedParentId]?.op : null;
+  const movedParentPath = movedParentId ? tree.pathById[movedParentId] : null;
+
+  if (
+    movedParentId &&
+    movedParentPath &&
+    (movedParentOp === "InvisibleOperator" || movedParentOp === "Multiply")
+  ) {
+    const mulExpr = getAtPath(nextRoot, movedParentPath) as MJNode;
+    const [op, ...factors] = mulExpr;
+    const idx = (tree.childrenById[movedParentId] ?? []).indexOf(movedId);
+    if (idx < 0) return null;
+    const remaining = factors.filter((_, i) => i !== idx);
+    const normalized = normalizeMul(remaining);
+    nextRoot = setAtPath(nextRoot, movedParentPath, normalized);
+  } else {
+    // Fallback: replace with 1 if not under a multiplicative container.
+    nextRoot = setAtPath(nextRoot, movedPath, 1);
+  }
 
   if (isMultiplicativeContainer && targetSlot != null) {
     const destPath = tree.pathById[hover];

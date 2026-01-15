@@ -100,7 +100,9 @@ const iconButtonBaseStyle: CSSProperties = {
   justifyContent: "center",
   gap: 6,
   borderRadius: 10,
-  border: "1px solid var(--dp-icon-border)",
+  borderWidth: 1,
+  borderStyle: "solid",
+  borderColor: "var(--dp-icon-border)",
   background: "var(--dp-icon-bg)",
   cursor: "pointer",
   color: "inherit",
@@ -174,6 +176,7 @@ export default function App() {
   const debugOverlayRef = useRef<HTMLDivElement | null>(null);
   const renderBoxRef = useRef<HTMLDivElement | null>(null);
   const mathWrapRef = useRef<HTMLDivElement | null>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
   const [latexText, setLatexText] = useState<string>(
     "Type an equation, click Add / Update."
   );
@@ -635,6 +638,11 @@ export default function App() {
     const displayEl = displayRef.current;
     if (!displayEl) return;
     if (!tree) return;
+
+    // Ignore clicks on the toolbar so selection is preserved
+    if (toolbarRef.current && toolbarRef.current.contains(e.target as Node)) {
+      return;
+    }
 
     const ids = getNodeIdsFromPointerEvent(e);
     // Usually something like ML__mathit. Need to traverse the tree upward until we find a data-node
@@ -1270,7 +1278,7 @@ export default function App() {
       >
         <div style={renderHeaderStyle}>
           <div aria-label="Rendered output" />
-          <div style={toolbarStyle}>
+          <div style={toolbarStyle} ref={toolbarRef}>
             <IconButton
               label="Additive move mode"
               icon={
