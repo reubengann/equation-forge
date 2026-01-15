@@ -106,7 +106,8 @@ const iconButtonBaseStyle: CSSProperties = {
   background: "var(--dp-icon-bg)",
   cursor: "pointer",
   color: "inherit",
-  transition: "background-color 120ms ease, border-color 120ms ease, transform 120ms ease",
+  transition:
+    "background-color 120ms ease, border-color 120ms ease, transform 120ms ease",
 };
 
 const iconButtonActiveStyle: CSSProperties = {
@@ -215,6 +216,7 @@ export default function App() {
 
   // Example expressions for quick testing
   const examples = [
+    String.raw`\vec{F} = m \vec{a}`,
     String.raw`\exp x`,
     String.raw`\sin (x+y) + \cos x`,
     String.raw`\int_{0}^{5} x^2\,\mathrm{d}x`,
@@ -1393,11 +1395,7 @@ export default function App() {
         <div style={gridStyle}>
           <div style={fieldHalfStyle}>
             <label style={labelStyle}>Selection kind</label>
-            <input
-              style={inputStyle}
-              readOnly
-              value={selectionKind || "—"}
-            />
+            <input style={inputStyle} readOnly value={selectionKind || "—"} />
           </div>
           <div style={fieldHalfStyle}>
             <label style={labelStyle}>Clicked node id</label>
@@ -1417,45 +1415,27 @@ export default function App() {
           </div>
           <div style={fieldHalfStyle}>
             <label style={labelStyle}>Node op</label>
-            <input
-              style={inputStyle}
-              readOnly
-              value={selectionOp || "—"}
-            />
+            <input style={inputStyle} readOnly value={selectionOp || "—"} />
           </div>
           <div style={fieldHalfStyle}>
             <label style={labelStyle}>Parent</label>
-            <input
-              style={inputStyle}
-              readOnly
-              value={selectionParent || "—"}
-            />
+            <input style={inputStyle} readOnly value={selectionParent || "—"} />
           </div>
           <div style={fieldHalfStyle}>
             <label style={labelStyle}>Range / span</label>
-            <input
-              style={inputStyle}
-              readOnly
-              value={selectionRange || "—"}
-            />
+            <input style={inputStyle} readOnly value={selectionRange || "—"} />
           </div>
           <div style={fieldHalfStyle}>
             <label style={labelStyle}>Child ids</label>
-            <div style={readonlyBoxStyle}>
-              {selectionChildIds || "—"}
-            </div>
+            <div style={readonlyBoxStyle}>{selectionChildIds || "—"}</div>
           </div>
           <div style={fieldHalfStyle}>
             <label style={labelStyle}>Child ops</label>
-            <div style={readonlyBoxStyle}>
-              {selectionChildOps || "—"}
-            </div>
+            <div style={readonlyBoxStyle}>{selectionChildOps || "—"}</div>
           </div>
           <div style={fieldHalfStyle}>
             <label style={labelStyle}>Child latex</label>
-            <div style={readonlyBoxStyle}>
-              {selectionChildLatex || "—"}
-            </div>
+            <div style={readonlyBoxStyle}>{selectionChildLatex || "—"}</div>
           </div>
           <div style={fieldHalfStyle}>
             <label style={labelStyle}>Node latex</label>
@@ -1467,9 +1447,7 @@ export default function App() {
           </div>
           <div style={fieldHalfStyle}>
             <label style={labelStyle}>Node mathjson</label>
-            <div style={readonlyBoxStyle}>
-              {selectionJsonDetail || "—"}
-            </div>
+            <div style={readonlyBoxStyle}>{selectionJsonDetail || "—"}</div>
           </div>
           <div style={fieldHalfStyle}>
             <label style={labelStyle}>Selection note</label>
@@ -1503,19 +1481,11 @@ export default function App() {
         <div style={miniGridStyle}>
           <div style={fieldHalfStyle}>
             <label style={labelStyle}>Previous hover target</label>
-            <input
-              style={inputStyle}
-              readOnly
-              value={dragStartInfo}
-            />
+            <input style={inputStyle} readOnly value={dragStartInfo} />
           </div>
           <div style={fieldHalfStyle}>
             <label style={labelStyle}>Hover drag</label>
-            <input
-              style={inputStyle}
-              readOnly
-              value={dragHoverInfo}
-            />
+            <input style={inputStyle} readOnly value={dragHoverInfo} />
           </div>
           <div style={fieldHalfStyle}>
             <label style={labelStyle}>Drag slot</label>

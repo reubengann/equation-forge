@@ -164,7 +164,9 @@ export function applyMoveMultiplicative(
   // Remove the moved factor from its origin.
   let nextRoot: MJ = tree.rootJson;
   const movedParentId = tree.parentById[movedId];
-  const movedParentOp = movedParentId ? tree.nodesById[movedParentId]?.op : null;
+  const movedParentOp = movedParentId
+    ? tree.nodesById[movedParentId]?.op
+    : null;
   const movedParentPath = movedParentId ? tree.pathById[movedParentId] : null;
 
   if (

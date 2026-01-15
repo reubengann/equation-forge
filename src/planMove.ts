@@ -2,6 +2,7 @@ import type { ExpressionTree } from "./ExpressionTree";
 import type { MoveMode } from "./moveExpression/applyMove";
 import type { RectLTRB } from "./rectMath";
 import { isStructurallyValidMove } from "./movePath";
+import { normalizeSelection } from "./selectionSemantics";
 
 export type RectProvider = (nodeId: string) => RectLTRB | null;
 
@@ -125,6 +126,18 @@ function findContainerAncestors(
     cur = tree.parentById[cur] ?? null;
   }
   return ids; // closest-first
+}
+
+const isVectorNode = (info?: { op?: string; latex?: string }) =>
+  info?.op === "OverVector" ||
+  (info?.op === "Symbol" && (info?.latex ?? "").includes("\\vec"));
+function hasVectorAncestor(tree: ExpressionTree, nodeId: string): boolean {
+  let cur: string | null = nodeId;
+  while (cur) {
+    if (isVectorNode(tree.nodesById[cur])) return true;
+    cur = tree.parentById[cur] ?? null;
+  }
+  return false;
 }
 
 function findEqualSideRoot(
@@ -292,7 +305,11 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
   if (selectedIds.length < 1) return null;
   if (!hoverId) return null;
 
-  const movedId = selectedIds[0];
+  const movedRawId = selectedIds[0];
+  const movedId = normalizeSelection(tree, movedRawId);
+  const movedOp = tree.nodesById[movedId]?.op;
+  const movedIsVector =
+    hasVectorAncestor(tree, movedId) || hasVectorAncestor(tree, movedRawId);
 
   const movedParentId = tree.parentById[movedId];
   if (!movedParentId) return null;
@@ -307,6 +324,7 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
       fromSide.equalId === toSide.equalId &&
       fromSide.sideSlot !== toSide.sideSlot
     ) {
+      if (movedIsVector) return null;
       return {
         kind: "MoveAcrossEqual",
         movedId,
@@ -470,6 +488,8 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
       fromSide.equalId === toSide.equalId &&
       fromSide.sideSlot !== toSide.sideSlot
     ) {
+      // console.log("cross-equal branch A", { movedId, movedOp, movedIsVector });
+      if (movedIsVector) return null;
       return {
         kind: "MoveAcrossEqual",
         movedId,
@@ -502,6 +522,8 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
       fromSide.equalId === toSide.equalId &&
       fromSide.sideSlot !== toSide.sideSlot
     ) {
+      // console.log("cross-equal branch B", { movedId, movedOp, movedIsVector });
+      if (movedIsVector) return null;
       return {
         kind: "MoveAcrossEqual",
         movedId,

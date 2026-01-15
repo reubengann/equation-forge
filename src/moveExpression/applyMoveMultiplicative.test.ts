@@ -44,7 +44,10 @@ describe("applyMoveMultiplicative executor", () => {
       select: (tree) => {
         const denomId = findNodeId(
           tree,
-          (n) => n.op === "InvisibleOperator" && n.latex.includes("m") && n.latex.includes("a")
+          (n) =>
+            n.op === "InvisibleOperator" &&
+            n.latex.includes("m") &&
+            n.latex.includes("a")
         );
         return [denomId];
       },

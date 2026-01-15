@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { treefromLatex, findNodeId } from "./testHelpers";
+import { treefromLatex, findNodeId, findNodeByLatex } from "./testHelpers";
 import type { RectLTRB } from "./rectMath";
 import { planMove } from "./planMove";
 
@@ -596,7 +596,10 @@ describe("planMove multiplicative cross-equal", () => {
 
     const denomId = findNodeId(
       tree,
-      (n) => n.op === "InvisibleOperator" && n.latex.includes("m") && n.latex.includes("a")
+      (n) =>
+        n.op === "InvisibleOperator" &&
+        n.latex.includes("m") &&
+        n.latex.includes("a")
     );
     expect(denomId).toBeTruthy();
 
@@ -626,6 +629,108 @@ describe("planMove multiplicative cross-equal", () => {
         replaceId: rhsId,
         replaceParentId: equalId,
         replaceSlot: 1,
+        insertIndex: 1,
+      },
+    });
+  });
+
+  it("returns null when attempting to divide by a vector across '='", () => {
+    const tree = treefromLatex(String.raw`\vec{F} = m \vec{a}`);
+
+    const equalId = tree.rootId!;
+    const lhsId = tree.childrenById[equalId][0];
+    const rhsId = tree.childrenById[equalId][1];
+
+    const vectorId = findNodeId(tree, (n) => n.op === "OverVector");
+
+    const rects: Record<string, RectLTRB> = {
+      [lhsId]: { left: 0, right: 80, top: 90, bottom: 120 },
+      [rhsId]: { left: 120, right: 160, top: 90, bottom: 120 },
+    };
+    const rectFor = (id: string) => rects[id] ?? null;
+
+    const plan = planMove({
+      tree,
+      selectedIds: [vectorId],
+      hoverId: lhsId,
+      pointer: { x: 40, y: 100 },
+      rectFor,
+      mode: "multiplicative",
+    });
+
+    expect(plan).toBeNull();
+  });
+
+  it("returns null when attempting to divide by a vector component across '='", () => {
+    const tree = treefromLatex(String.raw`\vec{F} = m \vec{a}`);
+
+    const equalId = tree.rootId!;
+    const lhsId = tree.childrenById[equalId][0];
+    const rhsId = tree.childrenById[equalId][1];
+
+    const vectorAId = findNodeId(
+      tree,
+      (n) => n.op === "OverVector" && n.latex.includes("a")
+    );
+    const accelId = tree.childrenById[vectorAId]?.[0];
+    const forceVectorId = findNodeId(
+      tree,
+      (n) => n.op === "OverVector" && n.latex.includes("F")
+    );
+
+    const rects: Record<string, RectLTRB> = {
+      [lhsId]: { left: 0, right: 80, top: 90, bottom: 120 },
+      [rhsId]: { left: 120, right: 160, top: 90, bottom: 120 },
+    };
+    const rectFor = (id: string) => rects[id] ?? null;
+
+    const plan = planMove({
+      tree,
+      selectedIds: [accelId!],
+      hoverId: forceVectorId,
+      pointer: { x: 40, y: 100 },
+      rectFor,
+      mode: "multiplicative",
+    });
+
+    expect(plan).toBeNull();
+  });
+
+  it("allows moving scalar m across '=' to isolate vector acceleration", () => {
+    const tree = treefromLatex(String.raw`\vec{F} = m \vec{a}`);
+
+    const equalId = tree.rootId!;
+    const lhsId = tree.childrenById[equalId][0];
+    const rhsId = tree.childrenById[equalId][1];
+
+    const massId = findNodeId(tree, (n) => n.latex === "m");
+
+    const rects: Record<string, RectLTRB> = {
+      [lhsId]: { left: 0, right: 80, top: 90, bottom: 120 },
+      [rhsId]: { left: 120, right: 200, top: 90, bottom: 120 },
+    };
+    const rectFor = (id: string) => rects[id] ?? null;
+
+    const plan = planMove({
+      tree,
+      selectedIds: [massId],
+      hoverId: lhsId,
+      pointer: { x: 40, y: 100 },
+      rectFor,
+      mode: "multiplicative",
+    });
+
+    expect(plan).toEqual({
+      kind: "MoveAcrossEqual",
+      movedId: massId,
+      equalId,
+      fromSide: 1,
+      toSide: 0,
+      drop: {
+        kind: "ontoSideRoot",
+        replaceId: lhsId,
+        replaceParentId: equalId,
+        replaceSlot: 0,
         insertIndex: 1,
       },
     });
