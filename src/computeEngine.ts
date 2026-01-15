@@ -230,6 +230,47 @@ const fractionPartialDerivativeEntry: LatexDictionaryEntry = {
   },
 };
 
+const dotEntry: LatexDictionaryEntry = {
+  name: "OverDot",
+  kind: "expression",
+  latexTrigger: "\\dot",
+  parse: (parser) => {
+    const arg = parser.parseGroup() ?? parser.parseToken();
+    if (!arg) return null;
+    return ["OverDot", arg, 1];
+  },
+  serialize: (serializer, expr) => {
+    if (!Array.isArray(expr)) {
+      const inner = serializer.wrap(expr, 0);
+      return String.raw`\\dot{${inner}}`;
+    }
+    const inner = serializer.wrap(expr[1] as Expression, 0);
+    const count = typeof expr[2] === "number" ? Number(expr[2]) : 1;
+    return count >= 2
+      ? String.raw`\\ddot{${inner}}`
+      : String.raw`\\dot{${inner}}`;
+  },
+};
+
+const ddotEntry: LatexDictionaryEntry = {
+  name: "DoubleOverDot",
+  kind: "expression",
+  latexTrigger: "\\ddot",
+  parse: (parser) => {
+    const arg = parser.parseGroup() ?? parser.parseToken();
+    if (!arg) return null;
+    return ["OverDot", arg, 2];
+  },
+  serialize: (serializer, expr) => {
+    if (!Array.isArray(expr)) {
+      const inner = serializer.wrap(expr, 0);
+      return String.raw`\\ddot{${inner}}`;
+    }
+    const inner = serializer.wrap(expr[1] as Expression, 0);
+    return String.raw`\\ddot{${inner}}`;
+  },
+};
+
 const baseDictionary = ComputeEngine.getLatexDictionary("all");
 
 ce.latexDictionary = [
@@ -237,6 +278,8 @@ ce.latexDictionary = [
   differentialEntry,
   fractionPartialDerivativeEntry,
   fractionDerivativeEntry,
+  dotEntry,
+  ddotEntry,
   ...baseDictionary,
 ];
 

@@ -28,6 +28,7 @@ import {
 } from "./selectionSemantics";
 import { planMove, type MovePlan } from "./planMove";
 import { applyMove, type MoveMode } from "./moveExpression/applyMove";
+import { substitute, type SubstituteScope } from "./substitute";
 import type { RectLTRB } from "./rectMath";
 import "./App.css";
 MathfieldElement.fontsDirectory = "/fonts";
@@ -132,12 +133,23 @@ type IconButtonProps = {
   onClick: () => void;
   active?: boolean;
   testId?: string;
+  disabled?: boolean;
 };
 
-function IconButton({ label, icon, onClick, active, testId }: IconButtonProps) {
+function IconButton({
+  label,
+  icon,
+  onClick,
+  active,
+  testId,
+  disabled,
+}: IconButtonProps) {
   const btnStyle = {
     ...iconButtonBaseStyle,
     ...(active ? iconButtonActiveStyle : {}),
+    ...(disabled
+      ? { opacity: 0.5, cursor: "not-allowed", borderColor: "#ccc" }
+      : {}),
   };
   return (
     <button
@@ -146,6 +158,7 @@ function IconButton({ label, icon, onClick, active, testId }: IconButtonProps) {
       title={label}
       onClick={onClick}
       data-testid={testId}
+      disabled={disabled}
       style={btnStyle}
     >
       <span style={iconSpanStyle} aria-hidden>
@@ -160,6 +173,12 @@ export default function App() {
   const MathField = useMemo(() => "math-field" as any, []);
 
   // const [selectedId] = useState<string | null>(null);
+  type History = { past: MJ[]; present: MJ | null; future: MJ[] };
+  const [history, setHistory] = useState<History>({
+    past: [],
+    present: null,
+    future: [],
+  });
   const [tree, setTree] = useState<ExpressionTree | null>(null);
 
   const [selection, setSelection] = useState<ExprSelection | null>(null);
@@ -178,6 +197,7 @@ export default function App() {
   const renderBoxRef = useRef<HTMLDivElement | null>(null);
   const mathWrapRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const substituteFieldRef = useRef<any>(null);
   const [latexText, setLatexText] = useState<string>(
     "Type an equation, click Add / Update."
   );
@@ -193,6 +213,10 @@ export default function App() {
   const [parentAddId, setParentAddId] = useState<string>("");
   const [debugBoxes, setDebugBoxes] = useState(false);
   const [moveMode, setMoveMode] = useState<MoveMode>("additive");
+  const [showSubstituteModal, setShowSubstituteModal] = useState(false);
+  const [substituteScope, setSubstituteScope] =
+    useState<SubstituteScope>("single");
+  const [substituteError, setSubstituteError] = useState("");
   const [infoArgs, setInfoArgs] = useState<string>("");
   const [selectionKind, setSelectionKind] = useState<string>("");
   const [selectionClickedId, setSelectionClickedId] = useState<string>("");
@@ -318,6 +342,22 @@ export default function App() {
       mf.value = latex;
     }
   }, [exampleIdx]);
+
+  useEffect(() => {
+    if (showSubstituteModal && substituteFieldRef.current) {
+      substituteFieldRef.current.value = "";
+      substituteFieldRef.current.focus();
+    }
+  }, [showSubstituteModal]);
+
+  useEffect(() => {
+    if (
+      showSubstituteModal &&
+      (!tree || !selection || selection?.kind !== "node")
+    ) {
+      closeSubstituteModal();
+    }
+  }, [showSubstituteModal, tree, selection, closeSubstituteModal]);
 
   function selectionContainsId(
     sel: ExprSelection,
@@ -595,15 +635,99 @@ export default function App() {
     setExpressionJsonText(JSON.stringify(t.rootJson, null, 2));
   }
 
-  function setBaselineJson(json: MJ, opts?: { latex?: string }) {
-    const t = ExpressionTree.create(json);
-    setTree(t);
-    renderTree(t, {
+  function applyPresentJson(json: MJ, opts?: { latex?: string }) {
+    const nextTree = ExpressionTree.create(json);
+    setTree(nextTree);
+    renderTree(nextTree, {
       preview: false,
       selectionOverride: null,
       clearHighlightAfterRender: true,
     });
-    setInfoFromTree(t, opts?.latex);
+    setSelection(null);
+    setInfoFromTree(nextTree, opts?.latex ?? nextTree.latexPlain);
+  }
+
+  function commitJson(next: MJ, opts?: { latex?: string }) {
+    setHistory((h) => {
+      const past = h.present != null ? [...h.past, h.present] : [...h.past];
+      return { past, present: next, future: [] };
+    });
+    applyPresentJson(next, opts);
+  }
+
+  function undo() {
+    let nextPresent: MJ | null = null;
+    setHistory((h) => {
+      if (h.past.length === 0) return h;
+      const previous = h.past[h.past.length - 1];
+      nextPresent = previous;
+      const future = h.present != null ? [h.present, ...h.future] : h.future;
+      return { past: h.past.slice(0, -1), present: previous, future };
+    });
+    if (nextPresent) {
+      applyPresentJson(nextPresent);
+    }
+  }
+
+  function redo() {
+    let nextPresent: MJ | null = null;
+    setHistory((h) => {
+      if (h.future.length === 0) return h;
+      const [head, ...tail] = h.future;
+      nextPresent = head;
+      const past = h.present != null ? [...h.past, h.present] : h.past;
+      return { past, present: head, future: tail };
+    });
+    if (nextPresent) {
+      applyPresentJson(nextPresent);
+    }
+  }
+
+  function openSubstituteModal() {
+    setSubstituteScope("single");
+    setSubstituteError("");
+    setShowSubstituteModal(true);
+  }
+
+  function closeSubstituteModal() {
+    setShowSubstituteModal(false);
+    setSubstituteError("");
+  }
+
+  function submitSubstitution() {
+    if (!tree || selection?.kind !== "node") {
+      setSubstituteError("Select a node to substitute.");
+      return;
+    }
+
+    const rhsLatex: string = substituteFieldRef.current?.value ?? "";
+    if (!rhsLatex.trim()) {
+      setSubstituteError("Enter a replacement expression.");
+      return;
+    }
+
+    const parsed = ce.parse(rhsLatex, { canonical: false });
+    if (!parsed) {
+      setSubstituteError("Could not parse replacement.");
+      return;
+    }
+
+    const replacement = parsed.json as MJ;
+    const result = substitute({
+      tree,
+      targetId: selection.nodeId,
+      replacement,
+      scope: substituteScope,
+    });
+
+    if (!result) {
+      setSubstituteError("Substitution failed.");
+      return;
+    }
+
+    commitJson(result.rootJson, { latex: result.latexPlain });
+    setSubstituteError("");
+    setShowSubstituteModal(false);
   }
 
   function onAddEquation() {
@@ -618,7 +742,7 @@ export default function App() {
     }
 
     const json = expr.json as MJ; // ✅ now typed
-    setBaselineJson(json, { latex });
+    commitJson(json, { latex });
   }
 
   function getNodeIdsFromPointerEvent(e: React.PointerEvent): string[] {
@@ -1050,14 +1174,7 @@ export default function App() {
         mode: effectiveMode,
       });
       if (next) {
-        setTree(next);
-        setSelection(null);
-        renderTree(next, {
-          preview: false,
-          selectionOverride: null,
-          clearHighlightAfterRender: true,
-        });
-        setInfoFromTree(next, next.latexPlain);
+        commitJson(next.rootJson, { latex: next.latexPlain });
       } else {
         // Failed move -> keep current selection/highlight
         setInfo3(
@@ -1088,6 +1205,33 @@ export default function App() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  useEffect(() => {
+    function onShortcut(e: KeyboardEvent) {
+      const active = document.activeElement as HTMLElement | null;
+      const insideMathField =
+        active?.tagName?.toLowerCase() === "math-field" ||
+        active?.closest?.("math-field");
+      const tag = active?.tagName?.toLowerCase();
+      const isFormField = tag === "input" || tag === "textarea";
+      if (insideMathField || isFormField || active?.isContentEditable) return;
+
+      const key = e.key.toLowerCase();
+      const mod = e.metaKey || e.ctrlKey;
+      const isUndo = mod && key === "z" && !e.shiftKey;
+      const isRedo = mod && (key === "y" || (key === "z" && e.shiftKey));
+
+      if (isUndo) {
+        e.preventDefault();
+        undo();
+      } else if (isRedo) {
+        e.preventDefault();
+        redo();
+      }
+    }
+    window.addEventListener("keydown", onShortcut);
+    return () => window.removeEventListener("keydown", onShortcut);
+  }, [undo, redo]);
 
   useEffect(() => {
     const overlay = debugOverlayRef.current;
@@ -1191,6 +1335,53 @@ export default function App() {
   }
 
   // const defaultString = String.raw`a=b`;
+
+  const canUndo = history.past.length > 0;
+  const canRedo = history.future.length > 0;
+  const canSubstitute = !!tree && selection?.kind === "node";
+  const selectedNodeLatex =
+    canSubstitute && tree && selection?.kind === "node"
+      ? tree.nodesById[selection.nodeId]?.latex ?? ""
+      : "";
+  const materialSymbolStyle: CSSProperties = {
+    fontVariationSettings: `"FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24`,
+    fontFamily: `"Material Symbols Rounded"`,
+    fontWeight: "normal",
+    fontStyle: "normal",
+    fontSize: 22,
+    lineHeight: 1,
+    letterSpacing: "normal",
+    textTransform: "none",
+    display: "inline-block",
+    whiteSpace: "nowrap",
+    wordWrap: "normal",
+    direction: "ltr",
+    WebkitFontFeatureSettings: `"liga"`,
+    WebkitFontSmoothing: "antialiased",
+  };
+  const modalOverlayStyle: CSSProperties = {
+    position: "fixed",
+    inset: 0,
+    background: "transparent",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10000,
+    padding: 16,
+  };
+  const modalCardStyle: CSSProperties = {
+    width: "min(720px, 100%)",
+    // Use an opaque tone matching the prior surface tint (255 * 0.04 ≈ 10).
+    background: "rgb(10, 10, 10)",
+    color: "inherit",
+    border: "1px solid var(--dp-border)",
+    borderRadius: 12,
+    boxShadow: "0 16px 42px rgba(0,0,0,0.18)",
+    padding: 20,
+    display: "flex",
+    flexDirection: "column",
+    gap: 14,
+  };
 
   return (
     <div style={{ padding: 24, maxWidth: 1000 }}>
@@ -1308,6 +1499,39 @@ export default function App() {
               onClick={() => setMoveMode("multiplicative")}
               active={moveMode === "multiplicative"}
               testId="mode-multiplicative"
+            />
+            <IconButton
+              label="Undo"
+              icon={
+                <span style={materialSymbolStyle} aria-hidden>
+                  undo
+                </span>
+              }
+              onClick={undo}
+              disabled={!canUndo}
+              testId="undo-button"
+            />
+            <IconButton
+              label="Redo"
+              icon={
+                <span style={materialSymbolStyle} aria-hidden>
+                  redo
+                </span>
+              }
+              onClick={redo}
+              disabled={!canRedo}
+              testId="redo-button"
+            />
+            <IconButton
+              label="Substitute"
+              icon={
+                <span style={materialSymbolStyle} aria-hidden>
+                  move_down
+                </span>
+              }
+              onClick={openSubstituteModal}
+              disabled={!canSubstitute}
+              testId="substitute-button"
             />
           </div>
         </div>
@@ -1497,6 +1721,158 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {showSubstituteModal ? (
+        <div style={modalOverlayStyle} role="dialog" aria-modal="true">
+          <div style={modalCardStyle}>
+            <h3 style={{ margin: 0 }}>Substitute</h3>
+            <div
+              style={{
+                display: "flex",
+                gap: 14,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ minWidth: 180, flex: "0 0 auto" }}>
+                <div style={{ ...labelStyle, marginBottom: 6 }}>Selected</div>
+                <div
+                  style={{
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    border: "1px solid var(--dp-border)",
+                    background: "var(--dp-surface)",
+                    minHeight: 40,
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <MathDiv
+                    mode="math"
+                    style={{
+                      fontSize: "1.05rem",
+                      minHeight: 28,
+                    }}
+                  >
+                    {selectedNodeLatex || "—"}
+                  </MathDiv>
+                </div>
+              </div>
+              <div
+                style={{
+                  fontSize: 22,
+                  fontWeight: 600,
+                  color: "var(--dp-toolbar-fg, inherit)",
+                }}
+                aria-hidden
+              >
+                =
+              </div>
+              <div
+                style={{
+                  flex: "1 1 280px",
+                  minWidth: 240,
+                  maxWidth: 420,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                <div style={{ ...labelStyle, marginBottom: 2 }}>
+                  Replace with (LaTeX)
+                </div>
+                <MathField
+                  ref={substituteFieldRef}
+                  style={{
+                    width: "100%",
+                    padding: 10,
+                    border: "1px solid var(--dp-border)",
+                    borderRadius: 8,
+                  }}
+                  data-testid="substitute-input"
+                />
+                {substituteError ? (
+                  <div style={{ color: "#d32f2f", fontSize: 12 }}>
+                    {substituteError}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
+                <label
+                  style={{ display: "flex", alignItems: "center", gap: 6 }}
+                >
+                  <input
+                    type="radio"
+                    name="sub-scope"
+                    value="single"
+                    checked={substituteScope === "single"}
+                    onChange={() => setSubstituteScope("single")}
+                  />
+                  This occurrence
+                </label>
+                <label
+                  style={{ display: "flex", alignItems: "center", gap: 6 }}
+                >
+                  <input
+                    type="radio"
+                    name="sub-scope"
+                    value="all"
+                    checked={substituteScope === "all"}
+                    onChange={() => setSubstituteScope("all")}
+                  />
+                  All matching occurrences
+                </label>
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={submitSubstitution}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: 8,
+                    border: "1px solid var(--dp-border)",
+                    background: "var(--dp-active, #7c4dff)",
+                    color: "white",
+                    cursor: "pointer",
+                  }}
+                >
+                  OK
+                </button>
+                <button
+                  type="button"
+                  onClick={closeSubstituteModal}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: 8,
+                    border: "1px solid var(--dp-border)",
+                    background: "var(--dp-surface)",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

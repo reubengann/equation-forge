@@ -124,6 +124,9 @@ export class ExpressionTree {
       if (op === "Differential") {
         return this.emitDifferential(node, id, path, op);
       }
+      if (op === "OverDot") {
+        return this.emitOverDot(node, id, path, op);
+      }
       if (FUNCTION_OPS.has(op)) {
         return this.emitFunctionCall(node, id, path, op);
       }
@@ -403,6 +406,22 @@ export class ExpressionTree {
 
     const plain = String.raw`\vec{${inner.latexPlain}}`;
     const taggedInner = String.raw`\vec{${inner.latexTagged}}`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
+  private emitOverDot(node: MJNode, id: string, path: number[], op: string) {
+    const inner = this.emit(node[1], id, [...path, 1]);
+
+    this.childrenById[id] = [inner.id];
+    this.childIndexById[inner.id] = 0;
+
+    const count = typeof node[2] === "number" ? Number(node[2]) : 1;
+    const cmd = count >= 2 ? String.raw`\ddot` : String.raw`\dot`;
+
+    const plain = String.raw`${cmd}{${inner.latexPlain}}`;
+    const taggedInner = String.raw`${cmd}{${inner.latexTagged}}`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
