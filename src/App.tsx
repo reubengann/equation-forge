@@ -1,7 +1,14 @@
 import "@cortex-js/compute-engine";
 import "mathlive";
 import { MathfieldElement } from "mathlive";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type CSSProperties,
+} from "react";
 import { ExpressionTree, type MJ } from "./ExpressionTree";
 import { ce } from "./computeEngine";
 import {
@@ -22,6 +29,7 @@ import {
 import { planMove, type MovePlan } from "./planMove";
 import { applyMove, type MoveMode } from "./moveExpression/applyMove";
 import type { RectLTRB } from "./rectMath";
+import "./App.css";
 MathfieldElement.fontsDirectory = "/fonts";
 
 // let found2: any = null;
@@ -83,6 +91,67 @@ function setHighlightedText(mathDivEl: HTMLElement, nodeIds?: string[] | null) {
   }
 }
 
+const iconButtonBaseStyle: CSSProperties = {
+  width: 36,
+  height: 36,
+  padding: 0,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+  borderRadius: 10,
+  border: "1px solid var(--dp-icon-border)",
+  background: "var(--dp-icon-bg)",
+  cursor: "pointer",
+  color: "inherit",
+  transition: "background-color 120ms ease, border-color 120ms ease, transform 120ms ease",
+};
+
+const iconButtonActiveStyle: CSSProperties = {
+  borderColor: "var(--dp-active)",
+  color: "var(--dp-active)",
+  background: "rgba(124, 77, 255, 0.14)",
+  boxShadow: "0 0 0 1px rgba(124, 77, 255, 0.3)",
+};
+
+const iconSpanStyle: CSSProperties = {
+  width: 18,
+  height: 18,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "inherit",
+};
+
+type IconButtonProps = {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  active?: boolean;
+  testId?: string;
+};
+
+function IconButton({ label, icon, onClick, active, testId }: IconButtonProps) {
+  const btnStyle = {
+    ...iconButtonBaseStyle,
+    ...(active ? iconButtonActiveStyle : {}),
+  };
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      data-testid={testId}
+      style={btnStyle}
+    >
+      <span style={iconSpanStyle} aria-hidden>
+        {icon}
+      </span>
+    </button>
+  );
+}
+
 export default function App() {
   const MathDiv = useMemo(() => "math-div" as any, []);
   const MathField = useMemo(() => "math-field" as any, []);
@@ -105,10 +174,13 @@ export default function App() {
   const debugOverlayRef = useRef<HTMLDivElement | null>(null);
   const renderBoxRef = useRef<HTMLDivElement | null>(null);
   const mathWrapRef = useRef<HTMLDivElement | null>(null);
-  const [info, setInfo] = useState<string>(
-    "Type an equation, click Add / Update. Then click parts of the rendered equation."
+  const [latexText, setLatexText] = useState<string>(
+    "Type an equation, click Add / Update."
   );
-  const [info2, setInfo2] = useState<string>("");
+  const [expressionJsonText, setExpressionJsonText] = useState<string>(
+    "Expression tree will appear here after rendering."
+  );
+  const [movePlanText, setMovePlanText] = useState<string>("");
   const [info3, setInfo3] = useState<string>("");
 
   const [dragStartInfo, setDragStartInfo] = useState<string>("");
@@ -118,6 +190,18 @@ export default function App() {
   const [debugBoxes, setDebugBoxes] = useState(false);
   const [moveMode, setMoveMode] = useState<MoveMode>("additive");
   const [infoArgs, setInfoArgs] = useState<string>("");
+  const [selectionKind, setSelectionKind] = useState<string>("");
+  const [selectionClickedId, setSelectionClickedId] = useState<string>("");
+  const [selectionSelectedId, setSelectionSelectedId] = useState<string>("");
+  const [selectionOp, setSelectionOp] = useState<string>("");
+  const [selectionLatexDetail, setSelectionLatexDetail] = useState<string>("");
+  const [selectionJsonDetail, setSelectionJsonDetail] = useState<string>("");
+  const [selectionParent, setSelectionParent] = useState<string>("");
+  const [selectionRange, setSelectionRange] = useState<string>("");
+  const [selectionChildIds, setSelectionChildIds] = useState<string>("");
+  const [selectionChildOps, setSelectionChildOps] = useState<string>("");
+  const [selectionChildLatex, setSelectionChildLatex] = useState<string>("");
+  const [selectionNote, setSelectionNote] = useState<string>("");
   const insertOverlayRef = useRef<HTMLDivElement | null>(null);
   const lastPlanRef = useRef<MovePlan | null>(null);
   const lastClickRef = useRef<{
@@ -141,6 +225,85 @@ export default function App() {
   ];
   const [exampleIdx, setExampleIdx] = useState(0);
   const [exampleLatex, setExampleLatex] = useState(examples[0]);
+
+  const monoFont =
+    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+
+  const labelStyle: CSSProperties = { fontSize: 13, color: "var(--dp-muted)" };
+
+  const inputStyle: CSSProperties = {
+    width: "100%",
+    border: "1px solid var(--dp-border)",
+    background: "var(--dp-surface)",
+    color: "inherit",
+    borderRadius: 10,
+    padding: "10px 12px",
+    fontSize: 13,
+    fontFamily: monoFont,
+    boxSizing: "border-box",
+  };
+
+  const textareaStyle: CSSProperties = {
+    ...inputStyle,
+    minHeight: 240,
+    resize: "vertical",
+  };
+
+  const readonlyBoxStyle: CSSProperties = {
+    ...inputStyle,
+    minHeight: 52,
+    whiteSpace: "pre-wrap",
+  };
+
+  const fieldHalfStyle: CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    width: "calc(50% - 6px)",
+  };
+
+  const fieldFullStyle: CSSProperties = { ...fieldHalfStyle, width: "100%" };
+
+  const debugPanelStyle: CSSProperties = {
+    marginTop: 18,
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 12,
+  };
+
+  const gridStyle: CSSProperties = {
+    width: "100%",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 12,
+  };
+
+  const miniGridStyle: CSSProperties = {
+    width: "100%",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 10,
+  };
+
+  const renderHeaderStyle: CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    marginBottom: 4,
+    flexWrap: "wrap",
+  };
+
+  const toolbarStyle: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: 6,
+    borderRadius: 12,
+    border: "1px solid var(--dp-border)",
+    background: "var(--dp-surface)",
+    color: "var(--dp-toolbar-fg, #1f1f2a)",
+  };
 
   useEffect(() => {
     const mf = inputRef.current;
@@ -423,13 +586,8 @@ export default function App() {
   }
 
   function setInfoFromTree(t: ExpressionTree, latex?: string) {
-    const parts = [
-      latex ? `LaTeX: ${latex}` : undefined,
-      latex ? "" : undefined,
-      "expression.json:",
-      JSON.stringify(t.rootJson, null, 2),
-    ].filter((x) => x !== undefined) as string[];
-    setInfo(parts.join("\n"));
+    setLatexText(latex ?? "");
+    setExpressionJsonText(JSON.stringify(t.rootJson, null, 2));
   }
 
   function setBaselineJson(json: MJ, opts?: { latex?: string }) {
@@ -449,7 +607,8 @@ export default function App() {
     const latex: string = mf.value;
     const expr = ce.parse(latex, { canonical: false });
     if (!expr) {
-      setInfo(`Parse failed. latex=${latex}`);
+      setLatexText(latex);
+      setExpressionJsonText("Parse failed. Check LaTeX input.");
       return;
     }
 
@@ -589,7 +748,10 @@ export default function App() {
         };
         setSelection(spanSel);
         applySelectionHighlight(spanSel);
-        setInfo2(selectionDebugText(tree, spanSel));
+        setSelectionDetailsForSpan(
+          tree,
+          spanSel as ExprSelection & { kind: "span" }
+        );
         return;
       }
     }
@@ -607,74 +769,107 @@ export default function App() {
       // Preserve the existing span selection when clicking inside it
       applySelectionHighlight(existingSel);
       setSelection(existingSel);
-      setInfo2(selectionDebugText(tree, existingSel));
+      setSelectionDetailsForSpan(
+        tree,
+        existingSel as ExprSelection & { kind: "span" }
+      );
     } else if (multiplicativeSpan) {
       applySelectionHighlight(multiplicativeSpan);
       setSelection(multiplicativeSpan);
-      setInfo2(selectionDebugText(tree, multiplicativeSpan));
+      setSelectionDetailsForSpan(
+        tree,
+        multiplicativeSpan as ExprSelection & { kind: "span" },
+        "Multiplicative span"
+      );
     } else {
       const nextSel: ExprSelection = { kind: "node", nodeId: promotedId };
       setSelection(nextSel);
       applySelectionHighlight(nextSel);
+      setSelectionDetailsForNode(tree, promotedId, { clickedId });
     }
 
     // Logging
     const hit = tree.nodesById[normalizedId];
     if (!hit) {
-      setInfo2(`\n\nclicked node-id: ${clickedId}\n(no NodeInfo found)`);
+      resetSelectionDetails(
+        `clicked node-id: ${clickedId} (no NodeInfo found)`
+      );
       return;
     }
     setDragStartInfo(`${clickedId}`);
 
-    setInfo2(
-      [
-        "",
-        `clicked node-id: ${clickedId}` +
-          (normalizedId !== clickedId
-            ? ` (drag-handle: ${normalizedId})`
-            : "") +
-          (e.shiftKey ? ` (shift → parent ${clickedId})` : ""),
-        `selected node-id: ${hit.id}`,
-        `node op: ${hit.op}`,
-        `latex (this node): ${hit.latex}`,
-        `mathjson (this node): ${JSON.stringify(hit.json)}`,
-      ].join("\n")
-    );
+    setSelectionDetailsForNode(tree, hit.id, {
+      clickedId,
+      normalizedId,
+      shiftKey: e.shiftKey,
+    });
   }
 
-  function selectionDebugText(
+  function setSelectionDetailsForNode(
     tree: ExpressionTree,
-    sel: ExprSelection
-  ): string {
-    if (sel.kind === "node") {
-      const n = tree.nodesById[sel.nodeId];
-      if (!n) return `selection: node ${sel.nodeId} (missing NodeInfo)`;
+    nodeId: string,
+    opts?: { clickedId?: string; normalizedId?: string; shiftKey?: boolean }
+  ) {
+    const n = tree.nodesById[nodeId];
+    setSelectionKind("node");
+    setSelectionClickedId(opts?.clickedId ?? "");
+    setSelectionSelectedId(n?.id ?? nodeId ?? "");
+    setSelectionOp(n?.op ?? "");
+    setSelectionLatexDetail(n?.latex ?? "");
+    setSelectionJsonDetail(n ? JSON.stringify(n.json) : "");
+    setSelectionParent(tree.parentById[nodeId] ?? "");
+    setSelectionRange("");
+    setSelectionChildIds("");
+    setSelectionChildOps("");
+    setSelectionChildLatex("");
 
-      return [
-        "KEYBOARD SELECTION",
-        `kind: node`,
-        `nodeId: ${sel.nodeId}`,
-        `op: ${n.op}`,
-        `latex: ${n.latex}`,
-        `parent: ${tree.parentById[sel.nodeId] ?? "(none)"}`,
-      ].join("\n");
+    const notes: string[] = [];
+    if (opts?.normalizedId && opts.normalizedId !== opts.clickedId) {
+      notes.push(`drag-handle: ${opts.normalizedId}`);
     }
+    if (opts?.shiftKey && opts.clickedId) {
+      notes.push(`shift → parent ${opts.clickedId}`);
+    }
+    setSelectionNote(notes.join(" | "));
+  }
 
+  function setSelectionDetailsForSpan(
+    tree: ExpressionTree,
+    sel: ExprSelection & { kind: "span" },
+    note?: string
+  ) {
     const kids = tree.childrenById[sel.parentId] ?? [];
     const ids = kids.slice(sel.start, sel.end + 1);
     const ops = ids.map((id) => tree.nodesById[id]?.op ?? "?").join(", ");
     const latex = ids.map((id) => tree.nodesById[id]?.latex ?? "?").join(" | ");
 
-    return [
-      "KEYBOARD SELECTION",
-      `kind: span`,
-      `parentId: ${sel.parentId}`,
-      `parentOp: ${sel.op}`,
-      `range: [${sel.start}..${sel.end}] of ${kids.length}`,
-      `childIds: ${ids.join(", ")}`,
-      `childOps: ${ops}`,
-      `childLatex: ${latex}`,
-    ].join("\n");
+    setSelectionKind("span");
+    setSelectionClickedId("");
+    setSelectionSelectedId("");
+    setSelectionOp(sel.op ?? "");
+    setSelectionLatexDetail("");
+    setSelectionJsonDetail("");
+    setSelectionParent(sel.parentId ?? "");
+    setSelectionRange(`[${sel.start}..${sel.end}] of ${kids.length}`);
+    setSelectionChildIds(ids.join(", "));
+    setSelectionChildOps(ops);
+    setSelectionChildLatex(latex);
+    setSelectionNote(note ?? "");
+  }
+
+  function resetSelectionDetails(note?: string) {
+    setSelectionKind("");
+    setSelectionClickedId("");
+    setSelectionSelectedId("");
+    setSelectionOp("");
+    setSelectionLatexDetail("");
+    setSelectionJsonDetail("");
+    setSelectionParent("");
+    setSelectionRange("");
+    setSelectionChildIds("");
+    setSelectionChildOps("");
+    setSelectionChildLatex("");
+    setSelectionNote(note ?? "");
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -690,34 +885,22 @@ export default function App() {
 
     const r = expandSelection(tree, selection, dir);
     if (!r) {
-      setInfo2(
-        [
-          "",
-          "KEYBOARD SELECTION",
-          `shift+${e.key} → no expansion (not in Add/InvisibleOperator or no parent/kids)`,
-          selectionDebugText(tree, selection),
-        ].join("\n")
+      resetSelectionDetails(
+        `shift+${e.key} → no expansion (not in Add/InvisibleOperator or no parent/kids)`
       );
       return;
     }
 
     setSelection(r.next);
     applySelectionHighlight(r.next);
-    setInfo2(
-      [
-        "",
-        "KEYBOARD SELECTION",
-        `shift+${e.key} → expanded`,
-        "",
-        "BEFORE:",
-        selectionDebugText(tree, selection),
-        "",
-        "AFTER:",
-        selectionDebugText(tree, r.next),
-        "",
-        `overlay nodeIds: ${r.nodeIdsToOverlay.join(", ")}`,
-      ].join("\n")
-    );
+    if (r.next.kind === "span") {
+      setSelectionDetailsForSpan(tree, r.next, `shift+${e.key} → expanded`);
+    } else {
+      setSelectionDetailsForNode(tree, r.next.nodeId, {
+        shiftKey: true,
+      });
+      setSelectionNote(`shift+${e.key} → expanded`);
+    }
   }
 
   // Collapse multiplicative selection to container if all selected ids share the same Multiply/InvisibleOperator parent.
@@ -775,7 +958,7 @@ export default function App() {
       mode: moveMode,
     });
 
-    setInfo2(describeMovePlan(plan));
+    setMovePlanText(describeMovePlan(plan));
     setInfo3(plan ? JSON.stringify(plan, null, 2) : "planMove returned null");
     setInfoArgs(
       JSON.stringify(
@@ -1019,7 +1202,15 @@ export default function App() {
           </MathField>
         </div>
 
-        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+          }}
+        >
           <div
             style={{
               display: "flex",
@@ -1043,39 +1234,6 @@ export default function App() {
             </select>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-              minWidth: 220,
-            }}
-          >
-            <label style={{ fontSize: 12, opacity: 0.8 }}>Move mode</label>
-            <div style={{ display: "flex", gap: 8 }}>
-              {(["additive", "multiplicative"] as MoveMode[]).map((mode) => {
-                const active = moveMode === mode;
-                return (
-                  <button
-                    key={mode}
-                    onClick={() => setMoveMode(mode)}
-                    style={{
-                      padding: "8px 10px",
-                      borderRadius: 8,
-                      border: active ? "2px solid #7c4dff" : "1px solid #888",
-                      background: active ? "rgba(124, 77, 255, 0.1)" : "#fff",
-                      cursor: "pointer",
-                      textTransform: "capitalize",
-                    }}
-                    data-testid={`mode-${mode}`}
-                  >
-                    {mode}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           <button
             onClick={onAddEquation}
             style={{
@@ -1096,8 +1254,9 @@ export default function App() {
         ref={renderBoxRef}
         style={{
           marginTop: 16,
-          border: "1px solid #ddd",
-          padding: 14,
+          border: "1px solid var(--dp-border)",
+          background: "var(--dp-surface)",
+          padding: "8px 14px 14px",
           borderRadius: 10,
           cursor: drag ? "default" : "crosshair",
           userSelect: "none",
@@ -1109,8 +1268,38 @@ export default function App() {
         tabIndex={0}
         onKeyDown={onKeyDown}
       >
-        <div style={{ fontSize: 14, marginBottom: 8, opacity: 0.8 }}>
-          Rendered (tagged from MathJSON) — click to inspect + highlight
+        <div style={renderHeaderStyle}>
+          <div aria-label="Rendered output" />
+          <div style={toolbarStyle}>
+            <IconButton
+              label="Additive move mode"
+              icon={
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M11 4a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z"
+                  />
+                </svg>
+              }
+              onClick={() => setMoveMode("additive")}
+              active={moveMode === "additive"}
+              testId="mode-additive"
+            />
+            <IconButton
+              label="Multiplicative move mode"
+              icon={
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="currentColor"
+                    d="M6.7 5.3a1 1 0 0 0-1.4 1.4L10.6 12l-5.3 5.3a1 1 0 1 0 1.4 1.4L12 13.4l5.3 5.3a1 1 0 0 0 1.4-1.4L13.4 12l5.3-5.3a1 1 0 0 0-1.4-1.4L12 10.6z"
+                  />
+                </svg>
+              }
+              onClick={() => setMoveMode("multiplicative")}
+              active={moveMode === "multiplicative"}
+              testId="mode-multiplicative"
+            />
+          </div>
         </div>
 
         <div
@@ -1167,73 +1356,166 @@ export default function App() {
         </div>
       </div>
 
-      <textarea
-        readOnly
-        value={info}
-        style={{
-          marginTop: 16,
-          width: "100%",
-          height: 300,
-          fontFamily:
-            "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-          fontSize: 12,
-          padding: 10,
-          borderRadius: 8,
-        }}
-        data-testid="info-text"
-      />
+      <div style={debugPanelStyle}>
+        <div style={fieldFullStyle}>
+          <label htmlFor="dp-latex-text" style={labelStyle}>
+            LaTeX
+          </label>
+          <input
+            id="dp-latex-text"
+            style={inputStyle}
+            readOnly
+            value={latexText}
+            data-testid="info-text"
+          />
+        </div>
 
-      <textarea
-        readOnly
-        value={info2}
-        style={{
-          marginTop: 16,
-          width: "100%",
-          height: 200,
-          fontFamily:
-            "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-          fontSize: 12,
-          padding: 10,
-          borderRadius: 8,
-        }}
-      />
+        <div style={fieldFullStyle}>
+          <label htmlFor="dp-expression-json" style={labelStyle}>
+            Expression Tree (MathJSON)
+          </label>
+          <textarea
+            id="dp-expression-json"
+            style={textareaStyle}
+            readOnly
+            value={expressionJsonText}
+          />
+        </div>
 
-      <textarea
-        readOnly
-        value={info3}
-        style={{
-          marginTop: 16,
-          width: "100%",
-          height: 200,
-          fontFamily:
-            "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-          fontSize: 12,
-          padding: 10,
-          borderRadius: 8,
-        }}
-        data-testid="info3-text"
-      />
+        <div style={gridStyle}>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Selection kind</label>
+            <input
+              style={inputStyle}
+              readOnly
+              value={selectionKind || "—"}
+            />
+          </div>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Clicked node id</label>
+            <input
+              style={inputStyle}
+              readOnly
+              value={selectionClickedId || "—"}
+            />
+          </div>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Selected node id</label>
+            <input
+              style={inputStyle}
+              readOnly
+              value={selectionSelectedId || "—"}
+            />
+          </div>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Node op</label>
+            <input
+              style={inputStyle}
+              readOnly
+              value={selectionOp || "—"}
+            />
+          </div>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Parent</label>
+            <input
+              style={inputStyle}
+              readOnly
+              value={selectionParent || "—"}
+            />
+          </div>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Range / span</label>
+            <input
+              style={inputStyle}
+              readOnly
+              value={selectionRange || "—"}
+            />
+          </div>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Child ids</label>
+            <div style={readonlyBoxStyle}>
+              {selectionChildIds || "—"}
+            </div>
+          </div>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Child ops</label>
+            <div style={readonlyBoxStyle}>
+              {selectionChildOps || "—"}
+            </div>
+          </div>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Child latex</label>
+            <div style={readonlyBoxStyle}>
+              {selectionChildLatex || "—"}
+            </div>
+          </div>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Node latex</label>
+            <input
+              style={inputStyle}
+              readOnly
+              value={selectionLatexDetail || "—"}
+            />
+          </div>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Node mathjson</label>
+            <div style={readonlyBoxStyle}>
+              {selectionJsonDetail || "—"}
+            </div>
+          </div>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Selection note</label>
+            <div style={readonlyBoxStyle}>{selectionNote || "—"}</div>
+          </div>
+        </div>
 
-      <textarea
-        readOnly
-        value={infoArgs}
-        style={{
-          marginTop: 16,
-          width: "100%",
-          height: 160,
-          fontFamily:
-            "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-          fontSize: 12,
-          padding: 10,
-          borderRadius: 8,
-        }}
-        data-testid="info-args"
-      />
+        <div style={gridStyle}>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Move plan</label>
+            <div style={readonlyBoxStyle}>{movePlanText || "—"}</div>
+          </div>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Move plan (JSON)</label>
+            <div style={readonlyBoxStyle} data-testid="info3-text">
+              {info3 || "—"}
+            </div>
+          </div>
+        </div>
 
-      <p>Previous hover target: {dragStartInfo}</p>
-      <p>Hover Drag: {dragHoverInfo}</p>
-      <p>Drag slot: {dragSlot}</p>
-      <p>Parent Add: {parentAddId}</p>
+        <div style={fieldFullStyle}>
+          <label style={labelStyle}>Planner args</label>
+          <div style={readonlyBoxStyle} data-testid="info-args">
+            {infoArgs || "—"}
+          </div>
+        </div>
+
+        <div style={miniGridStyle}>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Previous hover target</label>
+            <input
+              style={inputStyle}
+              readOnly
+              value={dragStartInfo}
+            />
+          </div>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Hover drag</label>
+            <input
+              style={inputStyle}
+              readOnly
+              value={dragHoverInfo}
+            />
+          </div>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Drag slot</label>
+            <input style={inputStyle} readOnly value={dragSlot} />
+          </div>
+          <div style={fieldHalfStyle}>
+            <label style={labelStyle}>Parent Add</label>
+            <input style={inputStyle} readOnly value={parentAddId} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -188,9 +188,15 @@ export async function dragByLatex(page: Page, params: DragByLatexParams) {
 }
 
 export async function getRenderedLatex(page: Page): Promise<string> {
-  const info = await page.getByTestId("info-text").inputValue();
-  const latexLine = info
-    .split("\n")
-    .find((line) => line.startsWith("LaTeX:"));
-  return (latexLine ?? info).replace(/^LaTeX:\s*/, "").trim();
+  const locator = page.getByTestId("info-text");
+  if (await locator.isEditable()) {
+    return (await locator.inputValue()).trim();
+  }
+
+  const tagName = await locator.evaluate((el) => el.tagName);
+  if (tagName?.toLowerCase() === "input" || tagName?.toLowerCase() === "textarea") {
+    return (await locator.inputValue()).trim();
+  }
+
+  return (await locator.innerText()).trim();
 }
