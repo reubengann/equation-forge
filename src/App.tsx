@@ -656,31 +656,29 @@ export default function App() {
   }
 
   function undo() {
-    let nextPresent: MJ | null = null;
     setHistory((h) => {
       if (h.past.length === 0) return h;
       const previous = h.past[h.past.length - 1];
-      nextPresent = previous;
       const future = h.present != null ? [h.present, ...h.future] : h.future;
-      return { past: h.past.slice(0, -1), present: previous, future };
+      const nextHistory = {
+        past: h.past.slice(0, -1),
+        present: previous,
+        future,
+      };
+      applyPresentJson(previous);
+      return nextHistory;
     });
-    if (nextPresent) {
-      applyPresentJson(nextPresent);
-    }
   }
 
   function redo() {
-    let nextPresent: MJ | null = null;
     setHistory((h) => {
       if (h.future.length === 0) return h;
       const [head, ...tail] = h.future;
-      nextPresent = head;
       const past = h.present != null ? [...h.past, h.present] : h.past;
-      return { past, present: head, future: tail };
+      const nextHistory = { past, present: head, future: tail };
+      applyPresentJson(head);
+      return nextHistory;
     });
-    if (nextPresent) {
-      applyPresentJson(nextPresent);
-    }
   }
 
   function openSubstituteModal() {

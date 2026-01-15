@@ -200,3 +200,17 @@ export async function getRenderedLatex(page: Page): Promise<string> {
 
   return (await locator.innerText()).trim();
 }
+
+export async function clickNodeByLatex(
+  page: Page,
+  equationLatex: string,
+  match: LatexMatch
+) {
+  const tree = buildTree(equationLatex);
+  const nodeId = findNodeIdByLatex(tree, match);
+  await waitForMathRender(page, [nodeId]);
+  const rects = await getNodeRects(page, [nodeId]);
+  const pt = rects[nodeId].center;
+  await page.mouse.click(pt.x, pt.y);
+  return { nodeId, point: pt };
+}
