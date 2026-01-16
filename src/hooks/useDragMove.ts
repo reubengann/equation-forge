@@ -4,16 +4,17 @@ import type { MoveMode } from "../moveExpression/applyMove";
 import type { MovePlan } from "../planMove";
 import { planMove } from "../planMove";
 import { applyMove } from "../moveExpression/applyMove";
+import { createRectProvider } from "../infra/mathlive/rectProvider";
 import {
-  createRectProvider,
   planToApplyMoveTarget,
   describeMovePlan,
-  renderInsertOverlay,
-} from "../helpers/dragHelpers";
+} from "../domain/move/movePlanAdapters";
+import { renderInsertOverlay } from "../ui/drag/renderInsertOverlay";
 import {
   hitTestNodeIdInMathliveShadow,
   remapEqualHoverToSide,
-} from "../mathliveShadow";
+} from "../infra/mathlive/mathliveShadow";
+import { normalizeSelectedIdsForMove } from "../domain/move/moveSelectionPolicy";
 
 export type DragState = null | {
   pointerId: number;
@@ -32,114 +33,6 @@ export function useDragMove(
   const lastPlanRef = useRef<MovePlan | null>(null);
 
   const rectFor = createRectProvider(measureEl, tree);
-
-  const collapseMultiplicativeSelection = useCallback(
-    (ids: string[]): string[] => {
-      if (!tree) return ids;
-      // Early return for single ID - let the additive mode logic handle it below
-      if (ids.length <= 1) {
-        const id = ids[0];
-        const parentId = id ? tree.parentById[id] : null;
-        const parentOp = parentId ? tree.nodesById[parentId]?.op : null;
-
-        if (
-          moveMode === "multiplicative" &&
-          parentId &&
-          (parentOp === "InvisibleOperator" || parentOp === "Multiply")
-        ) {
-          const productParentId = tree.parentById[parentId];
-          const productParentOp = productParentId
-            ? tree.nodesById[productParentId]?.op
-            : null;
-          const parentIndex =
-            productParentId != null ? tree.childIndexById[parentId] : null;
-          const inDenominator =
-            productParentOp === "Divide" && parentIndex === 1;
-          const siblings = tree.childrenById[parentId] ?? [];
-          const parentHasVector = siblings.some((sibId) => {
-            const info = tree.nodesById[sibId];
-            return (
-              info?.op === "OverVector" || (info?.latex ?? "").includes("\\vec")
-            );
-          });
-
-          // Promote scalar-only product that is a direct child of Equal so the whole
-          // product moves together across '='. Keep vectors intact by not promoting.
-          if (
-            !parentHasVector &&
-            (productParentOp === "Equal" || inDenominator)
-          ) {
-            return [parentId];
-          }
-        }
-
-        // Only apply single-ID promotion in additive mode for products that are direct children of Equal
-        if (moveMode === "additive" && ids.length === 1) {
-          if (parentId) {
-            if (parentOp === "InvisibleOperator" || parentOp === "Multiply") {
-              const productParentId = tree.parentById[parentId];
-              if (productParentId) {
-                const productParentOp = tree.nodesById[productParentId]?.op;
-                if (productParentOp === "Equal") {
-                  // The product is a direct child of Equal, so use the product container
-                  return [parentId];
-                }
-              }
-            }
-          }
-        }
-        return ids;
-      }
-
-      // Multiplicative mode: collapse if all selected share a product parent
-      if (moveMode === "multiplicative") {
-        const parents = ids.map((id) => tree.parentById[id]).filter(Boolean);
-        const uniqueParents = Array.from(new Set(parents));
-        if (uniqueParents.length === 1) {
-          const parentId = uniqueParents[0]!;
-          const pop = tree.nodesById[parentId]?.op;
-          if (pop === "InvisibleOperator" || pop === "Multiply") {
-            return [parentId];
-          }
-        }
-        return ids;
-      }
-
-      // Additive mode: if factors from the same product are selected, collapse to the product container
-      // Only collapse if the product is a direct child of Equal (like "m a" in "x^2 + v_x = m a")
-      if (moveMode === "additive") {
-        // Check if all selected IDs share the same multiplicative parent
-        const parents = ids.map((id) => tree.parentById[id]).filter(Boolean);
-        const uniqueParents = Array.from(new Set(parents));
-        if (uniqueParents.length === 1) {
-          const parentId = uniqueParents[0]!;
-          const parentOp = tree.nodesById[parentId]?.op;
-          if (parentOp === "InvisibleOperator" || parentOp === "Multiply") {
-            // Check if all selected IDs are children of this parent
-            const parentChildren = tree.childrenById[parentId] ?? [];
-            const allSelectedAreChildren = ids.every((id) =>
-              parentChildren.includes(id)
-            );
-            if (allSelectedAreChildren) {
-              // Only collapse if the product is a direct child of Equal
-              const productParentId = tree.parentById[parentId];
-              if (productParentId) {
-                const productParentOp = tree.nodesById[productParentId]?.op;
-                if (productParentOp === "Equal") {
-                  // All selected are factors of the same product that's a direct child of Equal,
-                  // so use the product container
-                  return [parentId];
-                }
-              }
-            }
-          }
-        }
-      }
-
-      return ids;
-    },
-    [tree, moveMode]
-  );
 
   const startDrag = useCallback((pointerId: number, selectedIds: string[]) => {
     setDrag({ pointerId, selectedIds });
@@ -177,40 +70,12 @@ export function useDragMove(
           ? remapEqualHoverToSide(tree, measureEl, hoverId, e.clientX)
           : hoverId;
 
-      let effectiveSelectedIds = collapseMultiplicativeSelection(
-        drag.selectedIds
-      );
-
-      // For multiplicative mode, avoid promoting a single factor to its product
-      // container when the hover target is inside that same product (i.e., a
-      // pure reordering intent). Cross-equal moves keep the promotion so the
-      // entire product moves together.
-      if (
-        moveMode === "multiplicative" &&
-        drag.selectedIds.length === 1 &&
-        tree
-      ) {
-        const originalId = drag.selectedIds[0];
-        const parentId = tree.parentById[originalId];
-        const parentOp = parentId ? tree.nodesById[parentId]?.op : null;
-        const isMulParent =
-          parentOp === "InvisibleOperator" || parentOp === "Multiply";
-
-        if (hover && parentId && isMulParent) {
-          let cur: string | null = hover;
-          let hoverInSameProduct = false;
-          while (cur) {
-            if (cur === parentId) {
-              hoverInSameProduct = true;
-              break;
-            }
-            cur = tree.parentById[cur] ?? null;
-          }
-          if (hoverInSameProduct) {
-            effectiveSelectedIds = [originalId];
-          }
-        }
-      }
+      const effectiveSelectedIds = normalizeSelectedIdsForMove({
+        tree,
+        selectedIds: drag.selectedIds,
+        mode: moveMode,
+        hoverId: hover,
+      });
 
       const plan = planMove({
         tree,
@@ -240,16 +105,7 @@ export function useDragMove(
 
       return { plan, planDescription, infoArgs, hoverId: hover };
     },
-    [
-      drag,
-      tree,
-      measureEl,
-      displayEl,
-      insertOverlayEl,
-      moveMode,
-      collapseMultiplicativeSelection,
-      rectFor,
-    ]
+    [drag, tree, measureEl, displayEl, insertOverlayEl, moveMode, rectFor]
   );
 
   const handlePointerUp = useCallback(
@@ -306,9 +162,12 @@ export function useDragMove(
         : moveMode;
 
       if (tree && plan && moveTarget) {
-        let effectiveSelectedIds = collapseMultiplicativeSelection(
-          drag.selectedIds
-        );
+        let effectiveSelectedIds = normalizeSelectedIdsForMove({
+          tree,
+          selectedIds: drag.selectedIds,
+          mode: moveMode,
+          hoverId: moveTarget.hoverId,
+        });
 
         // If the plan is a simple reorder/insert (additive-kind) while in
         // multiplicative mode, keep the original factor selection so we don't
@@ -342,16 +201,7 @@ export function useDragMove(
       lastPlanRef.current = null;
       return false;
     },
-    [
-      drag,
-      tree,
-      moveMode,
-      collapseMultiplicativeSelection,
-      onMoveComplete,
-      insertOverlayEl,
-      displayEl,
-      rectFor,
-    ]
+    [drag, tree, moveMode, onMoveComplete, insertOverlayEl, displayEl, rectFor]
   );
 
   const cancelDrag = useCallback(() => {

@@ -6,6 +6,8 @@ import {
   promoteSelection,
   expandSelection,
 } from "../selectionSemantics";
+import type { MoveMode } from "../moveExpression/applyMove";
+import { normalizeSelectedIdsForMove } from "../domain/move/moveSelectionPolicy";
 function getNodeIdsFromComposedPath(path: unknown[]): string[] {
   const ids: string[] = [];
   for (const p of path) {
@@ -22,7 +24,7 @@ export type ClickState = {
   count: number;
 };
 
-export function useSelection(tree: ExpressionTree | null) {
+export function useSelection(tree: ExpressionTree | null, moveMode: MoveMode) {
   const [selection, setSelection] = useState<ExprSelection | null>(null);
   const lastClickRef = useRef<ClickState>({ nodeId: null, ts: 0, count: 0 });
 
@@ -215,13 +217,19 @@ export function useSelection(tree: ExpressionTree | null) {
         promotedId,
         clickCount,
         shouldUsePromotedId,
-        dragIds,
+        dragIds: normalizeSelectedIdsForMove({
+          tree,
+          selectedIds: dragIds,
+          mode: moveMode,
+          hoverId: null,
+          disableEqualPromotion: moveMode === "multiplicative",
+        }),
         newSelection,
         useExistingSpan,
         multiplicativeSpan,
       };
     },
-    [tree, selectionContainsId]
+    [tree, selectionContainsId, moveMode]
   );
 
   const expand = useCallback(

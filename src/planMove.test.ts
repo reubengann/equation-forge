@@ -643,9 +643,9 @@ describe("planMove", () => {
     const tree = treefromLatex(String.raw`a + \left(b + c\right)`);
 
     const outerAddId = tree.rootId!;
-    const [aId, delimId] = tree.childrenById[outerAddId];
+    const [_aId, delimId] = tree.childrenById[outerAddId];
     const innerAddId = (tree.childrenById[delimId] ?? [])[0];
-    const [bId, cId] = tree.childrenById[innerAddId];
+    const [bId, _cId] = tree.childrenById[innerAddId];
 
     // Drag b within inner Add; no rects at all -> resolveHoverTarget returns structural Add ancestor.
     const plan = planMove({
@@ -847,6 +847,7 @@ describe("planMove multiplicative cross-equal", () => {
       const rhsId = tree.childrenById[equalId][1];
 
       const massId = findNodeId(tree, (n) => n.latex === "m");
+      const productId = tree.parentById[massId]!;
 
       // LHS rect: left=0, right=100, so main body is roughly 12-88 (excluding 12px edge zones)
       const rects: Record<string, RectLTRB> = {
@@ -866,7 +867,7 @@ describe("planMove multiplicative cross-equal", () => {
 
       expect(plan).toEqual({
         kind: "MoveAcrossEqual",
-        movedId: massId,
+        movedId: productId,
         equalId,
         fromSide: 1,
         toSide: 0,
@@ -887,6 +888,7 @@ describe("planMove multiplicative cross-equal", () => {
       const rhsId = tree.childrenById[equalId][1];
 
       const massId = findNodeId(tree, (n) => n.latex === "m");
+      const productId = tree.parentById[massId]!;
 
       // LHS rect: left=0, right=100, left edge zone is 0-12
       const rects: Record<string, RectLTRB> = {
@@ -906,7 +908,7 @@ describe("planMove multiplicative cross-equal", () => {
 
       expect(plan).toEqual({
         kind: "MoveAcrossEqual",
-        movedId: massId,
+        movedId: productId,
         equalId,
         fromSide: 1,
         toSide: 0,
@@ -928,6 +930,7 @@ describe("planMove multiplicative cross-equal", () => {
       const rhsId = tree.childrenById[equalId][1];
 
       const massId = findNodeId(tree, (n) => n.latex === "m");
+      const productId = tree.parentById[massId]!;
 
       // LHS rect: left=0, right=100, right edge zone is 88-100
       const rects: Record<string, RectLTRB> = {
@@ -947,7 +950,7 @@ describe("planMove multiplicative cross-equal", () => {
 
       expect(plan).toEqual({
         kind: "MoveAcrossEqual",
-        movedId: massId,
+        movedId: productId,
         equalId,
         fromSide: 1,
         toSide: 0,
@@ -969,6 +972,7 @@ describe("planMove multiplicative cross-equal", () => {
       const rhsId = tree.childrenById[equalId][1];
 
       const massId = findNodeId(tree, (n) => n.latex === "m");
+      const productId = tree.parentById[massId]!;
 
       // LHS rect: left=0, right=100, pointer is to the left (outside by PAD=6)
       const rects: Record<string, RectLTRB> = {
@@ -988,7 +992,7 @@ describe("planMove multiplicative cross-equal", () => {
 
       expect(plan).toEqual({
         kind: "MoveAcrossEqual",
-        movedId: massId,
+        movedId: productId,
         equalId,
         fromSide: 1,
         toSide: 0,

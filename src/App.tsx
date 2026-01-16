@@ -7,12 +7,11 @@ import {
   useRef,
   useState,
   useCallback,
-  type ReactNode,
   type CSSProperties,
 } from "react";
 import { ExpressionTree, type MJ } from "./ExpressionTree";
 import { ce } from "./computeEngine";
-import { getMathliveShadowRoot } from "./mathliveShadow";
+import { getMathliveShadowRoot } from "./infra/mathlive/mathliveShadow";
 import {
   chooseBestAllowedSelectedNode,
   normalizeSelection,
@@ -29,6 +28,9 @@ import {
   getResetSelectionDetails,
   type SelectionDetails,
 } from "./helpers/selectionHelpers";
+import { MathDisplayPanel } from "./ui/components/MathDisplayPanel";
+import { MoveModeToolbar } from "./ui/components/MoveModeToolbar";
+import { SubstituteModal } from "./ui/components/SubstituteModal";
 import type { MoveMode } from "./moveExpression/applyMove";
 import "./App.css";
 MathfieldElement.fontsDirectory = "/fonts";
@@ -85,82 +87,6 @@ export function setHighlightedText(
   }
 }
 
-const iconButtonBaseStyle: CSSProperties = {
-  width: 36,
-  height: 36,
-  padding: 0,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 6,
-  borderRadius: 10,
-  borderWidth: 1,
-  borderStyle: "solid",
-  borderColor: "var(--dp-icon-border)",
-  background: "var(--dp-icon-bg)",
-  cursor: "pointer",
-  color: "inherit",
-  transition:
-    "background-color 120ms ease, border-color 120ms ease, transform 120ms ease",
-};
-
-const iconButtonActiveStyle: CSSProperties = {
-  borderColor: "var(--dp-active)",
-  color: "var(--dp-active)",
-  background: "rgba(124, 77, 255, 0.14)",
-  boxShadow: "0 0 0 1px rgba(124, 77, 255, 0.3)",
-};
-
-const iconSpanStyle: CSSProperties = {
-  width: 18,
-  height: 18,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  color: "inherit",
-};
-
-type IconButtonProps = {
-  label: string;
-  icon: ReactNode;
-  onClick: () => void;
-  active?: boolean;
-  testId?: string;
-  disabled?: boolean;
-};
-
-function IconButton({
-  label,
-  icon,
-  onClick,
-  active,
-  testId,
-  disabled,
-}: IconButtonProps) {
-  const btnStyle = {
-    ...iconButtonBaseStyle,
-    ...(active ? iconButtonActiveStyle : {}),
-    ...(disabled
-      ? { opacity: 0.5, cursor: "not-allowed", borderColor: "#ccc" }
-      : {}),
-  };
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      data-testid={testId}
-      disabled={disabled}
-      style={btnStyle}
-    >
-      <span style={iconSpanStyle} aria-hidden>
-        {icon}
-      </span>
-    </button>
-  );
-}
-
 export default function App() {
   const MathDiv = useMemo(() => "math-div" as any, []);
   const MathField = useMemo(() => "math-field" as any, []);
@@ -206,7 +132,7 @@ export default function App() {
     handleClick: handleSelectionClick,
     expand: expandSelection,
     clear: clearSelection,
-  } = useSelection(tree);
+  } = useSelection(tree, moveMode);
 
   const handleMoveComplete = useCallback(
     (newTree: ExpressionTree, latex: string) => {
@@ -336,26 +262,6 @@ export default function App() {
     display: "flex",
     flexWrap: "wrap",
     gap: 10,
-  };
-
-  const renderHeaderStyle: CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    marginBottom: 4,
-    flexWrap: "wrap",
-  };
-
-  const toolbarStyle: CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    padding: 6,
-    borderRadius: 12,
-    border: "1px solid var(--dp-border)",
-    background: "var(--dp-surface)",
-    color: "var(--dp-toolbar-fg, #1f1f2a)",
   };
 
   useEffect(() => {
@@ -847,46 +753,6 @@ export default function App() {
     canSubstitute && tree && selection?.kind === "node"
       ? tree.nodesById[selection.nodeId]?.latex ?? ""
       : "";
-  const materialSymbolStyle: CSSProperties = {
-    fontVariationSettings: `"FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24`,
-    fontFamily: `"Material Symbols Rounded"`,
-    fontWeight: "normal",
-    fontStyle: "normal",
-    fontSize: 22,
-    lineHeight: 1,
-    letterSpacing: "normal",
-    textTransform: "none",
-    display: "inline-block",
-    whiteSpace: "nowrap",
-    wordWrap: "normal",
-    direction: "ltr",
-    WebkitFontFeatureSettings: `"liga"`,
-    WebkitFontSmoothing: "antialiased",
-  };
-  const modalOverlayStyle: CSSProperties = {
-    position: "fixed",
-    inset: 0,
-    background: "transparent",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 10000,
-    padding: 16,
-  };
-  const modalCardStyle: CSSProperties = {
-    width: "min(720px, 100%)",
-    // Use an opaque tone matching the prior surface tint (255 * 0.04 ≈ 10).
-    background: "rgb(10, 10, 10)",
-    color: "inherit",
-    border: "1px solid var(--dp-border)",
-    borderRadius: 12,
-    boxShadow: "0 16px 42px rgba(0,0,0,0.18)",
-    padding: 20,
-    display: "flex",
-    flexDirection: "column",
-    gap: 14,
-  };
-
   return (
     <div style={{ padding: 24, maxWidth: 1000 }}>
       <h2>Derivation Pad — Confirm Selection</h2>
@@ -955,144 +821,33 @@ export default function App() {
         </div>
       </div>
 
-      <div
-        ref={renderBoxRef}
-        style={{
-          marginTop: 16,
-          border: "1px solid var(--dp-border)",
-          background: "var(--dp-surface)",
-          padding: "8px 14px 14px",
-          borderRadius: 10,
-          cursor: drag ? "default" : "crosshair",
-          userSelect: "none",
-        }}
+      <MathDisplayPanel
+        renderBoxRef={renderBoxRef}
+        mathWrapRef={mathWrapRef}
+        measureRef={measureRef}
+        displayRef={displayRef}
+        insertOverlayRef={insertOverlayRef}
+        debugOverlayRef={debugOverlayRef}
         onPointerDown={onDisplayPointerDown}
         onPointerMove={onDisplayPointerMove}
         onPointerUp={onDisplayPointerUp}
-        onPointerCancel={onDisplayPointerUp}
-        tabIndex={0}
         onKeyDown={onKeyDown}
-      >
-        <div style={renderHeaderStyle}>
-          <div aria-label="Rendered output" />
-          <div style={toolbarStyle} ref={toolbarRef}>
-            <IconButton
-              label="Additive move mode"
-              icon={
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    fill="currentColor"
-                    d="M11 4a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z"
-                  />
-                </svg>
-              }
-              onClick={() => setMoveMode("additive")}
-              active={moveMode === "additive"}
-              testId="mode-additive"
-            />
-            <IconButton
-              label="Multiplicative move mode"
-              icon={
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    fill="currentColor"
-                    d="M6.7 5.3a1 1 0 0 0-1.4 1.4L10.6 12l-5.3 5.3a1 1 0 1 0 1.4 1.4L12 13.4l5.3 5.3a1 1 0 0 0 1.4-1.4L13.4 12l5.3-5.3a1 1 0 0 0-1.4-1.4L12 10.6z"
-                  />
-                </svg>
-              }
-              onClick={() => setMoveMode("multiplicative")}
-              active={moveMode === "multiplicative"}
-              testId="mode-multiplicative"
-            />
-            <IconButton
-              label="Undo"
-              icon={
-                <span style={materialSymbolStyle} aria-hidden>
-                  undo
-                </span>
-              }
-              onClick={undo}
-              disabled={!canUndo}
-              testId="undo-button"
-            />
-            <IconButton
-              label="Redo"
-              icon={
-                <span style={materialSymbolStyle} aria-hidden>
-                  redo
-                </span>
-              }
-              onClick={redo}
-              disabled={!canRedo}
-              testId="redo-button"
-            />
-            <IconButton
-              label="Substitute"
-              icon={
-                <span style={materialSymbolStyle} aria-hidden>
-                  move_down
-                </span>
-              }
-              onClick={openSubstituteModal}
-              disabled={!canSubstitute}
-              testId="substitute-button"
-            />
-          </div>
-        </div>
-
-        <div
-          ref={mathWrapRef}
-          style={{ position: "relative", display: "inline-block" }}
-        >
-          <MathDiv
-            ref={measureRef}
-            mode="displaystyle"
-            className="math-measure"
-            style={{
-              position: "absolute",
-              inset: 0,
-              opacity: 0,
-              pointerEvents: "none",
-              fontSize: "1.2rem",
-            }}
+        renderHeader={
+          <MoveModeToolbar
+            ref={toolbarRef}
+            moveMode={moveMode}
+            onSetMoveMode={setMoveMode}
+            onUndo={undo}
+            onRedo={redo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onOpenSubstitute={openSubstituteModal}
+            canSubstitute={canSubstitute}
           />
-          <div style={{ position: "relative" }}>
-            <MathDiv
-              ref={displayRef}
-              mode="displaystyle"
-              className="math-display"
-              data-testid="math-display"
-              style={{ fontSize: "1.2rem" }}
-            />
-            {/* Insert marker overlay */}
-            <div
-              ref={insertOverlayRef}
-              style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                right: 0,
-                bottom: 0,
-                pointerEvents: "none",
-                zIndex: 9998,
-              }}
-            />
-            {/* Debug overlay */}
-            <div
-              ref={debugOverlayRef}
-              style={{
-                position: "absolute",
-                left: 0,
-                top: 0,
-                right: 0,
-                bottom: 0,
-                pointerEvents: "none",
-                zIndex: 9999,
-              }}
-            />
-          </div>
-        </div>
-      </div>
+        }
+        isDragging={!!drag}
+        MathDiv={MathDiv}
+      />
 
       <div style={debugPanelStyle}>
         <div style={fieldFullStyle}>
@@ -1226,157 +981,18 @@ export default function App() {
         </div>
       </div>
 
-      {showSubstituteModal ? (
-        <div style={modalOverlayStyle} role="dialog" aria-modal="true">
-          <div style={modalCardStyle}>
-            <h3 style={{ margin: 0 }}>Substitute</h3>
-            <div
-              style={{
-                display: "flex",
-                gap: 14,
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              <div style={{ minWidth: 180, flex: "0 0 auto" }}>
-                <div style={{ ...labelStyle, marginBottom: 6 }}>Selected</div>
-                <div
-                  style={{
-                    padding: "8px 10px",
-                    borderRadius: 8,
-                    border: "1px solid var(--dp-border)",
-                    background: "var(--dp-surface)",
-                    minHeight: 40,
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
-                  <MathDiv
-                    mode="math"
-                    style={{
-                      fontSize: "1.05rem",
-                      minHeight: 28,
-                    }}
-                  >
-                    {selectedNodeLatex || "—"}
-                  </MathDiv>
-                </div>
-              </div>
-              <div
-                style={{
-                  fontSize: 22,
-                  fontWeight: 600,
-                  color: "var(--dp-toolbar-fg, inherit)",
-                }}
-                aria-hidden
-              >
-                =
-              </div>
-              <div
-                style={{
-                  flex: "1 1 280px",
-                  minWidth: 240,
-                  maxWidth: 420,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                }}
-              >
-                <div style={{ ...labelStyle, marginBottom: 2 }}>
-                  Replace with (LaTeX)
-                </div>
-                <MathField
-                  ref={substituteFieldRef}
-                  style={{
-                    width: "100%",
-                    padding: 10,
-                    border: "1px solid var(--dp-border)",
-                    borderRadius: 8,
-                  }}
-                  data-testid="substitute-input"
-                />
-                {substituteError ? (
-                  <div style={{ color: "#d32f2f", fontSize: 12 }}>
-                    {substituteError}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-                flexWrap: "wrap",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                }}
-              >
-                <label
-                  style={{ display: "flex", alignItems: "center", gap: 6 }}
-                >
-                  <input
-                    type="radio"
-                    name="sub-scope"
-                    value="single"
-                    checked={substituteScope === "single"}
-                    onChange={() => setSubstituteScope("single")}
-                  />
-                  This occurrence
-                </label>
-                <label
-                  style={{ display: "flex", alignItems: "center", gap: 6 }}
-                >
-                  <input
-                    type="radio"
-                    name="sub-scope"
-                    value="all"
-                    checked={substituteScope === "all"}
-                    onChange={() => setSubstituteScope("all")}
-                  />
-                  All matching occurrences
-                </label>
-              </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button
-                  type="button"
-                  onClick={submitSubstitution}
-                  style={{
-                    padding: "8px 14px",
-                    borderRadius: 8,
-                    border: "1px solid var(--dp-border)",
-                    background: "var(--dp-active, #7c4dff)",
-                    color: "white",
-                    cursor: "pointer",
-                  }}
-                >
-                  OK
-                </button>
-                <button
-                  type="button"
-                  onClick={closeSubstituteModal}
-                  style={{
-                    padding: "8px 14px",
-                    borderRadius: 8,
-                    border: "1px solid var(--dp-border)",
-                    background: "var(--dp-surface)",
-                    cursor: "pointer",
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <SubstituteModal
+        open={showSubstituteModal}
+        selectedNodeLatex={selectedNodeLatex}
+        substituteError={substituteError}
+        substituteScope={substituteScope}
+        onScopeChange={setSubstituteScope}
+        onSubmit={submitSubstitution}
+        onClose={closeSubstituteModal}
+        substituteFieldRef={substituteFieldRef}
+        MathField={MathField}
+        MathDiv={MathDiv}
+      />
     </div>
   );
 }

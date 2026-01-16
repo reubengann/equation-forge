@@ -7,7 +7,7 @@ import {
   getChildRectsInShadow,
   getSlotForAddReorder,
   hitTestNodeIdInMathliveShadow,
-} from "./mathliveShadow";
+} from "./infra/mathlive/mathliveShadow";
 
 type Rect = { left: number; right: number; top: number; bottom: number };
 
@@ -96,7 +96,6 @@ describe("mathliveShadow helpers", () => {
   });
 
   it("getChildRectsInShadow returns [] when no shadowRoot", () => {
-    const els: StubEl[] = [];
     const mathDiv = { shadowRoot: null } as any;
     expect(getChildRectsInShadow(mathDiv, ["n1"])).toEqual([]);
   });

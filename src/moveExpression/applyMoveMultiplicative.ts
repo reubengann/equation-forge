@@ -20,21 +20,21 @@ function findEqualSideRoot(
 ): { equalId: string; sideRootId: string; sideSlot: 0 | 1 } | null {
   let cur: string | null = nodeId;
   while (cur) {
-    const parent = tree.parentById[cur];
-    if (!parent) return null;
-    if (tree.nodesById[parent]?.op === "Equal") {
-      const kids = tree.childrenById[parent] ?? [];
+    const parentId: string | null | undefined = tree.parentById[cur];
+    if (!parentId) return null;
+    if (tree.nodesById[parentId]?.op === "Equal") {
+      const kids = tree.childrenById[parentId] ?? [];
       if (kids.length >= 2) {
         const lhsId = kids[0];
         const rhsId = kids[1];
         if (cur === lhsId)
-          return { equalId: parent, sideRootId: lhsId, sideSlot: 0 };
+          return { equalId: parentId, sideRootId: lhsId, sideSlot: 0 };
         if (cur === rhsId)
-          return { equalId: parent, sideRootId: rhsId, sideSlot: 1 };
+          return { equalId: parentId, sideRootId: rhsId, sideSlot: 1 };
       }
       return null;
     }
-    cur = parent;
+    cur = parentId;
   }
   return null;
 }
@@ -46,15 +46,15 @@ function isUnderDenominatorOfSideRoot(
 ): boolean {
   let cur: string | null = nodeId;
   while (cur) {
-    const parent = tree.parentById[cur];
-    if (!parent) return false;
-    const op = tree.nodesById[parent]?.op;
+    const parentId: string | null | undefined = tree.parentById[cur];
+    if (!parentId) return false;
+    const op = tree.nodesById[parentId]?.op;
     if (op === "Divide") {
       const idx = tree.childIndexById[cur];
       if (idx === 1) return true;
     }
-    if (parent === sideRootId) break;
-    cur = parent;
+    if (parentId === sideRootId) break;
+    cur = parentId;
   }
   return false;
 }
@@ -71,6 +71,8 @@ export function applyMoveMultiplicative(
 
   const movedId = normalizeSelection(tree, selectedIds[0]);
   const hover = hoverId;
+  if (!hover) return null;
+  const hoverNodeId = hover;
 
   const isMulOp = (op?: string) =>
     op === "InvisibleOperator" || op === "Multiply";
@@ -79,16 +81,17 @@ export function applyMoveMultiplicative(
   // Reorder within the same multiplicative container
   // -------------------------
   const fromParentId = tree.parentById[movedId];
-  const fromParentOp = fromParentId ? tree.nodesById[fromParentId]?.op : null;
-  const hoverOp = tree.nodesById[hover]?.op;
+  if (!fromParentId) return null;
+  const fromParentOp = tree.nodesById[fromParentId]?.op;
+  const hoverOp = tree.nodesById[hoverNodeId]?.op;
 
   let targetMulId: string | null = null;
   if (isMulOp(hoverOp)) {
     targetMulId = hover;
   } else {
-    const hoverParent = tree.parentById[hover];
-    if (hoverParent && isMulOp(tree.nodesById[hoverParent]?.op)) {
-      targetMulId = hoverParent;
+    const hoverParentId = tree.parentById[hoverNodeId];
+    if (hoverParentId && isMulOp(tree.nodesById[hoverParentId]?.op)) {
+      targetMulId = hoverParentId;
     }
   }
 
@@ -99,12 +102,12 @@ export function applyMoveMultiplicative(
     isMulOp(fromParentOp) &&
     targetSlot != null
   ) {
-    const mulPath = tree.pathById[fromParentId];
+    const mulPath = tree.pathById[fromParentId as string];
     if (!mulPath) return null;
     const mulExpr = getAtPath(tree.rootJson, mulPath) as MJNode;
     if (!Array.isArray(mulExpr)) return null;
-    const [op, ...factors] = mulExpr;
-    if (!isMulOp(op)) return null;
+    const [mulOp, ...factors] = mulExpr;
+    if (!isMulOp(mulOp)) return null;
     if (factors.length < 2) return null;
 
     const fromIndex = factors.findIndex((_, idx) => {
@@ -126,7 +129,7 @@ export function applyMoveMultiplicative(
       ...rest.slice(toIndex),
     ];
 
-    const nextMul: MJNode = [op, ...nextFactors];
+    const nextMul: MJNode = [mulOp, ...nextFactors];
     const nextRoot = setAtPath(tree.rootJson, mulPath, nextMul);
     return ExpressionTree.create(nextRoot);
   }
@@ -134,16 +137,15 @@ export function applyMoveMultiplicative(
   // Merge a sibling factor into the numerator of a fraction within the same product.
   if (
     targetSlot === null &&
-    hover &&
-    tree.nodesById[hover]?.op === "Divide" &&
+    tree.nodesById[hoverNodeId]?.op === "Divide" &&
     fromParentId &&
-    tree.parentById[hover] === fromParentId &&
+    tree.parentById[hoverNodeId] === fromParentId &&
     isMulOp(fromParentOp) &&
-    hover !== movedId
+    hoverNodeId !== movedId
   ) {
-    const parentPath = tree.pathById[fromParentId];
+    const parentPath = tree.pathById[fromParentId as string];
     const movedPath = tree.pathById[movedId];
-    const dividePath = tree.pathById[hover];
+    const dividePath = tree.pathById[hoverNodeId];
     if (!parentPath || !movedPath || !dividePath) return null;
 
     const parentExpr = getAtPath(tree.rootJson, parentPath) as MJNode;
@@ -154,12 +156,12 @@ export function applyMoveMultiplicative(
 
     const siblings = tree.childrenById[fromParentId] ?? [];
     const movedIndex = siblings.indexOf(movedId);
-    const divideIndex = siblings.indexOf(hover);
+    const divideIndex = siblings.indexOf(hoverNodeId);
     if (movedIndex < 0 || divideIndex < 0) return null;
 
     const divideExpr = getAtPath(tree.rootJson, dividePath) as MJNode;
     if (!Array.isArray(divideExpr) || divideExpr[0] !== "Divide") return null;
-    const numeratorId = tree.childrenById[hover]?.[0];
+    const numeratorId = tree.childrenById[hoverNodeId]?.[0];
     const numeratorExpr =
       numeratorId && tree.pathById[numeratorId]
         ? (getAtPath(tree.rootJson, tree.pathById[numeratorId]!) as MJ)
@@ -185,14 +187,14 @@ export function applyMoveMultiplicative(
     return ExpressionTree.create(nextRoot);
   }
 
-  const route = routeBetween(tree, movedId, hover);
+  const route = routeBetween(tree, movedId, hoverNodeId);
   if (!route) return null;
 
   const equalId = route.lcaId;
   if (tree.nodesById[equalId]?.op !== "Equal") return null;
 
   const sideInfoFrom = findEqualSideRoot(tree, movedId);
-  const sideInfoTo = findEqualSideRoot(tree, hover);
+  const sideInfoTo = findEqualSideRoot(tree, hoverNodeId);
   if (!sideInfoFrom || !sideInfoTo) return null;
   if (sideInfoFrom.sideSlot === sideInfoTo.sideSlot) return null;
 
@@ -229,7 +231,7 @@ export function applyMoveMultiplicative(
     (movedParentOp === "InvisibleOperator" || movedParentOp === "Multiply")
   ) {
     const mulExpr = getAtPath(nextRoot, movedParentPath) as MJNode;
-    const [op, ...factors] = mulExpr;
+    const [, ...factors] = mulExpr;
     const idx = (tree.childrenById[movedParentId] ?? []).indexOf(movedId);
     if (idx < 0) return null;
     const remaining = factors.filter((_, i) => i !== idx);
@@ -241,11 +243,11 @@ export function applyMoveMultiplicative(
   }
 
   // Check if hover is the destination side root
-  const isHoveringSideRoot = hover === destRootId;
+  const isHoveringSideRoot = hoverNodeId === destRootId;
 
   if (isMultiplicativeContainer && targetSlot != null) {
     // Inserting into a multiplicative container (product)
-    const destPath = tree.pathById[hover];
+    const destPath = tree.pathById[hoverNodeId];
     if (!destPath) return null;
     const destExpr = getAtPath(nextRoot, destPath) as MJ;
     if (!Array.isArray(destExpr)) return null;

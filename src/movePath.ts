@@ -1,4 +1,5 @@
 import type { ExpressionTree, MJ } from "./ExpressionTree";
+import { normalizeDragHandleId } from "./domain/move/moveSelectionPolicy";
 
 export function ancestorsInclusive(
   tree: ExpressionTree,
@@ -98,19 +99,7 @@ function isUnderDenominator(
 }
 
 function bubbleDragHandleId(tree: ExpressionTree, nodeId: string): string {
-  // If user clicks inside a unary wrapper (like Negate), treat the wrapper as the draggable unit.
-  let cur = nodeId;
-  while (true) {
-    const p = tree.parentById[cur];
-    if (!p) return cur;
-
-    const pop = tree.nodesById[p]?.op;
-    if (pop === "Negate") {
-      cur = p;
-      continue;
-    }
-    return cur;
-  }
+  return normalizeDragHandleId(tree, nodeId);
 }
 
 export function isStructurallyValidMove(
