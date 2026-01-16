@@ -10,7 +10,7 @@ import {
   type CSSProperties,
 } from "react";
 import { ExpressionTree, type MJ } from "./ExpressionTree";
-import { ce } from "./computeEngine";
+import { parse } from "./computeEngine";
 import { getMathliveShadowRoot } from "./infra/mathlive/mathliveShadow";
 import {
   chooseBestAllowedSelectedNode,
@@ -372,13 +372,13 @@ export default function App() {
       return;
     }
 
-    const parsed = ce.parse(rhsLatex, { canonical: false });
+    const parsed = parse(rhsLatex);
     if (!parsed) {
       setSubstituteError("Could not parse replacement.");
       return;
     }
 
-    const replacement = parsed.json as MJ;
+    const replacement = parsed as MJ;
     const result = substitute({
       tree,
       targetId: selection.nodeId,
@@ -400,15 +400,14 @@ export default function App() {
     const mf = inputRef.current;
     // console.log(mf.value);
     const latex: string = mf.value;
-    const expr = ce.parse(latex, { canonical: false });
-    if (!expr) {
+    const mj = parse(latex);
+    if (!mj) {
       setLatexText(latex);
       setExpressionJsonText("Parse failed. Check LaTeX input.");
       return;
     }
 
-    const json = expr.json as MJ; // ✅ now typed
-    commitJson(json, { latex });
+    commitJson(mj, { latex });
   }
 
   // getNodeIdsFromPointerEvent is now exported from useSelection hook

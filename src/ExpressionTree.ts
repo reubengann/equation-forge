@@ -21,6 +21,7 @@ export class ExpressionTree {
   readonly childIndexById: Record<string, number> = {};
   readonly pathById: Record<string, number[]> = {};
   readonly idByPath: Record<string, string> = {};
+  private latexTaggedById: Record<string, string> = {};
 
   rootId!: string;
 
@@ -72,63 +73,70 @@ export class ExpressionTree {
     if (Array.isArray(node)) {
       const op = String(node[0]);
       if (op === "Add") {
-        return this.emitAdd(node, id, path, op);
+        return this.recordTagged(this.emitAdd(node, id, path, op));
       }
       if (op === "Power") {
-        return this.emitPower(node, id, path, op);
+        return this.recordTagged(this.emitPower(node, id, path, op));
       }
       if (op === "Equal") {
-        return this.emitEqual(node, id, path, op);
+        return this.recordTagged(this.emitEqual(node, id, path, op));
       }
       if (op == "Divide") {
-        return this.emitDivide(node, id, path, op);
+        return this.recordTagged(this.emitDivide(node, id, path, op));
       }
       if (op === "FractionDerivative") {
-        return this.emitFractionDerivative(node, id, path, op);
+        return this.recordTagged(
+          this.emitFractionDerivative(node, id, path, op)
+        );
       }
       if (op === "FractionPartialDerivative") {
-        return this.emitFractionPartialDerivative(node, id, path, op);
+        return this.recordTagged(
+          this.emitFractionPartialDerivative(node, id, path, op)
+        );
       }
       if (op === "Integrate") {
-        return this.emitIntegrate(node, id, path, op);
+        return this.recordTagged(this.emitIntegrate(node, id, path, op));
       }
       if (op === "Partial") {
-        return this.emitPartial(node, id, path, op);
+        return this.recordTagged(this.emitPartial(node, id, path, op));
       }
       if (op === "Tuple") {
-        return this.emitTuple(node, id, path, op);
+        return this.recordTagged(this.emitTuple(node, id, path, op));
       }
       if (op === "Multiply") {
-        return this.emitMultiply(node, id, path, op);
+        return this.recordTagged(this.emitMultiply(node, id, path, op));
       }
       if (op === "InvisibleOperator") {
-        return this.emitImplicitMultiply(node, id, path, op);
+        return this.recordTagged(this.emitImplicitMultiply(node, id, path, op));
       }
       if (op == "Negate") {
-        return this.emitNegate(node, id, path, op);
+        return this.recordTagged(this.emitNegate(node, id, path, op));
       }
       if (op === "Delimiter")
-        return this.emitGroup(node, id, path, op, "(", ")");
-      if (op === "List") return this.emitGroup(node, id, path, op, "[", "]");
-      if (op === "Set") return this.emitGroup(node, id, path, op, "{", "}");
-      if (op == "Sequence") return this.emitSequence(node, id, path, op);
+        return this.recordTagged(this.emitGroup(node, id, path, op, "(", ")"));
+      if (op === "List")
+        return this.recordTagged(this.emitGroup(node, id, path, op, "[", "]"));
+      if (op === "Set")
+        return this.recordTagged(this.emitGroup(node, id, path, op, "{", "}"));
+      if (op == "Sequence")
+        return this.recordTagged(this.emitSequence(node, id, path, op));
       if (op === "OverVector") {
-        return this.emitOverVector(node, id, path, op);
+        return this.recordTagged(this.emitOverVector(node, id, path, op));
       }
       if (op === "Subscript") {
-        return this.emitSubscript(node, id, path, op);
+        return this.recordTagged(this.emitSubscript(node, id, path, op));
       }
       if (op === "Apply") {
-        return this.emitApply(node, id, path, op);
+        return this.recordTagged(this.emitApply(node, id, path, op));
       }
       if (op === "Differential") {
-        return this.emitDifferential(node, id, path, op);
+        return this.recordTagged(this.emitDifferential(node, id, path, op));
       }
       if (op === "OverDot") {
-        return this.emitOverDot(node, id, path, op);
+        return this.recordTagged(this.emitOverDot(node, id, path, op));
       }
       if (FUNCTION_OPS.has(op)) {
-        return this.emitFunctionCall(node, id, path, op);
+        return this.recordTagged(this.emitFunctionCall(node, id, path, op));
       }
       throw Error(`${op} is not a known type of array`);
     }
@@ -148,9 +156,11 @@ export class ExpressionTree {
     if (typeof node === "string" && /^[A-Za-z]$/.test(node)) {
       const plain = node; // italic by default in math mode
       this.nodesById[id] = { id, op: "Symbol", latex: plain, json: node };
-      return { id, latexTagged: this.wrap(id, plain), latexPlain: plain };
+      const tagged = this.wrap(id, plain);
+      return this.recordTagged({ id, latexTagged: tagged, latexPlain: plain });
     }
-    return { id, latexPlain: plain, latexTagged: this.wrap(id, plain) };
+    const tagged = this.wrap(id, plain);
+    return this.recordTagged({ id, latexPlain: plain, latexTagged: tagged });
   }
 
   constructor(mj: MJ) {
@@ -159,6 +169,13 @@ export class ExpressionTree {
     const parseResult = this.emit(mj, null, []);
     this.latexTagged = parseResult.latexTagged;
     this.latexPlain = parseResult.latexPlain;
+  }
+
+  private recordTagged<T extends { id: string; latexTagged: string }>(
+    result: T
+  ): T {
+    this.latexTaggedById[result.id] = result.latexTagged;
+    return result;
   }
 
   private emitGroup(
@@ -504,9 +521,10 @@ export class ExpressionTree {
 
         const innerEmitted = children.find((c) => c.id === innerId) ?? null;
 
-        const innerTaggedLatex = innerEmitted
-          ? innerEmitted.latexTagged
-          : this.wrap(innerId, innerPlain);
+        const innerTaggedLatex =
+          innerEmitted?.latexTagged ??
+          this.latexTaggedById[innerId] ??
+          this.wrap(innerId, innerPlain);
 
         const needsParens = innerOp === "Add" || innerOp === "Equal";
         const pPlain = needsParens

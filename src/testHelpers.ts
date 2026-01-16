@@ -1,12 +1,14 @@
 import { ExpressionTree, type MJ } from "./ExpressionTree";
-import { ce } from "./computeEngine";
+import { parse } from "./computeEngine";
 
 export function makeMJfromLatex(x: string): MJ {
-  return ce.parse(x, { canonical: false }).json as MJ;
+  const mj = parse(x);
+  if (!mj) throw new Error(`Failed to parse LaTeX: ${x}`);
+  return mj;
 }
 
 export function treefromLatex(x: string): ExpressionTree {
-  return ExpressionTree.create(ce.parse(x, { canonical: false }).json as MJ);
+  return ExpressionTree.create(makeMJfromLatex(x));
 }
 /**
  * Helper: find a node id by (op, latex). Keeps tests robust when IDs are generated.

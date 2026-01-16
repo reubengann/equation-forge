@@ -1,15 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { ce } from "./computeEngine";
-
-const parse = (latex: string) =>
-  ce.parse(latex, { canonical: false })?.json ?? null;
+import { box, parse } from "./computeEngine";
 
 describe("computeEngine custom dictionary", () => {
   it("parses differential symbol", () => {
-    expect(parse(String.raw`\differentialD x`)).toEqual([
-      "Differential",
-      "x",
-    ]);
+    expect(parse(String.raw`\differentialD x`)).toEqual(["Differential", "x"]);
   });
 
   it("parses derivative fraction", () => {
@@ -39,9 +33,11 @@ describe("computeEngine custom dictionary", () => {
   });
 
   it("parses definite integral with bounds and differential", () => {
-    expect(
-      parse(String.raw`\int_{0}^{5} x^2 \,\mathrm{d}x`)
-    ).toEqual(["Integrate", ["Power", "x", 2], ["Tuple", "x", 0, 5]]);
+    expect(parse(String.raw`\int_{0}^{5} x^2 \,\mathrm{d}x`)).toEqual([
+      "Integrate",
+      ["Power", "x", 2],
+      ["Tuple", "x", 0, 5],
+    ]);
   });
 
   it("parses indefinite integral with differential", () => {
@@ -53,7 +49,7 @@ describe("computeEngine custom dictionary", () => {
   });
 
   it("serializes FractionDerivative to LaTeX", () => {
-    const expr = ce.box([
+    const expr = box([
       "FractionDerivative",
       ["Differential", "f"],
       ["Differential", "x"],
@@ -63,7 +59,7 @@ describe("computeEngine custom dictionary", () => {
   });
 
   it("serializes FractionPartialDerivative to LaTeX", () => {
-    const expr = ce.box([
+    const expr = box([
       "FractionPartialDerivative",
       ["Partial", "f"],
       ["Partial", "x"],
@@ -77,6 +73,15 @@ describe("computeEngine custom dictionary", () => {
       "InvisibleOperator",
       "Exp",
       "x",
+    ]);
+  });
+
+  it("has negate outside of the product", () => {
+    const mj = parse("a - b c");
+    expect(mj).toEqual([
+      "Add",
+      "a",
+      ["Negate", ["InvisibleOperator", "b", "c"]],
     ]);
   });
 });

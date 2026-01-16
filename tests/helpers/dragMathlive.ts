@@ -1,6 +1,6 @@
 import { type Page } from "@playwright/test";
 import { ExpressionTree } from "../../src/ExpressionTree";
-import { ce } from "../../src/computeEngine";
+import { parse } from "../../src/computeEngine";
 
 type LatexMatch = string | string[];
 type Point = { x: number; y: number };
@@ -20,10 +20,9 @@ function asCandidates(match: LatexMatch): string[] {
 }
 
 export function buildTree(latex: string): ExpressionTree {
-  const expr = ce.parse(latex, { canonical: false });
-  if (!expr) throw new Error(`Failed to parse LaTeX: ${latex}`);
-  const json = expr.json;
-  return ExpressionTree.create(json as any);
+  const mj = parse(latex);
+  if (!mj) throw new Error(`Failed to parse LaTeX: ${latex}`);
+  return ExpressionTree.create(mj as any);
 }
 
 export function findNodeIdByLatex(

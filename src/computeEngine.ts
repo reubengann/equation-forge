@@ -3,8 +3,48 @@ import {
   type Expression,
   type LatexDictionaryEntry,
 } from "@cortex-js/compute-engine";
+import type { MJ } from "./ExpressionTree";
 
 const ce = new ComputeEngine();
+
+export function parse(latex: string): MJ | null {
+  const mj = (ce.parse(latex, { canonical: false })?.json as MJ) ?? null;
+  return rewriteNegateToFrontOfProduct(mj);
+}
+
+function rewriteNegateToFrontOfProduct(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+
+  const op = mj[0];
+
+  if (op === "Multiply" || op === "InvisibleOperator") {
+    let negateCount = 0;
+    const factors: MJ[] = [];
+
+    for (let i = 1; i < mj.length; i += 1) {
+      const rewritten = rewriteNegateToFrontOfProduct(mj[i] as MJ);
+      let current = rewritten as MJ | null;
+      while (Array.isArray(current) && current[0] === "Negate") {
+        negateCount += 1;
+        current = (current.length > 1 ? (current[1] as MJ) : null) ?? null;
+      }
+      factors.push(current as MJ);
+    }
+
+    const product = [op, ...factors] as MJ;
+    return negateCount % 2 === 1 ? (["Negate", product] as MJ) : product;
+  }
+
+  const rewrittenKids = mj
+    .slice(1)
+    .map((child) => rewriteNegateToFrontOfProduct(child as MJ));
+  return [op, ...rewrittenKids] as MJ;
+}
+
+export function box(mj: MJ) {
+  return ce.box(mj);
+}
 
 function unwrapGroup(expr: Expression | null): Expression | null {
   if (Array.isArray(expr) && expr[0] === "Delimiter" && expr.length >= 2) {
@@ -68,10 +108,7 @@ function extractDerivativeOperand(
     const isDiffNode = Array.isArray(first) && first[0] === "Differential";
     const isPartial = Array.isArray(first) && first[0] === "Partial";
 
-    if (
-      (isDiffD || isDiffNode || isPartial) &&
-      factors.length >= 2
-    ) {
+    if ((isDiffD || isDiffNode || isPartial) && factors.length >= 2) {
       const op = inner[0] as string;
       const base =
         isDiffNode && Array.isArray(first) && first[1]
@@ -143,7 +180,12 @@ const fractionDerivativeEntry: LatexDictionaryEntry = {
     const numOperand = extractDerivativeOperand(numerator);
     const denOperand = extractDerivativeOperand(denominator);
 
-    if (numOperand && denOperand && numOperand.kind === "d" && denOperand.kind === "d") {
+    if (
+      numOperand &&
+      denOperand &&
+      numOperand.kind === "d" &&
+      denOperand.kind === "d"
+    ) {
       return [
         "FractionDerivative",
         ["Differential", numOperand.operand],
@@ -282,5 +324,3 @@ ce.latexDictionary = [
   ddotEntry,
   ...baseDictionary,
 ];
-
-export { ce };
