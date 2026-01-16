@@ -131,6 +131,60 @@ export function applyMoveMultiplicative(
     return ExpressionTree.create(nextRoot);
   }
 
+  // Merge a sibling factor into the numerator of a fraction within the same product.
+  if (
+    targetSlot === null &&
+    hover &&
+    tree.nodesById[hover]?.op === "Divide" &&
+    fromParentId &&
+    tree.parentById[hover] === fromParentId &&
+    isMulOp(fromParentOp) &&
+    hover !== movedId
+  ) {
+    const parentPath = tree.pathById[fromParentId];
+    const movedPath = tree.pathById[movedId];
+    const dividePath = tree.pathById[hover];
+    if (!parentPath || !movedPath || !dividePath) return null;
+
+    const parentExpr = getAtPath(tree.rootJson, parentPath) as MJNode;
+    if (!Array.isArray(parentExpr)) return null;
+    const [parentOp, ...factors] = parentExpr;
+    if (!isMulOp(parentOp)) return null;
+    if (factors.length < 2) return null;
+
+    const siblings = tree.childrenById[fromParentId] ?? [];
+    const movedIndex = siblings.indexOf(movedId);
+    const divideIndex = siblings.indexOf(hover);
+    if (movedIndex < 0 || divideIndex < 0) return null;
+
+    const divideExpr = getAtPath(tree.rootJson, dividePath) as MJNode;
+    if (!Array.isArray(divideExpr) || divideExpr[0] !== "Divide") return null;
+    const numeratorId = tree.childrenById[hover]?.[0];
+    const numeratorExpr =
+      numeratorId && tree.pathById[numeratorId]
+        ? (getAtPath(tree.rootJson, tree.pathById[numeratorId]!) as MJ)
+        : (divideExpr[1] as MJ);
+    const denominatorExpr = divideExpr[2] as MJ;
+
+    const movedExpr = getAtPath(tree.rootJson, movedPath) as MJ;
+    const mergedNumerator = normalizeMul([numeratorExpr, movedExpr]);
+    const updatedDivide: MJNode = ["Divide", mergedNumerator, denominatorExpr];
+
+    const nextFactors: MJ[] = [];
+    for (let i = 0; i < factors.length; i += 1) {
+      if (i === movedIndex) continue;
+      if (i === divideIndex) {
+        nextFactors.push(updatedDivide);
+        continue;
+      }
+      nextFactors.push(factors[i]);
+    }
+
+    const normalizedParent = normalizeMul(nextFactors);
+    const nextRoot = setAtPath(tree.rootJson, parentPath, normalizedParent);
+    return ExpressionTree.create(nextRoot);
+  }
+
   const route = routeBetween(tree, movedId, hover);
   if (!route) return null;
 

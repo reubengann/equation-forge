@@ -83,6 +83,29 @@ describe("applyMoveMultiplicative executor", () => {
     );
   });
 
+  it("merges a sibling factor into the numerator of a fraction", () => {
+    const next = runMove({
+      latex: String.raw`\vec{F} \frac{1}{m} = \vec{a}`,
+      select: (tree) => [findNodeByLatex(tree, String.raw`\vec{F}`)],
+      hover: (tree) => {
+        const lhsId = tree.childrenById[tree.rootId!]?.[0];
+        if (!lhsId) throw new Error("Missing LHS");
+        // Hover the fraction; plan mapping will target the Divide node.
+        const divideId = tree.childrenById[lhsId]?.find(
+          (id) => tree.nodesById[id]?.op === "Divide"
+        );
+        if (!divideId) throw new Error("Missing divide node");
+        return divideId;
+      },
+      targetSlot: null, // merge into numerator
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\frac{\vec{F}}{m} = \vec{a}`
+    );
+  });
+
   describe("three outcomes for cross-equal multiplicative moves", () => {
     it("divides whole expression when targetSlot is null", () => {
       const next = runMove({

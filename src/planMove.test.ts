@@ -658,6 +658,34 @@ describe("planMove", () => {
 
     expect(plan).toBeNull(); // later rectangle check fails, but branch coverage exercises the fallback path
   });
+
+  it("plans MergeIntoFractionNumerator when dragging sibling factor onto numerator zone", () => {
+    const tree = treefromLatex(String.raw`\vec{F} \frac{1}{m}`);
+
+    const mulId = tree.rootId!;
+    const [forceId, divideId] = tree.childrenById[mulId];
+    const numeratorId = tree.childrenById[divideId]?.[0];
+    expect(tree.nodesById[divideId]?.op).toBe("Divide");
+    expect(numeratorId).toBeTruthy();
+
+    const plan = planMove({
+      tree,
+      selectedIds: [forceId],
+      hoverId: numeratorId!, // hover inside fraction numerator
+      pointer: { x: 15, y: 10 },
+      rectFor: rectProvider({
+        [numeratorId!]: { left: 10, right: 30, top: 0, bottom: 20 },
+      }),
+      mode: "multiplicative",
+    });
+
+    expect(plan).toEqual({
+      kind: "MergeIntoFractionNumerator",
+      fromMulId: mulId,
+      divideId,
+      movedId: forceId,
+    });
+  });
 });
 
 describe("planMove multiplicative cross-equal", () => {

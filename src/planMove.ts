@@ -39,6 +39,12 @@ export type MovePlan =
       insertIndex: 0 | 1;
     }
   | {
+      kind: "MergeIntoFractionNumerator";
+      fromMulId: string;
+      divideId: string;
+      movedId: string;
+    }
+  | {
       kind: "MoveAcrossEqual";
       movedId: string;
 
@@ -424,6 +430,40 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
   }
 
   const movedOp = tree.nodesById[movedId]?.op;
+
+  // Multiplicative: merge a sibling factor into the numerator of a fraction within the same product.
+  if (mode === "multiplicative" && movedParentId) {
+    const parentOp = tree.nodesById[movedParentId]?.op;
+    if (isMulOp(parentOp)) {
+      const divideId = findNearestAncestorWithOp(tree, hoverId, "Divide");
+      const divideParentId = divideId ? tree.parentById[divideId] : null;
+      if (
+        divideId &&
+        divideParentId === movedParentId &&
+        divideId !== movedId
+      ) {
+        const numeratorId = tree.childrenById[divideId]?.[0];
+        const numeratorRect = numeratorId ? rectFor(numeratorId) : null;
+        const NUMERATOR_PAD = 6;
+        const inNumerator =
+          numeratorRect != null &&
+          containsPoint(
+            numeratorRect,
+            pointer.x,
+            pointer.y,
+            NUMERATOR_PAD
+          );
+        if (inNumerator) {
+          return {
+            kind: "MergeIntoFractionNumerator",
+            fromMulId: movedParentId,
+            divideId,
+            movedId,
+          };
+        }
+      }
+    }
+  }
 
   // Multiplicative cross-equal: if source and hover are on opposite sides of the same Equal, synthesize a plan immediately.
   if (mode === "multiplicative") {

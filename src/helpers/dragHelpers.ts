@@ -59,6 +59,8 @@ export function describeMovePlan(plan: MovePlan | null): string {
           plan.fromIndex
         }] ${plan.insertIndex === 0 ? "before" : "after"} it`,
       ].join(" — ");
+    case "MergeIntoFractionNumerator":
+      return `Merge ${plan.movedId} into numerator of fraction ${plan.divideId}`;
     case "MoveAcrossEqual": {
       const sideLabel = (side: 0 | 1) => (side === 0 ? "LHS" : "RHS");
       if (plan.drop.kind === "intoAdd") {
@@ -106,6 +108,8 @@ export function planToApplyMoveTarget(plan: MovePlan | null): {
       return { hoverId: plan.toAddId, targetSlot: plan.toIndex };
     case "WrapIntoAddThenInsert":
       return { hoverId: plan.replaceId, targetSlot: plan.insertIndex };
+    case "MergeIntoFractionNumerator":
+      return { hoverId: plan.divideId, targetSlot: null };
     case "MoveAcrossEqual":
       if (plan.drop.kind === "intoAdd") {
         return { hoverId: plan.drop.addId, targetSlot: plan.drop.toIndex };
@@ -200,6 +204,9 @@ export function computeInsertX(
     if (!r) return null;
     return plan.drop.insertIndex === 0 ? r.left : r.right;
   }
+  if (plan.kind === "MergeIntoFractionNumerator") {
+    return null;
+  }
 
   return null;
 }
@@ -216,6 +223,7 @@ export function targetRectForPlan(
     if (plan.drop.kind === "intoAdd") return rectFor(plan.drop.addId);
     return rectFor(plan.drop.replaceId);
   }
+  if (plan.kind === "MergeIntoFractionNumerator") return rectFor(plan.divideId);
   return null;
 }
 
@@ -234,6 +242,27 @@ export function renderInsertOverlay(
   const hostRect = mathDivEl.getBoundingClientRect();
   const targetRect = targetRectForPlan(plan, rectFor);
   if (!targetRect) return;
+
+  // Special-case: merging into a fraction numerator — underline the numerator zone.
+  if (plan.kind === "MergeIntoFractionNumerator") {
+    const numeratorId = tree?.childrenById[plan.divideId]?.[0];
+    const numeratorRect =
+      (numeratorId && rectFor(numeratorId)) || rectFor(plan.divideId);
+    if (!numeratorRect) return;
+
+    const line = document.createElement("div");
+    line.style.position = "absolute";
+    // Draw a vertical line alongside the numerator to signal the target.
+    const GAP = 4;
+    line.style.left = `${numeratorRect.left - hostRect.left - GAP}px`;
+    line.style.top = `${numeratorRect.top - hostRect.top}px`;
+    line.style.width = "2px";
+    line.style.height = `${numeratorRect.bottom - numeratorRect.top}px`;
+    line.style.background = "rgba(124, 77, 255, 0.9)";
+    line.style.pointerEvents = "none";
+    overlay.appendChild(line);
+    return;
+  }
 
   // Handle horizontal underline for ontoSideRootWhole
   if (

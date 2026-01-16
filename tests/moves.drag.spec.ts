@@ -92,6 +92,15 @@ const cases: MoveCase[] = [
     expectedLatex: String.raw`\frac{\vec{F}}{m} = \vec{a}`,
   },
   {
+    title: "multiplicative merge factor into fraction numerator",
+    mode: "multiplicative",
+    equation: String.raw`\vec{F} \frac{1}{m} = \vec{a}`,
+    fromLatex: String.raw`\vec{F}`,
+    toLatex: "1",
+    expectedLatex: String.raw`\frac{\vec{F}}{m} = \vec{a}`,
+    toBias: { dy: -4 },
+  },
+  {
     title: "additive move of multiplicative product across '='",
     mode: "additive",
     equation: String.raw`x^{2} + v_{x} = m a`,
