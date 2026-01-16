@@ -21,6 +21,7 @@ import { substitute, type SubstituteScope } from "./substitute";
 import { useHistory } from "./hooks/useHistory";
 import { useSelection, getNodeIdsFromPointerEvent } from "./hooks/useSelection";
 import { useDragMove } from "./hooks/useDragMove";
+import { flipEquation, isFlippableEquation } from "./flipEquation";
 import {
   applySelectionHighlight,
   getSelectionDetailsForNode,
@@ -340,6 +341,18 @@ export default function App() {
     commitHistory(next);
     applyPresentJson(next, opts);
   }
+
+  const canFlip = useMemo(() => {
+    return !!tree && isFlippableEquation(tree.rootJson);
+  }, [tree]);
+
+  const onFlip = useCallback(() => {
+    if (!tree) return;
+    const flipped = flipEquation(tree.rootJson);
+    if (!flipped) return;
+    const latex = ExpressionTree.create(flipped).latexPlain;
+    commitJson(flipped, { latex });
+  }, [tree, commitJson]);
 
   function undo() {
     undoHistory(applyPresentJson);
@@ -849,6 +862,8 @@ export default function App() {
             onRedo={redo}
             canUndo={canUndo}
             canRedo={canRedo}
+            onFlip={onFlip}
+            canFlip={canFlip}
             onOpenSubstitute={openSubstituteModal}
             canSubstitute={canSubstitute}
           />

@@ -130,18 +130,12 @@ export function chooseBestAllowedSelectedNode(
 ): string | null {
   const disallow = new Set(["Add", "Equal", "InvisibleOperator"]);
 
-  let firstTagged: string | null = null;
-
   for (const id of nodeIds) {
-    if (!firstTagged) firstTagged = id;
-
     const info = tree.nodesById[id];
     if (!info) continue;
 
-    if (!disallow.has(info.op)) {
-      return id;
-    }
+    if (!disallow.has(info.op)) return id;
   }
 
-  return firstTagged;
+  return null;
 }

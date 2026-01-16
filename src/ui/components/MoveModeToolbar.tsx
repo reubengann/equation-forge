@@ -9,6 +9,8 @@ type MoveModeToolbarProps = {
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  onFlip: () => void;
+  canFlip: boolean;
   onOpenSubstitute: () => void;
   canSubstitute: boolean;
 };
@@ -54,6 +56,8 @@ export const MoveModeToolbar = forwardRef<
     onRedo,
     canUndo,
     canRedo,
+    onFlip,
+    canFlip,
     onOpenSubstitute,
     canSubstitute,
   },
@@ -110,6 +114,17 @@ export const MoveModeToolbar = forwardRef<
         onClick={onRedo}
         disabled={!canRedo}
         testId="redo-button"
+      />
+      <IconButton
+        label="Flip equation"
+        icon={
+          <span style={materialSymbolStyle} aria-hidden>
+            swap_horiz
+          </span>
+        }
+        onClick={onFlip}
+        disabled={!canFlip}
+        testId="flip-button"
       />
       <IconButton
         label="Substitute"
