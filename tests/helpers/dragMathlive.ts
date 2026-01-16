@@ -232,3 +232,72 @@ export async function clickNodeByLatex(
   await page.mouse.click(pt.x, pt.y);
   return { nodeId, point: pt };
 }
+
+export async function getSelectedNodeIds(page: Page): Promise<string[]> {
+  const ids = await page.evaluate(() => {
+    const host = document.querySelector(
+      '[data-testid="math-display"]'
+    ) as HTMLElement | null;
+    const sr = host?.shadowRoot ?? (host as any)?.shadowRoot;
+    if (!sr) return [];
+    const els = Array.from(
+      sr.querySelectorAll<HTMLElement>(".dp-selected")
+    ) as HTMLElement[];
+    const set = new Set<string>();
+    for (const el of els) {
+      const id = el.dataset?.nodeId;
+      if (id) set.add(id);
+    }
+    return Array.from(set);
+  });
+  return ids;
+}
+
+export async function findDomNodeIdByText(
+  page: Page,
+  targetText: string
+): Promise<string | null> {
+  return await page.evaluate((needle) => {
+    const host = document.querySelector(
+      '[data-testid="math-display"]'
+    ) as HTMLElement | null;
+    const sr = host?.shadowRoot ?? (host as any)?.shadowRoot;
+    if (!sr) return null;
+    const nodes = Array.from(
+      sr.querySelectorAll<HTMLElement>("[data-node-id]")
+    ) as HTMLElement[];
+    for (const n of nodes) {
+      const text = (n.textContent ?? "").trim();
+      if (text === needle) return n.dataset?.nodeId ?? null;
+    }
+    return null;
+  }, targetText);
+}
+
+export async function findNodeByText(
+  page: Page,
+  targetText: string
+): Promise<{ id: string; center: Point } | null> {
+  const result = await page.evaluate((needle) => {
+    const host = document.querySelector(
+      '[data-testid="math-display"]'
+    ) as HTMLElement | null;
+    const sr = host?.shadowRoot ?? (host as any)?.shadowRoot;
+    if (!sr) return null;
+    const nodes = Array.from(
+      sr.querySelectorAll<HTMLElement>("[data-node-id]")
+    ) as HTMLElement[];
+    for (const n of nodes) {
+      const text = (n.textContent ?? "").trim();
+      if (text === needle || text.includes(needle)) {
+        const r = n.getBoundingClientRect();
+        return {
+          id: n.dataset?.nodeId ?? "",
+          center: { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 },
+        };
+      }
+    }
+    return null;
+  }, targetText);
+  return result;
+}

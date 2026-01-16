@@ -143,5 +143,5 @@ export function chooseBestAllowedSelectedNode(
     }
   }
 
-  return null;
+  return firstTagged;
 }

@@ -33,6 +33,7 @@ import { MoveModeToolbar } from "./ui/components/MoveModeToolbar";
 import { SubstituteModal } from "./ui/components/SubstituteModal";
 import type { MoveMode } from "./moveExpression/applyMove";
 import "./App.css";
+import { hitTestNodeIdInMathliveShadow } from "./infra/mathlive/mathliveShadow";
 MathfieldElement.fontsDirectory = "/fonts";
 
 // let found2: any = null;
@@ -430,7 +431,15 @@ export default function App() {
       return;
     }
 
-    const ids = getNodeIdsFromPointerEvent(e);
+    let ids = getNodeIdsFromPointerEvent(e);
+    if ((!ids || ids.length === 0) && displayRef.current) {
+      const hitId = hitTestNodeIdInMathliveShadow(
+        displayRef.current,
+        e.clientX,
+        e.clientY
+      );
+      if (hitId) ids = [hitId];
+    }
     const clickedId = chooseBestAllowedSelectedNode(ids, tree);
 
     if (!clickedId) {

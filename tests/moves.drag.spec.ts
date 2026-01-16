@@ -4,6 +4,8 @@ import {
   getRenderedLatex,
   setEquation,
   setMoveMode,
+  getSelectedNodeIds,
+  findNodeByText,
 } from "./helpers/dragMathlive";
 import {
   buildTree,
@@ -290,4 +292,33 @@ test("double-click m then drag to LHS should move m a additively", async ({
   expect(normalizedLatex).toContain("v_{x}");
   // Verify it's not the original equation
   expect(normalizedLatex).not.toContain("x^{2} + v_{x} = m a");
+});
+
+test("additive cross '=' keeps moved product selectable", async ({ page }) => {
+  const equation = String.raw`\vec{F} = m \vec{a}`;
+  await setEquation(page, equation);
+  await setMoveMode(page, "additive");
+
+  await dragByLatex(page, {
+    equationLatex: equation,
+    fromLatex: "m",
+    toLatex: String.raw`\vec{F}`,
+    clickCount: 2,
+  });
+
+  const finalLatex = await getRenderedLatex(page);
+  expect(normalizeLatex(finalLatex)).toContain(
+    normalizeLatex(String.raw`\vec{F} - m \vec{a} = 0`)
+  );
+
+  await waitForMathRender(page);
+  const mNode = await findNodeByText(page, "m");
+  expect(mNode).not.toBeNull();
+  const mCenter = mNode!.center;
+
+  await page.mouse.click(mCenter.x, mCenter.y);
+  await page.waitForTimeout(50);
+
+  const selectedIds = await getSelectedNodeIds(page);
+  expect(selectedIds.length).toBeGreaterThan(0);
 });
