@@ -19,14 +19,17 @@ function asCandidates(match: LatexMatch): string[] {
   return Array.isArray(match) ? match : [match];
 }
 
-function buildTree(latex: string): ExpressionTree {
+export function buildTree(latex: string): ExpressionTree {
   const expr = ce.parse(latex, { canonical: false });
   if (!expr) throw new Error(`Failed to parse LaTeX: ${latex}`);
   const json = expr.json;
   return ExpressionTree.create(json as any);
 }
 
-function findNodeIdByLatex(tree: ExpressionTree, match: LatexMatch): string {
+export function findNodeIdByLatex(
+  tree: ExpressionTree,
+  match: LatexMatch
+): string {
   const candidates = asCandidates(match);
   for (const candidate of candidates) {
     const node = Object.values(tree.nodesById).find(
@@ -44,7 +47,7 @@ function applyBias(point: Point, bias?: { dx?: number; dy?: number }): Point {
   };
 }
 
-async function waitForMathRender(page: Page, nodeIds: string[] = []) {
+export async function waitForMathRender(page: Page, nodeIds: string[] = []) {
   await page.waitForSelector('[data-testid="math-display"]');
   await page.waitForFunction(
     ({ nodeIds }) => {
@@ -85,7 +88,7 @@ async function waitForMathRender(page: Page, nodeIds: string[] = []) {
   );
 }
 
-async function getNodeRects(
+export async function getNodeRects(
   page: Page,
   nodeIds: string[]
 ): Promise<Record<string, { rect: Rect; center: Point }>> {
@@ -150,7 +153,10 @@ export async function setEquation(page: Page, latex: string) {
   await waitForMathRender(page);
 }
 
-export async function setMoveMode(page: Page, mode: "additive" | "multiplicative") {
+export async function setMoveMode(
+  page: Page,
+  mode: "additive" | "multiplicative"
+) {
   await page.getByTestId(`mode-${mode}`).click();
   await waitForMathRender(page);
 }
@@ -166,14 +172,23 @@ export async function dragByLatex(page: Page, params: DragByLatexParams) {
   const start = rects[fromId].center;
   const target = applyBias(rects[toId].center, params.toBias);
 
-  if (params.preClick !== false) {
-    await page.mouse.click(start.x, start.y, {
-      clickCount: params.clickCount ?? 1,
-    });
+  const clickCount = params.clickCount ?? 1;
+
+  // We want the drag-start press to count as the final click in the sequence.
+  // For single-click drags this avoids generating an extra click before we hold
+  // the mouse down (which previously caused accidental double-click promotion).
+  // For double-click drags we issue the first click normally, then press-and-hold
+  // for the second click so the drag begins with that second click.
+  await page.mouse.move(start.x, start.y);
+  if (params.preClick !== false && clickCount > 1) {
+    const prepClicks = clickCount - 1;
+    for (let i = 0; i < prepClicks; i += 1) {
+      await page.mouse.click(start.x, start.y);
+    }
+    await page.mouse.down({ clickCount });
   } else {
-    await page.mouse.move(start.x, start.y);
+    await page.mouse.down({ clickCount: 1 });
   }
-  await page.mouse.down();
   await page.mouse.move(target.x, target.y, { steps: 15 });
   await page.mouse.up();
 
@@ -194,7 +209,10 @@ export async function getRenderedLatex(page: Page): Promise<string> {
   }
 
   const tagName = await locator.evaluate((el) => el.tagName);
-  if (tagName?.toLowerCase() === "input" || tagName?.toLowerCase() === "textarea") {
+  if (
+    tagName?.toLowerCase() === "input" ||
+    tagName?.toLowerCase() === "textarea"
+  ) {
     return (await locator.inputValue()).trim();
   }
 

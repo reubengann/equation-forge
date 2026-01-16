@@ -186,7 +186,11 @@ export function applyMoveMultiplicative(
     nextRoot = setAtPath(nextRoot, movedPath, 1);
   }
 
+  // Check if hover is the destination side root
+  const isHoveringSideRoot = hover === destRootId;
+
   if (isMultiplicativeContainer && targetSlot != null) {
+    // Inserting into a multiplicative container (product)
     const destPath = tree.pathById[hover];
     if (!destPath) return null;
     const destExpr = getAtPath(nextRoot, destPath) as MJ;
@@ -208,24 +212,71 @@ export function applyMoveMultiplicative(
     return ExpressionTree.create(nextRoot);
   }
 
-  // Default: update the entire destination side.
-  const destExpr = getAtPath(nextRoot, destRootPath) as MJ;
-  let updatedDest: MJ;
-  if (movedWasDivisor && destExpr) {
-    // denom moved across → multiply dest by moved
-    updatedDest = normalizeMul([destExpr, movedExpr]);
-  } else {
-    updatedDest = ["Divide", destExpr, movedExpr] as MJNode;
-    // Normalize Divide(expr, 1) to expr
-    if (
-      Array.isArray(updatedDest) &&
-      updatedDest[0] === "Divide" &&
-      isOneTerm(updatedDest[2] as MJ)
-    ) {
-      updatedDest = updatedDest[1] as MJ;
+  // Handle side root drops: whole division vs edge insertion
+  if (isHoveringSideRoot) {
+    const destExpr = getAtPath(nextRoot, destRootPath) as MJ;
+    let updatedDest: MJ;
+
+    if (targetSlot === null) {
+      // Whole division: divide the entire expression
+      if (movedWasDivisor && destExpr) {
+        // denom moved across → multiply dest by moved
+        updatedDest = normalizeMul([destExpr, movedExpr]);
+      } else {
+        updatedDest = ["Divide", destExpr, movedExpr] as MJNode;
+        // Normalize Divide(expr, 1) to expr
+        if (
+          Array.isArray(updatedDest) &&
+          updatedDest[0] === "Divide" &&
+          isOneTerm(updatedDest[2] as MJ)
+        ) {
+          updatedDest = updatedDest[1] as MJ;
+        }
+      }
+    } else if (targetSlot === 0) {
+      // Left edge: multiply by reciprocal before
+      const reciprocal: MJ = movedWasDivisor
+        ? movedExpr
+        : (["Divide", 1, movedExpr] as MJNode);
+      // Wrap destExpr in delimiter if it's an Add to preserve grouping
+      const wrappedDest =
+        Array.isArray(destExpr) && destExpr[0] === "Add"
+          ? (["Delimiter", destExpr] as MJNode)
+          : destExpr;
+      updatedDest = normalizeMul([reciprocal, wrappedDest]);
+    } else {
+      // Right edge (targetSlot === 1): multiply by reciprocal after
+      const reciprocal: MJ = movedWasDivisor
+        ? movedExpr
+        : (["Divide", 1, movedExpr] as MJNode);
+      // Wrap destExpr in delimiter if it's an Add to preserve grouping
+      const wrappedDest =
+        Array.isArray(destExpr) && destExpr[0] === "Add"
+          ? (["Delimiter", destExpr] as MJNode)
+          : destExpr;
+      updatedDest = normalizeMul([wrappedDest, reciprocal]);
     }
+    nextRoot = setAtPath(nextRoot, destRootPath, updatedDest);
+  } else {
+    // Default: update the entire destination side (fallback for non-side-root hovers)
+    const destExpr = getAtPath(nextRoot, destRootPath) as MJ;
+    let updatedDest: MJ;
+    if (movedWasDivisor && destExpr) {
+      // denom moved across → multiply dest by moved
+      updatedDest = normalizeMul([destExpr, movedExpr]);
+    } else {
+      updatedDest = ["Divide", destExpr, movedExpr] as MJNode;
+      // Normalize Divide(expr, 1) to expr
+      if (
+        Array.isArray(updatedDest) &&
+        updatedDest[0] === "Divide" &&
+        isOneTerm(updatedDest[2] as MJ)
+      ) {
+        updatedDest = updatedDest[1] as MJ;
+      }
+    }
+    nextRoot = setAtPath(nextRoot, destRootPath, updatedDest);
   }
-  nextRoot = setAtPath(nextRoot, destRootPath, updatedDest);
 
   // If the source side root was a Divide and its denominator became 1, collapse it.
   const fromRootPath = tree.pathById[sideInfoFrom.sideRootId];

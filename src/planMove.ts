@@ -56,6 +56,12 @@ export type MovePlan =
             replaceParentId: string; // should be equalId
             replaceSlot: 0 | 1; // should match toSide
             insertIndex: 0 | 1; // before/after the root expression
+          }
+        | {
+            kind: "ontoSideRootWhole";
+            replaceId: string;
+            replaceParentId: string; // should be equalId
+            replaceSlot: 0 | 1; // should match toSide
           };
     };
 
@@ -163,6 +169,93 @@ function findEqualSideRoot(
     cur = parent;
   }
   return null;
+}
+
+const EDGE_ZONE_PX = 12;
+const PAD = 6;
+
+/**
+ * Determines the drop kind for multiplicative cross-equal moves based on hit-zones.
+ * Returns either "ontoSideRootWhole" (main body), "ontoSideRoot" with insertIndex (edge zones),
+ * or null if rects are missing (fallback to safer heuristic).
+ */
+function determineMultiplicativeDropKind(args: {
+  sideRootId: string;
+  pointer: { x: number; y: number };
+  rectFor: RectProvider;
+  equalId: string;
+  toSide: 0 | 1;
+}):
+  | {
+      kind: "ontoSideRootWhole";
+      replaceId: string;
+      replaceParentId: string;
+      replaceSlot: 0 | 1;
+    }
+  | {
+      kind: "ontoSideRoot";
+      replaceId: string;
+      replaceParentId: string;
+      replaceSlot: 0 | 1;
+      insertIndex: 0 | 1;
+    }
+  | null {
+  const { sideRootId, pointer, rectFor, equalId, toSide } = args;
+  const sideRootRect = rectFor(sideRootId);
+  if (!sideRootRect) return null; // Fallback: missing rects
+
+  const isInsideRect = containsPoint(sideRootRect, pointer.x, pointer.y, PAD);
+  if (!isInsideRect) {
+    // Outside the rect but still on that side -> plan edge insertion
+    // Determine which side based on pointer position relative to rect
+    const insertIndex: 0 | 1 = pointer.x < sideRootRect.left ? 0 : 1;
+    return {
+      kind: "ontoSideRoot",
+      replaceId: sideRootId,
+      replaceParentId: equalId,
+      replaceSlot: toSide,
+      insertIndex,
+    };
+  }
+
+  // Inside the rect: check if in edge zone
+  // Only apply edge zones if the rect is wide enough (at least 3 * EDGE_ZONE_PX)
+  // Otherwise, very small targets like single characters would have no main body
+  const rectWidth = sideRootRect.right - sideRootRect.left;
+  const hasMainBody = rectWidth > EDGE_ZONE_PX * 3;
+
+  if (hasMainBody) {
+    const leftEdgeEnd = sideRootRect.left + EDGE_ZONE_PX;
+    const rightEdgeStart = sideRootRect.right - EDGE_ZONE_PX;
+
+    if (pointer.x < leftEdgeEnd) {
+      // Left edge zone
+      return {
+        kind: "ontoSideRoot",
+        replaceId: sideRootId,
+        replaceParentId: equalId,
+        replaceSlot: toSide,
+        insertIndex: 0,
+      };
+    } else if (pointer.x > rightEdgeStart) {
+      // Right edge zone
+      return {
+        kind: "ontoSideRoot",
+        replaceId: sideRootId,
+        replaceParentId: equalId,
+        replaceSlot: toSide,
+        insertIndex: 1,
+      };
+    }
+  }
+  
+  // Main body (or entire rect if too small for edge zones)
+  return {
+    kind: "ontoSideRootWhole",
+    replaceId: sideRootId,
+    replaceParentId: equalId,
+    replaceSlot: toSide,
+  };
 }
 
 /**
@@ -306,13 +399,31 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
   if (!hoverId) return null;
 
   const movedRawId = selectedIds[0];
-  const movedId = normalizeSelection(tree, movedRawId);
-  const movedOp = tree.nodesById[movedId]?.op;
+  let movedId = normalizeSelection(tree, movedRawId);
   const movedIsVector =
     hasVectorAncestor(tree, movedId) || hasVectorAncestor(tree, movedRawId);
 
-  const movedParentId = tree.parentById[movedId];
+  let movedParentId = tree.parentById[movedId];
   if (!movedParentId) return null;
+
+  // For additive mode: if the moved item is inside a product that is a direct child of Equal,
+  // treat the product container as the moved item (allows moving "m a" by selecting "m" or "a")
+  if (mode === "additive") {
+    const movedParentOp = tree.nodesById[movedParentId]?.op;
+    if (isMulOp(movedParentOp)) {
+      const productParentId = tree.parentById[movedParentId];
+      if (productParentId) {
+        const productParentOp = tree.nodesById[productParentId]?.op;
+        if (productParentOp === "Equal") {
+          // The product is a direct child of Equal, so use the product as the moved item
+          movedId = movedParentId;
+          movedParentId = productParentId;
+        }
+      }
+    }
+  }
+
+  const movedOp = tree.nodesById[movedId]?.op;
 
   // Multiplicative cross-equal: if source and hover are on opposite sides of the same Equal, synthesize a plan immediately.
   if (mode === "multiplicative") {
@@ -325,19 +436,37 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
       fromSide.sideSlot !== toSide.sideSlot
     ) {
       if (movedIsVector) return null;
+      const drop = determineMultiplicativeDropKind({
+        sideRootId: toSide.sideRootId,
+        pointer,
+        rectFor,
+        equalId: fromSide.equalId,
+        toSide: toSide.sideSlot,
+      });
+      if (!drop) {
+        // Fallback to safer heuristic when rects are missing
+        return {
+          kind: "MoveAcrossEqual",
+          movedId,
+          equalId: fromSide.equalId,
+          fromSide: fromSide.sideSlot,
+          toSide: toSide.sideSlot,
+          drop: {
+            kind: "ontoSideRoot",
+            replaceId: toSide.sideRootId,
+            replaceParentId: fromSide.equalId,
+            replaceSlot: toSide.sideSlot,
+            insertIndex: 1,
+          },
+        };
+      }
       return {
         kind: "MoveAcrossEqual",
         movedId,
         equalId: fromSide.equalId,
         fromSide: fromSide.sideSlot,
         toSide: toSide.sideSlot,
-        drop: {
-          kind: "ontoSideRoot",
-          replaceId: toSide.sideRootId,
-          replaceParentId: fromSide.equalId,
-          replaceSlot: toSide.sideSlot,
-          insertIndex: 1,
-        },
+        drop,
       };
     }
   }
@@ -425,19 +554,58 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
       if ((replaceSlot as 0 | 1) !== toSide) return null;
 
       // Confidence gate (same pattern as your WrapIntoAddThenInsert)
-      const PAD = 6;
       const replaceRect = rectFor(replaceId);
       const parentRect = rectFor(replaceParentId);
+      const PAD_LOCAL = 6;
 
       const replaceContains =
         replaceRect != null &&
-        containsPoint(replaceRect, pointer.x, pointer.y, PAD);
+        containsPoint(replaceRect, pointer.x, pointer.y, PAD_LOCAL);
       const parentContains =
         parentRect != null &&
-        containsPoint(parentRect, pointer.x, pointer.y, PAD);
+        containsPoint(parentRect, pointer.x, pointer.y, PAD_LOCAL);
 
       if (!replaceContains && !parentContains) return null;
 
+      // For multiplicative mode, use hit-zone logic
+      if (mode === "multiplicative") {
+        const drop = determineMultiplicativeDropKind({
+          sideRootId: replaceId,
+          pointer,
+          rectFor,
+          equalId,
+          toSide,
+        });
+        if (!drop) {
+          // Fallback when rects are missing
+          let insertIndex: 0 | 1 = 1;
+          if (replaceRect) insertIndex = pointer.x < midX(replaceRect) ? 0 : 1;
+          return {
+            kind: "MoveAcrossEqual",
+            movedId,
+            equalId,
+            fromSide,
+            toSide,
+            drop: {
+              kind: "ontoSideRoot",
+              replaceId,
+              replaceParentId,
+              replaceSlot: replaceSlot as 0 | 1,
+              insertIndex,
+            },
+          };
+        }
+        return {
+          kind: "MoveAcrossEqual",
+          movedId,
+          equalId,
+          fromSide,
+          toSide,
+          drop,
+        };
+      }
+
+      // Additive mode: use existing logic
       let insertIndex: 0 | 1 = 1;
       if (replaceRect) insertIndex = pointer.x < midX(replaceRect) ? 0 : 1;
 
@@ -490,19 +658,37 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
     ) {
       // console.log("cross-equal branch A", { movedId, movedOp, movedIsVector });
       if (movedIsVector) return null;
+      const drop = determineMultiplicativeDropKind({
+        sideRootId: toSide.sideRootId,
+        pointer,
+        rectFor,
+        equalId: fromSide.equalId,
+        toSide: toSide.sideSlot,
+      });
+      if (!drop) {
+        // Fallback to safer heuristic when rects are missing
+        return {
+          kind: "MoveAcrossEqual",
+          movedId,
+          equalId: fromSide.equalId,
+          fromSide: fromSide.sideSlot,
+          toSide: toSide.sideSlot,
+          drop: {
+            kind: "ontoSideRoot",
+            replaceId: toSide.sideRootId,
+            replaceParentId: fromSide.equalId,
+            replaceSlot: toSide.sideSlot,
+            insertIndex: 1,
+          },
+        };
+      }
       return {
         kind: "MoveAcrossEqual",
         movedId,
         equalId: fromSide.equalId,
         fromSide: fromSide.sideSlot,
         toSide: toSide.sideSlot,
-        drop: {
-          kind: "ontoSideRoot",
-          replaceId: toSide.sideRootId,
-          replaceParentId: fromSide.equalId,
-          replaceSlot: toSide.sideSlot,
-          insertIndex: 1,
-        },
+        drop,
       };
     }
   }
@@ -524,19 +710,37 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
     ) {
       // console.log("cross-equal branch B", { movedId, movedOp, movedIsVector });
       if (movedIsVector) return null;
+      const drop = determineMultiplicativeDropKind({
+        sideRootId: toSide.sideRootId,
+        pointer,
+        rectFor,
+        equalId: fromSide.equalId,
+        toSide: toSide.sideSlot,
+      });
+      if (!drop) {
+        // Fallback to safer heuristic when rects are missing
+        return {
+          kind: "MoveAcrossEqual",
+          movedId,
+          equalId: fromSide.equalId,
+          fromSide: fromSide.sideSlot,
+          toSide: toSide.sideSlot,
+          drop: {
+            kind: "ontoSideRoot",
+            replaceId: toSide.sideRootId,
+            replaceParentId: fromSide.equalId,
+            replaceSlot: toSide.sideSlot,
+            insertIndex: 1,
+          },
+        };
+      }
       return {
         kind: "MoveAcrossEqual",
         movedId,
         equalId: fromSide.equalId,
         fromSide: fromSide.sideSlot,
         toSide: toSide.sideSlot,
-        drop: {
-          kind: "ontoSideRoot",
-          replaceId: toSide.sideRootId,
-          replaceParentId: fromSide.equalId,
-          replaceSlot: toSide.sideSlot,
-          insertIndex: 1,
-        },
+        drop,
       };
     }
   }

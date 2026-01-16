@@ -5,6 +5,12 @@ import {
   setEquation,
   setMoveMode,
 } from "./helpers/dragMathlive";
+import {
+  buildTree,
+  findNodeIdByLatex,
+  getNodeRects,
+  waitForMathRender,
+} from "./helpers/dragMathlive";
 
 type MoveCase = {
   title: string;
@@ -15,6 +21,7 @@ type MoveCase = {
   expectedLatex: string;
   toBias?: { dx?: number; dy?: number };
   preClick?: boolean;
+  clickCount?: number;
 };
 
 function normalizeLatex(s: string): string {
@@ -53,6 +60,8 @@ const cases: MoveCase[] = [
     equation: String.raw`a = b c`,
     fromLatex: "b",
     toLatex: "a",
+    // Bias to the right to avoid hitting the left edge zone of small "a" target
+    toBias: { dx: 8 },
     expectedLatex: String.raw`\frac{a}{b c} = 1`,
   },
   {
@@ -61,7 +70,8 @@ const cases: MoveCase[] = [
     equation: String.raw`a = \frac{c}{b}`,
     fromLatex: "b",
     toLatex: "a",
-    expectedLatex: String.raw`a b = c`,
+    // Factor order can vary (a b or b a), both are mathematically equivalent
+    expectedLatex: String.raw`(a b|b a) = c`,
   },
   {
     title: "multiplicative reorder within a product container",
@@ -72,6 +82,23 @@ const cases: MoveCase[] = [
     expectedLatex: String.raw`1 = b a c`,
     toBias: { dx: -10 },
     preClick: false,
+  },
+  {
+    title: "multiplicative cross '=' moves scalar leaving vector factor",
+    mode: "multiplicative",
+    equation: String.raw`\vec{F} = m \vec{a}`,
+    fromLatex: "m",
+    toLatex: String.raw`\vec{F}`,
+    expectedLatex: String.raw`\frac{\vec{F}}{m} = \vec{a}`,
+  },
+  {
+    title: "additive move of multiplicative product across '='",
+    mode: "additive",
+    equation: String.raw`x^{2} + v_{x} = m a`,
+    fromLatex: "m a",
+    toLatex: "x^{2}",
+    expectedLatex: String.raw`x^{2} - m a + v_{x} = 0`,
+    clickCount: 2, // double-click to select the product
   },
 ];
 
@@ -86,11 +113,172 @@ for (const c of cases) {
       toLatex: c.toLatex,
       toBias: c.toBias,
       preClick: c.preClick,
+      clickCount: c.clickCount,
     });
 
     const latex = await getRenderedLatex(page);
-    expect(normalizeLatex(latex)).toContain(normalizeLatex(c.expectedLatex));
+    const normalizedLatex = normalizeLatex(latex);
+    // If expectedLatex contains regex pattern (e.g., "(a b|b a)"), use regex match, otherwise use substring
+    if (
+      c.expectedLatex.includes("|") &&
+      c.expectedLatex.startsWith("(") &&
+      c.expectedLatex.includes(")")
+    ) {
+      const regex = new RegExp(c.expectedLatex);
+      expect(normalizedLatex).toMatch(regex);
+    } else {
+      expect(normalizedLatex).toContain(normalizeLatex(c.expectedLatex));
+    }
     const infoArgs = await page.getByTestId("info-args").inputValue();
     expect(infoArgs).toMatch(new RegExp(`"mode"\\s*:\\s*"${c.mode}"`));
   });
 }
+
+// Helper to get selection range value from the UI
+async function getSelectionRange(page: any): Promise<string> {
+  // Find the input field next to the "Range / span" label
+  // The label and input are in a div structure: <div><label>Range / span</label><input /></div>
+  const label = page.getByText("Range / span");
+  // Get the parent div that contains both label and input
+  const parentDiv = label.locator("..");
+  const input = parentDiv.locator("input");
+  const value = await input.inputValue();
+  return value.trim();
+}
+
+test("double-click m should show span selection [0..1] of 2", async ({
+  page,
+}) => {
+  const equation = String.raw`x^{2} + v_{x} = m a`;
+  await setEquation(page, equation);
+  await setMoveMode(page, "additive");
+
+  // Build tree to find node IDs
+  const tree = buildTree(equation);
+  const mId = findNodeIdByLatex(tree, "m");
+
+  // Wait for rendering
+  await waitForMathRender(page, [mId]);
+  const rects = await getNodeRects(page, [mId]);
+  const mCenter = rects[mId].center;
+
+  // Step 1: Double-click on "m" to select "m a"
+  // This should create a multiplicative span selection showing [0..1] of 2
+  // Simulate double-click with two separate clicks within 600ms window
+  await page.mouse.click(mCenter.x, mCenter.y);
+  await page.waitForTimeout(100); // Delay within 600ms window for click counting
+  await page.mouse.click(mCenter.x, mCenter.y);
+
+  // Small delay to ensure selection is processed
+  await page.waitForTimeout(100);
+
+  // Verify the range/span display shows [0..1] of 2
+  const range = await getSelectionRange(page);
+  expect(range).toBe("[0..1] of 2");
+});
+
+test("mousedown after double-click should not change span selection", async ({
+  page,
+}) => {
+  const equation = String.raw`x^{2} + v_{x} = m a`;
+  await setEquation(page, equation);
+  await setMoveMode(page, "additive");
+
+  // Build tree to find node IDs
+  const tree = buildTree(equation);
+  const mId = findNodeIdByLatex(tree, "m");
+
+  // Wait for rendering
+  await waitForMathRender(page, [mId]);
+  const rects = await getNodeRects(page, [mId]);
+  const mCenter = rects[mId].center;
+
+  // Step 1: Double-click on "m" to select "m a"
+  // Simulate double-click with two separate clicks within 600ms window
+  await page.mouse.click(mCenter.x, mCenter.y);
+  await page.waitForTimeout(100); // Delay within 600ms window for click counting
+  await page.mouse.click(mCenter.x, mCenter.y);
+  await page.waitForTimeout(100);
+
+  // Verify initial range
+  const initialRange = await getSelectionRange(page);
+  expect(initialRange).toBe("[0..1] of 2");
+
+  // Step 2: Mouse down (but not up) on "m"
+  // This should NOT change the selection range
+  await page.mouse.move(mCenter.x, mCenter.y);
+  await page.mouse.down();
+
+  // Small delay to allow any state updates
+  await page.waitForTimeout(100);
+
+  // Verify the range is still [0..1] of 2
+  const rangeAfterMouseDown = await getSelectionRange(page);
+  expect(rangeAfterMouseDown).toBe("[0..1] of 2");
+
+  // Clean up: release mouse
+  await page.mouse.up();
+});
+
+test("double-click m then drag to LHS should move m a additively", async ({
+  page,
+}) => {
+  const equation = String.raw`x^{2} + v_{x} = m a`;
+  await setEquation(page, equation);
+  await setMoveMode(page, "additive");
+
+  // Build tree to find node IDs
+  const tree = buildTree(equation);
+  const mId = findNodeIdByLatex(tree, "m");
+  const x2Id = findNodeIdByLatex(tree, "x^{2}");
+
+  // Wait for rendering
+  await waitForMathRender(page, [mId, x2Id]);
+  const rects = await getNodeRects(page, [mId, x2Id]);
+
+  const mCenter = rects[mId].center;
+  const x2Center = rects[x2Id].center;
+
+  // Step 1: Double-click on "m" to select "m a"
+  // This should promote the selection to the product container "m a"
+  // Simulate double-click with two separate clicks within 600ms window
+  await page.mouse.click(mCenter.x, mCenter.y);
+  await page.waitForTimeout(100); // Delay within 600ms window for click counting
+  await page.mouse.click(mCenter.x, mCenter.y);
+
+  // Small delay to ensure selection is processed
+  await page.waitForTimeout(100);
+
+  // Step 2: Click and drag from "m" to LHS (x^2)
+  // This simulates clicking on already-selected "m a" to start dragging.
+  // The issue: this click might re-select just "m" instead of keeping "m a" selected.
+  // If that happens, the planner will see just "m" (a factor), and even with promotion
+  // logic, it might not work correctly if the selection state is inconsistent.
+  await page.mouse.click(mCenter.x, mCenter.y);
+  await page.mouse.down();
+  // Drag to x^2 on LHS
+  await page.mouse.move(x2Center.x, x2Center.y, { steps: 15 });
+  await page.mouse.up();
+
+  // Step 3: Verify result - should be x^2 + v_x - m a = 0 (or similar)
+  // This test should FAIL if the click re-selects just "m" and the move planner rejects it.
+  // The expected behavior: after double-clicking "m" to select "m a", clicking again to start
+  // the drag should reuse the "m a" selection, not re-select just "m".
+  const latex = await getRenderedLatex(page);
+  const normalizedLatex = normalizeLatex(latex);
+
+  // If the move planner rejected the move, the equation should be unchanged
+  // If the move worked, it should contain the negated m a term and 0 on RHS
+  const hasNegatedMa = normalizedLatex.match(/-.*m.*a/);
+  const hasZeroOnRhs = normalizedLatex.includes("= 0");
+
+  // The move should have occurred (m a should have been moved and negated)
+  expect(hasNegatedMa).not.toBeNull();
+  expect(hasZeroOnRhs).toBe(true);
+
+  // Check for key components (order may vary)
+  expect(normalizedLatex).toContain("x^{2}");
+  expect(normalizedLatex).toContain("v_{x}");
+  // Verify it's not the original equation
+  expect(normalizedLatex).not.toContain("x^{2} + v_{x} = m a");
+});

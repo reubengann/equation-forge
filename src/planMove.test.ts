@@ -498,6 +498,80 @@ describe("planMove", () => {
     });
   });
 
+  it("plans MoveAcrossEqual additively when dragging a multiplicative product (m a) from RHS to LHS", () => {
+    const tree = treefromLatex(String.raw`x^{2} + v_{x} = m a`);
+
+    const equalId = tree.rootId!;
+    const lhsAddId = tree.childrenById[equalId][0];
+    const rhsMulId = tree.childrenById[equalId][1]; // m a product
+
+    const [x2Id, vxId] = tree.childrenById[lhsAddId];
+
+    // Find the product node (InvisibleOperator or Multiply)
+    const mulOp = tree.nodesById[rhsMulId]?.op;
+    expect(mulOp === "InvisibleOperator" || mulOp === "Multiply").toBe(true);
+
+    const plan = planMove({
+      tree,
+      selectedIds: [rhsMulId], // dragging the product "m a"
+      hoverId: lhsAddId, // hover on LHS Add
+      pointer: { x: 50, y: 110 }, // in the middle of LHS
+      rectFor: rectProvider({
+        [equalId]: { left: 0, right: 120, top: 100, bottom: 120 },
+        [lhsAddId]: { left: 0, right: 80, top: 100, bottom: 120 },
+        [rhsMulId]: { left: 90, right: 120, top: 100, bottom: 120 },
+        [x2Id]: { left: 0, right: 20, top: 100, bottom: 120 },
+        [vxId]: { left: 30, right: 60, top: 100, bottom: 120 },
+      }),
+      mode: "additive", // Important: additive mode
+    });
+
+    expect(plan).not.toBeNull();
+    expect(plan?.kind).toBe("MoveAcrossEqual");
+    if (plan && plan.kind === "MoveAcrossEqual") {
+      expect(plan.fromSide).toBe(1); // RHS
+      expect(plan.toSide).toBe(0); // LHS
+      expect(plan.drop.kind).toBe("intoAdd");
+      if (plan.drop.kind === "intoAdd") {
+        expect(plan.drop.addId).toBe(lhsAddId);
+      }
+    }
+  });
+
+  it("plans MoveAcrossEqual additively when dragging a factor inside a product that is a direct child of Equal", () => {
+    const tree = treefromLatex(String.raw`x^{2} + v_{x} = m a`);
+
+    const equalId = tree.rootId!;
+    const lhsAddId = tree.childrenById[equalId][0];
+    const rhsMulId = tree.childrenById[equalId][1]; // m a product
+
+    const mulFactors = tree.childrenById[rhsMulId] ?? [];
+    expect(mulFactors.length).toBeGreaterThanOrEqual(2);
+    const mId = findNodeByLatex(tree, "m");
+    const aId = findNodeByLatex(tree, "a");
+
+    // When you click on "m" or "a", normalizeSelection should promote to the product container
+    // But if it doesn't, we should still handle it. Let's test with the factor directly.
+    const plan = planMove({
+      tree,
+      selectedIds: [mId], // dragging just "m" (a factor inside the product)
+      hoverId: lhsAddId, // hover on LHS Add
+      pointer: { x: 50, y: 110 }, // in the middle of LHS
+      rectFor: rectProvider({
+        [equalId]: { left: 0, right: 120, top: 100, bottom: 120 },
+        [lhsAddId]: { left: 0, right: 80, top: 100, bottom: 120 },
+        [rhsMulId]: { left: 90, right: 120, top: 100, bottom: 120 },
+        [mId]: { left: 90, right: 105, top: 100, bottom: 120 },
+        [aId]: { left: 105, right: 120, top: 100, bottom: 120 },
+      }),
+      mode: "additive", // Important: additive mode
+    });
+
+    // This should work because normalizeSelection should promote m to the product container
+    // But if it doesn't, the plan should still be created
+    expect(plan).not.toBeNull();
+  });
+
   it("uses midpoint when side rects are missing for Equal hover", () => {
     const tree = treefromLatex("a = b + c");
 
@@ -609,6 +683,7 @@ describe("planMove multiplicative cross-equal", () => {
     };
     const rectFor = (id: string) => rects[id] ?? null;
 
+    // Pointer at x=140 is in the main body of RHS (120-160, main body is 132-148)
     const plan = planMove({
       tree,
       selectedIds: [denomId!],
@@ -625,11 +700,10 @@ describe("planMove multiplicative cross-equal", () => {
       fromSide: 0,
       toSide: 1,
       drop: {
-        kind: "ontoSideRoot",
+        kind: "ontoSideRootWhole",
         replaceId: rhsId,
         replaceParentId: equalId,
         replaceSlot: 1,
-        insertIndex: 1,
       },
     });
   });
@@ -711,6 +785,7 @@ describe("planMove multiplicative cross-equal", () => {
     };
     const rectFor = (id: string) => rects[id] ?? null;
 
+    // Pointer at x=40 is in the main body of LHS (0-80, main body is 12-68)
     const plan = planMove({
       tree,
       selectedIds: [massId],
@@ -727,12 +802,176 @@ describe("planMove multiplicative cross-equal", () => {
       fromSide: 1,
       toSide: 0,
       drop: {
-        kind: "ontoSideRoot",
+        kind: "ontoSideRootWhole",
         replaceId: lhsId,
         replaceParentId: equalId,
         replaceSlot: 0,
-        insertIndex: 1,
       },
+    });
+  });
+
+  describe("multiplicative cross-equal hit-zones", () => {
+    it("plans ontoSideRootWhole when pointer is in main body of side root", () => {
+      const tree = treefromLatex(String.raw`x^{2} + v_{x} = m a`);
+
+      const equalId = tree.rootId!;
+      const lhsId = tree.childrenById[equalId][0];
+      const rhsId = tree.childrenById[equalId][1];
+
+      const massId = findNodeId(tree, (n) => n.latex === "m");
+
+      // LHS rect: left=0, right=100, so main body is roughly 12-88 (excluding 12px edge zones)
+      const rects: Record<string, RectLTRB> = {
+        [lhsId]: { left: 0, right: 100, top: 90, bottom: 120 },
+        [rhsId]: { left: 120, right: 160, top: 90, bottom: 120 },
+      };
+      const rectFor = (id: string) => rects[id] ?? null;
+
+      const plan = planMove({
+        tree,
+        selectedIds: [massId],
+        hoverId: lhsId,
+        pointer: { x: 50, y: 100 }, // in main body (between 12 and 88)
+        rectFor,
+        mode: "multiplicative",
+      });
+
+      expect(plan).toEqual({
+        kind: "MoveAcrossEqual",
+        movedId: massId,
+        equalId,
+        fromSide: 1,
+        toSide: 0,
+        drop: {
+          kind: "ontoSideRootWhole",
+          replaceId: lhsId,
+          replaceParentId: equalId,
+          replaceSlot: 0,
+        },
+      });
+    });
+
+    it("plans ontoSideRoot with insertIndex 0 when pointer is in left edge zone", () => {
+      const tree = treefromLatex(String.raw`x^{2} + v_{x} = m a`);
+
+      const equalId = tree.rootId!;
+      const lhsId = tree.childrenById[equalId][0];
+      const rhsId = tree.childrenById[equalId][1];
+
+      const massId = findNodeId(tree, (n) => n.latex === "m");
+
+      // LHS rect: left=0, right=100, left edge zone is 0-12
+      const rects: Record<string, RectLTRB> = {
+        [lhsId]: { left: 0, right: 100, top: 90, bottom: 120 },
+        [rhsId]: { left: 120, right: 160, top: 90, bottom: 120 },
+      };
+      const rectFor = (id: string) => rects[id] ?? null;
+
+      const plan = planMove({
+        tree,
+        selectedIds: [massId],
+        hoverId: lhsId,
+        pointer: { x: 6, y: 100 }, // in left edge zone (0-12)
+        rectFor,
+        mode: "multiplicative",
+      });
+
+      expect(plan).toEqual({
+        kind: "MoveAcrossEqual",
+        movedId: massId,
+        equalId,
+        fromSide: 1,
+        toSide: 0,
+        drop: {
+          kind: "ontoSideRoot",
+          replaceId: lhsId,
+          replaceParentId: equalId,
+          replaceSlot: 0,
+          insertIndex: 0,
+        },
+      });
+    });
+
+    it("plans ontoSideRoot with insertIndex 1 when pointer is in right edge zone", () => {
+      const tree = treefromLatex(String.raw`x^{2} + v_{x} = m a`);
+
+      const equalId = tree.rootId!;
+      const lhsId = tree.childrenById[equalId][0];
+      const rhsId = tree.childrenById[equalId][1];
+
+      const massId = findNodeId(tree, (n) => n.latex === "m");
+
+      // LHS rect: left=0, right=100, right edge zone is 88-100
+      const rects: Record<string, RectLTRB> = {
+        [lhsId]: { left: 0, right: 100, top: 90, bottom: 120 },
+        [rhsId]: { left: 120, right: 160, top: 90, bottom: 120 },
+      };
+      const rectFor = (id: string) => rects[id] ?? null;
+
+      const plan = planMove({
+        tree,
+        selectedIds: [massId],
+        hoverId: lhsId,
+        pointer: { x: 94, y: 100 }, // in right edge zone (88-100)
+        rectFor,
+        mode: "multiplicative",
+      });
+
+      expect(plan).toEqual({
+        kind: "MoveAcrossEqual",
+        movedId: massId,
+        equalId,
+        fromSide: 1,
+        toSide: 0,
+        drop: {
+          kind: "ontoSideRoot",
+          replaceId: lhsId,
+          replaceParentId: equalId,
+          replaceSlot: 0,
+          insertIndex: 1,
+        },
+      });
+    });
+
+    it("plans ontoSideRoot when pointer is outside rect but on that side", () => {
+      const tree = treefromLatex(String.raw`x^{2} + v_{x} = m a`);
+
+      const equalId = tree.rootId!;
+      const lhsId = tree.childrenById[equalId][0];
+      const rhsId = tree.childrenById[equalId][1];
+
+      const massId = findNodeId(tree, (n) => n.latex === "m");
+
+      // LHS rect: left=0, right=100, pointer is to the left (outside by PAD=6)
+      const rects: Record<string, RectLTRB> = {
+        [lhsId]: { left: 0, right: 100, top: 90, bottom: 120 },
+        [rhsId]: { left: 120, right: 160, top: 90, bottom: 120 },
+      };
+      const rectFor = (id: string) => rects[id] ?? null;
+
+      const plan = planMove({
+        tree,
+        selectedIds: [massId],
+        hoverId: lhsId,
+        pointer: { x: -3, y: 100 }, // outside left edge (before 0-6)
+        rectFor,
+        mode: "multiplicative",
+      });
+
+      expect(plan).toEqual({
+        kind: "MoveAcrossEqual",
+        movedId: massId,
+        equalId,
+        fromSide: 1,
+        toSide: 0,
+        drop: {
+          kind: "ontoSideRoot",
+          replaceId: lhsId,
+          replaceParentId: equalId,
+          replaceSlot: 0,
+          insertIndex: 0, // before (left side)
+        },
+      });
     });
   });
 });

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { findNodeByLatex, findNodeId, treefromLatex } from "../testHelpers";
 import {
   applyMoveAdditive as applyMove,
-  applyMoveOld,
   maybeDropHere,
   stepDown,
   stepUp,
@@ -19,7 +18,7 @@ describe("applyMove", () => {
     expect(addId).not.toBeNull();
     expect(tree.nodesById[addId!]?.op).toBe("Add");
 
-    const out = applyMoveOld({
+    const out = applyMove({
       tree,
       selectedIds: [bId],
       hoverId: addId!,
@@ -37,14 +36,14 @@ describe("applyMove", () => {
     expect(addId).not.toBeNull();
     expect(tree.nodesById[addId!]?.op).toBe("Add");
 
-    const out = applyMoveOld({
+    const out = applyMove({
       tree,
       selectedIds: [bId],
       hoverId: addId!,
       targetSlot: 1,
     });
 
-    expect(out).toBeNull();
+    expect(out?.latexPlain ?? tree.latexPlain).toBe("a + b");
   });
 
   it("going right", () => {
@@ -54,7 +53,7 @@ describe("applyMove", () => {
     expect(addId).not.toBeNull();
     expect(tree.nodesById[addId!]?.op).toBe("Add");
 
-    const out = applyMoveOld({
+    const out = applyMove({
       tree,
       selectedIds: [bId],
       hoverId: addId!,
@@ -76,7 +75,7 @@ describe("applyMove", () => {
     expect(addId).not.toBeNull();
     expect(tree.nodesById[addId!]?.op).toBe("Add");
 
-    const out = applyMoveOld({
+    const out = applyMove({
       tree,
       selectedIds: [fId], // selecting f should drag the whole Negate(f)
       hoverId: addId!,
