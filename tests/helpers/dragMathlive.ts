@@ -60,9 +60,9 @@ export async function waitForMathRender(page: Page, nodeIds: string[] = []) {
       if (!sr.querySelector("[data-node-id]")) return false;
 
       const rectFor = (id: string) => {
-        const els = sr.querySelectorAll<HTMLElement>(
+        const els = sr.querySelectorAll(
           `[data-node-id="${CSS.escape(id)}"]`
-        );
+        ) as NodeListOf<HTMLElement>;
         if (!els.length) return null;
         let left = Infinity;
         let right = -Infinity;
@@ -102,9 +102,9 @@ export async function getNodeRects(
       if (!sr) return null;
 
       const rectFor = (id: string) => {
-        const els = sr.querySelectorAll<HTMLElement>(
+        const els = sr.querySelectorAll(
           `[data-node-id="${CSS.escape(id)}"]`
-        );
+        ) as NodeListOf<HTMLElement>;
         if (!els.length) return null;
         let left = Infinity;
         let right = -Infinity;
