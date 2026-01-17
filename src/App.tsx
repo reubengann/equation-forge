@@ -99,7 +99,6 @@ export default function App() {
 
   const inputRef = useRef<any>(null);
   const displayRef = useRef<HTMLElement | null>(null);
-  const measureRef = useRef<HTMLElement | null>(null);
   const debugOverlayRef = useRef<HTMLDivElement | null>(null);
   const renderBoxRef = useRef<HTMLDivElement | null>(null);
   const mathWrapRef = useRef<HTMLDivElement | null>(null);
@@ -153,7 +152,7 @@ export default function App() {
   } = useDragMove(
     tree,
     moveMode,
-    measureRef.current,
+    displayRef.current,
     displayRef.current,
     insertOverlayRef.current,
     handleMoveComplete
@@ -317,11 +316,9 @@ export default function App() {
     }
   ) {
     if (!displayRef.current) return;
-    if (!measureRef.current) return;
 
     // Ensure output math-div uses the same vec macro as input.
     (displayRef.current as any).setOptions?.(vecMacroOptions);
-    (measureRef.current as any).setOptions?.(vecMacroOptions);
 
     const renderLatex = t.latexTagged;
     (displayRef.current as any).setOptions?.(vecMacroOptions);
@@ -337,13 +334,7 @@ export default function App() {
     applySelectionHighlight(sel, tree, displayRef.current);
 
     if (!opts?.preview) {
-      (measureRef.current as any).setOptions?.(vecMacroOptions);
-      if ("value" in (measureRef.current as any)) {
-        (measureRef.current as any).value = renderLatex;
-      } else {
-        measureRef.current.textContent = renderLatex;
-      }
-      (measureRef.current as any).render?.();
+      // No-op: measurement now uses the visible display element.
     }
 
     // Clear highlights after the render if requested (useful after a completed move).
@@ -866,7 +857,6 @@ export default function App() {
       <MathDisplayPanel
         renderBoxRef={renderBoxRef}
         mathWrapRef={mathWrapRef}
-        measureRef={measureRef}
         displayRef={displayRef}
         insertOverlayRef={insertOverlayRef}
         debugOverlayRef={debugOverlayRef}

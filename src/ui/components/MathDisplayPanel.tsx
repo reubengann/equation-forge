@@ -9,7 +9,6 @@ import { vecMacroOptions } from "../../infra/mathlive/vecMacroOptions";
 type MathDisplayPanelProps = {
   renderBoxRef: RefObject<HTMLDivElement | null>;
   mathWrapRef: RefObject<HTMLDivElement | null>;
-  measureRef: RefObject<HTMLElement | null>;
   displayRef: RefObject<HTMLElement | null>;
   insertOverlayRef: RefObject<HTMLDivElement | null>;
   debugOverlayRef: RefObject<HTMLDivElement | null>;
@@ -34,7 +33,6 @@ const renderHeaderStyle: CSSProperties = {
 export function MathDisplayPanel({
   renderBoxRef,
   mathWrapRef,
-  measureRef,
   displayRef,
   insertOverlayRef,
   debugOverlayRef,
@@ -74,19 +72,6 @@ export function MathDisplayPanel({
         ref={mathWrapRef}
         style={{ position: "relative", display: "inline-block" }}
       >
-        <MathDiv
-          ref={measureRef}
-          mode="displaystyle"
-          className="math-measure"
-          macros={JSON.stringify(vecMacroOptions.macros)}
-          style={{
-            position: "absolute",
-            inset: 0,
-            opacity: 0,
-            pointerEvents: "none",
-            fontSize: "1.2rem",
-          }}
-        />
         <div style={{ position: "relative" }}>
           <MathDiv
             ref={displayRef}
