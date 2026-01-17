@@ -430,14 +430,12 @@ describe("ExpressionTree", () => {
     expect(t.latexPlain).toContain(String.raw`\left(a, b\right)`);
   });
 
-  it("renders OverVector as \\vec{...}", () => {
+  it("renders Vector (normalized) as \\vec{...}", () => {
     const mj: MJ = ["OverVector", "v"];
     const t = ExpressionTree.create(mj);
 
     expect(t.latexPlain).toBe(String.raw`\vec{v}`);
-    expect(Object.values(t.nodesById).some((n) => n.op === "OverVector")).toBe(
-      true
-    );
+    expect(Object.values(t.nodesById).some((n) => n.op === "Vector")).toBe(true);
   });
 
   it("renders OverVector over a grouped expression", () => {

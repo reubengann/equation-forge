@@ -9,7 +9,7 @@ export function normalizeSelection(
     const p = tree.parentById[cur];
     if (!p) return cur;
     const op = tree.nodesById[p]?.op;
-    if (op === "Negate" || op === "Subscript" || op === "OverVector") {
+    if (op === "Negate" || op === "Subscript" || op === "OverVector" || op === "Vector") {
       cur = p;
       continue;
     }

@@ -12,6 +12,7 @@ import {
 import { ExpressionTree, type MJ } from "./ExpressionTree";
 import { parse } from "./computeEngine";
 import { getMathliveShadowRoot } from "./infra/mathlive/mathliveShadow";
+import { vecMacroOptions } from "./infra/mathlive/vecMacroOptions";
 import {
   chooseBestAllowedSelectedNode,
   normalizeSelection,
@@ -290,7 +291,12 @@ export default function App() {
       closeSubstituteModal();
     }
   }, [showSubstituteModal, tree, selection, closeSubstituteModal]);
+  useEffect(() => {
+    const mf = inputRef.current;
+    if (!mf) return;
 
+    mf.setOptions(vecMacroOptions);
+  }, []);
   // Helper functions moved to helpers/hooks:
   // - selectionContainsId: in useSelection hook
   // - rectForNodeId, rectForVisual: in dragHelpers
@@ -313,7 +319,17 @@ export default function App() {
     if (!displayRef.current) return;
     if (!measureRef.current) return;
 
-    displayRef.current.textContent = t.latexTagged;
+    // Ensure output math-div uses the same vec macro as input.
+    (displayRef.current as any).setOptions?.(vecMacroOptions);
+    (measureRef.current as any).setOptions?.(vecMacroOptions);
+
+    const renderLatex = t.latexTagged;
+    (displayRef.current as any).setOptions?.(vecMacroOptions);
+    if ("value" in (displayRef.current as any)) {
+      (displayRef.current as any).value = renderLatex;
+    } else {
+      displayRef.current.textContent = renderLatex;
+    }
     (displayRef.current as any).render?.();
     installShadowStyle(displayRef.current);
 
@@ -321,7 +337,12 @@ export default function App() {
     applySelectionHighlight(sel, tree, displayRef.current);
 
     if (!opts?.preview) {
-      measureRef.current.textContent = t.latexTagged;
+      (measureRef.current as any).setOptions?.(vecMacroOptions);
+      if ("value" in (measureRef.current as any)) {
+        (measureRef.current as any).value = renderLatex;
+      } else {
+        measureRef.current.textContent = renderLatex;
+      }
       (measureRef.current as any).render?.();
     }
 

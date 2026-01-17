@@ -9,7 +9,7 @@ const ce = new ComputeEngine();
 
 export function parse(latex: string): MJ | null {
   const mj = (ce.parse(latex, { canonical: false })?.json as MJ) ?? null;
-  return rewriteNegateToFrontOfProduct(mj);
+  return normalizeVectors(rewriteNegateToFrontOfProduct(mj));
 }
 
 function rewriteNegateToFrontOfProduct(mj: MJ | null): MJ | null {
@@ -40,6 +40,15 @@ function rewriteNegateToFrontOfProduct(mj: MJ | null): MJ | null {
     .slice(1)
     .map((child) => rewriteNegateToFrontOfProduct(child as MJ));
   return [op, ...rewrittenKids] as MJ;
+}
+
+function normalizeVectors(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+  const op = mj[0];
+  const kids = mj.slice(1).map((child) => normalizeVectors(child as MJ));
+  const newOp = op === "OverVector" ? ("Vector" as const) : op;
+  return [newOp, ...kids] as MJ;
 }
 
 export function box(mj: MJ) {
@@ -294,6 +303,23 @@ const dotEntry: LatexDictionaryEntry = {
   },
 };
 
+const vectorEntry: LatexDictionaryEntry = {
+  name: "Vector",
+  kind: "expression",
+  latexTrigger: "\\vec",
+  parse: (parser) => {
+    const arg = parser.parseGroup() ?? parser.parseToken();
+    if (!arg) return null;
+    return ["Vector", arg];
+  },
+  serialize: (serializer, expr) => {
+    const inner = Array.isArray(expr)
+      ? serializer.wrap(expr[1] as Expression, 0)
+      : serializer.wrap(expr, 0);
+    return String.raw`\\vec{${inner}}`;
+  },
+};
+
 const ddotEntry: LatexDictionaryEntry = {
   name: "DoubleOverDot",
   kind: "expression",
@@ -313,9 +339,13 @@ const ddotEntry: LatexDictionaryEntry = {
   },
 };
 
-const baseDictionary = ComputeEngine.getLatexDictionary("all");
+// Remove any built-in Vector entry so we can supply our own shape.
+const baseDictionary = ComputeEngine.getLatexDictionary("all").filter(
+  (entry) => entry.name !== "Vector"
+);
 
 ce.latexDictionary = [
+  vectorEntry,
   partialEntry,
   differentialEntry,
   fractionPartialDerivativeEntry,

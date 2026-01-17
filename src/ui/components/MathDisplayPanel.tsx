@@ -4,6 +4,7 @@ import type {
   RefObject,
   KeyboardEvent,
 } from "react";
+import { vecMacroOptions } from "../../infra/mathlive/vecMacroOptions";
 
 type MathDisplayPanelProps = {
   renderBoxRef: RefObject<HTMLDivElement | null>;
@@ -77,6 +78,7 @@ export function MathDisplayPanel({
           ref={measureRef}
           mode="displaystyle"
           className="math-measure"
+          macros={JSON.stringify(vecMacroOptions.macros)}
           style={{
             position: "absolute",
             inset: 0,
@@ -91,6 +93,7 @@ export function MathDisplayPanel({
             mode="displaystyle"
             className="math-display"
             data-testid="math-display"
+            macros={JSON.stringify(vecMacroOptions.macros)}
             style={{ fontSize: "1.2rem" }}
           />
           {/* Insert marker overlay */}

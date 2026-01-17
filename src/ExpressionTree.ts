@@ -120,8 +120,8 @@ export class ExpressionTree {
         return this.recordTagged(this.emitGroup(node, id, path, op, "{", "}"));
       if (op == "Sequence")
         return this.recordTagged(this.emitSequence(node, id, path, op));
-      if (op === "OverVector") {
-        return this.recordTagged(this.emitOverVector(node, id, path, op));
+      if (op === "OverVector" || op === "Vector") {
+        return this.recordTagged(this.emitVector(node, id, path, op));
       }
       if (op === "Subscript") {
         return this.recordTagged(this.emitSubscript(node, id, path, op));
@@ -164,9 +164,10 @@ export class ExpressionTree {
   }
 
   constructor(mj: MJ) {
-    this.rootJson = mj;
+    const normalized = normalizeVectors(mj);
+    this.rootJson = normalized;
     this._leafLatex = (x) => String(x);
-    const parseResult = this.emit(mj, null, []);
+    const parseResult = this.emit(normalized, null, []);
     this.latexTagged = parseResult.latexTagged;
     this.latexPlain = parseResult.latexPlain;
   }
@@ -415,7 +416,7 @@ export class ExpressionTree {
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
   }
 
-  private emitOverVector(node: MJNode, id: string, path: number[], op: string) {
+  private emitVector(node: MJNode, id: string, path: number[], op: string) {
     const inner = this.emit(node[1], id, [...path, 1]);
 
     this.childrenById[id] = [inner.id];
@@ -746,4 +747,12 @@ export class ExpressionTree {
   static create(mj: MJ): ExpressionTree {
     return new ExpressionTree(mj);
   }
+}
+
+function normalizeVectors(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = String(expr[0]);
+  const normalizedChildren = expr.slice(1).map((child) => normalizeVectors(child));
+  const newOp = op === "OverVector" ? "Vector" : op;
+  return [newOp, ...normalizedChildren] as MJNode;
 }

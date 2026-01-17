@@ -743,7 +743,10 @@ describe("planMove multiplicative cross-equal", () => {
     const lhsId = tree.childrenById[equalId][0];
     const rhsId = tree.childrenById[equalId][1];
 
-    const vectorId = findNodeId(tree, (n) => n.op === "OverVector");
+    const vectorId = findNodeId(
+      tree,
+      (n) => n.op === "Vector" || n.op === "OverVector"
+    );
 
     const rects: Record<string, RectLTRB> = {
       [lhsId]: { left: 0, right: 80, top: 90, bottom: 120 },
@@ -772,12 +775,16 @@ describe("planMove multiplicative cross-equal", () => {
 
     const vectorAId = findNodeId(
       tree,
-      (n) => n.op === "OverVector" && n.latex.includes("a")
+      (n) =>
+        (n.op === "Vector" || n.op === "OverVector") &&
+        n.latex.includes("a")
     );
     const accelId = tree.childrenById[vectorAId]?.[0];
     const forceVectorId = findNodeId(
       tree,
-      (n) => n.op === "OverVector" && n.latex.includes("F")
+      (n) =>
+        (n.op === "Vector" || n.op === "OverVector") &&
+        n.latex.includes("F")
     );
 
     const rects: Record<string, RectLTRB> = {

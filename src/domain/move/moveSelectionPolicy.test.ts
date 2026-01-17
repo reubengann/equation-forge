@@ -109,11 +109,14 @@ describe("moveSelectionPolicy", () => {
     expect(result).toEqual([aId]);
   });
 
-  it("normalizes drag handle through wrappers (Negate/Subscript/OverVector)", () => {
+  it("normalizes drag handle through wrappers (Negate/Subscript/Vector)", () => {
     const tree = treefromLatex(String.raw`-\vec{a}_{1}`);
     const aId = findNodeByLatex(tree, "a");
     const negateId = findNodeId(tree, (n) => n.op === "Negate");
-    const overVectorId = findNodeId(tree, (n) => n.op === "OverVector");
+    const overVectorId = findNodeId(
+      tree,
+      (n) => n.op === "Vector" || n.op === "OverVector"
+    );
     const subscriptId = findNodeId(tree, (n) => n.op === "Subscript");
 
     expect(normalizeDragHandleId(tree, aId)).toBe(negateId);

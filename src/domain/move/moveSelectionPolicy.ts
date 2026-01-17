@@ -3,6 +3,7 @@ import type { MoveMode } from "../../moveExpression/applyMove";
 
 export const isVectorNode = (info?: { op?: string; latex?: string }) =>
   info?.op === "OverVector" ||
+  info?.op === "Vector" ||
   (info?.op === "Symbol" && (info?.latex ?? "").includes("\\vec"));
 
 export function hasVectorAncestor(
@@ -31,7 +32,12 @@ export function normalizeDragHandleId(
     const parent = tree.parentById[cur];
     if (!parent) return cur;
     const op = tree.nodesById[parent]?.op;
-    if (op === "Negate" || op === "Subscript" || op === "OverVector") {
+    if (
+      op === "Negate" ||
+      op === "Subscript" ||
+      op === "OverVector" ||
+      op === "Vector"
+    ) {
       cur = parent;
       continue;
     }
