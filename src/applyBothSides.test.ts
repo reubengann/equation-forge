@@ -1,0 +1,76 @@
+import { describe, expect, it } from "vitest";
+import { applyOperationToBothSides } from "./applyBothSides";
+import { ExpressionTree, type MJ } from "./ExpressionTree";
+import { makeMJfromLatex } from "./testHelpers";
+
+function containsOp(mj: MJ, opName: string): boolean {
+  if (Array.isArray(mj)) {
+    if (mj[0] === opName) return true;
+    return mj.slice(1).some((c) => containsOp(c as MJ, opName));
+  }
+  return false;
+}
+
+describe("applyOperationToBothSides", () => {
+  it("applies a power operation to both sides", () => {
+    const eqn = makeMJfromLatex("a + b = c");
+    const result = applyOperationToBothSides(eqn, "eqn^2");
+
+    expect(Array.isArray(result)).toBe(true);
+    const lhs = (result as any)[1] as MJ;
+    const rhs = (result as any)[2] as MJ;
+
+    expect(Array.isArray(lhs)).toBe(true);
+    expect((lhs as any[])[0]).toBe("Power");
+
+    // Unwrap delimiter if present.
+    const base = (() => {
+      const maybe = (lhs as any[])[1];
+      if (Array.isArray(maybe) && maybe[0] === "Delimiter") {
+        return (maybe as any[])[1];
+      }
+      return maybe;
+    })();
+
+    expect(base).toEqual(["Add", "a", "b"]);
+    expect(rhs).toEqual(["Power", "c", 2]);
+
+    const latex = ExpressionTree.create(result).latexPlain;
+    expect(latex).toContain("a + b");
+    expect(latex).toContain("^");
+  });
+
+  it("supports multiple placeholder occurrences", () => {
+    const eqn = makeMJfromLatex("m = n");
+    const result = applyOperationToBothSides(eqn, "eqn + eqn");
+
+    expect(result).toEqual([
+      "Equal",
+      ["Add", "m", "m"],
+      ["Add", "n", "n"],
+    ]);
+  });
+
+  it("errors when the operation lacks the eqn placeholder", () => {
+    const eqn = makeMJfromLatex("a = b");
+    expect(() => applyOperationToBothSides(eqn, "x^2")).toThrow(
+      /placeholder/i
+    );
+  });
+
+  it("errors when the operation produces an equality", () => {
+    const eqn = makeMJfromLatex("a = b");
+    expect(() => applyOperationToBothSides(eqn, "eqn = 0")).toThrow(/equality/i);
+  });
+
+  it("keeps grouping when multiplying an additive expression", () => {
+    const eqn = makeMJfromLatex("a + b = c");
+    const result = applyOperationToBothSides(eqn, "2 eqn");
+    const lhs = (result as any)[1] as MJ;
+
+    expect(Array.isArray(lhs)).toBe(true);
+    const lhsNode = lhs as any[];
+    expect(["Multiply", "InvisibleOperator"]).toContain(lhsNode[0]);
+    expect(containsOp(lhs, "Add")).toBe(true);
+  });
+});

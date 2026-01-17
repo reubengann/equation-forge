@@ -21,6 +21,6 @@ export function isFlippableEquation(mj: MJ): boolean {
 export function flipEquation(mj: MJ): MJ | null {
   if (!isFlippableEquation(mj)) return null;
 
-  const [, lhs, rhs] = mj;
+  const [, lhs, rhs] = mj as [string, MJ, MJ];
   return ["Equal", rhs as MJ, lhs as MJ];
 }

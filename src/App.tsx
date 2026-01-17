@@ -32,10 +32,12 @@ import {
 } from "./helpers/selectionHelpers";
 import { MathDisplayPanel } from "./ui/components/MathDisplayPanel";
 import { MoveModeToolbar } from "./ui/components/MoveModeToolbar";
+import { ApplyModal } from "./ui/components/ApplyModal";
 import { SubstituteModal } from "./ui/components/SubstituteModal";
 import type { MoveMode } from "./moveExpression/applyMove";
 import "./App.css";
 import { hitTestNodeIdInMathliveShadow } from "./infra/mathlive/mathliveShadow";
+import { applyOperationToBothSides } from "./applyBothSides";
 MathfieldElement.fontsDirectory = "/fonts";
 
 // let found2: any = null;
@@ -103,6 +105,7 @@ export default function App() {
   const renderBoxRef = useRef<HTMLDivElement | null>(null);
   const mathWrapRef = useRef<HTMLDivElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const applyFieldRef = useRef<any>(null);
   const substituteFieldRef = useRef<any>(null);
   const insertOverlayRef = useRef<HTMLDivElement | null>(null);
 
@@ -172,7 +175,9 @@ export default function App() {
   const [dragSlot, setDragSlot] = useState<string>("");
   const [parentAddId, setParentAddId] = useState<string>("");
   const [debugBoxes, setDebugBoxes] = useState(false);
+  const [showApplyModal, setShowApplyModal] = useState(false);
   const [showSubstituteModal, setShowSubstituteModal] = useState(false);
+  const [applyError, setApplyError] = useState("");
   const [substituteScope, setSubstituteScope] =
     useState<SubstituteScope>("single");
   const [substituteError, setSubstituteError] = useState("");
@@ -283,6 +288,13 @@ export default function App() {
   }, [showSubstituteModal]);
 
   useEffect(() => {
+    if (showApplyModal && applyFieldRef.current) {
+      applyFieldRef.current.value = "";
+      applyFieldRef.current.focus();
+    }
+  }, [showApplyModal]);
+
+  useEffect(() => {
     if (
       showSubstituteModal &&
       (!tree || !selection || selection?.kind !== "node")
@@ -380,9 +392,19 @@ export default function App() {
     setShowSubstituteModal(true);
   }
 
+  function openApplyModal() {
+    setApplyError("");
+    setShowApplyModal(true);
+  }
+
   function closeSubstituteModal() {
     setShowSubstituteModal(false);
     setSubstituteError("");
+  }
+
+  function closeApplyModal() {
+    setShowApplyModal(false);
+    setApplyError("");
   }
 
   function submitSubstitution() {
@@ -419,6 +441,29 @@ export default function App() {
     commitJson(result.rootJson, { latex: result.latexPlain });
     setSubstituteError("");
     setShowSubstituteModal(false);
+  }
+
+  function submitApplyOperation() {
+    if (!tree || !isFlippableEquation(tree.rootJson)) {
+      setApplyError("Enter an equation first.");
+      return;
+    }
+
+    const opLatex: string = applyFieldRef.current?.value ?? "";
+    if (!opLatex.trim()) {
+      setApplyError("Enter an operation.");
+      return;
+    }
+
+    try {
+      const result = applyOperationToBothSides(tree.rootJson, opLatex);
+      const latex = ExpressionTree.create(result).latexPlain;
+      commitJson(result, { latex });
+      setApplyError("");
+      setShowApplyModal(false);
+    } catch (err: any) {
+      setApplyError(err?.message || "Could not apply operation.");
+    }
   }
 
   function onAddEquation() {
@@ -782,6 +827,7 @@ export default function App() {
 
   // canUndo and canRedo are now from useHistory hook
   const canSubstitute = !!tree && selection?.kind === "node";
+  const canApply = !!tree && isFlippableEquation(tree.rootJson);
   const selectedNodeLatex =
     canSubstitute && tree && selection?.kind === "node"
       ? tree.nodesById[selection.nodeId]?.latex ?? ""
@@ -875,6 +921,8 @@ export default function App() {
             canRedo={canRedo}
             onFlip={onFlip}
             canFlip={canFlip}
+            onOpenApply={openApplyModal}
+            canApply={canApply}
             onOpenSubstitute={openSubstituteModal}
             canSubstitute={canSubstitute}
           />
@@ -1015,6 +1063,16 @@ export default function App() {
         </div>
       </div>
 
+      <ApplyModal
+        open={showApplyModal}
+        equationLatex={latexText}
+        applyError={applyError}
+        onSubmit={submitApplyOperation}
+        onClose={closeApplyModal}
+        applyFieldRef={applyFieldRef}
+        MathField={MathField}
+        MathDiv={MathDiv}
+      />
       <SubstituteModal
         open={showSubstituteModal}
         selectedNodeLatex={selectedNodeLatex}

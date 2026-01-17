@@ -11,6 +11,8 @@ type MoveModeToolbarProps = {
   canRedo: boolean;
   onFlip: () => void;
   canFlip: boolean;
+  onOpenApply: () => void;
+  canApply: boolean;
   onOpenSubstitute: () => void;
   canSubstitute: boolean;
 };
@@ -58,6 +60,8 @@ export const MoveModeToolbar = forwardRef<
     canRedo,
     onFlip,
     canFlip,
+    onOpenApply,
+    canApply,
     onOpenSubstitute,
     canSubstitute,
   },
@@ -125,6 +129,17 @@ export const MoveModeToolbar = forwardRef<
         onClick={onFlip}
         disabled={!canFlip}
         testId="flip-button"
+      />
+      <IconButton
+        label="Apply to both sides"
+        icon={
+          <span style={materialSymbolStyle} aria-hidden>
+            function
+          </span>
+        }
+        onClick={onOpenApply}
+        disabled={!canApply}
+        testId="apply-button"
       />
       <IconButton
         label="Substitute"
