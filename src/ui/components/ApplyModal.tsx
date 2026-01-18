@@ -103,7 +103,7 @@ export function ApplyModal({
               <MathDiv
                 ref={equationRef}
                 mode="math"
-                macros={JSON.stringify(vecMacroOptions.macros)}
+              macros={JSON.stringify(vecMacroOptions.macros)}
                 style={{ fontSize: "1.05rem", minHeight: 28 }}
               >
                 {equationLatex || "—"}

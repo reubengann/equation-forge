@@ -1,10 +1,24 @@
-import { type CSSProperties } from "react";
+import { type CSSProperties, useState } from "react";
 import "./App.css";
 import {
   ExpressionPad,
   type ExpressionPadDebugState,
   type ExpressionPadDebugActions,
 } from "./ui/components/ExpressionPad";
+
+const DEFAULT_EXAMPLES = [
+  String.raw`\vec{F} = m \vec{a}`,
+  String.raw`\exp x`,
+  String.raw`\sin (x+y) + \cos x`,
+  String.raw`\int_{0}^{5} x^2\,\mathrm{d}x`,
+  String.raw`\dfrac{\partial f}{\partial x}`,
+  String.raw`\dfrac{\differentialD f(x)}{\differentialD x}`,
+  String.raw`\frac{a+b}{2}+c+d=e-f`,
+  String.raw`x^2 + v_x = m a`,
+  String.raw`\frac{d x}{d t} = v`,
+  String.raw`\sum_{i=1}^{n} a_i = S`,
+  String.raw`\vec{F} = m \vec{a}`,
+];
 
 const monoFont =
   "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
@@ -206,14 +220,62 @@ function DebugPanel(state: ExpressionPadDebugState) {
 }
 
 export default function App() {
+  const [exampleIdx, setExampleIdx] = useState(0);
+  const [prefillLatex, setPrefillLatex] = useState<string | undefined>(undefined);
+  const [prefillKey, setPrefillKey] = useState(0);
+
+  function copyExampleIntoEditor() {
+    const latex = DEFAULT_EXAMPLES[exampleIdx] ?? "";
+    setPrefillLatex(latex);
+    setPrefillKey((k) => k + 1);
+  }
+
   return (
-    <ExpressionPad
-      debug={{
-        render: (
-          state: ExpressionPadDebugState,
-          _actions: ExpressionPadDebugActions
-        ) => <DebugPanel {...state} />,
-      }}
-    />
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ padding: 24, maxWidth: 1000 }}>
+        <label style={{ fontSize: 12, opacity: 0.8 }}>Examples (debug)</label>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", maxWidth: 720 }}>
+          <select
+            value={exampleIdx}
+            onChange={(e) => setExampleIdx(Number(e.target.value))}
+            style={{ padding: "6px 8px", borderRadius: 6, width: "100%" }}
+            data-testid="examples-select"
+          >
+            {DEFAULT_EXAMPLES.map((ex, idx) => (
+              <option key={idx} value={idx}>
+                {ex}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={copyExampleIntoEditor}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 6,
+              border: "1px solid var(--dp-border)",
+              background: "var(--dp-surface)",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+            title="Copy selected example into the editor"
+            data-testid="apply-example"
+          >
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <ExpressionPad
+        prefillLatex={prefillLatex}
+        prefillKey={prefillKey}
+        debug={{
+          render: (
+            state: ExpressionPadDebugState,
+            _actions: ExpressionPadDebugActions
+          ) => <DebugPanel {...state} />,
+        }}
+      />
+    </div>
   );
 }

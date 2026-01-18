@@ -82,31 +82,23 @@ export type ExpressionPadProps = {
     ) => ReactNode;
   };
   initialLatex?: string;
-  examples?: string[];
+  /**
+   * Optional external prefill used by debug tooling (e.g., examples list in App).
+   * Whenever prefillKey changes, this latex is applied to the input fields.
+   */
+  prefillLatex?: string;
+  prefillKey?: string | number;
 };
 
 MathfieldElement.fontsDirectory = "/fonts";
-
-const DEFAULT_EXAMPLES = [
-  String.raw`\vec{F} = m \vec{a}`,
-  String.raw`\exp x`,
-  String.raw`\sin (x+y) + \cos x`,
-  String.raw`\int_{0}^{5} x^2\,\mathrm{d}x`,
-  String.raw`\dfrac{\partial f}{\partial x}`,
-  String.raw`\dfrac{\differentialD f(x)}{\differentialD x}`,
-  String.raw`\frac{a+b}{2}+c+d=e-f`,
-  String.raw`x^2 + v_x = m a`,
-  String.raw`\frac{d x}{d t} = v`,
-  String.raw`\sum_{i=1}^{n} a_i = S`,
-  String.raw`\vec{F} = m \vec{a}`,
-];
 
 type Mode = "entry" | "render";
 
 export function ExpressionPad({
   debug,
   initialLatex,
-  examples = DEFAULT_EXAMPLES,
+  prefillLatex,
+  prefillKey,
 }: ExpressionPadProps) {
   const MathDiv = useMemo(() => "math-div" as any, []);
   const MathField = useMemo(() => "math-field" as any, []);
@@ -129,7 +121,7 @@ export function ExpressionPad({
   const insertOverlayRef = useRef<HTMLDivElement | null>(null);
 
   const [latexDraft, setLatexDraft] = useState<string>(
-    initialLatex ?? examples[0]
+    initialLatex ?? ""
   );
 
   // Define applyPresentJson before hooks that use it
@@ -219,23 +211,14 @@ export function ExpressionPad({
   const [selectionChildLatex, setSelectionChildLatex] = useState<string>("");
   const [selectionNote, setSelectionNote] = useState<string>("");
 
-  const [exampleIdx, setExampleIdx] = useState(0);
-  const [exampleLatex, setExampleLatex] = useState(
-    initialLatex ?? examples[0]
-  );
-
+  // Allow parent (debug UI) to push a new latex draft (e.g., example copy).
   useEffect(() => {
-    const mf = inputRef.current;
-    const latex = examples[exampleIdx] ?? examples[0];
-    setExampleLatex(latex);
-    setLatexDraft(latex);
-    if (mf) {
-      mf.value = latex;
-    }
-    if (textInputRef.current) {
-      textInputRef.current.value = latex;
-    }
-  }, [exampleIdx, examples]);
+    if (prefillLatex === undefined) return;
+    setLatexDraft(prefillLatex);
+    setMode("entry");
+    if (inputRef.current) inputRef.current.value = prefillLatex;
+    if (textInputRef.current) textInputRef.current.value = prefillLatex;
+  }, [prefillLatex, prefillKey]);
 
   useEffect(() => {
     if (showSubstituteModal && substituteFieldRef.current) {
@@ -281,7 +264,6 @@ export function ExpressionPad({
   ) {
     if (!displayRef.current) return;
 
-    // Ensure output math-div uses the same vec macro as input.
     (displayRef.current as any).setOptions?.(vecMacroOptions);
 
     const renderLatex = t.latexTagged;
@@ -727,11 +709,9 @@ export function ExpressionPad({
   }
 
   function onEdit() {
-    setMode("entry");
-    const currentLatex = latexText || latexDraft || exampleLatex;
-    if (inputRef.current) inputRef.current.value = currentLatex;
-    if (textInputRef.current) textInputRef.current.value = currentLatex;
+    const currentLatex = latexText || latexDraft;
     setLatexDraft(currentLatex);
+    setMode("entry");
   }
 
   const debugState: ExpressionPadDebugState = {
@@ -798,6 +778,7 @@ export function ExpressionPad({
               {inputMode === "mathlive" ? (
                 <MathField
                   ref={inputRef}
+                  value={latexDraft}
                   style={{
                     width: "100%",
                     padding: 10,
@@ -806,13 +787,11 @@ export function ExpressionPad({
                   }}
                   data-testid="latex-input"
                   onInput={(e: any) => setLatexDraft(e.target?.value ?? "")}
-                >
-                  {exampleLatex}
-                </MathField>
+                />
               ) : (
                 <textarea
                   ref={textInputRef}
-                  defaultValue={latexDraft}
+                  value={latexDraft}
                   style={{
                     width: "100%",
                     padding: 10,
@@ -881,28 +860,6 @@ export function ExpressionPad({
               flexWrap: "wrap",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-                minWidth: 200,
-              }}
-            >
-              <label style={{ fontSize: 12, opacity: 0.8 }}>Examples</label>
-              <select
-                value={exampleIdx}
-                onChange={(e) => setExampleIdx(Number(e.target.value))}
-                style={{ padding: "6px 8px", borderRadius: 6, width: "100%" }}
-                data-testid="examples-select"
-              >
-                {examples.map((ex, idx) => (
-                  <option key={idx} value={idx}>
-                    {ex}
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
         </div>
       )}
