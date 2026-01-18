@@ -69,6 +69,7 @@ export function SubstituteModal({
 }: SubstituteModalProps) {
   const selectedMathDivRef = useRef<HTMLElement | null>(null);
   useVecMacro(open, selectedMathDivRef, [selectedNodeLatex]);
+  useVecMacro(open, substituteFieldRef as RefObject<HTMLElement | null>);
 
   if (!open) return null;
 
