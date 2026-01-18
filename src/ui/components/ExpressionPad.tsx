@@ -746,18 +746,6 @@ export function ExpressionPad({
 
   const monoFont =
     "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
-  const labelStyle: CSSProperties = { fontSize: 13, color: "var(--dp-muted)" };
-  const inputStyle: CSSProperties = {
-    width: "100%",
-    border: "1px solid var(--dp-border)",
-    background: "var(--dp-surface)",
-    color: "inherit",
-    borderRadius: 10,
-    padding: "10px 12px",
-    fontSize: 13,
-    fontFamily: monoFont,
-    boxSizing: "border-box",
-  };
 
   return (
     <div style={{ padding: 24, maxWidth: 1000 }}>
