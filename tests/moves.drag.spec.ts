@@ -14,6 +14,8 @@ import {
   waitForMathRender,
 } from "./helpers/dragMathlive";
 
+test.setTimeout(20000);
+
 type MoveCase = {
   title: string;
   mode: "additive" | "multiplicative";

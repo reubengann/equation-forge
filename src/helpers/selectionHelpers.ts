@@ -1,7 +1,7 @@
 import type { ExpressionTree } from "../ExpressionTree";
 import type { ExprSelection } from "../selectionSemantics";
 import { getDescendantNodeIds } from "../selectionSemantics";
-import { setHighlightedText } from "../App";
+import { setHighlightedText } from "../infra/mathlive/derivationPadHighlight";
 
 export function applySelectionHighlight(
   sel: ExprSelection | null,

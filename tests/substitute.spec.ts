@@ -5,6 +5,8 @@ import {
   setEquation,
 } from "./helpers/dragMathlive";
 
+test.setTimeout(20000);
+
 function normalizeLatex(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }

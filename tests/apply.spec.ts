@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { getRenderedLatex, setEquation } from "./helpers/dragMathlive";
 
+test.setTimeout(20000);
+
 function normalizeLatex(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
@@ -16,7 +18,7 @@ async function setApplyInput(page: any, latex: string) {
 
 test.describe("Apply to both sides", () => {
   test("apply button disabled when not on an equation", async ({ page }) => {
-    await page.goto("/");
+    await setEquation(page, "a + b"); // not an equation
     await expect(page.getByTestId("apply-button")).toBeDisabled();
   });
 

@@ -83,7 +83,8 @@ export async function waitForMathRender(page: Page, nodeIds: string[] = []) {
       }
       return true;
     },
-    { nodeIds }
+    { nodeIds },
+    { timeout: 4000 }
   );
 }
 
@@ -133,7 +134,8 @@ export async function getNodeRects(
       }
       return result;
     },
-    { nodeIds }
+    { nodeIds },
+    { timeout: 4000 }
   );
 
   const rects = await handle?.jsonValue();
@@ -145,9 +147,8 @@ export async function getNodeRects(
 
 export async function setEquation(page: Page, latex: string) {
   await page.goto("/");
-  await page.getByTestId("latex-input").evaluate((el, value) => {
-    (el as any).value = value;
-  }, latex);
+  await page.locator('input[name="entry-mode"][value="text"]').click();
+  await page.getByTestId("latex-input").fill(latex);
   await page.getByTestId("add-update").click();
   await waitForMathRender(page);
 }
