@@ -73,6 +73,7 @@ const miniGridStyle: CSSProperties = {
 
 function DebugPanel(state: ExpressionPadDebugState) {
   return (
+
     <div style={debugPanelStyle}>
       <div style={fieldFullStyle}>
         <label htmlFor="dp-latex-text" style={labelStyle}>
@@ -233,6 +234,7 @@ export default function App() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ padding: 24, maxWidth: 1000 }}>
+      <h2>Derivation Pad — Confirm Selection</h2>
         <label style={{ fontSize: 12, opacity: 0.8 }}>Examples (debug)</label>
         <div style={{ display: "flex", gap: 8, alignItems: "center", maxWidth: 720 }}>
           <select

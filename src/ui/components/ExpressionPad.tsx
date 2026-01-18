@@ -761,8 +761,6 @@ export function ExpressionPad({
 
   return (
     <div style={{ padding: 24, maxWidth: 1000 }}>
-      <h2>Derivation Pad — Confirm Selection</h2>
-
       {mode === "entry" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div
