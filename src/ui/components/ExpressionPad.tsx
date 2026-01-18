@@ -787,6 +787,7 @@ export function ExpressionPad({
                   }}
                   data-testid="latex-input"
                   onInput={(e: any) => setLatexDraft(e.target?.value ?? "")}
+                  macros={{ vec: "\\mathbf{#1}" }}
                 />
               ) : (
                 <textarea
