@@ -15,19 +15,19 @@ type SubstituteModalProps = {
   MathDiv: any;
 };
 
-const useVecMacro = (
-  enabled: boolean,
-  elRef: RefObject<HTMLElement | null>,
-  deps: ReadonlyArray<unknown> = []
-) => {
-  useEffect(() => {
-    if (!enabled) return;
-    const el = elRef.current as any;
-    if (!el) return;
-    el.setOptions?.(vecMacroOptions);
-    el.render?.();
-  }, [enabled, elRef, ...deps]);
-};
+// const useVecMacro = (
+//   enabled: boolean,
+//   elRef: RefObject<HTMLElement | null>,
+//   deps: ReadonlyArray<unknown> = []
+// ) => {
+//   useEffect(() => {
+//     if (!enabled) return;
+//     const el = elRef.current as any;
+//     if (!el) return;
+//     el.setOptions?.(vecMacroOptions);
+//     el.render?.();
+//   }, [enabled, elRef, ...deps]);
+// };
 
 const modalOverlayStyle: CSSProperties = {
   position: "fixed",
@@ -68,8 +68,8 @@ export function SubstituteModal({
   MathDiv,
 }: SubstituteModalProps) {
   const selectedMathDivRef = useRef<HTMLElement | null>(null);
-  useVecMacro(open, selectedMathDivRef, [selectedNodeLatex]);
-  useVecMacro(open, substituteFieldRef as RefObject<HTMLElement | null>);
+  // useVecMacro(open, selectedMathDivRef, [selectedNodeLatex]);
+  // useVecMacro(open, substituteFieldRef as RefObject<HTMLElement | null>);
 
   if (!open) return null;
 
@@ -141,8 +141,10 @@ export function SubstituteModal({
                 padding: 10,
                 border: "1px solid var(--dp-border)",
                 borderRadius: 8,
+                
               }}
               data-testid="substitute-input"
+              macros={{ vec: "\\mathbf{#1}" }}
             />
             {substituteError ? (
               <div style={{ color: "#d32f2f", fontSize: 12 }}>
