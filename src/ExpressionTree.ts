@@ -10,6 +10,50 @@ export type NodeInfo = {
 
 const FUNCTION_OPS = new Set(["Sin", "Cos", "Tan", "Exp", "Log", "Ln", "Abs"]);
 
+const GREEK_LATEX: Record<string, string> = {
+  // Lowercase
+  alpha: String.raw`\alpha`,
+  beta: String.raw`\beta`,
+  gamma: String.raw`\gamma`,
+  delta: String.raw`\delta`,
+  epsilon: String.raw`\epsilon`,
+  zeta: String.raw`\zeta`,
+  eta: String.raw`\eta`,
+  theta: String.raw`\theta`,
+  iota: String.raw`\iota`,
+  kappa: String.raw`\kappa`,
+  lambda: String.raw`\lambda`,
+  mu: String.raw`\mu`,
+  nu: String.raw`\nu`,
+  xi: String.raw`\xi`,
+  omicron: String.raw`\omicron`,
+  pi: String.raw`\pi`,
+  rho: String.raw`\rho`,
+  sigma: String.raw`\sigma`,
+  tau: String.raw`\tau`,
+  upsilon: String.raw`\upsilon`,
+  phi: String.raw`\phi`,
+  chi: String.raw`\chi`,
+  psi: String.raw`\psi`,
+  omega: String.raw`\omega`,
+  // Standard uppercase macros
+  Gamma: String.raw`\Gamma`,
+  Delta: String.raw`\Delta`,
+  Theta: String.raw`\Theta`,
+  Lambda: String.raw`\Lambda`,
+  Xi: String.raw`\Xi`,
+  Pi: String.raw`\Pi`,
+  Sigma: String.raw`\Sigma`,
+  Upsilon: String.raw`\Upsilon`,
+  Phi: String.raw`\Phi`,
+  Psi: String.raw`\Psi`,
+  Omega: String.raw`\Omega`,
+};
+
+function greekSymbolToLatex(name: string): string | null {
+  return GREEK_LATEX[name] ?? null;
+}
+
 export class ExpressionTree {
   readonly rootJson: MJ;
 
@@ -142,17 +186,28 @@ export class ExpressionTree {
     }
 
     let plain = this._leafLatex(node);
-    this.nodesById[id] = {
-      id,
-      op:
-        typeof node === "string"
-          ? "Symbol"
-          : typeof node === "number"
-          ? "Number"
-          : "Atom",
-      latex: plain,
-      json: node,
-    };
+    const op =
+      typeof node === "string"
+        ? "Symbol"
+        : typeof node === "number"
+        ? "Number"
+        : "Atom";
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+
+    if (typeof node === "string") {
+      const greekLatex = greekSymbolToLatex(node);
+      if (greekLatex) {
+        plain = greekLatex;
+        this.nodesById[id] = { id, op: "Symbol", latex: plain, json: node };
+        const taggedGreek = this.wrap(id, plain);
+        return this.recordTagged({
+          id,
+          latexPlain: plain,
+          latexTagged: taggedGreek,
+        });
+      }
+    }
+
     if (typeof node === "string" && /^[A-Za-z]$/.test(node)) {
       const plain = node; // italic by default in math mode
       this.nodesById[id] = { id, op: "Symbol", latex: plain, json: node };

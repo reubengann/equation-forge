@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { ExpressionTree, type MJ } from "./ExpressionTree";
-import { makeMJfromLatex } from "./testHelpers";
+import { makeMJfromLatex, treefromLatex } from "./testHelpers";
 
 describe("ExpressionTree", () => {
   it("Wraps each node", () => {
@@ -468,5 +468,20 @@ describe("ExpressionTree", () => {
   it("renders Abs with vertical bars", () => {
     const t = ExpressionTree.create(["Abs", ["Add", "a", "b"]]);
     expect(t.latexPlain).toBe(String.raw`\left|a + b\right|`);
+  });
+
+  it("renders Greek lowercase symbol names as macros", () => {
+    const t = ExpressionTree.create(["Add", "rho", "alpha"]);
+    expect(t.latexPlain).toBe(String.raw`\rho + \alpha`);
+  });
+
+  it("renders Greek uppercase symbol names as macros", () => {
+    const t = ExpressionTree.create(["Add", "Gamma", "Omega"]);
+    expect(t.latexPlain).toBe(String.raw`\Gamma + \Omega`);
+  });
+
+  it("round-trips Greek LaTeX through parse and render", () => {
+    const t = treefromLatex(String.raw`\rho + \Gamma`);
+    expect(t.latexPlain).toBe(String.raw`\rho + \Gamma`);
   });
 });
