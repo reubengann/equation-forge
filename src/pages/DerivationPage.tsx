@@ -1,11 +1,32 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   ExpressionPad,
   type ExpressionPadSnapshot,
 } from "../ui/components/ExpressionPad";
+import { IconButton } from "../ui/components/IconButton";
 import "../App.css";
 
 type Pad = { id: string; snapshot?: ExpressionPadSnapshot };
+
+const materialSymbolStyle: CSSProperties = {
+  fontVariationSettings: `"FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24`,
+  fontFamily: `"Material Symbols Rounded"`,
+  fontWeight: "normal",
+  fontStyle: "normal",
+  fontSize: 22,
+  lineHeight: 1,
+};
+
+const sideControlStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 8,
+  padding: 4,
+  border: "1px solid var(--dp-border)",
+  borderRadius: 10,
+  background: "var(--dp-surface)",
+  alignItems: "center",
+};
 
 export function DerivationPage() {
   const storageKey = "derivation-pads";
@@ -158,85 +179,72 @@ export function DerivationPage() {
               borderRadius: 12,
               boxShadow: "0 6px 18px rgba(0,0,0,0.12)",
               background: "var(--dp-surface)",
-              padding: 12,
+              padding: 10,
               display: "flex",
-              flexDirection: "column",
+              flexDirection: "row",
+              alignItems: "center",
               gap: 12,
             }}
           >
+            <div style={sideControlStyle}>
+              <IconButton
+                label="Move pad up"
+                icon={<span style={materialSymbolStyle}>arrow_upward</span>}
+                onClick={() => movePad(pad.id, "up")}
+                disabled={idx === 0}
+                testId={`pad-${idx + 1}-up`}
+              />
+              <IconButton
+                label="Move pad down"
+                icon={<span style={materialSymbolStyle}>arrow_downward</span>}
+                onClick={() => movePad(pad.id, "down")}
+                disabled={idx === pads.length - 1}
+                testId={`pad-${idx + 1}-down`}
+              />
+            </div>
             <div
               style={{
-                display: "flex",
+                flex: 1,
+                minWidth: 0,
+                display: "grid",
+                gridTemplateColumns: "1fr auto",
                 alignItems: "center",
-                justifyContent: "space-between",
                 gap: 8,
               }}
             >
-              <div style={{ fontWeight: 600 }}>Pad {idx + 1}</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => movePad(pad.id, "up")}
-                  disabled={idx === 0}
-                  style={{
-                    padding: "6px 10px",
-                    borderRadius: 8,
-                    border: "1px solid var(--dp-border)",
-                    background: "var(--dp-surface)",
-                    cursor: idx === 0 ? "not-allowed" : "pointer",
-                    opacity: idx === 0 ? 0.5 : 1,
-                  }}
-                >
-                  Up
-                </button>
-                <button
-                  type="button"
-                  onClick={() => movePad(pad.id, "down")}
-                  disabled={idx === pads.length - 1}
-                  style={{
-                    padding: "6px 10px",
-                    borderRadius: 8,
-                    border: "1px solid var(--dp-border)",
-                    background: "var(--dp-surface)",
-                    cursor: idx === pads.length - 1 ? "not-allowed" : "pointer",
-                    opacity: idx === pads.length - 1 ? 0.5 : 1,
-                  }}
-                >
-                  Down
-                </button>
-                <button
-                  type="button"
-                  onClick={() => duplicatePad(pad.id)}
-                  style={{
-                    padding: "6px 10px",
-                    borderRadius: 8,
-                    border: "1px solid var(--dp-border)",
-                    background: "var(--dp-surface)",
-                    cursor: "pointer",
-                  }}
-                >
-                  Duplicate
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removePad(pad.id)}
-                  style={{
-                    padding: "6px 10px",
-                    borderRadius: 8,
-                    border: "1px solid var(--dp-border)",
-                    background: "var(--dp-surface)",
-                    cursor: "pointer",
-                  }}
-                >
-                  Remove
-                </button>
-              </div>
+              <ExpressionPad
+                key={pad.id}
+                initialSnapshot={pad.snapshot}
+                onSnapshot={(snapshot) => updateSnapshot(pad.id, snapshot)}
+              />
+              <span
+                style={{
+                  fontSize: 13,
+                  color: "var(--dp-muted)",
+                  padding: "2px 6px",
+                  borderRadius: 8,
+                  background: "rgba(255,255,255,0.06)",
+                  lineHeight: 1.2,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                ({idx + 1})
+              </span>
             </div>
-            <ExpressionPad
-              key={pad.id}
-              initialSnapshot={pad.snapshot}
-              onSnapshot={(snapshot) => updateSnapshot(pad.id, snapshot)}
-            />
+            <div style={{ ...sideControlStyle, gap: 8 }}>
+              <IconButton
+                label="Duplicate pad"
+                icon={<span style={materialSymbolStyle}>content_copy</span>}
+                onClick={() => duplicatePad(pad.id)}
+                testId={`pad-${idx + 1}-duplicate`}
+              />
+              <IconButton
+                label="Remove pad"
+                icon={<span style={materialSymbolStyle}>delete</span>}
+                onClick={() => removePad(pad.id)}
+                testId={`pad-${idx + 1}-remove`}
+              />
+            </div>
           </div>
         ))}
         {pads.length === 0 ? (

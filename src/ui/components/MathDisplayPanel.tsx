@@ -48,7 +48,6 @@ export function MathDisplayPanel({
     <div
       ref={renderBoxRef}
       style={{
-        marginTop: 16,
         border: "1px solid var(--dp-border)",
         background: "var(--dp-surface)",
         padding: "8px 14px 14px",
