@@ -249,8 +249,25 @@ export function ExpressionPad({
 
   useEffect(() => {
     if (showSubstituteModal && substituteFieldRef.current) {
-      substituteFieldRef.current.value = "";
-      substituteFieldRef.current.focus();
+      const el = substituteFieldRef.current as any;
+      const focusField = () => {
+        try {
+          el.value = "";
+          el.setOptions?.(vecMacroOptions);
+          el.focus?.();
+        } catch {
+          // MathLive element may not be upgraded yet; ignore and rely on next frame.
+        }
+      };
+
+      // Ensure the custom element is upgraded before focusing to avoid ariaLiveText errors.
+      if (typeof customElements !== "undefined" && customElements.whenDefined) {
+        customElements.whenDefined("math-field").then(() => {
+          requestAnimationFrame(focusField);
+        });
+      } else {
+        requestAnimationFrame(focusField);
+      }
     }
   }, [showSubstituteModal]);
 

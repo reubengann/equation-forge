@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ExpressionPad,
   type ExpressionPadSnapshot,
@@ -8,8 +8,41 @@ import "../App.css";
 type Pad = { id: string; snapshot?: ExpressionPadSnapshot };
 
 export function DerivationPage() {
-  const [pads, setPads] = useState<Pad[]>([{ id: "pad-1" }]);
-  const [idCounter, setIdCounter] = useState(2);
+  const storageKey = "derivation-pads";
+
+  const loadFromStorage = () => {
+    const fallback = { pads: [{ id: "pad-1" }] as Pad[], counter: 2 };
+    if (typeof window === "undefined") return fallback;
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (!raw) return fallback;
+      const parsed = JSON.parse(raw) as Pad[];
+      if (!Array.isArray(parsed) || parsed.length === 0) return fallback;
+      const maxNum = parsed
+        .map((p) => Number(p.id.split("-")[1] ?? "0"))
+        .reduce((a, b) => (Number.isFinite(b) ? Math.max(a, b) : a), 1);
+      return { pads: parsed, counter: maxNum + 1 };
+    } catch {
+      return fallback;
+    }
+  };
+
+  const { pads: initialPads, counter: initialCounter } = useMemo(
+    loadFromStorage,
+    []
+  );
+
+  const [pads, setPads] = useState<Pad[]>(initialPads);
+  const [idCounter, setIdCounter] = useState(initialCounter);
+
+  // Persist whenever pads change
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(pads));
+    } catch {
+      // storage may be unavailable; ignore
+    }
+  }, [pads]);
 
   function addPad() {
     setPads((prev) => [...prev, { id: `pad-${idCounter}` }]);
@@ -52,6 +85,16 @@ export function DerivationPage() {
     );
   }
 
+  function clearAll() {
+    setPads([{ id: "pad-1" }]);
+    setIdCounter(2);
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch {
+      // ignore storage issues
+    }
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: 16 }}>
       <div
@@ -70,23 +113,40 @@ export function DerivationPage() {
         <div>
           <div style={{ fontWeight: 600, fontSize: 16 }}>Derivation pads</div>
           <div style={{ fontSize: 13, color: "var(--dp-muted)" }}>
-            Add, remove, or reorder pads for your derivation steps.
+            Add, remove, duplicate, or reorder pads for your derivation steps.
+            State is saved locally.
           </div>
         </div>
-        <button
-          type="button"
-          onClick={addPad}
-          style={{
-            padding: "8px 12px",
-            borderRadius: 10,
-            border: "1px solid var(--dp-border)",
-            background: "var(--dp-surface)",
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Add pad
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={addPad}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 10,
+              border: "1px solid var(--dp-border)",
+              background: "var(--dp-surface)",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Add pad
+          </button>
+          <button
+            type="button"
+            onClick={clearAll}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 10,
+              border: "1px solid var(--dp-border)",
+              background: "var(--dp-surface)",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Clear all
+          </button>
+        </div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
