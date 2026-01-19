@@ -84,4 +84,18 @@ describe("computeEngine custom dictionary", () => {
       ["Negate", ["InvisibleOperator", "b", "c"]],
     ]);
   });
+
+  it("parses dot product between vectors", () => {
+    const mj = parse(String.raw`\vec{a} \cdot \vec{b}`);
+    expect(mj).toEqual(["DotProduct", ["Vector", "a"], ["Vector", "b"]]);
+  });
+
+  it("pulls out scalar factors around a dot product", () => {
+    const mj = parse(String.raw`\vec{a} \cdot b \vec{c}`);
+    expect(mj).toEqual([
+      "DotProduct",
+      ["Vector", "a"],
+      ["InvisibleOperator", "b", ["Vector", "c"]],
+    ]);
+  });
 });

@@ -70,7 +70,7 @@ describe("applyOperationToBothSides", () => {
 
     expect(Array.isArray(lhs)).toBe(true);
     const lhsNode = lhs as any[];
-    expect(["Multiply", "InvisibleOperator"]).toContain(lhsNode[0]);
+    expect(lhsNode[0]).toBe("InvisibleOperator");
     expect(containsOp(lhs, "Add")).toBe(true);
   });
 });

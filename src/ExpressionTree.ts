@@ -147,11 +147,11 @@ export class ExpressionTree {
       if (op === "Tuple") {
         return this.recordTagged(this.emitTuple(node, id, path, op));
       }
-      if (op === "Multiply") {
-        return this.recordTagged(this.emitMultiply(node, id, path, op));
-      }
       if (op === "InvisibleOperator") {
         return this.recordTagged(this.emitImplicitMultiply(node, id, path, op));
+      }
+      if (op === "DotProduct") {
+        return this.recordTagged(this.emitDotProduct(node, id, path, op));
       }
       if (op == "Negate") {
         return this.recordTagged(this.emitNegate(node, id, path, op));
@@ -344,23 +344,10 @@ export class ExpressionTree {
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
   }
 
+  // Note: Multiply is normalized away to InvisibleOperator, but keep the renderer
+  // as a fallback to avoid crashing on legacy data.
   private emitMultiply(node: MJNode, id: string, path: number[], op: string) {
-    // Explicit multiplication: render like implicit multiplication (no dot).
-    const children = node
-      .slice(1)
-      .map((c: MJ, i: number) => this.emit(c, id, [...path, 1 + i]));
-
-    this.childrenById[id] = children.map((ch) => ch.id);
-    this.childrenById[id].forEach((cid, idx) => {
-      this.childIndexById[cid] = idx;
-    });
-
-    const sep = String.raw`\,`; // thin space for readability
-    const plain = children.map((c) => c.latexPlain).join(" ");
-    const taggedInner = children.map((c) => c.latexTagged).join(sep);
-
-    this.nodesById[id] = { id, op, latex: plain, json: node };
-    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+    return this.emitImplicitMultiply(node, id, path, op);
   }
 
   private emitDivide(node: MJNode, id: string, path: number[], op: string) {
@@ -801,6 +788,22 @@ export class ExpressionTree {
 
   static create(mj: MJ): ExpressionTree {
     return new ExpressionTree(mj);
+  }
+
+  private emitDotProduct(node: MJNode, id: string, path: number[], op: string) {
+    const lhs = this.emit(node[1], id, [...path, 1]);
+    const rhs = this.emit(node[2], id, [...path, 2]);
+
+    this.childrenById[id] = [lhs.id, rhs.id];
+    this.childIndexById[lhs.id] = 0;
+    this.childIndexById[rhs.id] = 1;
+
+    const sep = String.raw` \cdot `;
+    const plain = `${lhs.latexPlain}${sep}${rhs.latexPlain}`;
+    const taggedInner = `${lhs.latexTagged}${sep}${rhs.latexTagged}`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
   }
 }
 

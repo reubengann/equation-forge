@@ -371,14 +371,12 @@ describe("ExpressionTree", () => {
     );
   });
 
-  it("renders Multiply as implicit multiplication (no dot)", () => {
-    const mj: MJ = ["Multiply", "a", "b", "c"];
+  it("renders DotProduct with a centered dot", () => {
+    const mj: MJ = ["DotProduct", ["Vector", "a"], ["Vector", "b"]];
     const t = ExpressionTree.create(mj);
 
-    expect(t.latexPlain).toBe(String.raw`a b c`);
-    expect(t.latexTagged).toBe(
-      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{a}\,\htmlData{node-id="n3"}{b}\,\htmlData{node-id="n4"}{c}}`
-    );
+    expect(t.latexPlain).toBe(String.raw`\vec{a} \cdot \vec{b}`);
+    expect(t.latexTagged).toContain(String.raw`\cdot`);
   });
 
   it("Renders subtraction as a - b (not a + -b)", () => {

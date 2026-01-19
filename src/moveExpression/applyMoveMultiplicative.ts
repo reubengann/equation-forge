@@ -76,6 +76,7 @@ export function applyMoveMultiplicative(
 
   const isMulOp = (op?: string) =>
     op === "InvisibleOperator" || op === "Multiply";
+  const isDotOp = (op?: string) => op === "DotProduct";
 
   // -------------------------
   // Reorder within the same multiplicative container
@@ -84,6 +85,39 @@ export function applyMoveMultiplicative(
   if (!fromParentId) return null;
   const fromParentOp = tree.nodesById[fromParentId]?.op;
   const hoverOp = tree.nodesById[hoverNodeId]?.op;
+
+  // -------------------------
+  // Reorder within a DotProduct (commutative swap)
+  // -------------------------
+  if (
+    isDotOp(fromParentOp) &&
+    targetSlot != null &&
+    (hoverNodeId === fromParentId ||
+      tree.parentById[hoverNodeId] === fromParentId)
+  ) {
+    const dotPath = tree.pathById[fromParentId];
+    if (!dotPath) return null;
+    const dotExpr = getAtPath(tree.rootJson, dotPath) as MJNode;
+    if (!Array.isArray(dotExpr) || dotExpr[0] !== "DotProduct") return null;
+    const operands = dotExpr.slice(1);
+    if (operands.length !== 2) return null;
+
+    const siblings = tree.childrenById[fromParentId] ?? [];
+    const fromIndex = siblings.indexOf(movedId);
+    if (fromIndex < 0) return null;
+
+    const slot = Math.max(0, Math.min(operands.length, targetSlot));
+    let toIndex = slot <= fromIndex ? slot : slot - 1;
+    toIndex = Math.max(0, Math.min(operands.length - 1, toIndex));
+    if (toIndex === fromIndex) return null;
+
+    const reordered = [...operands];
+    const [movedOp] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, movedOp);
+    const nextDot: MJNode = ["DotProduct", ...reordered];
+    const nextRoot = setAtPath(tree.rootJson, dotPath, nextDot);
+    return ExpressionTree.create(nextRoot);
+  }
 
   let targetMulId: string | null = null;
   if (isMulOp(hoverOp)) {

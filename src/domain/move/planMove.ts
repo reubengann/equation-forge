@@ -127,6 +127,7 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
 
   const isMulOp = (op?: string) =>
     op === "InvisibleOperator" || op === "Multiply";
+  const isDotOp = (op?: string) => op === "DotProduct";
   const isContainerOp = (op?: string) =>
     mode === "multiplicative" ? isMulOp(op) : op === "Add";
 
@@ -148,6 +149,40 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
 
   let movedParentId = tree.parentById[movedId];
   if (!movedParentId) return null;
+
+  // Multiplicative: reorder within DotProduct (commutative)
+  if (
+    mode === "multiplicative" &&
+    isDotOp(tree.nodesById[movedParentId]?.op) &&
+    (hoverId === movedParentId || tree.parentById[hoverId] === movedParentId)
+  ) {
+    const dotId = movedParentId;
+    const childIds = tree.childrenById[dotId] ?? [];
+    if (childIds.length === 2) {
+      const containerRect = rectFor(dotId);
+      if (!containerRect || yGate(containerRect, pointer.y)) {
+        const slot = computeSlotByMidpoints({
+          childIds,
+          pointerX: pointer.x,
+          rectFor,
+        });
+        const fromIndex = childIds.indexOf(movedId);
+        if (fromIndex >= 0) {
+          let toIndex = slot <= fromIndex ? slot : slot - 1;
+          toIndex = Math.max(0, Math.min(childIds.length - 1, toIndex));
+          if (toIndex !== fromIndex) {
+            return {
+              kind: "ReorderAdd",
+              addId: dotId,
+              movedId,
+              fromIndex,
+              toIndex,
+            };
+          }
+        }
+      }
+    }
+  }
 
   // Multiplicative: merge a sibling factor into the numerator of a fraction within the same product.
   if (mode === "multiplicative" && movedParentId) {
