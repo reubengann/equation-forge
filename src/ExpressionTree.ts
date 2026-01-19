@@ -799,8 +799,24 @@ export class ExpressionTree {
     this.childIndexById[rhs.id] = 1;
 
     const sep = String.raw` \cdot `;
-    const plain = `${lhs.latexPlain}${sep}${rhs.latexPlain}`;
-    const taggedInner = `${lhs.latexTagged}${sep}${rhs.latexTagged}`;
+    const wrapIfLowPrecedence = (child: { id: string; latexPlain: string; latexTagged: string }) => {
+      const childOp = this.nodesById[child.id]?.op;
+      const needsParens = childOp === "Add" || childOp === "Equal";
+      if (!needsParens) {
+        return child;
+      }
+      return {
+        ...child,
+        latexPlain: String.raw`\left(${child.latexPlain}\right)`,
+        latexTagged: String.raw`\left(${child.latexTagged}\right)`,
+      };
+    };
+
+    const lhsWrapped = wrapIfLowPrecedence(lhs);
+    const rhsWrapped = wrapIfLowPrecedence(rhs);
+
+    const plain = `${lhsWrapped.latexPlain}${sep}${rhsWrapped.latexPlain}`;
+    const taggedInner = `${lhsWrapped.latexTagged}${sep}${rhsWrapped.latexTagged}`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };

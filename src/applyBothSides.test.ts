@@ -92,4 +92,27 @@ describe("applyOperationToBothSides", () => {
     const tree = ExpressionTree.create(result);
     expect(tree.latexPlain).toContain(String.raw`\vec{e} \cdot`);
   });
+
+  it("keeps additive grouping when dotting a vector sum", () => {
+    const eqn = makeMJfromLatex(
+      String.raw`\vec{F}_{g} + \vec{N} = m \ddot{\vec{r}}`
+    );
+    const result = applyOperationToBothSides(
+      eqn,
+      String.raw`\vec{e}_x \cdot eqn`
+    );
+
+    const lhs = (result as any)[1] as MJ;
+    expect(Array.isArray(lhs)).toBe(true);
+    expect((lhs as any[])[0]).toBe("DotProduct");
+
+    const rhsOperand = (lhs as any[])[2] as MJ;
+    expect(Array.isArray(rhsOperand)).toBe(true);
+    expect((rhsOperand as any[])[0]).toBe("Add");
+
+    const latex = ExpressionTree.create(result).latexPlain;
+    expect(latex).toContain(
+      String.raw`\vec{e}_{x} \cdot \left(\vec{F}_{g} + \vec{N}\right)`
+    );
+  });
 });
