@@ -743,6 +743,11 @@ export function ExpressionPad({
     canSubstitute && tree && selection?.kind === "node"
       ? tree.nodesById[selection.nodeId]?.latex ?? ""
       : "";
+  const latexForCopy =
+    latexText && latexText !== "Type an equation, click Add / Update."
+      ? latexText
+      : latexDraft;
+  const canCopyLatex = !!latexForCopy?.trim();
 
   function displayNodeInfo(nodeId: string | null): string {
     if (!nodeId) return "No id";
@@ -756,6 +761,33 @@ export function ExpressionPad({
     const currentLatex = latexText || latexDraft;
     setLatexDraft(currentLatex);
     setMode("entry");
+  }
+
+  async function onCopyLatex() {
+    if (!canCopyLatex || !latexForCopy) return;
+    // Prefer modern clipboard API; fall back to execCommand when unavailable.
+    try {
+      if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(latexForCopy);
+        return;
+      }
+    } catch {
+      // Ignore and try the legacy path.
+    }
+
+    try {
+      if (typeof document === "undefined") return;
+      const textarea = document.createElement("textarea");
+      textarea.value = latexForCopy;
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    } catch {
+      // Swallow copy failures; button is best-effort.
+    }
   }
 
   const debugState: ExpressionPadDebugState = {
@@ -897,21 +929,6 @@ export function ExpressionPad({
 
       {mode === "render" && (
         <>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
-            <button
-              type="button"
-              onClick={onEdit}
-              style={{
-                padding: "8px 12px",
-                borderRadius: 8,
-                border: "1px solid var(--dp-border)",
-                background: "var(--dp-surface)",
-                cursor: "pointer",
-              }}
-            >
-              Edit
-            </button>
-          </div>
           <MathDisplayPanel
             renderBoxRef={renderBoxRef}
             mathWrapRef={mathWrapRef}
@@ -937,6 +954,9 @@ export function ExpressionPad({
                 canApply={canApply}
                 onOpenSubstitute={openSubstituteModal}
                 canSubstitute={canSubstitute}
+                onCopyLatex={onCopyLatex}
+                canCopyLatex={canCopyLatex}
+                onEdit={onEdit}
               />
             }
             isDragging={!!drag}

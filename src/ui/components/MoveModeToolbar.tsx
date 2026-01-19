@@ -15,6 +15,9 @@ type MoveModeToolbarProps = {
   canApply: boolean;
   onOpenSubstitute: () => void;
   canSubstitute: boolean;
+  onCopyLatex: () => void;
+  canCopyLatex: boolean;
+  onEdit: () => void;
 };
 
 const toolbarStyle: CSSProperties = {
@@ -64,6 +67,9 @@ export const MoveModeToolbar = forwardRef<
     canApply,
     onOpenSubstitute,
     canSubstitute,
+    onCopyLatex,
+    canCopyLatex,
+    onEdit,
   },
   ref
 ) {
@@ -151,6 +157,27 @@ export const MoveModeToolbar = forwardRef<
         onClick={onOpenSubstitute}
         disabled={!canSubstitute}
         testId="substitute-button"
+      />
+      <IconButton
+        label="Copy LaTeX"
+        icon={
+          <span style={materialSymbolStyle} aria-hidden>
+            content_copy
+          </span>
+        }
+        onClick={onCopyLatex}
+        disabled={!canCopyLatex}
+        testId="copy-latex-button"
+      />
+      <IconButton
+        label="Edit"
+        icon={
+          <span style={materialSymbolStyle} aria-hidden>
+            edit
+          </span>
+        }
+        onClick={onEdit}
+        testId="edit-button"
       />
     </div>
   );
