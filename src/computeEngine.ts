@@ -399,11 +399,16 @@ const dotEntry: LatexDictionaryEntry = {
   latexTrigger: "\\cdot",
   precedence: 390,
   associativity: "left",
-  parse: (parser, lhs) => {
+  parse: (
+    parser: any,
+    lhs: Expression | null
+  ): Expression | null => {
     if (!lhs) return null;
-    const rhs = parser.parseExpression({ minPrec: 390 });
+    const rhs = parser.parseExpression({ minPrec: 390 }) as
+      | Expression
+      | null;
     if (!rhs) return null;
-    return ["DotProduct", lhs as Expression, rhs];
+    return ["DotProduct", lhs, rhs] as unknown as Expression;
   },
   serialize: (serializer, expr) => {
     if (!Array.isArray(expr)) return serializer.serialize(expr);

@@ -278,11 +278,31 @@ export function ExpressionPad({
     }
   }, [showApplyModal]);
 
+  const substituteTargetId = useMemo(() => {
+    if (!tree || !selection) return null;
+    if (selection.kind === "node") return selection.nodeId;
+
+    const parentOp = tree.nodesById[selection.parentId]?.op;
+    const isMultiplicative =
+      parentOp === "InvisibleOperator" || parentOp === "Multiply";
+    const kids = tree.childrenById[selection.parentId] ?? [];
+    const coversAll =
+      kids.length > 0 &&
+      selection.start === 0 &&
+      selection.end === kids.length - 1;
+
+    if (isMultiplicative && coversAll) {
+      // A span covering the full multiplicative group should behave like selecting the parent.
+      return selection.parentId;
+    }
+    return null;
+  }, [tree, selection]);
+
   useEffect(() => {
-    if (showSubstituteModal && (!tree || !selection || selection?.kind !== "node")) {
+    if (showSubstituteModal && (!tree || !substituteTargetId)) {
       closeSubstituteModal();
     }
-  }, [showSubstituteModal, tree, selection]);
+  }, [showSubstituteModal, tree, substituteTargetId]);
 
   // Render once the display element is mounted in render mode
   useEffect(() => {
@@ -390,7 +410,7 @@ export function ExpressionPad({
   }
 
   function submitSubstitution() {
-    if (!tree || selection?.kind !== "node") {
+    if (!tree || !substituteTargetId) {
       setSubstituteError("Select a node to substitute.");
       return;
     }
@@ -402,7 +422,7 @@ export function ExpressionPad({
     }
 
     const parsed = parse(rhsLatex);
-    if (!parsed) {
+    if (parsed == null) {
       setSubstituteError("Could not parse replacement.");
       return;
     }
@@ -410,7 +430,7 @@ export function ExpressionPad({
     const replacement = parsed as MJ;
     const result = substitute({
       tree,
-      targetId: selection.nodeId,
+      targetId: substituteTargetId,
       replacement,
       scope: substituteScope,
     });
@@ -454,7 +474,7 @@ export function ExpressionPad({
         ? (inputRef.current?.value as string)
         : textInputRef.current?.value ?? "";
     const mj = parse(latex);
-    if (!mj) {
+    if (mj == null) {
       setLatexText(latex);
       setExpressionJsonText("Parse failed. Check LaTeX input.");
       return;
@@ -745,12 +765,12 @@ export function ExpressionPad({
     }
   }
 
-  const canSubstitute = !!tree && selection?.kind === "node";
+  const canSubstitute = !!substituteTargetId;
   const canApply = !!tree && isFlippableEquation(tree.rootJson);
   const canExpand = !!tree && !!expandTargetId;
   const selectedNodeLatex =
-    canSubstitute && tree && selection?.kind === "node"
-      ? tree.nodesById[selection.nodeId]?.latex ?? ""
+    canSubstitute && tree && substituteTargetId
+      ? tree.nodesById[substituteTargetId]?.latex ?? ""
       : "";
   const latexForCopy =
     latexText && latexText !== "Type an equation, click Add / Update."

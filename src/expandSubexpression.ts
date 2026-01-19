@@ -54,19 +54,21 @@ function distributeDotProduct(expr: MJ): MJ {
     const right = unwrapDelimiter(kids[1]);
 
     if (isAdd(left)) {
+      const leftTerms = left.slice(1) as MJ[];
       return [
         "Add",
-        ...left.slice(1).map((term) =>
-          distributeDotProduct(["DotProduct", term as MJ, right] as MJ)
+        ...leftTerms.map((term: MJ) =>
+          distributeDotProduct(["DotProduct", term, right] as MJ)
         ),
       ] as MJ;
     }
 
     if (isAdd(right)) {
+      const rightTerms = right.slice(1) as MJ[];
       return [
         "Add",
-        ...right.slice(1).map((term) =>
-          distributeDotProduct(["DotProduct", left, term as MJ] as MJ)
+        ...rightTerms.map((term: MJ) =>
+          distributeDotProduct(["DotProduct", left, term] as MJ)
         ),
       ] as MJ;
     }

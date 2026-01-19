@@ -344,12 +344,6 @@ export class ExpressionTree {
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
   }
 
-  // Note: Multiply is normalized away to InvisibleOperator, but keep the renderer
-  // as a fallback to avoid crashing on legacy data.
-  private emitMultiply(node: MJNode, id: string, path: number[], op: string) {
-    return this.emitImplicitMultiply(node, id, path, op);
-  }
-
   private emitDivide(node: MJNode, id: string, path: number[], op: string) {
     const num = this.emit(node[1], id, [...path, 1]);
     const den = this.emit(node[2], id, [...path, 2]);
