@@ -253,7 +253,6 @@ export function ExpressionPad({
       const focusField = () => {
         try {
           el.value = "";
-          el.setOptions?.(vecMacroOptions);
           el.focus?.();
         } catch {
           // MathLive element may not be upgraded yet; ignore and rely on next frame.
@@ -284,13 +283,6 @@ export function ExpressionPad({
     }
   }, [showSubstituteModal, tree, selection]);
 
-  useEffect(() => {
-    const mf = inputRef.current;
-    if (!mf) return;
-
-    mf.setOptions(vecMacroOptions);
-  }, []);
-
   // Render once the display element is mounted in render mode
   useEffect(() => {
     if (mode !== "render") return;
@@ -308,10 +300,7 @@ export function ExpressionPad({
   ) {
     if (!displayRef.current) return;
 
-    (displayRef.current as any).setOptions?.(vecMacroOptions);
-
     const renderLatex = t.latexTagged;
-    (displayRef.current as any).setOptions?.(vecMacroOptions);
     if ("value" in (displayRef.current as any)) {
       (displayRef.current as any).value = renderLatex;
     } else {
@@ -839,7 +828,9 @@ export function ExpressionPad({
             <div style={{ flex: "1 1 auto" }}>
               {inputMode === "mathlive" ? (
                 <MathField
-                  ref={inputRef}
+                  ref={(el: any) => {
+                    inputRef.current = el;
+                  }}
                   value={latexDraft}
                   style={{
                     width: "100%",
@@ -849,7 +840,7 @@ export function ExpressionPad({
                   }}
                   data-testid="latex-input"
                   onInput={(e: any) => setLatexDraft(e.target?.value ?? "")}
-                  macros={{ vec: "\\mathbf{#1}" }}
+                  macros={vecMacroOptions.macros}
                 />
               ) : (
                 <textarea

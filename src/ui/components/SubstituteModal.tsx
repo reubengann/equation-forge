@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties, type RefObject } from "react";
+import { useRef, type CSSProperties, type RefObject } from "react";
 import type { SubstituteScope } from "../../substitute";
 import { vecMacroOptions } from "../../infra/mathlive/vecMacroOptions";
 
@@ -14,20 +14,6 @@ type SubstituteModalProps = {
   MathField: any;
   MathDiv: any;
 };
-
-// const useVecMacro = (
-//   enabled: boolean,
-//   elRef: RefObject<HTMLElement | null>,
-//   deps: ReadonlyArray<unknown> = []
-// ) => {
-//   useEffect(() => {
-//     if (!enabled) return;
-//     const el = elRef.current as any;
-//     if (!el) return;
-//     el.setOptions?.(vecMacroOptions);
-//     el.render?.();
-//   }, [enabled, elRef, ...deps]);
-// };
 
 const modalOverlayStyle: CSSProperties = {
   position: "fixed",
@@ -99,7 +85,10 @@ export function SubstituteModal({
               }}
             >
               <MathDiv
-                ref={selectedMathDivRef}
+                ref={(el: any) => {
+                  selectedMathDivRef.current = el;
+                  if (el) el.macros = JSON.stringify(vecMacroOptions.macros);
+                }}
                 mode="math"
                 macros={JSON.stringify(vecMacroOptions.macros)}
                 style={{
@@ -135,7 +124,9 @@ export function SubstituteModal({
               Replace with (LaTeX)
             </div>
             <MathField
-              ref={substituteFieldRef}
+              ref={(el: any) => {
+                substituteFieldRef.current = el;
+              }}
               style={{
                 width: "100%",
                 padding: 10,
@@ -144,7 +135,7 @@ export function SubstituteModal({
                 
               }}
               data-testid="substitute-input"
-              macros={{ vec: "\\mathbf{#1}" }}
+              macros={vecMacroOptions.macros}
             />
             {substituteError ? (
               <div style={{ color: "#d32f2f", fontSize: 12 }}>

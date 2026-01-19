@@ -59,9 +59,7 @@ export function ApplyModal({
   useEffect(() => {
     if (!open) return;
     const el = equationRef.current as any;
-    if (!el) return;
-    el.setOptions?.(vecMacroOptions);
-    el.render?.();
+    el?.render?.();
   }, [open, equationLatex]);
 
   useEffect(() => {
@@ -69,7 +67,6 @@ export function ApplyModal({
       const field = applyFieldRef.current as any;
       field.value = "";
       field.focus();
-      field.setOptions?.(vecMacroOptions);
     }
   }, [open, applyFieldRef]);
 
@@ -101,9 +98,12 @@ export function ApplyModal({
               }}
             >
               <MathDiv
-                ref={equationRef}
+                ref={(el: any) => {
+                  equationRef.current = el;
+                  if (el) el.macros = JSON.stringify(vecMacroOptions.macros);
+                }}
                 mode="math"
-              macros={JSON.stringify(vecMacroOptions.macros)}
+                macros={JSON.stringify(vecMacroOptions.macros)}
                 style={{ fontSize: "1.05rem", minHeight: 28 }}
               >
                 {equationLatex || "—"}
@@ -123,7 +123,9 @@ export function ApplyModal({
           >
             <div style={{ ...labelStyle, marginBottom: 2 }}>Operation (LaTeX)</div>
             <MathField
-              ref={applyFieldRef}
+              ref={(el: any) => {
+                applyFieldRef.current = el;
+              }}
               style={{
                 width: "100%",
                 padding: 10,
@@ -131,6 +133,7 @@ export function ApplyModal({
                 borderRadius: 8,
               }}
               data-testid="apply-input"
+              macros={vecMacroOptions.macros}
             />
             <div style={helperStyle}>
               Use <code>eqn</code> to refer to each side. Examples:{" "}
