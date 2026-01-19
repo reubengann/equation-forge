@@ -827,21 +827,26 @@ export function ExpressionPad({
           >
             <div style={{ flex: "1 1 auto" }}>
               {inputMode === "mathlive" ? (
-                <MathField
-                  ref={(el: any) => {
-                    inputRef.current = el;
-                  }}
-                  value={latexDraft}
-                  style={{
-                    width: "100%",
-                    padding: 10,
-                    border: "1px solid #ccc",
-                    borderRadius: 8,
-                  }}
-                  data-testid="latex-input"
-                  onInput={(e: any) => setLatexDraft(e.target?.value ?? "")}
-                  macros={vecMacroOptions.macros}
-                />
+                <>
+                  {/* MathLive note: passing macros via the prop keeps typing sane.
+                      Setting macros on the element (or via setOptions) caused the
+                      infamous “a() ()” parenthesis duplication. */}
+                  <MathField
+                    ref={(el: any) => {
+                      inputRef.current = el;
+                    }}
+                    value={latexDraft}
+                    style={{
+                      width: "100%",
+                      padding: 10,
+                      border: "1px solid #ccc",
+                      borderRadius: 8,
+                    }}
+                    data-testid="latex-input"
+                    onInput={(e: any) => setLatexDraft(e.target?.value ?? "")}
+                    macros={vecMacroOptions.macros}
+                  />
+                </>
               ) : (
                 <textarea
                   ref={textInputRef}

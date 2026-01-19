@@ -72,6 +72,9 @@ export function MathDisplayPanel({
         style={{ position: "relative", display: "inline-block" }}
       >
         <div style={{ position: "relative" }}>
+          {/* MathLive expects the display macros as a stringified attribute.
+              Using the prop here is safe; changing macros at runtime via
+              setOptions/macros mutation caused JSON parse warnings. */}
           <MathDiv
             ref={displayRef}
             mode="displaystyle"
