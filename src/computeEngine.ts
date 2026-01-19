@@ -7,12 +7,31 @@ import type { MJ } from "./ExpressionTree";
 
 const ce = new ComputeEngine();
 
+function normalizeVectorMacros(latex: string): string {
+  // MathLive macros render \vec as \mathbf{...}; the CE interprets this as a
+  // 1x1 Matrix, which our renderer does not support. Rewrite those bold macros
+  // back into explicit \vec commands before parsing so we consistently get
+  // the Vector shape.
+  const withBraces = latex.replace(
+    /\\mathbf\s*{([^{}]+)}/g,
+    (_m, inner) => String.raw`\\vec{${inner}}`
+  );
+  return withBraces.replace(
+    /\\mathbf\s+([A-Za-z])/g,
+    (_m, sym) => String.raw`\\vec{${sym}}`
+  );
+}
+
 export function parse(latex: string): MJ | null {
-  const mj = (ce.parse(latex, { canonical: false })?.json as MJ) ?? null;
-  const normalized = normalizeDotProducts(
+  const prepared = normalizeVectorMacros(latex);
+  const mj = (ce.parse(prepared, { canonical: false })?.json as MJ) ?? null;
+  return normalizeMathJson(mj);
+}
+
+export function normalizeMathJson(mj: MJ | null): MJ | null {
+  return normalizeDotProducts(
     rewriteNegateToFrontOfProduct(normalizeProducts(normalizeVectors(mj)))
   );
-  return normalized;
 }
 
 function rewriteNegateToFrontOfProduct(mj: MJ | null): MJ | null {

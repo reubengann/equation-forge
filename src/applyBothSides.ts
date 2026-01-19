@@ -1,4 +1,4 @@
-import { box, parse } from "./computeEngine";
+import { normalizeMathJson, parse } from "./computeEngine";
 import type { MJ } from "./ExpressionTree";
 
 type MJNode = [op: string, ...args: MJ[]];
@@ -58,18 +58,13 @@ function replaceSymbol(mj: MJ, symbolName: string, replacement: MJ): MJ {
   return [mj[0] as string, ...replacedKids];
 }
 
-function normalizeLatex(latex: string): string {
-  // Match normalization used in computeEngine tests.
-  return latex.replace(/\\\\/g, "\\");
-}
-
 /**
  * Apply a user-specified operation (containing the placeholder symbol "eqn")
  * to both sides of a top-level equality.
  *
  * The operation is parsed from LaTeX, the placeholder is substituted with each
- * side's MathJSON, then the result is round-tripped through ComputeEngine
- * serialization/parsing to ensure correct parentheses and grouping.
+ * side's MathJSON, and the result is normalized in MathJSON form (no LaTeX
+ * round-trip) to preserve vector nodes.
  *
  * Throws an Error when validation or parsing fails.
  */
@@ -102,8 +97,7 @@ export function applyOperationToBothSides(
 
   const applyToSide = (side: MJ): MJ => {
     const substituted = replaceSymbol(template, "eqn", side);
-    const latex = normalizeLatex(box(substituted).toLatex());
-    const parsed = parse(latex);
+    const parsed = normalizeMathJson(substituted);
     if (!parsed) {
       throw new Error("Could not parse applied expression.");
     }

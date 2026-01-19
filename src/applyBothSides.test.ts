@@ -73,4 +73,23 @@ describe("applyOperationToBothSides", () => {
     expect(lhsNode[0]).toBe("InvisibleOperator");
     expect(containsOp(lhs, "Add")).toBe(true);
   });
+
+  it("parses vec notation into a Vector node", () => {
+    const mj = makeMJfromLatex("\\vec{e}");
+    expect(mj).toEqual(["Vector", "e"]);
+  });
+
+  it("applies a dot product with a vector e operand", () => {
+    const eqn = makeMJfromLatex("\\vec{F} = m\\vec{a}");
+    const result = applyOperationToBothSides(eqn, "\\vec{e} \\cdot eqn");
+
+    expect(result).toEqual([
+      "Equal",
+      ["DotProduct", ["Vector", "e"], ["Vector", "F"]],
+      ["DotProduct", ["Vector", "e"], ["InvisibleOperator", "m", ["Vector", "a"]]],
+    ]);
+
+    const tree = ExpressionTree.create(result);
+    expect(tree.latexPlain).toContain(String.raw`\vec{e} \cdot`);
+  });
 });
