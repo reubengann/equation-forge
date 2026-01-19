@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
   useCallback,
-  type CSSProperties,
   type ReactNode,
 } from "react";
 import { ExpressionTree, type MJ } from "../../ExpressionTree";
@@ -74,6 +73,11 @@ export type ExpressionPadDebugActions = {
   toggleDebugBoxes: () => void;
 };
 
+export type ExpressionPadSnapshot = {
+  latex: string;
+  rootJson: MJ;
+};
+
 export type ExpressionPadProps = {
   debug?: {
     render?: (
@@ -83,11 +87,20 @@ export type ExpressionPadProps = {
   };
   initialLatex?: string;
   /**
+   * Optional initial snapshot to hydrate the pad directly into render mode.
+   * History is not restored.
+   */
+  initialSnapshot?: ExpressionPadSnapshot;
+  /**
    * Optional external prefill used by debug tooling (e.g., examples list in App).
    * Whenever prefillKey changes, this latex is applied to the input fields.
    */
   prefillLatex?: string;
   prefillKey?: string | number;
+  /**
+   * Called whenever the pad commits a new state (including undo/redo).
+   */
+  onSnapshot?: (snapshot: ExpressionPadSnapshot) => void;
 };
 
 MathfieldElement.fontsDirectory = "/fonts";
@@ -97,8 +110,10 @@ type Mode = "entry" | "render";
 export function ExpressionPad({
   debug,
   initialLatex,
+  initialSnapshot,
   prefillLatex,
   prefillKey,
+  onSnapshot,
 }: ExpressionPadProps) {
   const MathDiv = useMemo(() => "math-div" as any, []);
   const MathField = useMemo(() => "math-field" as any, []);
@@ -127,6 +142,7 @@ export function ExpressionPad({
   // Define applyPresentJson before hooks that use it
   function applyPresentJson(json: MJ, opts?: { latex?: string }) {
     const nextTree = ExpressionTree.create(json);
+    const latexValue = opts?.latex ?? nextTree.latexPlain;
     setTree(nextTree);
     renderTree(nextTree, {
       preview: false,
@@ -134,8 +150,12 @@ export function ExpressionPad({
       clearHighlightAfterRender: true,
     });
     setSelection(null);
-    setInfoFromTree(nextTree, opts?.latex ?? nextTree.latexPlain);
+    setInfoFromTree(nextTree, latexValue);
     setMode("render");
+    onSnapshot?.({
+      latex: latexValue,
+      rootJson: nextTree.rootJson,
+    });
   }
 
   // Use extracted hooks
@@ -210,6 +230,13 @@ export function ExpressionPad({
   const [selectionChildOps, setSelectionChildOps] = useState<string>("");
   const [selectionChildLatex, setSelectionChildLatex] = useState<string>("");
   const [selectionNote, setSelectionNote] = useState<string>("");
+
+  useEffect(() => {
+    if (!initialSnapshot) return;
+    if (tree) return;
+    commitHistory(initialSnapshot.rootJson);
+    applyPresentJson(initialSnapshot.rootJson, { latex: initialSnapshot.latex });
+  }, [initialSnapshot, tree, commitHistory, applyPresentJson]);
 
   // Allow parent (debug UI) to push a new latex draft (e.g., example copy).
   useEffect(() => {
