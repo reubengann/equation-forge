@@ -33,6 +33,7 @@ import { MathDisplayPanel } from "./MathDisplayPanel";
 import { MoveModeToolbar } from "./MoveModeToolbar";
 import { ApplyModal } from "./ApplyModal";
 import { SubstituteModal } from "./SubstituteModal";
+import { expandSubexpression } from "../../expandSubexpression";
 import type { MoveMode } from "../../moveExpression/applyMove";
 import { hitTestNodeIdInMathliveShadow } from "../../infra/mathlive/mathliveShadow";
 import { applyOperationToBothSides } from "../../applyBothSides";
@@ -340,6 +341,24 @@ export function ExpressionPad({
     const latex = ExpressionTree.create(flipped).latexPlain;
     commitJson(flipped, { latex });
   }, [tree]);
+
+  const expandTargetId = useMemo(() => {
+    if (!tree || !selection) return null;
+    if (selection.kind === "node") return selection.nodeId;
+    const kids = tree.childrenById[selection.parentId] ?? [];
+    const coversAll =
+      kids.length > 0 &&
+      selection.start === 0 &&
+      selection.end === kids.length - 1;
+    return coversAll ? selection.parentId : null;
+  }, [tree, selection]);
+
+  const onExpand = useCallback(() => {
+    if (!tree || !expandTargetId) return;
+    const next = expandSubexpression(tree, expandTargetId);
+    if (!next) return;
+    commitJson(next.rootJson, { latex: next.latexPlain });
+  }, [tree, expandTargetId]);
 
   function undo() {
     undoHistory(applyPresentJson);
@@ -728,6 +747,7 @@ export function ExpressionPad({
 
   const canSubstitute = !!tree && selection?.kind === "node";
   const canApply = !!tree && isFlippableEquation(tree.rootJson);
+  const canExpand = !!tree && !!expandTargetId;
   const selectedNodeLatex =
     canSubstitute && tree && selection?.kind === "node"
       ? tree.nodesById[selection.nodeId]?.latex ?? ""
@@ -946,6 +966,8 @@ export function ExpressionPad({
                 canRedo={canRedo}
                 onFlip={onFlip}
                 canFlip={canFlip}
+                onExpand={onExpand}
+                canExpand={canExpand}
                 onOpenApply={openApplyModal}
                 canApply={canApply}
                 onOpenSubstitute={openSubstituteModal}
