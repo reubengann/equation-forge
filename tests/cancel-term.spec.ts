@@ -4,6 +4,9 @@ import {
   getRenderedLatex,
   clickNodeByLatex,
   waitForMathRender,
+  buildTree,
+  getNodeRects,
+  getSelectedNodeIds,
 } from "./helpers/dragMathlive";
 
 function normalizeLatex(s: string): string {
@@ -34,5 +37,59 @@ test.describe("Term cancellation", () => {
 
     const latex = await getRenderedLatex(page);
     expect(normalizeLatex(latex)).toBe("a = c");
+  });
+
+  test("ctrl/cmd+click cancels matching factors in a fraction", async ({
+    page,
+  }) => {
+    const equation = String.raw`\ddot{x} = \frac{m g \sin\left(\theta\right)}{m}`;
+    await setEquation(page, equation);
+
+    const tree = buildTree(equation);
+    const divideId = Object.values(tree.nodesById).find(
+      (n) => n?.op === "Divide"
+    )?.id;
+    expect(divideId).toBeTruthy();
+    const [numId, denId] = (divideId ? tree.childrenById[divideId] : []) ?? [];
+    expect(numId).toBeTruthy();
+    expect(denId).toBeTruthy();
+
+    const isDescendant = (nodeId: string, ancestorId: string) => {
+      let cur: string | undefined | null = nodeId;
+      while (cur) {
+        if (cur === ancestorId) return true;
+        cur = tree.parentById[cur] ?? null;
+      }
+      return false;
+    };
+
+    const numM = Object.values(tree.nodesById).find(
+      (n) => n?.latex === "m" && isDescendant(n.id, numId)
+    )?.id;
+    const denM = Object.values(tree.nodesById).find(
+      (n) => n?.latex === "m" && isDescendant(n.id, denId)
+    )?.id;
+
+    expect(numM).toBeTruthy();
+    expect(denM).toBeTruthy();
+
+    await waitForMathRender(page, [numM!, denM!]);
+    const rects = await getNodeRects(page, [numM!, denM!]);
+
+    await page.mouse.click(rects[numM!].center.x, rects[numM!].center.y);
+    const modKey = process.platform === "darwin" ? "Meta" : "Control";
+    await page.keyboard.down(modKey);
+    await page.mouse.click(rects[denM!].center.x, rects[denM!].center.y);
+    await page.keyboard.up(modKey);
+
+    const selected = await getSelectedNodeIds(page);
+    expect(selected.length).toBe(2);
+
+    await page.keyboard.press("Delete");
+
+    const latex = await getRenderedLatex(page);
+    expect(normalizeLatex(latex)).toBe(
+      String.raw`\ddot{x} = g \sin\left(\theta\right)`
+    );
   });
 });

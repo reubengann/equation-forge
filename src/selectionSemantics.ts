@@ -25,7 +25,8 @@ export type ExprSelection =
       op: "Add" | "InvisibleOperator";
       start: number;
       end: number;
-    };
+    }
+  | { kind: "multi"; nodeIds: string[] };
 
 /**
  * Promote a node selection upward by `steps`, stopping before reaching an Equal.
@@ -54,6 +55,7 @@ export function expandSelection(
   sel: ExprSelection,
   dir: "left" | "right"
 ): { next: ExprSelection; nodeIdsToOverlay: string[] } | null {
+  if (sel.kind === "multi") return null;
   // Node -> Span
   if (sel.kind === "node") {
     const nodeId = sel.nodeId;

@@ -30,6 +30,7 @@ export function useSelection(tree: ExpressionTree | null, moveMode: MoveMode) {
 
   const selectionContainsId = useCallback(
     (sel: ExprSelection, id: string, tree: ExpressionTree): boolean => {
+      if (sel.kind === "multi") return sel.nodeIds.includes(id);
       if (sel.kind === "node") return sel.nodeId === id;
       const idx = tree.childIndexById[id];
       return (
@@ -46,6 +47,7 @@ export function useSelection(tree: ExpressionTree | null, moveMode: MoveMode) {
     (
       clickedId: string,
       shiftKey: boolean,
+      modKey: boolean,
       existingSelection: ExprSelection | null
     ): {
       promotedId: string;
@@ -69,6 +71,40 @@ export function useSelection(tree: ExpressionTree | null, moveMode: MoveMode) {
       }
 
       const normalizedId = normalizeSelection(tree, clickedId);
+
+      // Ctrl/Cmd multi-select toggle
+      if (modKey) {
+        const ids: string[] = [];
+        if (existingSelection?.kind === "node") {
+          ids.push(existingSelection.nodeId);
+        } else if (existingSelection?.kind === "multi") {
+          ids.push(...existingSelection.nodeIds);
+        }
+
+        const idx = ids.indexOf(normalizedId);
+        if (idx >= 0) ids.splice(idx, 1);
+        else ids.push(normalizedId);
+
+        let newSelection: ExprSelection | null = null;
+        if (ids.length === 1) newSelection = { kind: "node", nodeId: ids[0] };
+        else if (ids.length >= 2) newSelection = { kind: "multi", nodeIds: ids };
+
+        lastClickRef.current = {
+          nodeId: normalizedId,
+          ts: performance.now(),
+          count: 1,
+        };
+
+        return {
+          promotedId: normalizedId,
+          clickCount: 1,
+          shouldUsePromotedId: false,
+          dragIds: ids.length ? [ids[0]] : [],
+          newSelection,
+          useExistingSpan: false,
+          multiplicativeSpan: null,
+        };
+      }
 
       // Multi-click promotion
       const now = performance.now();

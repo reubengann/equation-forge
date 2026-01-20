@@ -27,6 +27,7 @@ import {
   getSelectionDetailsForNode,
   getSelectionDetailsForSpan,
   getResetSelectionDetails,
+  getSelectionDetailsForMulti,
   type SelectionDetails,
 } from "../../helpers/selectionHelpers";
 import { MathDisplayPanel } from "./MathDisplayPanel";
@@ -365,6 +366,7 @@ export function ExpressionPad({
 
   const expandTargetId = useMemo(() => {
     if (!tree || !selection) return null;
+    if (selection.kind === "multi") return null;
     if (selection.kind === "node") return selection.nodeId;
     const kids = tree.childrenById[selection.parentId] ?? [];
     const coversAll =
@@ -520,7 +522,46 @@ export function ExpressionPad({
     }
 
     // Use the selection hook to handle click logic
-    const clickResult = handleSelectionClick(clickedId, e.shiftKey, selection);
+    const modKey = e.metaKey || e.ctrlKey;
+    const clickResult = handleSelectionClick(
+      clickedId,
+      e.shiftKey,
+      modKey,
+      selection
+    );
+
+    // Ensure this pad receives keyboard events (Delete/Backspace) after click.
+    (e.currentTarget as HTMLElement).focus?.();
+
+    // Ctrl/Cmd multi-select: update selection only, no drag start.
+    if (modKey) {
+      if (clickResult.newSelection) {
+        setSelection(clickResult.newSelection);
+        applySelectionHighlight(clickResult.newSelection, tree, displayRef.current);
+
+        if (clickResult.newSelection.kind === "span") {
+          const details = getSelectionDetailsForSpan(
+            tree,
+            clickResult.newSelection,
+            clickResult.multiplicativeSpan ? "Multiplicative span" : undefined
+          );
+          updateSelectionDetails(details);
+        } else if (clickResult.newSelection.kind === "multi") {
+          const details = getSelectionDetailsForMulti(tree, clickResult.newSelection);
+          updateSelectionDetails(details);
+        } else {
+          const details = getSelectionDetailsForNode(tree, clickResult.newSelection.nodeId, {
+            clickedId,
+          });
+          updateSelectionDetails(details);
+        }
+      } else {
+        setSelection(null);
+        applySelectionHighlight(null, tree, displayRef.current);
+        updateSelectionDetails(getResetSelectionDetails("Cleared selection"));
+      }
+      return;
+    }
 
     // Handle SHIFT+click range selection
     if (e.shiftKey && clickResult.newSelection?.kind === "span") {
@@ -550,6 +591,9 @@ export function ExpressionPad({
           clickResult.newSelection,
           clickResult.multiplicativeSpan ? "Multiplicative span" : undefined
         );
+        updateSelectionDetails(details);
+      } else if (clickResult.newSelection.kind === "multi") {
+        const details = getSelectionDetailsForMulti(tree, clickResult.newSelection);
         updateSelectionDetails(details);
       } else {
         const details = getSelectionDetailsForNode(
@@ -636,6 +680,7 @@ export function ExpressionPad({
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
     if (!displayRef.current) return;
     if (!selection) return;
+    if (selection.kind === "multi") return;
     if (!tree) return;
 
     e.preventDefault();

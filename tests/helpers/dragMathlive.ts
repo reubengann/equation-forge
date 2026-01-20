@@ -46,13 +46,20 @@ function applyBias(point: Point, bias?: { dx?: number; dy?: number }): Point {
   };
 }
 
-export async function waitForMathRender(page: Page, nodeIds: string[] = []) {
+export async function waitForMathRender(
+  page: Page,
+  nodeIds: string[] = [],
+  displayIndex = 0
+) {
   await page.waitForSelector('[data-testid="math-display"]');
   await page.waitForFunction(
-    ({ nodeIds }) => {
-      const host = document.querySelector(
-        '[data-testid="math-display"]'
-      ) as HTMLElement | null;
+    ({ nodeIds, displayIndex }) => {
+      const hosts = Array.from(
+        document.querySelectorAll(
+          '[data-testid="math-display"]'
+        ) as NodeListOf<HTMLElement>
+      );
+      const host = hosts[displayIndex];
       if (!host) return false;
       const sr = host.shadowRoot ?? (host as any).shadowRoot;
       if (!sr) return false;
@@ -83,20 +90,24 @@ export async function waitForMathRender(page: Page, nodeIds: string[] = []) {
       }
       return true;
     },
-    { nodeIds },
+    { nodeIds, displayIndex },
     { timeout: 4000 }
   );
 }
 
 export async function getNodeRects(
   page: Page,
-  nodeIds: string[]
+  nodeIds: string[],
+  displayIndex = 0
 ): Promise<Record<string, { rect: Rect; center: Point }>> {
   const handle = await page.waitForFunction(
-    ({ nodeIds }) => {
-      const host = document.querySelector(
-        '[data-testid="math-display"]'
-      ) as HTMLElement | null;
+    ({ nodeIds, displayIndex }) => {
+      const hosts = Array.from(
+        document.querySelectorAll(
+          '[data-testid="math-display"]'
+        ) as NodeListOf<HTMLElement>
+      );
+      const host = hosts[displayIndex];
       if (!host) return null;
       const sr = host.shadowRoot ?? (host as any).shadowRoot;
       if (!sr) return null;
@@ -134,7 +145,7 @@ export async function getNodeRects(
       }
       return result;
     },
-    { nodeIds },
+    { nodeIds, displayIndex },
     { timeout: 4000 }
   );
 
@@ -233,11 +244,17 @@ export async function clickNodeByLatex(
   return { nodeId, point: pt };
 }
 
-export async function getSelectedNodeIds(page: Page): Promise<string[]> {
-  const ids = await page.evaluate(() => {
-    const host = document.querySelector(
-      '[data-testid="math-display"]'
-    ) as HTMLElement | null;
+export async function getSelectedNodeIds(
+  page: Page,
+  displayIndex = 0
+): Promise<string[]> {
+  const ids = await page.evaluate((index) => {
+    const hosts = Array.from(
+      document.querySelectorAll(
+        '[data-testid="math-display"]'
+      ) as NodeListOf<HTMLElement>
+    );
+    const host = hosts[index];
     const sr = host?.shadowRoot ?? (host as any)?.shadowRoot;
     if (!sr) return [];
     const els = Array.from(
@@ -249,7 +266,7 @@ export async function getSelectedNodeIds(page: Page): Promise<string[]> {
       if (id) set.add(id);
     }
     return Array.from(set);
-  });
+  }, displayIndex);
   return ids;
 }
 

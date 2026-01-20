@@ -23,6 +23,11 @@ export function applySelectionHighlight(
     return;
   }
 
+  if (sel.kind === "multi") {
+    setHighlightedText(displayEl, getDescendantNodeIds(tree, sel.nodeIds));
+    return;
+  }
+
   // span
   const kids = tree.childrenById[sel.parentId] ?? [];
   const ids = kids.slice(sel.start, sel.end + 1);
@@ -93,6 +98,30 @@ export function getSelectionDetailsForSpan(
     json: "",
     parent: sel.parentId ?? "",
     range: `[${sel.start}..${sel.end}] of ${kids.length}`,
+    childIds: ids.join(", "),
+    childOps: ops,
+    childLatex: latex,
+    note: note ?? "",
+  };
+}
+
+export function getSelectionDetailsForMulti(
+  tree: ExpressionTree,
+  sel: ExprSelection & { kind: "multi" },
+  note?: string
+): SelectionDetails {
+  const ids = sel.nodeIds;
+  const ops = ids.map((id) => tree.nodesById[id]?.op ?? "?").join(", ");
+  const latex = ids.map((id) => tree.nodesById[id]?.latex ?? "?").join(" | ");
+  return {
+    kind: "multi",
+    clickedId: "",
+    selectedId: "",
+    op: "",
+    latex: "",
+    json: "",
+    parent: "",
+    range: `${ids.length} nodes`,
     childIds: ids.join(", "),
     childOps: ops,
     childLatex: latex,

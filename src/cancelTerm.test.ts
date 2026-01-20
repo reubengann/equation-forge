@@ -52,18 +52,28 @@ describe("cancelTerm", () => {
     expect(normalizeSpaces(result!.latexPlain)).toBe("1 = a b");
   });
 
-  it("cancels a common factor between numerator and denominator", () => {
+  it("requires explicit pair selection to cancel a common factor", () => {
     const tree = treefromLatex(String.raw`\frac{a b}{a c}`);
     const divideId = tree.rootId;
     expect(tree.nodesById[divideId]?.op).toBe("Divide");
-    const numId = tree.childrenById[divideId]?.[0];
+    const [numId, denId] = tree.childrenById[divideId] ?? [];
     expect(numId).toBeTruthy();
+    expect(denId).toBeTruthy();
+
     const numAId = findNodeId(
       tree,
       (n) => n.latex === "a" && tree.parentById[n.id] === numId
     );
+    const denAId = findNodeId(
+      tree,
+      (n) => n.latex === "a" && tree.parentById[n.id] === denId
+    );
 
-    const result = cancelTerm(tree, select(numAId));
+    // Single selection should no longer cancel across the fraction.
+    expect(cancelTerm(tree, select(numAId))).toBeNull();
+
+    const multiSel: ExprSelection = { kind: "multi", nodeIds: [numAId, denAId] };
+    const result = cancelTerm(tree, multiSel);
     expect(result).not.toBeNull();
     expect(normalizeSpaces(result!.latexPlain)).toBe(String.raw`\frac{b}{c}`);
   });
