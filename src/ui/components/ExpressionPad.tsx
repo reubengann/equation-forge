@@ -41,6 +41,7 @@ import {
   installShadowStyle,
   setHighlightedText,
 } from "../../infra/mathlive/derivationPadHighlight";
+import { cancelTerm, canCancelTerm as canCancelTermCheck } from "../../cancelTerm";
 
 type InputMode = "mathlive" | "text";
 
@@ -380,6 +381,13 @@ export function ExpressionPad({
     commitJson(next.rootJson, { latex: next.latexPlain });
   }, [tree, expandTargetId]);
 
+  const onCancelTerm = useCallback(() => {
+    if (!tree || !selection) return;
+    const next = cancelTerm(tree, selection);
+    if (!next) return;
+    commitJson(next.rootJson, { latex: next.latexPlain });
+  }, [tree, selection, commitJson]);
+
   function undo() {
     undoHistory(applyPresentJson);
   }
@@ -615,6 +623,15 @@ export function ExpressionPad({
       return;
     }
 
+    if (key === "delete" || key === "backspace") {
+      if (!tree || !selection) return;
+      const next = cancelTerm(tree, selection);
+      if (!next) return;
+      e.preventDefault();
+      commitJson(next.rootJson, { latex: next.latexPlain });
+      return;
+    }
+
     if (!e.shiftKey) return;
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
     if (!displayRef.current) return;
@@ -768,6 +785,10 @@ export function ExpressionPad({
   const canSubstitute = !!substituteTargetId;
   const canApply = !!tree && isFlippableEquation(tree.rootJson);
   const canExpand = !!tree && !!expandTargetId;
+  const canCancel = useMemo(
+    () => canCancelTermCheck(tree, selection),
+    [tree, selection]
+  );
   const selectedNodeLatex =
     canSubstitute && tree && substituteTargetId
       ? tree.nodesById[substituteTargetId]?.latex ?? ""
@@ -988,6 +1009,8 @@ export function ExpressionPad({
                 canFlip={canFlip}
                 onExpand={onExpand}
                 canExpand={canExpand}
+                onCancelTerm={onCancelTerm}
+                canCancelTerm={canCancel}
                 onOpenApply={openApplyModal}
                 canApply={canApply}
                 onOpenSubstitute={openSubstituteModal}

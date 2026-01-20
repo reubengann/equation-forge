@@ -113,7 +113,39 @@ export function useDragMove(
       if (!drag) return false;
       if (e.pointerId !== drag.pointerId) return false;
 
-      const plan = lastPlanRef.current;
+      let plan = lastPlanRef.current;
+
+      // If we somehow missed a pointer-move update, recompute a plan at pointer-up.
+      if (!plan && tree && measureEl) {
+        const hitId = hitTestNodeIdInMathliveShadow(
+          measureEl,
+          e.clientX,
+          e.clientY
+        );
+        const hover =
+          hitId && tree.nodesById[hitId]?.op === "Equal"
+            ? remapEqualHoverToSide(tree, measureEl, hitId, e.clientX)
+            : hitId;
+
+        const effectiveSelectedIds = normalizeSelectedIdsForMove({
+          tree,
+          selectedIds: drag.selectedIds,
+          mode: moveMode,
+          hoverId: hover,
+        });
+
+        plan = planMove({
+          tree,
+          selectedIds: effectiveSelectedIds,
+          hoverId: hover,
+          pointer: { x: e.clientX, y: e.clientY },
+          rectFor,
+          mode: moveMode,
+        });
+
+        lastPlanRef.current = plan;
+      }
+
       const moveTarget = planToApplyMoveTarget(plan);
 
       // If the computed plan is additive-only (Reorder/Insert/Wrap into Add) AND
@@ -189,6 +221,36 @@ export function useDragMove(
         });
         if (next) {
           onMoveComplete(next, next.latexPlain);
+          renderInsertOverlay(null, insertOverlayEl, displayEl, rectFor, tree);
+          setDrag(null);
+          lastPlanRef.current = null;
+          return true;
+        }
+      }
+
+      // Fallback: if the multiplicative cross-equal executor rejected (e.g. due to
+      // an over-normalized selection), retry with the raw plan ids even if the
+      // computed moveTarget is missing.
+      if (tree && plan && plan.kind === "MoveAcrossEqual" && moveMode === "multiplicative") {
+        const fallbackHover =
+          plan.drop.kind === "intoAdd" ? plan.drop.addId : plan.drop.replaceId;
+        const fallbackSlot =
+          plan.drop.kind === "intoAdd"
+            ? plan.drop.toIndex
+            : plan.drop.kind === "ontoSideRoot"
+            ? plan.drop.insertIndex
+            : null;
+
+        const retry = applyMove({
+          tree,
+          selectedIds: [plan.movedId],
+          hoverId: fallbackHover,
+          targetSlot: fallbackSlot,
+          mode: "multiplicative",
+        });
+
+        if (retry) {
+          onMoveComplete(retry, retry.latexPlain);
           renderInsertOverlay(null, insertOverlayEl, displayEl, rectFor, tree);
           setDrag(null);
           lastPlanRef.current = null;

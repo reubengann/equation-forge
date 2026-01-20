@@ -221,10 +221,14 @@ export function applyMoveMultiplicative(
     return ExpressionTree.create(nextRoot);
   }
 
+  // Determine the Equal LCA (with a fallback when routeBetween fails for edge cases)
   const route = routeBetween(tree, movedId, hoverNodeId);
-  if (!route) return null;
-
-  const equalId = route.lcaId;
+  const equalId =
+    route?.lcaId ??
+    findEqualSideRoot(tree, hoverNodeId)?.equalId ??
+    findEqualSideRoot(tree, movedId)?.equalId ??
+    null;
+  if (!equalId) return null;
   if (tree.nodesById[equalId]?.op !== "Equal") return null;
 
   const sideInfoFrom = findEqualSideRoot(tree, movedId);

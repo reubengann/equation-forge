@@ -4,19 +4,19 @@ overview: Add a new “Term cancellation” operation that removes a selected te
 todos:
   - id: tests-unit
     content: Write failing unit tests for cancelTerm (sum/product/fraction/no-op).
-    status: pending
+    status: completed
   - id: impl-cancelTerm
     content: Implement src/cancelTerm.ts with CE-based equivalence checks + tree rewrites.
-    status: pending
+    status: completed
   - id: ui-toolbar-keybind
     content: Wire cancelTerm into ExpressionPad (Delete/Backspace) and add toolbar IconButton with disabled state.
-    status: pending
+    status: completed
   - id: tests-e2e
     content: Add Playwright spec covering Delete key + toolbar button for term cancellation.
-    status: pending
+    status: completed
   - id: run-tests
     content: Run vitest + playwright and fix any failures/flakes.
-    status: pending
+    status: completed
 ---
 
 ## Goal

@@ -13,6 +13,8 @@ type MoveModeToolbarProps = {
   canFlip: boolean;
   onExpand: () => void;
   canExpand: boolean;
+  onCancelTerm: () => void;
+  canCancelTerm: boolean;
   onOpenApply: () => void;
   canApply: boolean;
   onOpenSubstitute: () => void;
@@ -67,6 +69,8 @@ export const MoveModeToolbar = forwardRef<
     canFlip,
     onExpand,
     canExpand,
+    onCancelTerm,
+    canCancelTerm,
     onOpenApply,
     canApply,
     onOpenSubstitute,
@@ -150,6 +154,17 @@ export const MoveModeToolbar = forwardRef<
         onClick={onExpand}
         disabled={!canExpand}
         testId="expand-button"
+      />
+      <IconButton
+        label="Cancel term"
+        icon={
+          <span style={materialSymbolStyle} aria-hidden>
+            backspace
+          </span>
+        }
+        onClick={onCancelTerm}
+        disabled={!canCancelTerm}
+        testId="cancel-term-button"
       />
       <IconButton
         label="Apply to both sides"
