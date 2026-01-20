@@ -111,6 +111,11 @@ export type ExpressionPadProps = {
 };
 
 MathfieldElement.fontsDirectory = "/fonts";
+// Ensure all MathLive fields pick up our custom macros (e.g., \differentialD).
+MathfieldElement.defaultOptions = {
+  ...(MathfieldElement.defaultOptions ?? {}),
+  macros: vecMacroOptions.macros,
+};
 
 type Mode = "entry" | "render";
 
@@ -1003,9 +1008,8 @@ export function ExpressionPad({
             <div style={{ flex: "1 1 auto" }}>
               {inputMode === "mathlive" ? (
                 <>
-                  {/* MathLive note: passing macros via the prop keeps typing sane.
-                      Setting macros on the element (or via setOptions) caused the
-                      infamous “a() ()” parenthesis duplication. */}
+                  {/* MathLive note: pass macros as an object prop to avoid the
+                      parenthesis duplication bug we saw when stringifying. */}
                   <MathField
                     ref={(el: any) => {
                       inputRef.current = el;

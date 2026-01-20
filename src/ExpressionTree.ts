@@ -224,7 +224,12 @@ export class ExpressionTree {
   constructor(mj: MJ) {
     const normalized = normalizeVectors(mj);
     this.rootJson = normalized;
-    this._leafLatex = (x) => String(x);
+    // Map atomic symbols to display forms before general leaf handling.
+    this._leafLatex = (x) => {
+      if (x === "DifferentialD") return String.raw`\mathrm{d}`;
+      if (x === "PartialD") return String.raw`\partial`;
+      return String(x);
+    };
     const parseResult = this.emit(normalized, null, []);
     this.latexTagged = parseResult.latexTagged;
     this.latexPlain = parseResult.latexPlain;

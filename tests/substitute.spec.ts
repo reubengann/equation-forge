@@ -81,4 +81,28 @@ test.describe("Substitute modal", () => {
       .toContain("c + a = b");
     await expect(page.getByTestId("redo-button")).toBeDisabled();
   });
+
+  test("differential macro stays upright in substitute input", async ({ page }) => {
+    const equation = String.raw`2 \dot{x} \ddot{x} = 2 \dot{x} g \sin\left(\theta\right)`;
+    await setEquation(page, equation);
+
+    // Select the whole LHS.
+    await clickNodeByLatex(page, equation, ["2 \\dot{x} \\ddot{x}", "2\\dot{x}\\ddot{x}"]);
+
+    // Open substitute modal.
+    await page.getByTestId("substitute-button").click();
+
+    // Enter derivative operator using \differentialD.
+    await setSubstituteInput(
+      page,
+      String.raw`\dfrac{\differentialD}{\differentialD t} (\dot{x})`
+    );
+    await page.getByRole("button", { name: "OK" }).click();
+
+    const latex = normalizeLatex(await getRenderedLatex(page));
+
+    // Should render upright d, not the symbol name.
+    expect(latex).not.toContain("DifferentialD");
+    expect(latex).toContain(String.raw`\mathrm{d}{t}`);
+  });
 });

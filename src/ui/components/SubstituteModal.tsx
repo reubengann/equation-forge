@@ -123,8 +123,8 @@ export function SubstituteModal({
             <div style={{ ...labelStyle, marginBottom: 2 }}>
               Replace with (LaTeX)
             </div>
-            {/* MathLive note: macros via the prop keep editing stable; setting
-                el.macros or setOptions reintroduced the parenthesis glitch. */}
+            {/* MathLive note: pass macros as an object prop; stringifying caused
+                issues in earlier builds. */}
             <MathField
               ref={(el: any) => {
                 substituteFieldRef.current = el;

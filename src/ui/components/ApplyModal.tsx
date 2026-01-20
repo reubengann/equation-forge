@@ -122,8 +122,8 @@ export function ApplyModal({
             }}
           >
             <div style={{ ...labelStyle, marginBottom: 2 }}>Operation (LaTeX)</div>
-            {/* MathLive note: use the macros prop, not element mutation/setOptions,
-                to avoid the extra-parenthesis bug while still honoring \vec. */}
+            {/* MathLive note: pass macros as an object prop; stringifying caused
+                issues in earlier builds. */}
             <MathField
               ref={(el: any) => {
                 applyFieldRef.current = el;
