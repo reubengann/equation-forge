@@ -4,6 +4,9 @@ import type { MoveMode } from "../../moveExpression/applyMove";
 export const isVectorNode = (info?: { op?: string; latex?: string }) =>
   info?.op === "OverVector" ||
   info?.op === "Vector" ||
+  // Treat overdots as vector-like so we avoid collapsing scalar factors with
+  // time-derivative operands when moving across '='.
+  info?.op === "OverDot" ||
   (info?.op === "Symbol" && (info?.latex ?? "").includes("\\vec"));
 
 export function hasVectorAncestor(

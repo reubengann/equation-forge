@@ -12,6 +12,33 @@ function normalizeLatex(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
+test("multiplicative: move scalar from lhs product to rhs denominator", async ({
+  page,
+}) => {
+  const equation = String.raw`m \ddot{x} = F_{g} \sin\left(\theta\right)`;
+
+  await setEquation(page, equation);
+  await setMoveMode(page, "multiplicative");
+
+  await dragByLatex(page, {
+    equationLatex: equation,
+    fromLatex: "m",
+    toLatex: [
+      String.raw`F_{g} \sin\left(\theta\right)`,
+      String.raw`F_g \sin(\theta)`,
+      String.raw`F_{g}\sin\left(\theta\right)`,
+    ],
+  });
+
+  const infoArgs = await page.getByTestId("info-args").inputValue();
+  expect(infoArgs).toMatch(/"mode"\s*:\s*"multiplicative"/);
+
+  const latex = await getRenderedLatex(page);
+  expect(normalizeLatex(latex)).toContain(
+    normalizeLatex(String.raw`\ddot{x} = \frac{F_{g} \sin\left(\theta\right)}{m}`)
+  );
+});
+
 test("multiplicative: drag scalar m to LHS of basis vector in dot product", async ({
   page,
 }) => {

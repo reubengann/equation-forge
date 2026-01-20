@@ -47,6 +47,20 @@ describe("moveSelectionPolicy", () => {
     ).toBe(true);
   });
 
+  it("does not promote when product contains an overdotted sibling", () => {
+    const tree = treefromLatex(String.raw`m \ddot{x} = F_{g} \sin\left(\theta\right)`);
+    const mId = findNodeByLatex(tree, "m");
+
+    const result = normalizeSelectedIdsForMove({
+      tree,
+      selectedIds: [mId],
+      mode: "multiplicative",
+      hoverId: null,
+    });
+
+    expect(result).toEqual([mId]);
+  });
+
   it("promotes single factor to product in additive mode when product is under Equal", () => {
     const tree = treefromLatex("a b = c");
     const bId = findNodeByLatex(tree, "b");
