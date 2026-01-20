@@ -23,6 +23,7 @@ type MoveModeToolbarProps = {
   canSubstitute: boolean;
   onCopyLatex: () => void;
   canCopyLatex: boolean;
+  copyFeedback?: "idle" | "done";
   onEdit: () => void;
 };
 
@@ -81,10 +82,13 @@ export const MoveModeToolbar = forwardRef<
     canSubstitute,
     onCopyLatex,
     canCopyLatex,
+    copyFeedback = "idle",
     onEdit,
   },
   ref
 ) {
+  const isCopyComplete = copyFeedback === "done";
+
   return (
     <div style={toolbarStyle} ref={ref}>
       <IconButton
@@ -204,15 +208,16 @@ export const MoveModeToolbar = forwardRef<
         testId="substitute-button"
       />
       <IconButton
-        label="Copy LaTeX"
+        label={isCopyComplete ? "Copied!" : "Copy LaTeX"}
         icon={
           <span style={materialSymbolStyle} aria-hidden>
-            content_copy
+            {isCopyComplete ? "check" : "content_copy"}
           </span>
         }
         onClick={onCopyLatex}
         disabled={!canCopyLatex}
         testId="copy-latex-button"
+        tone={isCopyComplete ? "success" : "default"}
       />
       <IconButton
         label="Edit"

@@ -35,6 +35,13 @@ const iconSpanStyle: CSSProperties = {
   color: "inherit",
 };
 
+const successToneStyle: CSSProperties = {
+  borderColor: "#2e7d32",
+  color: "#2e7d32",
+  background: "rgba(46, 125, 50, 0.12)",
+  boxShadow: "0 0 0 1px rgba(46, 125, 50, 0.32)",
+};
+
 export type IconButtonProps = {
   label: string;
   icon: ReactNode;
@@ -42,6 +49,7 @@ export type IconButtonProps = {
   active?: boolean;
   testId?: string;
   disabled?: boolean;
+  tone?: "default" | "success";
 };
 
 export function IconButton({
@@ -51,10 +59,12 @@ export function IconButton({
   active,
   testId,
   disabled,
+  tone = "default",
 }: IconButtonProps) {
   const btnStyle = {
     ...iconButtonBaseStyle,
     ...(active ? iconButtonActiveStyle : {}),
+    ...(tone === "success" ? successToneStyle : {}),
     ...(disabled
       ? { opacity: 0.5, cursor: "not-allowed", borderColor: "#ccc" }
       : {}),

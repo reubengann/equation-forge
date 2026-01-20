@@ -237,6 +237,8 @@ export function ExpressionPad({
   const [selectionChildOps, setSelectionChildOps] = useState<string>("");
   const [selectionChildLatex, setSelectionChildLatex] = useState<string>("");
   const [selectionNote, setSelectionNote] = useState<string>("");
+  const [copyFeedback, setCopyFeedback] = useState<"idle" | "done">("idle");
+  const copyFeedbackTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!initialSnapshot) return;
@@ -852,6 +854,25 @@ export function ExpressionPad({
       : latexDraft;
   const canCopyLatex = !!latexForCopy?.trim();
 
+  useEffect(() => {
+    return () => {
+      if (copyFeedbackTimeoutRef.current !== null) {
+        window.clearTimeout(copyFeedbackTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function markCopySuccess() {
+    setCopyFeedback("done");
+    if (copyFeedbackTimeoutRef.current !== null) {
+      window.clearTimeout(copyFeedbackTimeoutRef.current);
+    }
+    copyFeedbackTimeoutRef.current = window.setTimeout(
+      () => setCopyFeedback("idle"),
+      900
+    );
+  }
+
   function displayNodeInfo(nodeId: string | null): string {
     if (!nodeId) return "No id";
     if (!tree) return "No tree";
@@ -900,28 +921,36 @@ export function ExpressionPad({
 
   async function onCopyLatex() {
     if (!canCopyLatex || !latexForCopy) return;
+    let copied = false;
     // Prefer modern clipboard API; fall back to execCommand when unavailable.
     try {
       if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
         await navigator.clipboard.writeText(latexForCopy);
-        return;
+        copied = true;
       }
     } catch {
       // Ignore and try the legacy path.
     }
 
-    try {
-      if (typeof document === "undefined") return;
-      const textarea = document.createElement("textarea");
-      textarea.value = latexForCopy;
-      textarea.style.position = "fixed";
-      textarea.style.left = "-9999px";
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
-    } catch {
-      // Swallow copy failures; button is best-effort.
+    if (!copied) {
+      try {
+        if (typeof document === "undefined") return;
+        const textarea = document.createElement("textarea");
+        textarea.value = latexForCopy;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+        copied = true;
+      } catch {
+        // Swallow copy failures; button is best-effort.
+      }
+    }
+
+    if (copied) {
+      markCopySuccess();
     }
   }
 
@@ -1104,6 +1133,7 @@ export function ExpressionPad({
                 canSubstitute={canSubstitute}
                 onCopyLatex={onCopyLatex}
                 canCopyLatex={canCopyLatex}
+                copyFeedback={copyFeedback}
                 onEdit={onEdit}
               />
             }
