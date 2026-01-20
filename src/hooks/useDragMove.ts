@@ -12,6 +12,7 @@ import {
 import { renderInsertOverlay } from "../ui/drag/renderInsertOverlay";
 import {
   hitTestNodeIdInMathliveShadow,
+  hitTestOrClosestNodeIdInMathliveShadow,
   remapEqualHoverToSide,
 } from "../infra/mathlive/mathliveShadow";
 import { normalizeSelectedIdsForMove } from "../domain/move/moveSelectionPolicy";
@@ -47,28 +48,48 @@ export function useDragMove(
       planDescription: string;
       infoArgs: string;
       hoverId: string | null;
+      hoverUsedFallback: boolean;
     } => {
       if (!drag) {
-        return { plan: null, planDescription: "", infoArgs: "", hoverId: null };
+        return {
+          plan: null,
+          planDescription: "",
+          infoArgs: "",
+          hoverId: null,
+          hoverUsedFallback: false,
+        };
       }
 
       if (e.pointerId !== drag.pointerId) {
-        return { plan: null, planDescription: "", infoArgs: "", hoverId: null };
+        return {
+          plan: null,
+          planDescription: "",
+          infoArgs: "",
+          hoverId: null,
+          hoverUsedFallback: false,
+        };
       }
       if (!tree || !measureEl) {
-        return { plan: null, planDescription: "", infoArgs: "", hoverId: null };
+        return {
+          plan: null,
+          planDescription: "",
+          infoArgs: "",
+          hoverId: null,
+          hoverUsedFallback: false,
+        };
       }
 
-      const hoverId = hitTestNodeIdInMathliveShadow(
+      const hoverHit = hitTestOrClosestNodeIdInMathliveShadow(
         measureEl,
         e.clientX,
-        e.clientY
+        e.clientY,
+        { maxDistance: 40 }
       );
 
       const hover =
-        hoverId && tree.nodesById[hoverId]?.op === "Equal"
-          ? remapEqualHoverToSide(tree, measureEl, hoverId, e.clientX)
-          : hoverId;
+        hoverHit.id && tree.nodesById[hoverHit.id]?.op === "Equal"
+          ? remapEqualHoverToSide(tree, measureEl, hoverHit.id, e.clientX)
+          : hoverHit.id;
 
       const effectiveSelectedIds = normalizeSelectedIdsForMove({
         tree,
@@ -93,6 +114,7 @@ export function useDragMove(
         {
           selectedIds: effectiveSelectedIds,
           hoverId: hover,
+          hoverUsedFallback: hoverHit.usedFallback,
           pointer: { x: e.clientX, y: e.clientY },
           mode: moveMode,
         },
@@ -103,7 +125,13 @@ export function useDragMove(
       // Render overlay
       renderInsertOverlay(plan, insertOverlayEl, displayEl, rectFor, tree);
 
-      return { plan, planDescription, infoArgs, hoverId: hover };
+      return {
+        plan,
+        planDescription,
+        infoArgs,
+        hoverId: hover,
+        hoverUsedFallback: hoverHit.usedFallback,
+      };
     },
     [drag, tree, measureEl, displayEl, insertOverlayEl, moveMode, rectFor]
   );
@@ -117,11 +145,13 @@ export function useDragMove(
 
       // If we somehow missed a pointer-move update, recompute a plan at pointer-up.
       if (!plan && tree && measureEl) {
-        const hitId = hitTestNodeIdInMathliveShadow(
+        const hit = hitTestOrClosestNodeIdInMathliveShadow(
           measureEl,
           e.clientX,
-          e.clientY
+          e.clientY,
+          { maxDistance: 40 }
         );
+        const hitId = hit.id;
         const hover =
           hitId && tree.nodesById[hitId]?.op === "Equal"
             ? remapEqualHoverToSide(tree, measureEl, hitId, e.clientX)

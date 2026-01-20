@@ -40,6 +40,10 @@ export function describeMovePlan(plan: MovePlan | null): string {
         plan.drop.replaceId
       } and inserting ${posLabel}`;
     }
+    case "LiftDotScalar": {
+      const posLabel = plan.insertIndex === 0 ? "before" : "after";
+      return `Lift scalar ${plan.movedId} out of DotProduct ${plan.dotId} and place ${posLabel} it`;
+    }
     default:
       return "Unknown plan";
   }
@@ -77,6 +81,8 @@ export function planToApplyMoveTarget(plan: MovePlan | null): {
         hoverId: plan.drop.replaceId,
         targetSlot: plan.drop.insertIndex,
       };
+    case "LiftDotScalar":
+      return { hoverId: plan.dotId, targetSlot: plan.insertIndex };
     default:
       return null;
   }

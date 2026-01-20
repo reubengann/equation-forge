@@ -106,6 +106,11 @@ export function computeInsertX(
   if (plan.kind === "MergeIntoFractionNumerator") {
     return null;
   }
+  if (plan.kind === "LiftDotScalar") {
+    const r = rectFor(plan.dotId);
+    if (!r) return null;
+    return plan.insertIndex === 0 ? r.left : r.right;
+  }
 
   return null;
 }
@@ -124,6 +129,7 @@ export function targetRectForPlan(
   }
   if (plan.kind === "MergeIntoFractionNumerator")
     return rectFor(plan.divideId);
+  if (plan.kind === "LiftDotScalar") return rectFor(plan.dotId);
   return null;
 }
 

@@ -7,6 +7,19 @@ function isOneTerm(mj: MJ): boolean {
   return mj === 1 || mj === "1";
 }
 
+function isAncestorOrSelf(
+  tree: ExpressionTree,
+  ancestorId: string,
+  nodeId: string | null | undefined
+): boolean {
+  let cur: string | null | undefined = nodeId;
+  while (cur) {
+    if (cur === ancestorId) return true;
+    cur = tree.parentById[cur] ?? null;
+  }
+  return false;
+}
+
 function normalizeMul(factors: MJ[]): MJ {
   const filtered = factors.filter((f) => !isOneTerm(f));
   const use = filtered.length === 0 ? [1] : filtered;
@@ -219,6 +232,98 @@ export function applyMoveMultiplicative(
     const normalizedParent = normalizeMul(nextFactors);
     const nextRoot = setAtPath(tree.rootJson, parentPath, normalizedParent);
     return ExpressionTree.create(nextRoot);
+  }
+
+  // Lift a scalar out of a DotProduct operand onto the dot (before/after) on the same side.
+  if (
+    tree.nodesById[hoverNodeId]?.op === "DotProduct" &&
+    targetSlot != null &&
+    hoverNodeId !== movedId
+  ) {
+    const dotId = hoverNodeId;
+    const dotChildren = tree.childrenById[dotId] ?? [];
+    if (dotChildren.length === 2) {
+      const operandIndex = dotChildren.findIndex((id) =>
+        isAncestorOrSelf(tree, id, movedId)
+      );
+      const fromSide = findEqualSideRoot(tree, movedId);
+      const toSide = findEqualSideRoot(tree, dotId);
+      const sameSideOrNoEqual =
+        !fromSide ||
+        !toSide ||
+        fromSide.equalId !== toSide.equalId ||
+        fromSide.sideSlot === toSide.sideSlot;
+
+      if ((operandIndex === 0 || operandIndex === 1) && sameSideOrNoEqual) {
+        const operandId = dotChildren[operandIndex];
+        const operandPath = tree.pathById[operandId];
+        const dotPath = tree.pathById[dotId];
+        const movedPath = tree.pathById[movedId];
+        if (!operandPath || !dotPath || !movedPath) return null;
+
+        const operandExpr = getAtPath(tree.rootJson, operandPath) as MJ;
+        const movedExpr = getAtPath(tree.rootJson, movedPath) as MJ;
+        const operandChildren = tree.childrenById[operandId] ?? [];
+
+        let remainingOperand: MJ | null = null;
+        if (
+          Array.isArray(operandExpr) &&
+          (operandExpr[0] === "InvisibleOperator" || operandExpr[0] === "Multiply")
+        ) {
+          const factors = operandExpr.slice(1) as MJ[];
+          const movedIndex = operandChildren.indexOf(movedId);
+          if (movedIndex < 0 || movedIndex >= factors.length) return null;
+          const kept = factors.filter((_, i) => i !== movedIndex);
+          remainingOperand = normalizeMul(kept);
+        } else {
+          // Only lift when the operand is a product container we can safely modify.
+          return null;
+        }
+
+        const dotExpr = getAtPath(tree.rootJson, dotPath) as MJNode;
+        if (!Array.isArray(dotExpr) || dotExpr[0] !== "DotProduct") return null;
+        const nextDotKids = [...dotExpr.slice(1)] as MJ[];
+        nextDotKids[operandIndex] = remainingOperand;
+        const nextDot: MJNode = ["DotProduct", ...nextDotKids];
+
+        const dotParentId = tree.parentById[dotId];
+        const dotParentOp = dotParentId
+          ? tree.nodesById[dotParentId]?.op
+          : null;
+        const dotParentPath = dotParentId ? tree.pathById[dotParentId] : null;
+
+        let nextRoot: MJ = tree.rootJson;
+        if (
+          dotParentId &&
+          dotParentPath &&
+          (dotParentOp === "InvisibleOperator" || dotParentOp === "Multiply")
+        ) {
+          const parentExpr = getAtPath(tree.rootJson, dotParentPath) as MJNode;
+          const [parentOp, ...factors] = parentExpr;
+          const siblings = tree.childrenById[dotParentId] ?? [];
+          const dotIndex = siblings.indexOf(dotId);
+          if (dotIndex < 0) return null;
+
+          const nextFactors = [...factors];
+          nextFactors[dotIndex] = nextDot;
+
+          const insertionIndex =
+            targetSlot === 0 ? dotIndex : Math.min(nextFactors.length, dotIndex + 1);
+          nextFactors.splice(insertionIndex, 0, movedExpr);
+
+          const normalizedParent = normalizeMul(nextFactors as MJ[]);
+          nextRoot = setAtPath(nextRoot, dotParentPath, normalizedParent);
+        } else {
+          // Dot is a side root or standalone expression; wrap into a product.
+          const product = normalizeMul(
+            targetSlot === 0 ? [movedExpr, nextDot] : [nextDot, movedExpr]
+          );
+          nextRoot = setAtPath(nextRoot, dotPath, product);
+        }
+
+        return ExpressionTree.create(nextRoot);
+      }
+    }
   }
 
   // Determine the Equal LCA (with a fallback when routeBetween fails for edge cases)

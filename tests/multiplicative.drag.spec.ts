@@ -48,6 +48,28 @@ test("multiplicative: drag scalar m to LHS of basis vector in dot product", asyn
   }
 });
 
+test("multiplicative: drag scalar inside dot to the front", async ({ page }) => {
+  const equation = String.raw`\vec{a} \cdot m \vec{b}`;
+
+  await setEquation(page, equation);
+  await setMoveMode(page, "multiplicative");
+
+  await dragByLatex(page, {
+    equationLatex: equation,
+    fromLatex: "m",
+    toLatex: String.raw`\vec{a} \cdot m \vec{b}`,
+    toBias: { dx: -35 },
+  });
+
+  const infoArgs = await page.getByTestId("info-args").inputValue();
+  expect(infoArgs).toMatch(/"mode"\s*:\s*"multiplicative"/);
+
+  const latex = await getRenderedLatex(page);
+  expect(normalizeLatex(latex)).toContain(
+    normalizeLatex(String.raw`m \vec{a} \cdot \vec{b}`)
+  );
+});
+
 test("multiplicative: drag denominator product across '=' to LHS", async ({
   page,
 }) => {

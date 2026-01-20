@@ -191,3 +191,56 @@ export function hitTestNodeIdInMathliveShadow(
 
   return bestId;
 }
+
+type DistanceResult = { id: string; distance: number };
+
+function distanceToRect(rect: RectLTRB, x: number, y: number): number {
+  const dx = Math.max(rect.left - x, 0, x - rect.right);
+  const dy = Math.max(rect.top - y, 0, y - rect.bottom);
+  return Math.hypot(dx, dy);
+}
+
+function closestNodeIdInMathliveShadow(
+  mathDivEl: HTMLElement,
+  clientX: number,
+  clientY: number
+): DistanceResult | null {
+  const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
+  if (!sr) return null;
+
+  let best: DistanceResult | null = null;
+
+  const els = sr.querySelectorAll<HTMLElement>("[data-node-id]");
+  for (const el of els) {
+    const id = el.dataset.nodeId;
+    if (!id) continue;
+    const rect = rectFromElement(el);
+    const dist = distanceToRect(rect, clientX, clientY);
+    if (best == null || dist < best.distance) {
+      best = { id, distance: dist };
+    }
+  }
+
+  return best;
+}
+
+/**
+ * Hit-test first; if no direct hit, fall back to the closest node within a tolerance.
+ */
+export function hitTestOrClosestNodeIdInMathliveShadow(
+  mathDivEl: HTMLElement,
+  clientX: number,
+  clientY: number,
+  opts?: { maxDistance?: number }
+): { id: string | null; usedFallback: boolean } {
+  const hit = hitTestNodeIdInMathliveShadow(mathDivEl, clientX, clientY);
+  if (hit) return { id: hit, usedFallback: false };
+
+  const closest = closestNodeIdInMathliveShadow(mathDivEl, clientX, clientY);
+  if (!closest) return { id: null, usedFallback: false };
+
+  const limit = opts?.maxDistance ?? 32;
+  if (closest.distance > limit) return { id: null, usedFallback: false };
+
+  return { id: closest.id, usedFallback: true };
+}

@@ -121,46 +121,41 @@ function normalizeDotProducts(mj: MJ | null): MJ | null {
   const op = mj[0];
   const kids = mj.slice(1).map((child) => normalizeDotProducts(child as MJ));
 
+  // Preserve dot-product operand structure; avoid lifting scalar factors outward.
+  if (op === "DotProduct") {
+    return ["DotProduct", ...kids] as MJ;
+  }
+
+  // Convert implicit products that include (at least) two vector-containing factors
+  // into a DotProduct, but keep scalars where they originally appeared.
   if (op === "InvisibleOperator") {
     const factors = kids as MJ[];
-    const vectorFactors = factors.filter((f) => containsVector(f));
-    if (vectorFactors.length === 2) {
-      const scalarFactors = factors.filter((f) => !containsVector(f));
-      const leftSplit = splitProductFactors(vectorFactors[0] as MJ);
-      const rightSplit = splitProductFactors(vectorFactors[1] as MJ);
-      const leftInner =
-        buildProduct([...leftSplit.scalars, ...leftSplit.others]) ??
-        vectorFactors[0];
-      const rightInner =
-        buildProduct([...rightSplit.scalars, ...rightSplit.others]) ??
-        vectorFactors[1];
-      const dot: MJ = ["DotProduct", leftInner, rightInner];
-      return scalarFactors.length > 0
-        ? (["InvisibleOperator", ...scalarFactors, dot] as MJ)
-        : dot;
+    const vectorIndexes = factors
+      .map((f, i) => (containsVector(f) ? i : -1))
+      .filter((i) => i >= 0);
+
+    if (vectorIndexes.length >= 2) {
+      const first = vectorIndexes[0];
+      const last = vectorIndexes[vectorIndexes.length - 1];
+
+      const left = factors[first];
+      const rightFactors = factors.slice(first + 1);
+      const right = buildProduct(rightFactors) ?? factors[last];
+
+      const before = factors.slice(0, first);
+      const after = factors.slice(last + 1);
+
+      const dot: MJ = ["DotProduct", left, right];
+      const combined: MJ[] = [...before, dot, ...after];
+
+      if (combined.length === 1) return dot;
+      return ["InvisibleOperator", ...combined] as MJ;
     }
+
     return [op, ...kids] as MJ;
   }
 
-  if (op !== "DotProduct") {
-    return [op, ...kids] as MJ;
-  }
-
-  const left = kids[0] as MJ | undefined;
-  const right = kids[1] as MJ | undefined;
-  if (!left || !right) return [op, ...kids] as MJ;
-
-  const leftSplit = splitProductFactors(left);
-  const rightSplit = splitProductFactors(right);
-
-  const outerScalars = [...leftSplit.scalars, ...rightSplit.scalars];
-  const leftInner = buildProduct(leftSplit.others) ?? left;
-  const rightInner = buildProduct(rightSplit.others) ?? right;
-
-  const core: MJ = ["DotProduct", leftInner, rightInner];
-  return outerScalars.length > 0
-    ? (["InvisibleOperator", ...outerScalars, core] as MJ)
-    : core;
+  return [op, ...kids] as MJ;
 }
 
 export function box(mj: MJ) {

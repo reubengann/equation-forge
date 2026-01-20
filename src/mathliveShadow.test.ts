@@ -7,6 +7,7 @@ import {
   getChildRectsInShadow,
   getSlotForAddReorder,
   hitTestNodeIdInMathliveShadow,
+  hitTestOrClosestNodeIdInMathliveShadow,
 } from "./infra/mathlive/mathliveShadow";
 
 type Rect = { left: number; right: number; top: number; bottom: number };
@@ -113,6 +114,19 @@ describe("mathliveShadow helpers", () => {
     const mathDiv = { shadowRoot: new StubShadowRoot([el1, el2]) } as any;
 
     expect(hitTestNodeIdInMathliveShadow(mathDiv, 15, 15)).toBe("n2");
+  });
+
+  it("hitTestOrClosestNodeIdInMathliveShadow falls back to nearest within tolerance", () => {
+    const el1 = new StubEl("wide", { left: 0, right: 20, top: 0, bottom: 10 });
+    const el2 = new StubEl("nearby", { left: 40, right: 50, top: 0, bottom: 10 });
+    const mathDiv = { shadowRoot: new StubShadowRoot([el1, el2]) } as any;
+
+    // Point is outside both rects but closer to "nearby"
+    const result = hitTestOrClosestNodeIdInMathliveShadow(mathDiv, 45, 30, {
+      maxDistance: 40,
+    });
+    expect(result.id).toBe("nearby");
+    expect(result.usedFallback).toBe(true);
   });
 
   it("getSlotForMoveContainer on singleton uses pickInsertSlot and returns null when no rects", () => {

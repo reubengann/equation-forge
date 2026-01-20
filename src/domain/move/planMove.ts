@@ -78,6 +78,13 @@ export type MovePlan =
             replaceId: string;
             replaceParentId: string; // should be equalId
             replaceSlot: 0 | 1; // should match toSide
+          }
+        | {
+            kind: "LiftDotScalar";
+            dotId: string;
+            movedId: string;
+            operandIndex: 0 | 1;
+            insertIndex: 0 | 1;
           };
     };
 
@@ -221,6 +228,58 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
             fromMulId: movedParentId,
             divideId,
             movedId,
+          };
+        }
+      }
+    }
+  }
+
+  // Multiplicative: lift a scalar out of a DotProduct operand onto the dot (before/after).
+  // Guard: only when hover is the dot (or another child of the dot, but not the moved node),
+  // to avoid triggering on simple click-selection of the scalar itself.
+  if (mode === "multiplicative") {
+    const findDotAncestor = (id: string | null): string | null => {
+      let cur: string | null = id;
+      while (cur) {
+        const p = tree.parentById[cur];
+        if (!p) return null;
+        if (tree.nodesById[p]?.op === "DotProduct") return p;
+        cur = p;
+      }
+      return null;
+    };
+
+    const dotId = findDotAncestor(movedId);
+    const hoverWithinDot =
+      dotId &&
+      hoverId !== movedId &&
+      (hoverId === dotId || (hoverId != null && isAncestorOrSelf(tree, dotId, hoverId)));
+
+    const fromSide = dotId ? findEqualSideRoot(tree, movedId) : null;
+    const toSide = dotId ? findEqualSideRoot(tree, dotId) : null;
+    const sameSideOrNoEqual =
+      !fromSide ||
+      !toSide ||
+      fromSide.equalId !== toSide.equalId ||
+      fromSide.sideSlot === toSide.sideSlot;
+
+    if (dotId && hoverWithinDot && sameSideOrNoEqual && !hasVectorAncestor(tree, movedId)) {
+      const kids = tree.childrenById[dotId] ?? [];
+      if (kids.length === 2) {
+        const operandIndex = kids.findIndex((id) =>
+          isAncestorOrSelf(tree, id, movedId)
+        );
+        if (operandIndex === 0 || operandIndex === 1) {
+          const dotRect = rectFor(dotId);
+          const insertIndex: 0 | 1 = dotRect
+            ? (pointer.x < midX(dotRect) ? 0 : 1)
+            : 0;
+          return {
+            kind: "LiftDotScalar",
+            dotId,
+            movedId,
+            operandIndex: operandIndex as 0 | 1,
+            insertIndex,
           };
         }
       }

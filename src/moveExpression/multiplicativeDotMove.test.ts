@@ -139,4 +139,24 @@ describe("multiplicative move with dot products", () => {
     expect(latex === normalizeLatex(String.raw`\frac{1}{m} \vec{e}_{x} \cdot \vec{F}_{g} = \vec{e}_{x} \cdot \ddot{\vec{r}}`) ||
       latex === normalizeLatex(String.raw`\frac{\vec{e}_{x} \cdot \vec{F}_{g}}{m} = \vec{e}_{x} \cdot \ddot{\vec{r}}`)).toBe(true);
   });
+
+  it("lifts a scalar factor out of a dot-product operand on the same side when hovering the dot", () => {
+    const tree = treefromLatex(String.raw`\vec{a} \cdot m \vec{b}`);
+
+    const mId = findNodeByLatex(tree, "m");
+    const dotId = tree.rootId!;
+
+    const next = applyMove({
+      tree,
+      selectedIds: [mId],
+      hoverId: dotId,
+      targetSlot: 0,
+      mode: "multiplicative",
+    });
+
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe(
+      normalizeLatex(String.raw`m \vec{a} \cdot \vec{b}`)
+    );
+  });
 });

@@ -667,21 +667,21 @@ export function ExpressionPad({
 
   function onDisplayPointerMove(e: React.PointerEvent) {
     const result = handleDragMove(e);
-    if (result.plan) {
-      setMovePlanText(result.planDescription);
-      setInfo3(
-        result.plan ? JSON.stringify(result.plan, null, 2) : "planMove returned null"
-      );
-      setInfoArgs(result.infoArgs);
-      setDragSlot(result.plan ? result.plan.kind : "");
-      // Update drag info for display
-      if (drag) {
-        setDragStartInfo(displayNodeInfo(drag.selectedIds[0] ?? null));
-        setDragHoverInfo(
-          result.hoverId ? displayNodeInfo(result.hoverId) : "No current hover"
-        );
-        setParentAddId(result.hoverId ?? "");
-      }
+    setMovePlanText(
+      result.planDescription || "No move intent (planMove returned null)"
+    );
+    setInfo3(result.plan ? JSON.stringify(result.plan, null, 2) : "planMove returned null");
+    setInfoArgs(result.infoArgs);
+    setDragSlot(result.plan ? result.plan.kind : "");
+
+    if (drag) {
+      setDragStartInfo(displayNodeInfo(drag.selectedIds[0] ?? null));
+      const hoverLabel = result.hoverId
+        ? displayNodeInfo(result.hoverId) +
+          (result.hoverUsedFallback ? " (fallback hover)" : "")
+        : "No current hover";
+      setDragHoverInfo(hoverLabel);
+      setParentAddId(result.hoverId ?? "");
     } else {
       setDragStartInfo("Not dragging");
       setDragHoverInfo("");
