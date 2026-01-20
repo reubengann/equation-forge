@@ -43,6 +43,10 @@ import {
   setHighlightedText,
 } from "../../infra/mathlive/derivationPadHighlight";
 import { cancelTerm, canCancelTerm as canCancelTermCheck } from "../../cancelTerm";
+import {
+  canEvaluateSelection,
+  evaluateSelection,
+} from "../../evaluateSelection";
 
 type InputMode = "mathlive" | "text";
 
@@ -834,6 +838,10 @@ export function ExpressionPad({
     () => canCancelTermCheck(tree, selection),
     [tree, selection]
   );
+  const canEvaluate = useMemo(
+    () => canEvaluateSelection(tree, selection),
+    [tree, selection]
+  );
   const selectedNodeLatex =
     canSubstitute && tree && substituteTargetId
       ? tree.nodesById[substituteTargetId]?.latex ?? ""
@@ -857,6 +865,38 @@ export function ExpressionPad({
     setLatexDraft(currentLatex);
     setMode("entry");
   }
+
+  const onEvaluate = useCallback(() => {
+    if (!tree || !selection) return;
+    const evalSelection =
+      selection.kind === "node"
+        ? (() => {
+            let target = selection.nodeId;
+            while (true) {
+              const targetOp = tree.nodesById[target]?.op;
+              const parentId = tree.parentById[target];
+              if (!parentId) break;
+              const parentOp = tree.nodesById[parentId]?.op;
+              if (
+                parentOp &&
+                parentOp !== "Equal" &&
+                (targetOp === "Number" ||
+                  targetOp === "Degrees" ||
+                  targetOp === "Delimiter")
+              ) {
+                target = parentId;
+                continue;
+              }
+              break;
+            }
+            return { kind: "node", nodeId: target } as ExprSelection;
+          })()
+        : selection;
+
+    const next = evaluateSelection(tree, evalSelection);
+    if (!next) return;
+    commitJson(next.rootJson, { latex: next.latexPlain });
+  }, [tree, selection, commitJson]);
 
   async function onCopyLatex() {
     if (!canCopyLatex || !latexForCopy) return;
@@ -1056,6 +1096,8 @@ export function ExpressionPad({
                 canExpand={canExpand}
                 onCancelTerm={onCancelTerm}
                 canCancelTerm={canCancel}
+                onEvaluate={onEvaluate}
+                canEvaluate={canEvaluate}
                 onOpenApply={openApplyModal}
                 canApply={canApply}
                 onOpenSubstitute={openSubstituteModal}
