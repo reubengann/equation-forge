@@ -448,6 +448,15 @@ describe("ExpressionTree", () => {
     expect(t.latexPlain).toBe(String.raw`\sin\left(x\right)`);
   });
 
+  it("renders a Degrees operand as a degree symbol", () => {
+    const t = ExpressionTree.create(["Sin", ["Degrees", 30]]);
+    expect(t.latexPlain).toBe(String.raw`\sin\left(30^{\circ}\right)`);
+    const degreesNode = Object.values(t.nodesById).find(
+      (n) => n.op === "Degrees"
+    );
+    expect(degreesNode?.latex).toBe(String.raw`30^{\circ}`);
+  });
+
   it("renders Cos of a sum with parens", () => {
     const t = ExpressionTree.create(makeMJfromLatex(String.raw`\cos(a+b)`));
     expect(t.latexPlain).toBe(String.raw`\cos\left(a + b\right)`);
