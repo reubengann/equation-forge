@@ -299,7 +299,7 @@ export function applyMoveMultiplicative(
           (dotParentOp === "InvisibleOperator" || dotParentOp === "Multiply")
         ) {
           const parentExpr = getAtPath(tree.rootJson, dotParentPath) as MJNode;
-          const [parentOp, ...factors] = parentExpr;
+          const [, ...factors] = parentExpr;
           const siblings = tree.childrenById[dotParentId] ?? [];
           const dotIndex = siblings.indexOf(dotId);
           if (dotIndex < 0) return null;

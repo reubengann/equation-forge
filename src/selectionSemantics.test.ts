@@ -307,4 +307,15 @@ describe("selectionSemantics.bubbleThroughUnary", () => {
     const norm = normalizeSelection(tree, vId);
     expect(norm).toBe(subId);
   });
+
+  it("normalizeSelection bubbles through OverDot so clicking x selects \\dot{x}", () => {
+    const mj: MJ = ["OverDot", "x"];
+    const tree = ExpressionTree.create(mj);
+
+    const xId = findNodeId(tree, (n: any) => n.latex === "x");
+    const dotId = tree.parentById[xId];
+    expect(dotId).toBeTruthy();
+    const norm = normalizeSelection(tree, xId);
+    expect(norm).toBe(dotId);
+  });
 });

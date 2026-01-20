@@ -91,23 +91,6 @@ function containsVector(expr: MJ | null): boolean {
   return expr.slice(1).some((c) => containsVector(c as MJ));
 }
 
-function splitProductFactors(expr: MJ): { scalars: MJ[]; others: MJ[] } {
-  if (Array.isArray(expr) && expr[0] === "InvisibleOperator") {
-    const scalars: MJ[] = [];
-    const others: MJ[] = [];
-    for (let i = 1; i < expr.length; i += 1) {
-      const part = expr[i] as MJ;
-      if (containsVector(part)) {
-        others.push(part);
-      } else {
-        scalars.push(part);
-      }
-    }
-    return { scalars, others };
-  }
-  return containsVector(expr) ? { scalars: [], others: [expr] } : { scalars: [expr], others: [] };
-}
-
 function buildProduct(factors: MJ[]): MJ | null {
   if (factors.length === 0) return null;
   if (factors.length === 1) return factors[0];

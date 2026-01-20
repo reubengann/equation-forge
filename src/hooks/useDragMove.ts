@@ -11,7 +11,6 @@ import {
 } from "../domain/move/movePlanAdapters";
 import { renderInsertOverlay } from "../ui/drag/renderInsertOverlay";
 import {
-  hitTestNodeIdInMathliveShadow,
   hitTestOrClosestNodeIdInMathliveShadow,
   remapEqualHoverToSide,
 } from "../infra/mathlive/mathliveShadow";

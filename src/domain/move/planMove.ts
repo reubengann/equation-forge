@@ -80,12 +80,18 @@ export type MovePlan =
             replaceSlot: 0 | 1; // should match toSide
           }
         | {
-            kind: "LiftDotScalar";
-            dotId: string;
-            movedId: string;
-            operandIndex: 0 | 1;
-            insertIndex: 0 | 1;
+            kind: "ontoSideRootWhole";
+            replaceId: string;
+            replaceParentId: string; // should be equalId
+            replaceSlot: 0 | 1; // should match toSide
           };
+    }
+  | {
+      kind: "LiftDotScalar";
+      dotId: string;
+      movedId: string;
+      operandIndex: 0 | 1;
+      insertIndex: 0 | 1;
     };
 
 export interface PlanMoveArgs {

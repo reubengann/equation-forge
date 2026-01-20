@@ -112,8 +112,8 @@ export type ExpressionPadProps = {
 
 MathfieldElement.fontsDirectory = "/fonts";
 // Ensure all MathLive fields pick up our custom macros (e.g., \differentialD).
-MathfieldElement.defaultOptions = {
-  ...(MathfieldElement.defaultOptions ?? {}),
+(MathfieldElement as any).defaultOptions = {
+  ...((MathfieldElement as any).defaultOptions ?? {}),
   macros: vecMacroOptions.macros,
 };
 
@@ -262,29 +262,6 @@ export function ExpressionPad({
   }, [prefillLatex, prefillKey]);
 
   useEffect(() => {
-    if (showSubstituteModal && substituteFieldRef.current) {
-      const el = substituteFieldRef.current as any;
-      const focusField = () => {
-        try {
-          el.value = "";
-          el.focus?.();
-        } catch {
-          // MathLive element may not be upgraded yet; ignore and rely on next frame.
-        }
-      };
-
-      // Ensure the custom element is upgraded before focusing to avoid ariaLiveText errors.
-      if (typeof customElements !== "undefined" && customElements.whenDefined) {
-        customElements.whenDefined("math-field").then(() => {
-          requestAnimationFrame(focusField);
-        });
-      } else {
-        requestAnimationFrame(focusField);
-      }
-    }
-  }, [showSubstituteModal]);
-
-  useEffect(() => {
     if (showApplyModal && applyFieldRef.current) {
       applyFieldRef.current.value = "";
       applyFieldRef.current.focus();
@@ -294,6 +271,7 @@ export function ExpressionPad({
   const substituteTargetId = useMemo(() => {
     if (!tree || !selection) return null;
     if (selection.kind === "node") return selection.nodeId;
+    if (selection.kind !== "span") return null;
 
     const parentOp = tree.nodesById[selection.parentId]?.op;
     const isMultiplicative =
@@ -310,6 +288,34 @@ export function ExpressionPad({
     }
     return null;
   }, [tree, selection]);
+
+  useEffect(() => {
+    if (showSubstituteModal && substituteFieldRef.current) {
+      const el = substituteFieldRef.current as any;
+      const initialLatex =
+        tree && substituteTargetId
+          ? tree.nodesById[substituteTargetId]?.latex ?? ""
+          : "";
+
+      const focusField = () => {
+        try {
+          el.value = initialLatex;
+          el.focus?.();
+        } catch {
+          // MathLive element may not be upgraded yet; ignore and rely on next frame.
+        }
+      };
+
+      // Ensure the custom element is upgraded before focusing to avoid ariaLiveText errors.
+      if (typeof customElements !== "undefined" && customElements.whenDefined) {
+        customElements.whenDefined("math-field").then(() => {
+          requestAnimationFrame(focusField);
+        });
+      } else {
+        requestAnimationFrame(focusField);
+      }
+    }
+  }, [showSubstituteModal, tree, substituteTargetId]);
 
   useEffect(() => {
     if (showSubstituteModal && (!tree || !substituteTargetId)) {
@@ -712,7 +718,7 @@ export function ExpressionPad({
     if (expanded.kind === "span") {
       const details = getSelectionDetailsForSpan(tree, expanded, `shift+${e.key} → expanded`);
       updateSelectionDetails(details);
-    } else {
+    } else if (expanded.kind === "node") {
       const details = getSelectionDetailsForNode(tree, expanded.nodeId, {
         shiftKey: true,
       });

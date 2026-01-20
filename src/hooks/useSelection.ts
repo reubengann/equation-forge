@@ -150,8 +150,12 @@ export function useSelection(tree: ExpressionTree | null, moveMode: MoveMode) {
           } else {
             dragIds = [promotedId];
           }
+        } else if (existingSelection?.kind === "node") {
+          dragIds = [existingSelection.nodeId];
+        } else if (existingSelection?.kind === "multi") {
+          dragIds = [...existingSelection.nodeIds];
         } else {
-          dragIds = [existingSelection!.nodeId];
+          dragIds = [promotedId];
         }
       } else {
         dragIds = [promotedId];
@@ -203,7 +207,12 @@ export function useSelection(tree: ExpressionTree | null, moveMode: MoveMode) {
 
       // SHIFT+click → range selection
       let newSelection: ExprSelection | null = null;
-      if (shiftKey && existingSelection && tree) {
+      if (
+        shiftKey &&
+        existingSelection &&
+        tree &&
+        existingSelection.kind !== "multi"
+      ) {
         const targetParentId = tree.parentById[promotedId];
         const targetIdx = tree.childIndexById[promotedId];
 
