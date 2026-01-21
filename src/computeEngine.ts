@@ -23,7 +23,39 @@ function normalizeVectorMacros(latex: string): string {
   );
 }
 
+function parseIntegralWithDifferentialOnly(latex: string): MJ | null {
+  // Handles forms like: \int_{a}^{b}\differentialD(expr)
+  const re =
+    /^\\int\s*_({[^}]*}|[^\s^]+)?\s*\^({[^}]*}|[^\s^]+)?\s*\\differentialD\s*(?:\\left\((.+)\\right\)|\{(.+)\}|(.+))\s*$/s;
+  const m = latex.match(re);
+  if (!m) return null;
+
+  const strip = (s: string) =>
+    s.startsWith("{") && s.endsWith("}") ? s.slice(1, -1) : s;
+
+  const lowerLatex = strip(m[1]?.trim() ?? "");
+  const upperLatex = strip(m[2]?.trim() ?? "");
+  const operandLatex = strip((m[3] || m[4] || m[5] || "").trim());
+
+  const lower = (ce.parse(lowerLatex, { canonical: false })?.json as MJ) ?? 0;
+  const upper = (ce.parse(upperLatex, { canonical: false })?.json as MJ) ?? 0;
+  const operand =
+    (ce.parse(operandLatex, { canonical: false })?.json as MJ) ??
+    (operandLatex || "Nothing");
+
+  // Integrand defaults to 1 when only a differential is provided.
+  return normalizeMathJson([
+    "Integrate",
+    1,
+    ["Tuple", operand, lower, upper],
+  ] as MJ);
+}
+
 export function parse(latex: string): MJ | null {
+  // Special-case bare differential integrals before general parsing.
+  const special = parseIntegralWithDifferentialOnly(latex);
+  if (special) return special;
+
   const prepared = normalizeVectorMacros(toMathLiveLatex(latex));
   const mj = (ce.parse(prepared, { canonical: false })?.json as MJ) ?? null;
   return normalizeMathJson(mj);

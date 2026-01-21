@@ -98,4 +98,20 @@ describe("computeEngine custom dictionary", () => {
       ["InvisibleOperator", "b", ["Vector", "c"]],
     ]);
   });
+
+  it("parses integral with non-symbol differential operand", () => {
+    const mj = parse(
+      String.raw`\int_{0}^{v_0^2}\differentialD\left(\dot{x}^2\right)`
+    );
+    expect(mj).toEqual([
+      "Integrate",
+      1,
+      [
+        "Tuple",
+        ["Power", ["OverDot", "x", 1], 2],
+        0,
+        ["Power", ["Subscript", "v", 0], 2],
+      ],
+    ]);
+  });
 });
