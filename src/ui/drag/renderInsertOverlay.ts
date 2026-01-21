@@ -91,6 +91,11 @@ export function computeInsertX(
     if (!r) return null;
     return plan.insertIndex === 0 ? r.left : r.right;
   }
+  if (plan.kind === "FactorOutOfIntegrate") {
+    const r = rectFor(plan.integrateId);
+    if (!r) return null;
+    return plan.insertIndex === 0 ? r.left : r.right;
+  }
   if (plan.kind === "MoveAcrossEqual") {
     if (plan.drop.kind === "intoAdd") {
       return insertXForAdd(plan.drop.addId, plan.drop.toIndex, tree, rectFor);
@@ -123,6 +128,7 @@ export function targetRectForPlan(
   if (plan.kind === "ReorderAdd") return rectFor(plan.addId);
   if (plan.kind === "InsertIntoAdd") return rectFor(plan.toAddId);
   if (plan.kind === "WrapIntoAddThenInsert") return rectFor(plan.replaceId);
+  if (plan.kind === "FactorOutOfIntegrate") return rectFor(plan.integrateId);
   if (plan.kind === "MoveAcrossEqual") {
     if (plan.drop.kind === "intoAdd") return rectFor(plan.drop.addId);
     return rectFor(plan.drop.replaceId);

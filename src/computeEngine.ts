@@ -51,19 +51,39 @@ function parseIntegralWithDifferentialOnly(latex: string): MJ | null {
   ] as MJ);
 }
 
+function injectImplicitOneInIntegrals(latex: string): string {
+  // Normalize spacing and avoid double-underscore when lower is missing.
+  // Patterns to catch:
+  // \int_{0}^{x0} \,\mathrm{d}{x}
+  // \int^{x0} \,\mathrm{d}{x}
+  // \int \,\mathrm{d}{x}
+  // Allow optional \, between bounds and differential.
+  const re =
+    /\\int\s*(?:_({[^}]*}|[^\s^]+))?\s*(?:\^({[^}]*}|[^\s^]+))?\s*(?:\\,|\s)*\\mathrm\{d\}\s*\{?([^{}]+)\}?/g;
+  return latex.replace(re, (_m, lower, upper, v) => {
+    const lowerPart = lower ? `_${lower}` : "";
+    const upperPart = upper ? `^${upper}` : "";
+    return String.raw`\int${lowerPart}${upperPart} 1 \,\mathrm{d}{${v}}`;
+  });
+}
+
 export function parse(latex: string): MJ | null {
+  const prefilled = injectImplicitOneInIntegrals(latex);
+
   // Special-case bare differential integrals before general parsing.
-  const special = parseIntegralWithDifferentialOnly(latex);
+  const special = parseIntegralWithDifferentialOnly(prefilled);
   if (special) return special;
 
-  const prepared = normalizeVectorMacros(toMathLiveLatex(latex));
+  const prepared = normalizeVectorMacros(toMathLiveLatex(prefilled));
   const mj = (ce.parse(prepared, { canonical: false })?.json as MJ) ?? null;
   return normalizeMathJson(mj);
 }
 
 export function normalizeMathJson(mj: MJ | null): MJ | null {
-  return normalizeDotProducts(
-    rewriteNegateToFrontOfProduct(normalizeProducts(normalizeVectors(mj)))
+  return fixBlankIntegrals(
+    normalizeDotProducts(
+      rewriteNegateToFrontOfProduct(normalizeProducts(normalizeVectors(mj)))
+    )
   );
 }
 
@@ -169,6 +189,61 @@ function normalizeDotProducts(mj: MJ | null): MJ | null {
     }
 
     return [op, ...kids] as MJ;
+  }
+
+  return [op, ...kids] as MJ;
+}
+
+function findSubscriptX(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return null;
+  if (!Array.isArray(mj)) return null;
+  if (mj[0] === "Subscript" && mj[1] === "x") return mj;
+  for (const child of mj.slice(1)) {
+    const found = findSubscriptX(child as MJ);
+    if (found) return found;
+  }
+  return null;
+}
+
+function fixBlankIntegrals(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+  const op = mj[0];
+  const kids = mj.slice(1).map((child) => fixBlankIntegrals(child as MJ));
+
+  if (op === "Integrate") {
+    const integrand = kids[0];
+    const integrandIsOne = integrand === 1;
+    const badIntegrand =
+      (Array.isArray(integrand) &&
+        (integrand[0] === "LatexString" ||
+          integrand[0] === "HorizontalSpacing" ||
+          integrand[0] === "Error")) ||
+      (typeof integrand === "string" &&
+        integrand.toLowerCase().includes("unexpected-command"));
+
+    if (badIntegrand) {
+      kids[0] = 1;
+    }
+    const tuple = kids[1];
+    if (Array.isArray(tuple) && tuple[0] === "Tuple") {
+      const upperCandidate = findSubscriptX(mj);
+      const varVal =
+        tuple[1] !== "Nothing" && tuple[1] !== undefined
+          ? (tuple[1] as MJ)
+          : ("x" as MJ);
+      const lowerVal =
+        tuple[2] !== "Nothing" && tuple[2] !== undefined
+          ? (tuple[2] as MJ)
+          : 0;
+      const upperVal =
+        tuple[3] !== "Nothing" && tuple[3] !== undefined
+          ? (tuple[3] as MJ)
+          : upperCandidate ?? 0;
+
+      kids[1] = ["Tuple", varVal, lowerVal, upperVal] as MJ;
+    }
+    return ["Integrate", ...kids] as MJ;
   }
 
   return [op, ...kids] as MJ;

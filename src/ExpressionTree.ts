@@ -141,6 +141,25 @@ export class ExpressionTree {
       if (op === "Integrate") {
         return this.recordTagged(this.emitIntegrate(node, id, path, op));
       }
+      if (op === "LatexString") {
+        // Fallback node emitted by the Compute Engine for raw LaTeX snippets
+        const s = String(node[1] ?? "");
+        this.childrenById[id] = [];
+        const plain = s;
+        this.nodesById[id] = { id, op, latex: plain, json: node };
+        return {
+          id,
+          latexPlain: plain,
+          latexTagged: this.wrap(id, plain),
+        };
+      }
+      if (op === "HorizontalSpacing") {
+        // Ignore spacing nodes; render as empty.
+        this.childrenById[id] = [];
+        const plain = "";
+        this.nodesById[id] = { id, op, latex: plain, json: node };
+        return { id, latexPlain: plain, latexTagged: this.wrap(id, plain) };
+      }
       if (op === "Partial") {
         return this.recordTagged(this.emitPartial(node, id, path, op));
       }
@@ -679,15 +698,18 @@ export class ExpressionTree {
       this.childIndexById[upper.id] = this.childrenById[id].length - 1;
     }
 
+    const integrandIsOne = integrand.latexPlain === "1";
     const boundsPlain =
       lower || upper
         ? `_{${lower?.latexPlain ?? ""}}^{${upper?.latexPlain ?? ""}}`
         : "";
     const dVarPlain = sym ? sym.latexPlain : "";
     const dVarTagged = sym ? sym.latexTagged : "";
+    const integrandPlain = integrandIsOne ? "" : `${integrand.latexPlain} `;
+    const integrandTagged = integrandIsOne ? "" : `${integrand.latexTagged} `;
 
-    const plain = String.raw`\int${boundsPlain} ${integrand.latexPlain} \,\mathrm{d}{${dVarPlain}}`;
-    const taggedInner = String.raw`\int${boundsPlain} ${integrand.latexTagged} \,\mathrm{d}{${dVarTagged}}`;
+    const plain = String.raw`\int${boundsPlain} ${integrandPlain}\,\mathrm{d}{${dVarPlain}}`;
+    const taggedInner = String.raw`\int${boundsPlain} ${integrandTagged}\,\mathrm{d}{${dVarTagged}}`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return {

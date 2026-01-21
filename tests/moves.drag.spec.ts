@@ -6,6 +6,7 @@ import {
   setMoveMode,
   getSelectedNodeIds,
   findNodeByText,
+  getExpressionJson,
 } from "./helpers/dragMathlive";
 import {
   buildTree,
@@ -103,6 +104,24 @@ const cases: MoveCase[] = [
     toLatex: "1",
     expectedLatex: String.raw`\frac{\vec{F}}{m} = \vec{a}`,
     toBias: { dy: -4 },
+  },
+  {
+    title: "multiplicative factor out of integral to the left",
+    mode: "multiplicative",
+    equation: String.raw`v = 2 g \int_{0}^{x_{0}} \sin\left(\theta\right) \,\mathrm{d}{x}`,
+    fromLatex: String.raw`\sin\left(\theta\right)`,
+    toLatex: String.raw`\int_{0}^{x_{0}} \sin\left(\theta\right) \,\mathrm{d}{x}`,
+    expectedLatex: String.raw`v = 2 g \sin\left(\theta\right) \int_{0}^{x_{0}} \,\mathrm{d}{x}`,
+    toBias: { dx: -20 },
+  },
+  {
+    title: "multiplicative factor out of integral to the right",
+    mode: "multiplicative",
+    equation: String.raw`v = 2 g \int_{0}^{x_{0}} \sin\left(\theta\right) \,\mathrm{d}{x}`,
+    fromLatex: String.raw`\sin\left(\theta\right)`,
+    toLatex: String.raw`\int_{0}^{x_{0}} \sin\left(\theta\right) \,\mathrm{d}{x}`,
+    expectedLatex: String.raw`v = 2 g \int_{0}^{x_{0}} \,\mathrm{d}{x} \sin\left(\theta\right)`,
+    toBias: { dx: 20 },
   },
   {
     title: "additive move of multiplicative product across '='",
@@ -323,4 +342,48 @@ test("additive cross '=' keeps moved product selectable", async ({ page }) => {
 
   const selectedIds = await getSelectedNodeIds(page);
   expect(selectedIds.length).toBeGreaterThan(0);
+});
+
+test("multiplicative factor-out produces flat product MathJSON", async ({
+  page,
+}) => {
+  const equation = String.raw`v = 2 g \int_{0}^{x_{0}} \sin\left(\theta\right) \,\mathrm{d}{x}`;
+  await setEquation(page, equation);
+  await setMoveMode(page, "multiplicative");
+
+  await dragByLatex(page, {
+    equationLatex: equation,
+    fromLatex: String.raw`\sin\left(\theta\right)`,
+    toLatex: String.raw`\int_{0}^{x_{0}} \sin\left(\theta\right) \,\mathrm{d}{x}`,
+    toBias: { dx: -20 },
+  });
+
+  await waitForMathRender(page);
+  const json = await getExpressionJson(page);
+  expect(json[0]).toBe("Equal");
+  const rhs = json[2];
+  expect(rhs[0]).toBe("InvisibleOperator");
+  // Should flatten to 2, g, sin(theta), Integrate(1, ...)
+  const factors = rhs.slice(1);
+  expect(factors.some((f: any) => f === 2)).toBe(true);
+  expect(factors.some((f: any) => f === "g")).toBe(true);
+  const hasSin = factors.some((f: any) => Array.isArray(f) && f[0] === "Sin");
+  if (!hasSin) {
+    // Aid debugging in CI when the factor isn't found.
+    // eslint-disable-next-line no-console
+    console.log("Factor-out JSON", JSON.stringify(json, null, 2));
+  }
+  expect(hasSin).toBe(true);
+  expect(
+    factors.some(
+      (f: any) => Array.isArray(f) && f[0] === "Integrate" && f[1] === 1
+    )
+  ).toBe(true);
+  // Ensure no nested InvisibleOperator remains
+  expect(
+    factors.every(
+      (f: any) =>
+        !(Array.isArray(f) && (f[0] === "InvisibleOperator" || f[0] === "Multiply"))
+    )
+  ).toBe(true);
 });

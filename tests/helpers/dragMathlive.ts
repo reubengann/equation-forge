@@ -230,6 +230,12 @@ export async function getRenderedLatex(page: Page): Promise<string> {
   return (await locator.innerText()).trim();
 }
 
+export async function getExpressionJson(page: Page): Promise<any> {
+  const locator = page.locator("#dp-expression-json");
+  const jsonText = await locator.inputValue();
+  return JSON.parse(jsonText);
+}
+
 export async function clickNodeByLatex(
   page: Page,
   equationLatex: string,

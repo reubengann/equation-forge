@@ -20,8 +20,33 @@ function isAncestorOrSelf(
   return false;
 }
 
+function findIntegrateAncestor(
+  tree: ExpressionTree,
+  nodeId: string | null
+): string | null {
+  let cur: string | null = nodeId;
+  while (cur) {
+    const op = tree.nodesById[cur]?.op;
+    if (op === "Integrate") return cur;
+    cur = tree.parentById[cur] ?? null;
+  }
+  return null;
+}
+
 function normalizeMul(factors: MJ[]): MJ {
-  const filtered = factors.filter((f) => !isOneTerm(f));
+  const flattened: MJ[] = [];
+  for (const f of factors) {
+    if (
+      Array.isArray(f) &&
+      (f[0] === "InvisibleOperator" || f[0] === "Multiply")
+    ) {
+      flattened.push(...(f.slice(1) as MJ[]));
+    } else {
+      flattened.push(f);
+    }
+  }
+
+  const filtered = flattened.filter((f) => !isOneTerm(f));
   const use = filtered.length === 0 ? [1] : filtered;
   if (use.length === 1) return use[0];
   return ["InvisibleOperator", ...use] as MJNode;
@@ -179,6 +204,105 @@ export function applyMoveMultiplicative(
     const nextMul: MJNode = [mulOp, ...nextFactors];
     const nextRoot = setAtPath(tree.rootJson, mulPath, nextMul);
     return ExpressionTree.create(nextRoot);
+  }
+
+  // Factor a term out of an integral’s integrand (before/after the integral).
+  if (targetSlot != null) {
+    const directIntegrate =
+      tree.nodesById[hoverNodeId]?.op === "Integrate" ? hoverNodeId : null;
+    const integrateId =
+      directIntegrate ?? findIntegrateAncestor(tree, hoverNodeId);
+
+    if (integrateId) {
+      const integrandId = tree.childrenById[integrateId]?.[0];
+      if (integrandId && isAncestorOrSelf(tree, integrandId, movedId)) {
+        // Find multiplicative ancestor within integrand; if none, treat integrand itself as the container.
+        let mulId: string | null = tree.parentById[movedId] ?? null;
+        while (
+          mulId &&
+          !isMulOp(tree.nodesById[mulId]?.op) &&
+          isAncestorOrSelf(tree, integrandId, mulId)
+        ) {
+          mulId = tree.parentById[mulId] ?? null;
+        }
+
+        const containerId =
+          mulId &&
+          isMulOp(tree.nodesById[mulId]?.op) &&
+          isAncestorOrSelf(tree, integrandId, mulId)
+            ? mulId
+            : integrandId;
+
+        const movedPath = tree.pathById[movedId];
+        const containerPath = tree.pathById[containerId];
+        const integratePath = tree.pathById[integrateId];
+        const integrandPath = tree.pathById[integrandId];
+        if (!movedPath || !containerPath || !integratePath || !integrandPath)
+          return null;
+
+        const movedExpr = getAtPath(tree.rootJson, movedPath) as MJ;
+
+        let nextRoot: MJ = tree.rootJson;
+        let updatedIntegrand: MJ;
+
+        const containerOp = tree.nodesById[containerId]?.op;
+        if (isMulOp(containerOp)) {
+          const mulExpr = getAtPath(nextRoot, containerPath) as MJNode;
+          if (!Array.isArray(mulExpr)) return null;
+          const [, ...factors] = mulExpr;
+          const siblings = tree.childrenById[containerId] ?? [];
+          const fromIndex = siblings.indexOf(movedId);
+          if (fromIndex < 0 || fromIndex >= factors.length) return null;
+
+          const remainingFactors = factors.filter((_, i) => i !== fromIndex);
+          const normalizedMul = normalizeMul(remainingFactors as MJ[]);
+          nextRoot = setAtPath(nextRoot, containerPath, normalizedMul);
+
+          updatedIntegrand = getAtPath(nextRoot, integrandPath) as MJ;
+        } else {
+          // Container is the integrand root and not a multiplicative op: removing the single term leaves 1.
+          updatedIntegrand = 1;
+          nextRoot = setAtPath(nextRoot, integrandPath, updatedIntegrand);
+        }
+
+        const integrateExpr = getAtPath(nextRoot, integratePath) as MJNode;
+        if (!Array.isArray(integrateExpr) || integrateExpr[0] !== "Integrate")
+          return null;
+
+        const updatedIntegrate: MJNode = [
+          "Integrate",
+          updatedIntegrand,
+          ...integrateExpr.slice(2),
+        ];
+
+        const wrapped = normalizeMul(
+          targetSlot === 0
+            ? ([movedExpr, updatedIntegrate] as MJ[])
+            : ([updatedIntegrate, movedExpr] as MJ[])
+        );
+
+        nextRoot = setAtPath(nextRoot, integratePath, wrapped);
+
+        // Normalize the parent multiplicative container (if any) to flatten nested products.
+        const integrateParentId = tree.parentById[integrateId];
+        if (integrateParentId) {
+          const parentOp = tree.nodesById[integrateParentId]?.op;
+          if (isMulOp(parentOp)) {
+            const parentPath = tree.pathById[integrateParentId];
+            if (parentPath) {
+              const parentExpr = getAtPath(nextRoot, parentPath) as MJNode;
+              if (Array.isArray(parentExpr)) {
+                const [, ...parentFactors] = parentExpr;
+                const normalizedParent = normalizeMul(parentFactors as MJ[]);
+                nextRoot = setAtPath(nextRoot, parentPath, normalizedParent);
+              }
+            }
+          }
+        }
+
+        return ExpressionTree.create(nextRoot);
+      }
+    }
   }
 
   // Merge a sibling factor into the numerator of a fraction within the same product.

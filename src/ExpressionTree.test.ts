@@ -281,6 +281,17 @@ describe("ExpressionTree", () => {
     );
   });
 
+  it("renders integral with implicit integrand (blank)", () => {
+    const t = treefromLatex(
+      String.raw`v_{0}^{2} = 2 g \sin\left(\theta\right) \int_{0}^{x_{0}} \,\mathrm{d}{x}`
+    );
+    expect(t.latexPlain.replace(/\s+/g, " ").trim()).toContain(
+      String.raw`2 g \sin\left(\theta\right) \int_{0}^{x_{0}} \,\mathrm{d}{x}`
+        .replace(/\s+/g, " ")
+        .trim()
+    );
+  });
+
   it("keeps FractionDerivative operands untagged internally for selection", () => {
     const t = ExpressionTree.create([
       "FractionDerivative",

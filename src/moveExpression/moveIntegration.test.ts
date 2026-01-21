@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyMove, type MoveMode } from "./applyMove";
-import { findNodeByLatex, treefromLatex } from "../testHelpers";
+import { findNodeByLatex, findNodeId, treefromLatex } from "../testHelpers";
 
 type IntegrationCase = {
   name: string;
@@ -14,6 +14,19 @@ type IntegrationCase = {
 
 function normalizeLatex(latex: string): string {
   return latex.replace(/\s+/g, " ").trim();
+}
+
+function isAncestorOrSelf(
+  tree: ReturnType<typeof treefromLatex>,
+  ancestorId: string,
+  nodeId: string | null
+): boolean {
+  let cur: string | null = nodeId;
+  while (cur) {
+    if (cur === ancestorId) return true;
+    cur = tree.parentById[cur] ?? null;
+  }
+  return false;
 }
 
 const cases: IntegrationCase[] = [
@@ -76,6 +89,66 @@ const cases: IntegrationCase[] = [
       return rhsId;
     },
     expectedLatexPlain: String.raw`1 = \frac{1}{F} a b`,
+  },
+  {
+    name: "multiplicative: factor 2 out of integral to the left",
+    mode: "multiplicative",
+    inputLatex: String.raw`v_{0}^{2} = \int_{0}^{x_{0}} 2 g \sin\left(\theta\right) \,\mathrm{d}{x}`,
+    targetSlot: 0,
+    select: (tree) => {
+      const eqId = tree.rootId!;
+      const rhsId = tree.childrenById[eqId]?.[1];
+      const integrandId = rhsId ? tree.childrenById[rhsId]?.[0] : null;
+      const twoId = findNodeId(
+        tree,
+        (n) =>
+          n.latex === "2" &&
+          integrandId &&
+          tree.parentById[n.id] &&
+          ["InvisibleOperator", "Multiply"].includes(
+            tree.nodesById[tree.parentById[n.id] as string]?.op
+          ) &&
+          isAncestorOrSelf(tree, integrandId, tree.parentById[n.id] as string)
+      );
+      return [twoId];
+    },
+    hover: (tree) => {
+      const eqId = tree.rootId!;
+      const rhsId = tree.childrenById[eqId]?.[1];
+      if (!rhsId) throw new Error("Missing RHS integrate");
+      return rhsId;
+    },
+    expectedLatexPlain: String.raw`v_{0}^{2} = 2 \int_{0}^{x_{0}} g \sin\left(\theta\right) \,\mathrm{d}{x}`,
+  },
+  {
+    name: "multiplicative: factor 2 out of integral to the right",
+    mode: "multiplicative",
+    inputLatex: String.raw`v_{0}^{2} = \int_{0}^{x_{0}} 2 g \sin\left(\theta\right) \,\mathrm{d}{x}`,
+    targetSlot: 1,
+    select: (tree) => {
+      const eqId = tree.rootId!;
+      const rhsId = tree.childrenById[eqId]?.[1];
+      const integrandId = rhsId ? tree.childrenById[rhsId]?.[0] : null;
+      const twoId = findNodeId(
+        tree,
+        (n) =>
+          n.latex === "2" &&
+          integrandId &&
+          tree.parentById[n.id] &&
+          ["InvisibleOperator", "Multiply"].includes(
+            tree.nodesById[tree.parentById[n.id] as string]?.op
+          ) &&
+          isAncestorOrSelf(tree, integrandId, tree.parentById[n.id] as string)
+      );
+      return [twoId];
+    },
+    hover: (tree) => {
+      const eqId = tree.rootId!;
+      const rhsId = tree.childrenById[eqId]?.[1];
+      if (!rhsId) throw new Error("Missing RHS integrate");
+      return rhsId;
+    },
+    expectedLatexPlain: String.raw`v_{0}^{2} = \int_{0}^{x_{0}} g \sin\left(\theta\right) \,\mathrm{d}{x} 2`,
   },
   {
     name: "multiplicative: move denominator product across '=' multiplies RHS",

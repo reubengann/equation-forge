@@ -15,6 +15,10 @@ export function describeMovePlan(plan: MovePlan | null): string {
           plan.insertIndex === 0 ? "before" : "after"
         } it`,
       ].join(" — ");
+    case "FactorOutOfIntegrate": {
+      const posLabel = plan.insertIndex === 0 ? "before" : "after";
+      return `Factor ${plan.movedId} out of Integrate ${plan.integrateId} and place ${posLabel} it`;
+    }
     case "MergeIntoFractionNumerator":
       return `Merge ${plan.movedId} into numerator of fraction ${plan.divideId}`;
     case "MoveAcrossEqual": {
@@ -70,6 +74,8 @@ export function planToApplyMoveTarget(plan: MovePlan | null): {
       return { hoverId: plan.replaceId, targetSlot: plan.insertIndex };
     case "MergeIntoFractionNumerator":
       return { hoverId: plan.divideId, targetSlot: null };
+    case "FactorOutOfIntegrate":
+      return { hoverId: plan.integrateId, targetSlot: plan.insertIndex };
     case "MoveAcrossEqual":
       if (plan.drop.kind === "intoAdd") {
         return { hoverId: plan.drop.addId, targetSlot: plan.drop.toIndex };

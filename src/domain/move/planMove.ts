@@ -49,6 +49,14 @@ export type MovePlan =
       insertIndex: 0 | 1;
     }
   | {
+      kind: "FactorOutOfIntegrate";
+      movedId: string;
+      fromMulId: string;
+      fromIndex: number;
+      integrateId: string;
+      insertIndex: 0 | 1; // 0 = before integral, 1 = after
+    }
+  | {
       kind: "MergeIntoFractionNumerator";
       fromMulId: string;
       divideId: string;
@@ -124,6 +132,19 @@ function findEqualSideRoot(
       return null;
     }
     cur = parentId;
+  }
+  return null;
+}
+
+function findIntegrateAncestor(
+  tree: ExpressionTree,
+  nodeId: string | null
+): string | null {
+  let cur: string | null = nodeId;
+  while (cur) {
+    const op = tree.nodesById[cur]?.op;
+    if (op === "Integrate") return cur;
+    cur = tree.parentById[cur] ?? null;
   }
   return null;
 }
@@ -285,6 +306,86 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
             dotId,
             movedId,
             operandIndex: operandIndex as 0 | 1,
+            insertIndex,
+          };
+        }
+      }
+    }
+  }
+
+  // Multiplicative: factor a term out of an integral’s integrand.
+  if (mode === "multiplicative") {
+    const integrateId =
+      findIntegrateAncestor(tree, hoverId) ??
+      findIntegrateAncestor(tree, movedId);
+
+    if (integrateId) {
+      const hoverWithinIntegrate =
+        hoverId != null && isAncestorOrSelf(tree, integrateId, hoverId);
+      if (!hoverWithinIntegrate) return null;
+
+      const integrandId = tree.childrenById[integrateId]?.[0];
+      const integrateRect = rectFor(integrateId);
+
+      if (
+        integrandId &&
+        isAncestorOrSelf(tree, integrandId, movedId)
+      ) {
+        const PAD = 6;
+        if (
+          integrateRect &&
+          !containsPoint(integrateRect, pointer.x, pointer.y, PAD)
+        ) {
+          return null;
+        }
+
+        // Find the nearest multiplicative ancestor within the integrand; if none, fall back to the integrand root (single-term integrand).
+        let mulId: string | null = tree.parentById[movedId] ?? null;
+        while (
+          mulId &&
+          !isMulOp(tree.nodesById[mulId]?.op) &&
+          isAncestorOrSelf(tree, integrandId, mulId)
+        ) {
+          mulId = tree.parentById[mulId] ?? null;
+        }
+
+        const containerId =
+          mulId &&
+          isMulOp(tree.nodesById[mulId]?.op) &&
+          isAncestorOrSelf(tree, integrandId, mulId)
+            ? mulId
+            : integrandId;
+
+        // Avoid treating a simple click on the factor as a factor-out: if we're hovering the factor itself and the pointer is within it, bail.
+        const movedRect = rectFor(movedId);
+        if (
+          hoverId === movedId &&
+          movedRect &&
+          containsPoint(movedRect, pointer.x, pointer.y, PAD)
+        )
+          return null;
+
+        const fromChildren =
+          containerId === integrandId && movedId === integrandId
+            ? [movedId]
+            : tree.childrenById[containerId] ??
+              (containerId === integrandId ? [movedId] : []);
+        const fromIndex =
+          containerId === integrandId && movedId === integrandId
+            ? 0
+            : fromChildren.indexOf(movedId);
+        if (fromIndex >= 0) {
+          const insertIndex: 0 | 1 = integrateRect
+            ? pointer.x < midX(integrateRect)
+              ? 0
+              : 1
+            : 1; // fallback when measurement is missing
+          return {
+            kind: "FactorOutOfIntegrate",
+            movedId,
+            fromMulId: containerId,
+            fromIndex,
+            integrateId,
             insertIndex,
           };
         }

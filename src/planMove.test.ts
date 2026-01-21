@@ -3,6 +3,19 @@ import { treefromLatex, findNodeId, findNodeByLatex } from "./testHelpers";
 import type { RectLTRB } from "./rectMath";
 import { planMove } from "./planMove";
 
+function isAncestorOrSelf(
+  tree: ReturnType<typeof treefromLatex>,
+  ancestorId: string,
+  nodeId: string | null
+): boolean {
+  let cur: string | null = nodeId;
+  while (cur) {
+    if (cur === ancestorId) return true;
+    cur = tree.parentById[cur] ?? null;
+  }
+  return false;
+}
+
 function rectProvider(map: Record<string, RectLTRB>) {
   return (id: string) => map[id] ?? null;
 }
@@ -684,6 +697,92 @@ describe("planMove", () => {
       fromMulId: mulId,
       divideId,
       movedId: forceId,
+    });
+  });
+
+  it("plans FactorOutOfIntegrate when dragging a factor from an integrand (multiplicative)", () => {
+    const tree = treefromLatex(
+      String.raw`v_{0}^{2} = \int_{0}^{x_{0}} 2 g \sin\left(\theta\right) \,\mathrm{d}{x}`
+    );
+
+    const equalId = tree.rootId!;
+    const rhsId = tree.childrenById[equalId]?.[1]!;
+    expect(tree.nodesById[rhsId]?.op).toBe("Integrate");
+
+    const integrandId = tree.childrenById[rhsId]?.[0];
+    const twoId = findNodeId(
+      tree,
+      (n) =>
+        n.latex === "2" &&
+        integrandId &&
+        tree.parentById[n.id] &&
+        ["InvisibleOperator", "Multiply"].includes(
+          tree.nodesById[tree.parentById[n.id] as string]?.op
+        ) &&
+        isAncestorOrSelf(tree, integrandId, tree.parentById[n.id] as string)
+    );
+    const mulId = tree.parentById[twoId]!;
+
+    const plan = planMove({
+      tree,
+      selectedIds: [twoId],
+      hoverId: rhsId,
+      pointer: { x: 55, y: 10 }, // inside integral rect, left side -> before
+      rectFor: rectProvider({
+        [rhsId]: { left: 50, right: 70, top: 0, bottom: 20 },
+      }),
+      mode: "multiplicative",
+    });
+
+    expect(plan).toEqual({
+      kind: "FactorOutOfIntegrate",
+      movedId: twoId,
+      fromMulId: mulId,
+      fromIndex: tree.childrenById[mulId].indexOf(twoId),
+      integrateId: rhsId,
+      insertIndex: 0,
+    });
+  });
+
+  it("plans FactorOutOfIntegrate even when integral rect is missing (fallback)", () => {
+    const tree = treefromLatex(
+      String.raw`v_{0}^{2} = \int_{0}^{x_{0}} 2 g \sin\left(\theta\right) \,\mathrm{d}{x}`
+    );
+
+    const equalId = tree.rootId!;
+    const rhsId = tree.childrenById[equalId]?.[1]!;
+    expect(tree.nodesById[rhsId]?.op).toBe("Integrate");
+
+    const integrandId = tree.childrenById[rhsId]?.[0];
+    const twoId = findNodeId(
+      tree,
+      (n) =>
+        n.latex === "2" &&
+        integrandId &&
+        tree.parentById[n.id] &&
+        ["InvisibleOperator", "Multiply"].includes(
+          tree.nodesById[tree.parentById[n.id] as string]?.op
+        ) &&
+        isAncestorOrSelf(tree, integrandId, tree.parentById[n.id] as string)
+    );
+    const mulId = tree.parentById[twoId]!;
+
+    const plan = planMove({
+      tree,
+      selectedIds: [twoId],
+      hoverId: rhsId,
+      pointer: { x: 55, y: 10 },
+      rectFor: rectProvider({}), // no rects provided
+      mode: "multiplicative",
+    });
+
+    expect(plan).toEqual({
+      kind: "FactorOutOfIntegrate",
+      movedId: twoId,
+      fromMulId: mulId,
+      fromIndex: tree.childrenById[mulId].indexOf(twoId),
+      integrateId: rhsId,
+      insertIndex: 1, // defaults to after when no rect
     });
   });
 });
