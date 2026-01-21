@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parse } from "./computeEngine";
+import { evaluate, evaluateRaw, parse } from "./computeEngine";
 import { ExpressionTree } from "./ExpressionTree";
 import type { ExprSelection } from "./selectionSemantics";
 import { evaluateSelection } from "./evaluateSelection";
@@ -81,5 +81,12 @@ describe("evaluateSelection", () => {
 
     const next = evaluateSelection(tree, sel);
     expect(next).toBeNull();
+  });
+
+  it("evaluateRaw a definite integral with numeric bounds", () => {
+    const latex = String.raw`\int_{0}^{2} 1 \,\mathrm{d}{x}`;
+    const tree = buildTree(latex);
+    const foo = evaluateRaw(tree.rootJson);
+    expect(foo.value).toBe(2);
   });
 });

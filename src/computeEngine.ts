@@ -570,6 +570,11 @@ const baseDictionary = ComputeEngine.getLatexDictionary("all").filter(
     (entry as any).latexTrigger !== "\\cdot"
 );
 
+export function evaluateRaw(mj: MJ) {
+  const boxed = box(mj);
+  return boxed?.evaluate();
+}
+
 ce.latexDictionary = [
   vectorEntry,
   partialEntry,
