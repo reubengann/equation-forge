@@ -253,6 +253,38 @@ export function box(mj: MJ) {
   return ce.box(mj);
 }
 
+function collectSymbolsForScope(
+  expr: MJ | null | undefined,
+  acc: Set<string>,
+  isHead = false
+) {
+  if (expr === null || expr === undefined) return;
+  if (Array.isArray(expr)) {
+    expr.forEach((child, i) => collectSymbolsForScope(child as MJ, acc, i === 0));
+    return;
+  }
+  if (typeof expr === "string" && !isHead) {
+    acc.add(expr);
+  }
+}
+
+export function withRealScope<T>(expr: MJ, run: (ce: ComputeEngine) => T): T {
+  const symbols = new Set<string>();
+  collectSymbolsForScope(expr, symbols);
+
+  ce.pushScope();
+  try {
+    for (const sym of symbols) {
+      // Skip strings that look numeric to avoid redeclaring literals.
+      if (/^-?\d+(?:\.\d+)?$/.test(sym)) continue;
+      ce.declare(sym, "real");
+    }
+    return run(ce);
+  } finally {
+    ce.popScope();
+  }
+}
+
 function unwrapGroup(expr: Expression | null): Expression | null {
   if (Array.isArray(expr) && expr[0] === "Delimiter" && expr.length >= 2) {
     return expr[1] as Expression;

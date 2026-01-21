@@ -73,6 +73,26 @@ describe("evaluateSelection", () => {
     expect(normalizeLatex(next!.latexPlain)).toBe("6 x");
   });
 
+  it("evaluates a definite integral with numeric bounds", () => {
+    const latex = String.raw`\int_{0}^{2} 1 \,\mathrm{d}{x}`;
+    const tree = buildTree(latex);
+    const sel: ExprSelection = { kind: "node", nodeId: tree.rootId };
+
+    const next = evaluateSelection(tree, sel);
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe("2");
+  });
+
+  it("evaluates a definite integral with symbolic bounds", () => {
+    const latex = String.raw`\int_{0}^{x_{0}} \,\mathrm{d}{x}`;
+    const tree = buildTree(latex);
+    const sel: ExprSelection = { kind: "node", nodeId: tree.rootId };
+
+    const next = evaluateSelection(tree, sel);
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe(normalizeLatex(String.raw`x_{0}`));
+  });
+
   it("returns null when the selection does not change", () => {
     const latex = String.raw`x + 2`;
     const tree = buildTree(latex);
@@ -87,6 +107,6 @@ describe("evaluateSelection", () => {
     const latex = String.raw`\int_{0}^{2} 1 \,\mathrm{d}{x}`;
     const tree = buildTree(latex);
     const foo = evaluateRaw(tree.rootJson);
-    expect(foo.value).toBe(2);
+    expect(foo.valueOf()).toBe(2);
   });
 });
