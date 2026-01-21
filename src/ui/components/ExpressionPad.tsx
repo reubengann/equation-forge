@@ -13,6 +13,10 @@ import { ExpressionTree, type MJ } from "../../ExpressionTree";
 import { parse } from "../../computeEngine";
 import { vecMacroOptions } from "../../infra/mathlive/vecMacroOptions";
 import {
+  fromMathLiveLatex,
+  toMathLiveLatex,
+} from "../../infra/mathlive/differentialLatex";
+import {
   chooseBestAllowedSelectedNode,
   normalizeSelection,
   type ExprSelection,
@@ -257,7 +261,14 @@ export function ExpressionPad({
     if (prefillLatex === undefined) return;
     setLatexDraft(prefillLatex);
     setMode("entry");
-    if (inputRef.current) inputRef.current.value = prefillLatex;
+    if (inputRef.current) {
+      const pref = toMathLiveLatex(prefillLatex);
+      if (typeof inputRef.current.setValue === "function") {
+        inputRef.current.setValue(pref);
+      } else {
+        inputRef.current.value = pref;
+      }
+    }
     if (textInputRef.current) textInputRef.current.value = prefillLatex;
   }, [prefillLatex, prefillKey]);
 
@@ -299,7 +310,12 @@ export function ExpressionPad({
 
       const focusField = () => {
         try {
-          el.value = initialLatex;
+          const pref = toMathLiveLatex(initialLatex);
+          if (typeof el.setValue === "function") {
+            el.setValue(pref);
+          } else {
+            el.value = pref;
+          }
           el.focus?.();
         } catch {
           // MathLive element may not be upgraded yet; ignore and rely on next frame.
@@ -442,7 +458,11 @@ export function ExpressionPad({
       return;
     }
 
-    const rhsLatex: string = substituteFieldRef.current?.value ?? "";
+    const rhsLatex: string = fromMathLiveLatex(
+      substituteFieldRef.current?.getValue?.("latex") ??
+        substituteFieldRef.current?.value ??
+        ""
+    );
     if (!rhsLatex.trim()) {
       setSubstituteError("Enter a replacement expression.");
       return;
@@ -478,7 +498,11 @@ export function ExpressionPad({
       return;
     }
 
-    const opLatex: string = applyFieldRef.current?.value ?? "";
+    const opLatex: string = fromMathLiveLatex(
+      applyFieldRef.current?.getValue?.("latex") ??
+        applyFieldRef.current?.value ??
+        ""
+    );
     if (!opLatex.trim()) {
       setApplyError("Enter an operation.");
       return;
@@ -496,10 +520,13 @@ export function ExpressionPad({
   }
 
   function onAddEquation() {
-    const latex: string =
+    const rawLatex: string =
       inputMode === "mathlive"
-        ? (inputRef.current?.value as string)
+        ? (inputRef.current?.getValue?.("latex") ??
+            (inputRef.current?.value as string))
         : textInputRef.current?.value ?? "";
+    const latex =
+      inputMode === "mathlive" ? fromMathLiveLatex(rawLatex) : rawLatex;
     const mj = parse(latex);
     if (mj == null) {
       setLatexText(latex);

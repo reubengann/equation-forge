@@ -4,6 +4,7 @@ import {
   getRenderedLatex,
   setEquation,
 } from "./helpers/dragMathlive";
+import { toMathLiveLatex } from "../src/infra/mathlive/differentialLatex";
 
 test.setTimeout(20000);
 
@@ -14,10 +15,21 @@ function normalizeLatex(s: string): string {
 async function setSubstituteInput(page: any, latex: string) {
   const field = page.getByTestId("substitute-input");
   await field.waitFor();
-  await field.evaluate((el: any, value) => {
-    el.value = value;
-    el.dispatchEvent(new Event("input", { bubbles: true }));
-  }, latex);
+  const mlLatex = toMathLiveLatex(latex);
+  await field.evaluate(
+    async (el: any, value) => {
+      if (typeof customElements !== "undefined" && customElements.whenDefined) {
+        await customElements.whenDefined("math-field");
+      }
+      if (typeof el.setValue === "function") {
+        el.setValue(value);
+      } else {
+        el.value = value;
+      }
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    },
+    mlLatex
+  );
 }
 
 test.describe("Substitute modal", () => {
@@ -104,5 +116,29 @@ test.describe("Substitute modal", () => {
     // Should render upright d, not the symbol name.
     expect(latex).not.toContain("DifferentialD");
     expect(latex).toContain(String.raw`\mathrm{d}{t}`);
+  });
+
+  test("prefill round-trips for differentials (no d_upright/Nothing)", async ({
+    page,
+  }) => {
+    const equation = String.raw`\dfrac{\mathrm{d}{f}}{\mathrm{d}{x}} = g`;
+    await setEquation(page, equation);
+
+    await clickNodeByLatex(page, equation, [
+      String.raw`\frac{\mathrm{d}{f}}{\mathrm{d}{x}}`,
+      String.raw`\dfrac{\mathrm{d}{f}}{\mathrm{d}{x}}`,
+    ]);
+
+    await page.getByTestId("substitute-button").click();
+
+    // Accept without edits.
+    await page.getByRole("button", { name: "OK" }).click();
+
+    const latex = normalizeLatex(await getRenderedLatex(page));
+    expect(latex).not.toContain("d_upright");
+    expect(latex).not.toContain("Nothing");
+    expect(latex).toContain(String.raw`\mathrm{d}{f}`);
+    expect(latex).toContain(String.raw`\mathrm{d}{x}`);
+    expect(latex).toContain("= g");
   });
 });

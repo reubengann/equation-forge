@@ -1,7 +1,7 @@
 export const vecMacroOptions = {
   macros: {
     vec: "\\mathbf{#1}",
-    // Keep \differentialD upright while typing in MathLive fields.
+    // Ensure \differentialD renders as upright roman d in MathLive.
     differentialD: "\\mathrm{d}",
   },
 };

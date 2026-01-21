@@ -65,8 +65,12 @@ export function ApplyModal({
   useEffect(() => {
     if (open && applyFieldRef.current) {
       const field = applyFieldRef.current as any;
-      field.value = "";
-      field.focus();
+      if (typeof field.setValue === "function") {
+        field.setValue("");
+      } else {
+        field.value = "";
+      }
+      field.focus?.();
     }
   }, [open, applyFieldRef]);
 

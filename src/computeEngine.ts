@@ -4,6 +4,7 @@ import {
   type LatexDictionaryEntry,
 } from "@cortex-js/compute-engine";
 import type { MJ } from "./ExpressionTree";
+import { toMathLiveLatex } from "./infra/mathlive/differentialLatex";
 
 const ce = new ComputeEngine();
 
@@ -23,7 +24,7 @@ function normalizeVectorMacros(latex: string): string {
 }
 
 export function parse(latex: string): MJ | null {
-  const prepared = normalizeVectorMacros(latex);
+  const prepared = normalizeVectorMacros(toMathLiveLatex(latex));
   const mj = (ce.parse(prepared, { canonical: false })?.json as MJ) ?? null;
   return normalizeMathJson(mj);
 }
