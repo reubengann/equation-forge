@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { evaluate, evaluateRaw, parse } from "./computeEngine";
+import { evaluateRaw, parse } from "./computeEngine";
 import { ExpressionTree } from "./ExpressionTree";
 import type { ExprSelection } from "./selectionSemantics";
 import { evaluateSelection } from "./evaluateSelection";
