@@ -1,12 +1,16 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { evaluateRaw, parse } from "./computeEngine";
 import { ExpressionTree } from "./ExpressionTree";
 import type { ExprSelection } from "./selectionSemantics";
-import { evaluateSelection } from "./evaluateSelection";
+import { canEvaluateSelection, evaluateSelection } from "./evaluateSelection";
 
 function buildTree(latex: string): ExpressionTree {
   const mj = parse(latex);
   if (!mj) throw new Error(`Failed to parse LaTeX: ${latex}`);
+  return ExpressionTree.create(mj);
+}
+
+function buildTreeFromMJ(mj: any): ExpressionTree {
   return ExpressionTree.create(mj);
 }
 
@@ -143,5 +147,192 @@ describe("evaluateSelection", () => {
     expect(parts.length).toBe(2);
     const numeric = Number(parts[1]);
     expect(Number.isFinite(numeric)).toBe(true);
+  });
+
+  it("multiplies numeric factors inside implicit product", () => {
+    // MJ directly to ensure an InvisibleOperator is used
+    const tree = buildTreeFromMJ(["InvisibleOperator", 2, "3", "x"]);
+    const sel: ExprSelection = { kind: "node", nodeId: tree.rootId };
+
+    const next = evaluateSelection(tree, sel);
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe("6 x");
+  });
+
+  it("round-trips subscript symbols through evaluation pipeline", () => {
+    const tree = buildTreeFromMJ(["Subscript", "x", 2]);
+    const sel: ExprSelection = { kind: "node", nodeId: tree.rootId };
+
+    // No change expected, but exercises encode/decode path
+    const next = evaluateSelection(tree, sel);
+    expect(next).toBeNull();
+  });
+
+  it("returns null for invalid span ranges", () => {
+    const tree = buildTreeFromMJ(["Add", 1, 2, 3]);
+    const sel: ExprSelection = {
+      kind: "span",
+      parentId: tree.rootId,
+      op: "Add",
+      start: 2,
+      end: 1, // start > end invalid
+    };
+
+    const next = evaluateSelection(tree, sel);
+    expect(next).toBeNull();
+  });
+
+  it("rejects spans whose parent is not additive/multiplicative", () => {
+    const tree = buildTreeFromMJ(["Power", "x", 2]);
+    const sel: ExprSelection = {
+      kind: "span",
+      parentId: tree.rootId,
+      op: "Power",
+      start: 0,
+      end: 0,
+    };
+
+    const next = evaluateSelection(tree, sel);
+    expect(next).toBeNull();
+  });
+
+  it("returns null when span parent id is missing", () => {
+    const tree = buildTree("a + b");
+    const sel: ExprSelection = {
+      kind: "span",
+      parentId: "missing",
+      op: "Add",
+      start: 0,
+      end: 0,
+    };
+    const next = evaluateSelection(tree, sel);
+    expect(next).toBeNull();
+  });
+
+  it("returns null when implicit product has no numeric factors", () => {
+    const tree = buildTreeFromMJ(["InvisibleOperator", "x", "y"]);
+    const sel: ExprSelection = { kind: "node", nodeId: tree.rootId };
+
+    const next = evaluateSelection(tree, sel);
+    expect(next).toBeNull();
+  });
+
+  it("drops a unit numeric factor while keeping other factors", () => {
+    const tree = buildTreeFromMJ(["InvisibleOperator", 1, "x"]);
+    const sel: ExprSelection = { kind: "node", nodeId: tree.rootId };
+
+    const next = evaluateSelection(tree, sel);
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe("x");
+  });
+
+  it("converts compute-engine numeric objects to primitives", async () => {
+    const ce = await import("./computeEngine");
+    const spy = vi
+      .spyOn(ce, "withRealScope")
+      .mockImplementation((ceReady: any, fn: any) =>
+        fn({
+          box: () => ({
+            evaluate: () => ({ json: { num: "2" } }),
+            simplify: () => undefined,
+            N: () => undefined,
+          }),
+        } as any)
+      );
+
+    const tree = buildTreeFromMJ(["InvisibleOperator", 1, 1]);
+    const sel: ExprSelection = { kind: "node", nodeId: tree.rootId };
+
+    const next = evaluateSelection(tree, sel);
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe("2");
+
+    spy.mockRestore();
+  });
+
+  it("multiplies numeric factors when compute engine returns no candidates", async () => {
+    const ce = await import("./computeEngine");
+    const spy = vi
+      .spyOn(ce, "withRealScope")
+      .mockImplementation((ceReady: any, fn: any) =>
+        fn({
+          box: () => ({
+            evaluate: () => undefined,
+            simplify: () => undefined,
+            N: () => undefined,
+          }),
+        } as any)
+      );
+
+    const tree = buildTreeFromMJ(["InvisibleOperator", 2, "3", "x"]);
+    const sel: ExprSelection = { kind: "node", nodeId: tree.rootId };
+
+    const next = evaluateSelection(tree, sel);
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe("6 x");
+
+    spy.mockRestore();
+  });
+
+  it("normalizes EvaluateAt candidates returned by the compute engine", async () => {
+    const ce = await import("./computeEngine");
+    const spy = vi
+      .spyOn(ce, "withRealScope")
+      .mockImplementation((_expr: any, fn: any) =>
+        fn({
+          box: () => ({
+            evaluate: () => ({
+              json: ["EvaluateAt", ["Function", ["Add", "x", 1], "x"], 0, 2],
+            }),
+            simplify: () => undefined,
+            N: () => undefined,
+          }),
+        } as any)
+      );
+
+    const tree = buildTreeFromMJ(["InvisibleOperator", 1, 1]);
+    const sel: ExprSelection = { kind: "node", nodeId: tree.rootId };
+
+    const next = evaluateSelection(tree, sel);
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe("2 + 1 - \\left(0 + 1\\right)");
+
+    spy.mockRestore();
+  });
+});
+
+describe("canEvaluateSelection", () => {
+  it("returns false for multi selections", () => {
+    expect(canEvaluateSelection(null, null)).toBe(false);
+    const tree = buildTree("a + b");
+    const sel: ExprSelection = { kind: "multi", nodeIds: [] };
+    expect(canEvaluateSelection(tree, sel)).toBe(false);
+  });
+
+  it("returns false for spans whose parent is not Add/InvisibleOperator", () => {
+    const tree = buildTreeFromMJ(["Power", "x", 2]);
+    const sel: ExprSelection = {
+      kind: "span",
+      parentId: tree.rootId,
+      op: "Power",
+      start: 0,
+      end: 0,
+    };
+    expect(canEvaluateSelection(tree, sel)).toBe(false);
+  });
+
+  it("allows additive spans and node selections", () => {
+    const tree = buildTree("a + 1");
+    const addId = tree.rootId;
+    const selSpan: ExprSelection = {
+      kind: "span",
+      parentId: addId,
+      op: "Add",
+      start: 0,
+      end: 1,
+    };
+    const selNode: ExprSelection = { kind: "node", nodeId: addId };
+    expect(canEvaluateSelection(tree, selSpan)).toBe(true);
+    expect(canEvaluateSelection(tree, selNode)).toBe(true);
   });
 });

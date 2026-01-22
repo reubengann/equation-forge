@@ -4,19 +4,19 @@ overview: Run the existing Vitest V8 coverage report for the unit test suite and
 todos:
   - id: run-coverage
     content: Run `npm run test:coverage` and inspect `coverage/index.html` + console output to identify the lowest-covered files/branches.
-    status: pending
+    status: completed
   - id: add-geometry-tests
     content: Add `src/domain/move/planMoveGeometry.test.ts` covering slot computation + multiplicative drop kind edge cases.
-    status: pending
+    status: completed
   - id: add-hover-target-tests
     content: Add `src/domain/move/planMoveHoverTarget.test.ts` using `ExpressionTree.create(...)` fixtures + stubbed rects.
-    status: pending
+    status: completed
   - id: add-move-plan-adapter-tests
     content: Add `src/domain/move/movePlanAdapters.test.ts` covering `describeMovePlan` + `planToApplyMoveTarget` branch logic.
-    status: pending
+    status: completed
   - id: add-overlay-helper-tests
     content: Add `src/ui/drag/renderInsertOverlay.test.ts` focusing on pure helpers (`computeInsertX`, `targetRectForPlan`) without invoking DOM APIs.
-    status: pending
+    status: completed
 ---
 
 # Unit test coverage report + gap-driven test additions
