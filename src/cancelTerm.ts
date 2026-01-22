@@ -304,6 +304,34 @@ function cancelSelectedPairInEqual(
     return { kind: "equal", nodeId: equalId, nextExpr };
   }
 
+  // --- Additive-with-factor cancellation (common factor across an Add side) ---
+  const lhsAddFactorRemoval = removeFactorFromAddTerms(lhsExpr, aCanonical);
+  const rhsAddFactorRemoval = removeFactorFromAddTerms(rhsExpr, aCanonical);
+
+  // LHS is Add with common factor, RHS multiplicative
+  if (lhsAddFactorRemoval?.removed) {
+    const rhsFactors = factorsOf(rhsExpr);
+    const rhsRemoval = removeFactorOnce(rhsFactors, aCanonical);
+    if (rhsRemoval.removed) {
+      const nextLhs = lhsAddFactorRemoval.next;
+      const nextRhs = buildProductFromFactors(rhsRemoval.remaining);
+      const nextExpr: MJ = ["Equal", nextLhs, nextRhs] as MJNode;
+      return { kind: "equal", nodeId: equalId, nextExpr };
+    }
+  }
+
+  // RHS is Add with common factor, LHS multiplicative
+  if (rhsAddFactorRemoval?.removed) {
+    const lhsFactors = factorsOf(lhsExpr);
+    const lhsRemoval = removeFactorOnce(lhsFactors, aCanonical);
+    if (lhsRemoval.removed) {
+      const nextLhs = buildProductFromFactors(lhsRemoval.remaining);
+      const nextRhs = rhsAddFactorRemoval.next;
+      const nextExpr: MJ = ["Equal", nextLhs, nextRhs] as MJNode;
+      return { kind: "equal", nodeId: equalId, nextExpr };
+    }
+  }
+
   // --- Multiplicative cancellation ---
   const lhsFactors = factorsOf(lhsExpr);
   const rhsFactors = factorsOf(rhsExpr);

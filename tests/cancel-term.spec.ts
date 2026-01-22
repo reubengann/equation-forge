@@ -220,4 +220,55 @@ test.describe("Term cancellation", () => {
     const latex = await getRenderedLatex(page);
     expect(normalizeLatex(latex)).toBe("a = b");
   });
+
+  test("ctrl/cmd+click cancels all matching factors across an equals sign with additive numerator", async ({
+    page,
+  }) => {
+    const equation = String.raw`-\mu_{s} m g \cos\left(\theta\right) + m g \sin\left(\theta\right) = m \ddot{x}`;
+    await setEquation(page, equation);
+
+    const tree = buildTree(equation);
+    const equalId = tree.rootId;
+    const [lhsId, rhsId] = tree.childrenById[equalId] ?? [];
+
+    const isDescendant = (nodeId: string, ancestorId: string) => {
+      let cur: string | undefined | null = nodeId;
+      while (cur) {
+        if (cur === ancestorId) return true;
+        cur = tree.parentById[cur] ?? null;
+      }
+      return false;
+    };
+
+    const lhsMs = Object.values(tree.nodesById)
+      .filter((n) => n?.latex === "m" && lhsId && isDescendant(n.id, lhsId))
+      .map((n) => n!.id);
+    const rhsM = Object.values(tree.nodesById).find(
+      (n) => n?.latex === "m" && rhsId && isDescendant(n.id, rhsId)
+    )?.id;
+
+    expect(lhsMs.length).toBeGreaterThanOrEqual(2);
+    expect(rhsM).toBeTruthy();
+
+    const allMIds = [...lhsMs, rhsM!];
+    await waitForMathRender(page, allMIds);
+    const rects = await getNodeRects(page, allMIds);
+
+    const modKey = process.platform === "darwin" ? "Meta" : "Control";
+    // Click first m
+    await page.mouse.click(rects[allMIds[0]].center.x, rects[allMIds[0]].center.y);
+    // Ctrl/Cmd click remaining
+    await page.keyboard.down(modKey);
+    for (let i = 1; i < allMIds.length; i += 1) {
+      const id = allMIds[i];
+      await page.mouse.click(rects[id].center.x, rects[id].center.y);
+    }
+    await page.keyboard.up(modKey);
+
+    await page.keyboard.press("Delete");
+    const latex = await getRenderedLatex(page);
+    expect(normalizeLatex(latex)).toBe(
+      String.raw`-\mu_{s} g \cos\left(\theta\right) + g \sin\left(\theta\right) = \ddot{x}`
+    );
+  });
 });
