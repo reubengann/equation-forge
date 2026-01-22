@@ -56,6 +56,42 @@ function toComputeEngine(expr: MJ): MJ {
 }
 
 function fromComputeEngine(expr: MJ): MJ {
+  if (
+    expr &&
+    typeof expr === "object" &&
+    !Array.isArray(expr) &&
+    typeof (expr as any).valueOf === "function"
+  ) {
+    const v = (expr as any).valueOf();
+    if (typeof v === "number" || typeof v === "string") {
+      return v as MJ;
+    }
+    if (typeof v === "object" && v !== null && "num" in (v as any)) {
+      const num = (v as any).num;
+      const parsed = typeof num === "string" ? Number(num) : num;
+      if (typeof parsed === "number" && Number.isFinite(parsed)) {
+        return parsed as MJ;
+      }
+    }
+  }
+
+  if (
+    expr &&
+    typeof expr === "object" &&
+    !Array.isArray(expr) &&
+    "num" in (expr as any)
+  ) {
+    const num = (expr as any).num;
+    const parsed = typeof num === "string" ? Number(num) : num;
+    if (typeof parsed === "number" && Number.isFinite(parsed)) {
+      return parsed as MJ;
+    }
+    const str = (expr as any).toString?.();
+    if (typeof str === "string" && str !== "[object Object]") {
+      return str as MJ;
+    }
+  }
+
   if (!Array.isArray(expr)) return decodeSubscriptSymbol(expr);
   const op = expr[0];
   if (op === "Rational") {

@@ -125,4 +125,23 @@ describe("evaluateSelection", () => {
       )
     );
   });
+
+  it("evaluates numeric arctan to a number, not [object Object]", () => {
+    const latex = String.raw`\theta = \tan^{-1}\left(0.4\right)`;
+    const tree = buildTree(latex);
+    const rhsLatex = String.raw`\tan^{-1}\left(0.4\right)`;
+    const nodeId = findNodeIdByLatex(tree, rhsLatex);
+    const sel: ExprSelection = { kind: "node", nodeId };
+
+    const next = evaluateSelection(tree, sel);
+    expect(next).not.toBeNull();
+    const normalized = normalizeLatex(next!.latexPlain);
+    expect(normalized).not.toContain("[object Object]");
+
+    const parts = normalized.split(" = ");
+    expect(parts[0]).toBe(String.raw`\theta`);
+    expect(parts.length).toBe(2);
+    const numeric = Number(parts[1]);
+    expect(Number.isFinite(numeric)).toBe(true);
+  });
 });
