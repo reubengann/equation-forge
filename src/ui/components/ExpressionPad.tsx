@@ -161,6 +161,7 @@ export function ExpressionPad({
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const applyFieldRef = useRef<any>(null);
   const substituteFieldRef = useRef<any>(null);
+  const substituteTextFieldRef = useRef<HTMLTextAreaElement | null>(null);
   const insertOverlayRef = useRef<HTMLDivElement | null>(null);
 
   const [latexDraft, setLatexDraft] = useState<string>(
@@ -245,6 +246,9 @@ export function ExpressionPad({
   const [substituteScope, setSubstituteScope] =
     useState<SubstituteScope>("single");
   const [substituteError, setSubstituteError] = useState("");
+  const [substituteInputMode, setSubstituteInputMode] =
+    useState<InputMode>("mathlive");
+  const [substituteLatexDraft, setSubstituteLatexDraft] = useState<string>("");
   const [infoArgs, setInfoArgs] = useState<string>("");
   const [selectionKind, setSelectionKind] = useState<string>("");
   const [selectionClickedId, setSelectionClickedId] = useState<string>("");
@@ -313,21 +317,12 @@ export function ExpressionPad({
   }, [tree, selection]);
 
   useEffect(() => {
-    if (showSubstituteModal && substituteFieldRef.current) {
-      const el = substituteFieldRef.current as any;
-      const initialLatex =
-        tree && substituteTargetId
-          ? tree.nodesById[substituteTargetId]?.latex ?? ""
-          : "";
+    if (!showSubstituteModal) return;
 
+    if (substituteInputMode === "mathlive" && substituteFieldRef.current) {
+      const el = substituteFieldRef.current as any;
       const focusField = () => {
         try {
-          const pref = toMathLiveLatex(initialLatex);
-          if (typeof el.setValue === "function") {
-            el.setValue(pref);
-          } else {
-            el.value = pref;
-          }
           el.focus?.();
         } catch {
           // MathLive element may not be upgraded yet; ignore and rely on next frame.
@@ -343,7 +338,11 @@ export function ExpressionPad({
         requestAnimationFrame(focusField);
       }
     }
-  }, [showSubstituteModal, tree, substituteTargetId]);
+
+    if (substituteInputMode === "text" && substituteTextFieldRef.current) {
+      substituteTextFieldRef.current.focus();
+    }
+  }, [showSubstituteModal, substituteInputMode]);
 
   useEffect(() => {
     if (showSubstituteModal && (!tree || !substituteTargetId)) {
@@ -446,6 +445,12 @@ export function ExpressionPad({
   function openSubstituteModal() {
     setSubstituteScope("single");
     setSubstituteError("");
+    const initialLatex =
+      tree && substituteTargetId
+        ? tree.nodesById[substituteTargetId]?.latex ?? ""
+        : "";
+    setSubstituteLatexDraft(initialLatex);
+    setSubstituteInputMode("mathlive");
     setShowSubstituteModal(true);
   }
 
@@ -466,22 +471,31 @@ export function ExpressionPad({
 
   const applySuggestionToField = useCallback(
     (rhsLatex: string) => {
-      const el = substituteFieldRef.current as any;
-      if (!el) return;
-      const mlLatex = toMathLiveLatex(rhsLatex);
-      try {
-        if (typeof el.setValue === "function") {
-          el.setValue(mlLatex);
-        } else {
-          el.value = mlLatex;
+      setSubstituteLatexDraft(rhsLatex);
+      setSubstituteError("");
+
+      if (substituteInputMode === "mathlive") {
+        const el = substituteFieldRef.current as any;
+        if (!el) return;
+        const mlLatex = toMathLiveLatex(rhsLatex);
+        try {
+          if (typeof el.setValue === "function") {
+            el.setValue(mlLatex);
+          } else {
+            el.value = mlLatex;
+          }
+          el.focus?.();
+        } catch {
+          // Ignore MathLive upgrade timing; user can still type manually.
         }
-        el.focus?.();
-        setSubstituteError("");
-      } catch {
-        // Ignore MathLive upgrade timing; user can still type manually.
+      } else {
+        if (substituteTextFieldRef.current) {
+          substituteTextFieldRef.current.value = rhsLatex;
+          substituteTextFieldRef.current.focus();
+        }
       }
     },
-    [setSubstituteError]
+    [setSubstituteError, setSubstituteLatexDraft, substituteInputMode]
   );
 
   function submitSubstitution() {
@@ -490,11 +504,7 @@ export function ExpressionPad({
       return;
     }
 
-    const rhsLatex: string = fromMathLiveLatex(
-      substituteFieldRef.current?.getValue?.("latex") ??
-        substituteFieldRef.current?.value ??
-        ""
-    );
+    const rhsLatex: string = substituteLatexDraft;
     if (!rhsLatex.trim()) {
       setSubstituteError("Enter a replacement expression.");
       return;
@@ -1250,7 +1260,12 @@ export function ExpressionPad({
         onScopeChange={setSubstituteScope}
         onSubmit={submitSubstitution}
         onClose={closeSubstituteModal}
+        substituteLatexDraft={substituteLatexDraft}
+        substituteInputMode={substituteInputMode}
+        onSubstituteInputModeChange={setSubstituteInputMode}
+        onSubstituteLatexChange={setSubstituteLatexDraft}
         substituteFieldRef={substituteFieldRef}
+        substituteTextFieldRef={substituteTextFieldRef}
         suggestions={substituteSuggestions}
         onSuggestionPick={applySuggestionToField}
         MathField={MathField}
