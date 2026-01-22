@@ -201,6 +201,11 @@ export class ExpressionTree {
       if (op === "Degrees") {
         return this.recordTagged(this.emitDegrees(node, id, path, op));
       }
+      if (op === "InverseFunction") {
+        return this.recordTagged(
+          this.emitInverseFunction(node, id, path, op)
+        );
+      }
       if (FUNCTION_OPS.has(op)) {
         return this.recordTagged(this.emitFunctionCall(node, id, path, op));
       }
@@ -830,6 +835,39 @@ export class ExpressionTree {
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
+  private emitInverseFunction(
+    node: MJNode,
+    id: string,
+    path: number[],
+    op: string
+  ) {
+    const base = this.emit(node[1], id, [...path, 1]);
+
+    this.childrenById[id] = [base.id];
+    this.childIndexById[base.id] = 0;
+
+    const nameMap: Record<string, string> = {
+      Sin: String.raw`\sin`,
+      Cos: String.raw`\cos`,
+      Tan: String.raw`\tan`,
+      Exp: String.raw`\exp`,
+      Log: String.raw`\log`,
+      Ln: String.raw`\ln`,
+      Abs: String.raw`\left|`,
+    };
+
+    const head = node[1];
+    const fnLatex =
+      typeof head === "string"
+        ? nameMap[head] ?? base.latexPlain
+        : base.latexPlain;
+
+    const plain = `${fnLatex}^{-1}`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, plain) };
   }
 
   private emitPartial(node: MJNode, id: string, path: number[], op: string) {

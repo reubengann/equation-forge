@@ -459,6 +459,11 @@ describe("ExpressionTree", () => {
     expect(t.latexPlain).toBe(String.raw`\sin\left(x\right)`);
   });
 
+  it("renders inverse tangent", () => {
+    const t = treefromLatex(String.raw`\tan^{-1} x`);
+    expect(t.latexPlain).toBe(String.raw`\tan^{-1}\left(x\right)`);
+  });
+
   it("renders a Degrees operand as a degree symbol", () => {
     const t = ExpressionTree.create(["Sin", ["Degrees", 30]]);
     expect(t.latexPlain).toBe(String.raw`\sin\left(30^{\circ}\right)`);

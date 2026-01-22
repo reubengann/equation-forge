@@ -114,4 +114,12 @@ describe("computeEngine custom dictionary", () => {
       ],
     ]);
   });
+
+  it("parses inverse tangent", () => {
+    expect(parse(String.raw`\tan^{-1} x`)).toEqual([
+      "Apply",
+      ["InverseFunction", "Tan"],
+      "x",
+    ]);
+  });
 });
