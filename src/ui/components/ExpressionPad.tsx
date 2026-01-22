@@ -53,8 +53,10 @@ import {
 } from "../../evaluateSelection";
 import { lhsMatchesSelected } from "../../mathJson/match";
 import { canFactorSelection, factorSelection } from "../../factorSelection";
-
-type InputMode = "mathlive" | "text";
+import {
+  LatexInputWithToggle,
+  type InputMode,
+} from "./LatexInputWithToggle";
 
 export type ExpressionPadDebugState = {
   latexText: string;
@@ -162,6 +164,7 @@ export function ExpressionPad({
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   const applyFieldRef = useRef<any>(null);
   const substituteFieldRef = useRef<any>(null);
+  const substituteTextFieldRef = useRef<HTMLTextAreaElement | null>(null);
   const insertOverlayRef = useRef<HTMLDivElement | null>(null);
 
   const [latexDraft, setLatexDraft] = useState<string>(
@@ -246,6 +249,9 @@ export function ExpressionPad({
   const [substituteScope, setSubstituteScope] =
     useState<SubstituteScope>("single");
   const [substituteError, setSubstituteError] = useState("");
+  const [substituteInputMode, setSubstituteInputMode] =
+    useState<InputMode>("mathlive");
+  const [substituteLatexDraft, setSubstituteLatexDraft] = useState<string>("");
   const [infoArgs, setInfoArgs] = useState<string>("");
   const [selectionKind, setSelectionKind] = useState<string>("");
   const [selectionClickedId, setSelectionClickedId] = useState<string>("");
@@ -314,21 +320,12 @@ export function ExpressionPad({
   }, [tree, selection]);
 
   useEffect(() => {
-    if (showSubstituteModal && substituteFieldRef.current) {
-      const el = substituteFieldRef.current as any;
-      const initialLatex =
-        tree && substituteTargetId
-          ? tree.nodesById[substituteTargetId]?.latex ?? ""
-          : "";
+    if (!showSubstituteModal) return;
 
+    if (substituteInputMode === "mathlive" && substituteFieldRef.current) {
+      const el = substituteFieldRef.current as any;
       const focusField = () => {
         try {
-          const pref = toMathLiveLatex(initialLatex);
-          if (typeof el.setValue === "function") {
-            el.setValue(pref);
-          } else {
-            el.value = pref;
-          }
           el.focus?.();
         } catch {
           // MathLive element may not be upgraded yet; ignore and rely on next frame.
@@ -344,7 +341,11 @@ export function ExpressionPad({
         requestAnimationFrame(focusField);
       }
     }
-  }, [showSubstituteModal, tree, substituteTargetId]);
+
+    if (substituteInputMode === "text" && substituteTextFieldRef.current) {
+      substituteTextFieldRef.current.focus();
+    }
+  }, [showSubstituteModal, substituteInputMode]);
 
   useEffect(() => {
     if (showSubstituteModal && (!tree || !substituteTargetId)) {
@@ -454,6 +455,12 @@ export function ExpressionPad({
   function openSubstituteModal() {
     setSubstituteScope("single");
     setSubstituteError("");
+    const initialLatex =
+      tree && substituteTargetId
+        ? tree.nodesById[substituteTargetId]?.latex ?? ""
+        : "";
+    setSubstituteLatexDraft(initialLatex);
+    setSubstituteInputMode("mathlive");
     setShowSubstituteModal(true);
   }
 
@@ -474,22 +481,31 @@ export function ExpressionPad({
 
   const applySuggestionToField = useCallback(
     (rhsLatex: string) => {
-      const el = substituteFieldRef.current as any;
-      if (!el) return;
-      const mlLatex = toMathLiveLatex(rhsLatex);
-      try {
-        if (typeof el.setValue === "function") {
-          el.setValue(mlLatex);
-        } else {
-          el.value = mlLatex;
+      setSubstituteLatexDraft(rhsLatex);
+      setSubstituteError("");
+
+      if (substituteInputMode === "mathlive") {
+        const el = substituteFieldRef.current as any;
+        if (!el) return;
+        const mlLatex = toMathLiveLatex(rhsLatex);
+        try {
+          if (typeof el.setValue === "function") {
+            el.setValue(mlLatex);
+          } else {
+            el.value = mlLatex;
+          }
+          el.focus?.();
+        } catch {
+          // Ignore MathLive upgrade timing; user can still type manually.
         }
-        el.focus?.();
-        setSubstituteError("");
-      } catch {
-        // Ignore MathLive upgrade timing; user can still type manually.
+      } else {
+        if (substituteTextFieldRef.current) {
+          substituteTextFieldRef.current.value = rhsLatex;
+          substituteTextFieldRef.current.focus();
+        }
       }
     },
-    [setSubstituteError]
+    [setSubstituteError, setSubstituteLatexDraft, substituteInputMode]
   );
 
   function submitSubstitution() {
@@ -498,11 +514,7 @@ export function ExpressionPad({
       return;
     }
 
-    const rhsLatex: string = fromMathLiveLatex(
-      substituteFieldRef.current?.getValue?.("latex") ??
-        substituteFieldRef.current?.value ??
-        ""
-    );
+    const rhsLatex: string = substituteLatexDraft;
     if (!rhsLatex.trim()) {
       setSubstituteError("Enter a replacement expression.");
       return;
@@ -560,13 +572,7 @@ export function ExpressionPad({
   }
 
   function onAddEquation() {
-    const rawLatex: string =
-      inputMode === "mathlive"
-        ? (inputRef.current?.getValue?.("latex") ??
-            (inputRef.current?.value as string))
-        : textInputRef.current?.value ?? "";
-    const latex =
-      inputMode === "mathlive" ? fromMathLiveLatex(rawLatex) : rawLatex;
+    const latex = latexDraft;
     const mj = parse(latex);
     if (mj == null) {
       setLatexText(latex);
@@ -1084,9 +1090,6 @@ export function ExpressionPad({
     toggleDebugBoxes: () => setDebugBoxes((v) => !v),
   };
 
-  const monoFont =
-    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
-
   return (
     <div style={{ padding: 24, maxWidth: 1000 }}>
       {mode === "entry" && (
@@ -1101,99 +1104,28 @@ export function ExpressionPad({
             }}
           >
             <div style={{ flex: "1 1 auto" }}>
-              {inputMode === "mathlive" ? (
-                <>
-                  {/* MathLive note: pass macros as an object prop to avoid the
-                      parenthesis duplication bug we saw when stringifying. */}
-                  <MathField
-                    ref={(el: any) => {
-                      inputRef.current = el;
-                    }}
-                    value={latexDraft}
-                    style={{
-                      width: "100%",
-                      padding: 10,
-                      border: "1px solid #ccc",
-                      borderRadius: 8,
-                    }}
-                    data-testid="latex-input"
-                    onInput={(e: any) => setLatexDraft(e.target?.value ?? "")}
-                    macros={vecMacroOptions.macros}
-                  />
-                </>
-              ) : (
-                <textarea
-                  ref={textInputRef}
-                  value={latexDraft}
-                  style={{
-                    width: "100%",
-                    padding: 10,
-                    border: "1px solid #ccc",
-                    borderRadius: 8,
-                    minHeight: 80,
-                    fontFamily: monoFont,
-                    background: "var(--dp-surface)",
-                    color: "inherit",
-                  }}
-                  data-testid="latex-input"
-                  onChange={(e) => setLatexDraft(e.target.value)}
-                />
-              )}
+              <LatexInputWithToggle
+                inputMode={inputMode}
+                latex={latexDraft}
+                onLatexChange={setLatexDraft}
+                onInputModeChange={setInputMode}
+                mathFieldRef={inputRef}
+                textAreaRef={textInputRef}
+                MathField={MathField}
+                dataTestId="latex-input"
+                radioName="entry-mode"
+                fieldStyle={{ border: "1px solid #ccc" }}
+                actionButton={{
+                  label: "✓",
+                  onClick: onAddEquation,
+                  title: "Add / Update",
+                  ariaLabel: "Add / Update",
+                  dataTestId: "add-update",
+                }}
+              />
             </div>
-            <button
-              onClick={onAddEquation}
-              style={{
-                padding: "10px 14px",
-                borderRadius: 8,
-                border: "1px solid #888",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                minWidth: 44,
-                minHeight: 44,
-              }}
-              title="Add / Update"
-              aria-label="Add / Update"
-              data-testid="add-update"
-            >
-              ✓
-            </button>
           </div>
 
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <input
-                type="radio"
-                name="entry-mode"
-                value="mathlive"
-                checked={inputMode === "mathlive"}
-                onChange={() => setInputMode("mathlive")}
-              />
-              MathLive
-            </label>
-            <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <input
-                type="radio"
-                name="entry-mode"
-                value="text"
-                checked={inputMode === "text"}
-                onChange={() => setInputMode("text")}
-              />
-              Plain text (LaTeX)
-            </label>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              alignItems: "center",
-              flexWrap: "wrap",
-            }}
-          >
-          </div>
         </div>
       )}
 
@@ -1264,7 +1196,12 @@ export function ExpressionPad({
         onScopeChange={setSubstituteScope}
         onSubmit={submitSubstitution}
         onClose={closeSubstituteModal}
+        substituteLatexDraft={substituteLatexDraft}
+        substituteInputMode={substituteInputMode}
+        onSubstituteInputModeChange={setSubstituteInputMode}
+        onSubstituteLatexChange={setSubstituteLatexDraft}
         substituteFieldRef={substituteFieldRef}
+        substituteTextFieldRef={substituteTextFieldRef}
         suggestions={substituteSuggestions}
         onSuggestionPick={applySuggestionToField}
         MathField={MathField}

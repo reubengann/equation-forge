@@ -1,16 +1,25 @@
 import { useRef, type CSSProperties, type RefObject } from "react";
 import type { SubstituteScope } from "../../substitute";
 import { vecMacroOptions } from "../../infra/mathlive/vecMacroOptions";
+import {
+  LatexInputWithToggle,
+  type InputMode,
+} from "./LatexInputWithToggle";
 
 type SubstituteModalProps = {
   open: boolean;
   selectedNodeLatex: string | null;
   substituteError: string;
   substituteScope: SubstituteScope;
+  substituteInputMode: InputMode;
+  substituteLatexDraft: string;
   onScopeChange: (scope: SubstituteScope) => void;
+  onSubstituteInputModeChange: (mode: InputMode) => void;
+  onSubstituteLatexChange: (latex: string) => void;
   onSubmit: () => void;
   onClose: () => void;
   substituteFieldRef: RefObject<any>;
+  substituteTextFieldRef: RefObject<HTMLTextAreaElement | null>;
   suggestions?: { padIndex: number; rhsLatex: string }[];
   onSuggestionPick?: (rhsLatex: string) => void;
   MathField: any;
@@ -48,10 +57,15 @@ export function SubstituteModal({
   selectedNodeLatex,
   substituteError,
   substituteScope,
+  substituteInputMode,
+  substituteLatexDraft,
   onScopeChange,
+  onSubstituteInputModeChange,
+  onSubstituteLatexChange,
   onSubmit,
   onClose,
   substituteFieldRef,
+  substituteTextFieldRef,
   suggestions,
   onSuggestionPick,
   MathField,
@@ -165,21 +179,17 @@ export function SubstituteModal({
             <div style={{ ...labelStyle, marginBottom: 2 }}>
               Replace with (LaTeX)
             </div>
-            {/* MathLive note: pass macros as an object prop; stringifying caused
-                issues in earlier builds. */}
-            <MathField
-              ref={(el: any) => {
-                substituteFieldRef.current = el;
-              }}
-              style={{
-                width: "100%",
-                padding: 10,
-                border: "1px solid var(--dp-border)",
-                borderRadius: 8,
-                
-              }}
-              data-testid="substitute-input"
-              macros={vecMacroOptions.macros}
+            <LatexInputWithToggle
+              inputMode={substituteInputMode}
+              latex={substituteLatexDraft}
+              onLatexChange={onSubstituteLatexChange}
+              onInputModeChange={onSubstituteInputModeChange}
+              mathFieldRef={substituteFieldRef}
+              textAreaRef={substituteTextFieldRef}
+              MathField={MathField}
+              dataTestId="substitute-input"
+              radioName="substitute-input-mode"
+              fieldStyle={{ border: "1px solid var(--dp-border)" }}
             />
             {substituteError ? (
               <div style={{ color: "#d32f2f", fontSize: 12 }}>
