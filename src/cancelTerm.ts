@@ -4,6 +4,10 @@ import { normalizeMathJson, box } from "./computeEngine";
 import type { ExprSelection } from "./selectionSemantics";
 import { getDescendantNodeIds } from "./selectionSemantics";
 
+type CancellablePairResult =
+  | { kind: "divide"; nodeId: string; nextExpr: MJ }
+  | { kind: "equal"; nodeId: string; nextExpr: MJ };
+
 function deepEqualMJ(a: MJ, b: MJ): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {
     if (a.length !== b.length) return false;
@@ -87,6 +91,52 @@ function buildAddFromTerms(terms: MJ[]): MJ {
   return normalizeAdd(terms);
 }
 
+function unwrapNegate(expr: MJ): { sign: 1 | -1; core: MJ } {
+  let sign: 1 | -1 = 1;
+  let cur: MJ = expr;
+  while (Array.isArray(cur) && cur[0] === "Negate" && cur.length >= 2) {
+    sign = (sign * -1) as 1 | -1;
+    cur = cur[1] as MJ;
+  }
+  return { sign, core: unwrapDelimiter(cur) };
+}
+
+function removeTermOnce(terms: MJ[], targetCanonical: MJ): { remaining: MJ[]; removed: boolean } {
+  const remaining: MJ[] = [];
+  let removed = false;
+  for (const t of terms) {
+    const canon = unwrapDelimiter(t);
+    if (!removed && deepEqualMJ(canon, targetCanonical)) {
+      removed = true;
+      continue;
+    }
+    remaining.push(t);
+  }
+  return { remaining, removed };
+}
+
+function removeFactorFromAddTerms(
+  addExpr: MJ,
+  targetCanonical: MJ
+): { next: MJ; removed: boolean } | null {
+  if (!Array.isArray(addExpr) || addExpr[0] !== "Add") return null;
+
+  const terms = addExpr.slice(1) as MJ[];
+  const nextTerms: MJ[] = [];
+
+  for (const term of terms) {
+    const { sign, core } = unwrapNegate(term);
+    const factors = factorsOf(core);
+    const removal = removeFactorOnce(factors, targetCanonical);
+    if (!removal.removed) return null;
+    const rebuilt = buildProductFromFactors(removal.remaining);
+    const withSign = sign === -1 ? (["Negate", rebuilt] as MJNode) : rebuilt;
+    nextTerms.push(withSign);
+  }
+
+  return { next: buildAddFromTerms(nextTerms), removed: true };
+}
+
 function isDescendant(tree: ExpressionTree, nodeId: string, ancestorId: string): boolean {
   let cur: string | null = nodeId;
   while (cur) {
@@ -131,11 +181,33 @@ function findDivideAncestor(
   return null;
 }
 
+function findEqualAncestor(
+  tree: ExpressionTree,
+  nodeId: string
+): { equalId: string; isLhs: boolean } | null {
+  let cursor: string | null = nodeId;
+  while (cursor) {
+    const op = tree.nodesById[cursor]?.op;
+    if (op === "Equal") {
+      const kids = tree.childrenById[cursor] ?? [];
+      if (kids.length < 2) return null;
+      const lhsId = kids[0];
+      const rhsId = kids[1];
+      const inLhs = isDescendant(tree, nodeId, lhsId);
+      const inRhs = isDescendant(tree, nodeId, rhsId);
+      if (inLhs === inRhs) return null;
+      return { equalId: cursor, isLhs: inLhs };
+    }
+    cursor = tree.parentById[cursor] ?? null;
+  }
+  return null;
+}
+
 function cancelSelectedPairInFraction(
   tree: ExpressionTree,
   aId: string,
   bId: string
-): { divideId: string; nextExpr: MJ } | null {
+): CancellablePairResult | null {
   const aDivide = findDivideAncestor(tree, aId);
   const bDivide = findDivideAncestor(tree, bId);
   if (!aDivide || !bDivide) return null;
@@ -158,32 +230,107 @@ function cancelSelectedPairInFraction(
   if (!deepEqualMJ(aCanonical, bCanonical)) return null;
 
   const target = aCanonical;
-  const numFactorsRaw = factorsOf(numExpr);
+
+  // Try to remove the target from every addend in the numerator when the numerator is an Add.
+  let nextNum: MJ | null = null;
+  let numRemoved = false;
+  const numAddRemoval = removeFactorFromAddTerms(numExpr, target);
+  if (numAddRemoval?.removed) {
+    nextNum = numAddRemoval.next;
+    numRemoved = true;
+  }
+
+  // Fallback: multiplicative removal.
+  if (!numRemoved) {
+    const numFactorsRaw = factorsOf(numExpr);
+    const numRemoval = removeFactorOnce(numFactorsRaw, target);
+    if (numRemoval.removed) {
+      nextNum = buildProductFromFactors(numRemoval.remaining);
+      numRemoved = true;
+    }
+  }
+
   const denFactorsRaw = factorsOf(denExpr);
-
-  const numRemoval = removeFactorOnce(numFactorsRaw, target);
   const denRemoval = removeFactorOnce(denFactorsRaw, target);
-  if (!numRemoval.removed || !denRemoval.removed) return null;
+  if (!numRemoved || !denRemoval.removed) return null;
 
-  const nextNum = buildProductFromFactors(numRemoval.remaining);
+  if (!nextNum) return null;
   const nextDen = buildProductFromFactors(denRemoval.remaining);
 
   const nextExpr: MJ = isOneEquivalent(nextDen)
     ? nextNum
     : (["Divide", nextNum, nextDen] as MJNode);
 
-  return { divideId, nextExpr };
+  return { kind: "divide", nodeId: divideId, nextExpr };
+}
+
+function cancelSelectedPairInEqual(
+  tree: ExpressionTree,
+  aId: string,
+  bId: string
+): CancellablePairResult | null {
+  const aEqual = findEqualAncestor(tree, aId);
+  const bEqual = findEqualAncestor(tree, bId);
+  if (!aEqual || !bEqual) return null;
+  if (aEqual.equalId !== bEqual.equalId) return null;
+  if (aEqual.isLhs === bEqual.isLhs) return null;
+
+  const equalId = aEqual.equalId;
+  const kids = tree.childrenById[equalId] ?? [];
+  if (kids.length < 2) return null;
+  const lhsId = kids[0];
+  const rhsId = kids[1];
+
+  const aExpr = tree.nodesById[aId]?.json;
+  const bExpr = tree.nodesById[bId]?.json;
+  const lhsExpr = tree.nodesById[lhsId]?.json;
+  const rhsExpr = tree.nodesById[rhsId]?.json;
+  if (!aExpr || !bExpr || !lhsExpr || !rhsExpr) return null;
+
+  const aCanonical = unwrapDelimiter(aExpr);
+  const bCanonical = unwrapDelimiter(bExpr);
+  if (!deepEqualMJ(aCanonical, bCanonical)) return null;
+
+  // --- Additive cancellation ---
+  const lhsTerms = Array.isArray(lhsExpr) && lhsExpr[0] === "Add" ? (lhsExpr as MJ[]).slice(1) : [lhsExpr];
+  const rhsTerms = Array.isArray(rhsExpr) && rhsExpr[0] === "Add" ? (rhsExpr as MJ[]).slice(1) : [rhsExpr];
+  const lhsTermRemoval = removeTermOnce(lhsTerms, aCanonical);
+  const rhsTermRemoval = removeTermOnce(rhsTerms, aCanonical);
+
+  if (lhsTermRemoval.removed && rhsTermRemoval.removed) {
+    const nextLhs = buildAddFromTerms(lhsTermRemoval.remaining);
+    const nextRhs = buildAddFromTerms(rhsTermRemoval.remaining);
+    const nextExpr: MJ = ["Equal", nextLhs, nextRhs] as MJNode;
+    return { kind: "equal", nodeId: equalId, nextExpr };
+  }
+
+  // --- Multiplicative cancellation ---
+  const lhsFactors = factorsOf(lhsExpr);
+  const rhsFactors = factorsOf(rhsExpr);
+  const lhsRemoval = removeFactorOnce(lhsFactors, aCanonical);
+  const rhsRemoval = removeFactorOnce(rhsFactors, aCanonical);
+
+  if (lhsRemoval.removed && rhsRemoval.removed) {
+    const nextLhs = buildProductFromFactors(lhsRemoval.remaining);
+    const nextRhs = buildProductFromFactors(rhsRemoval.remaining);
+    const nextExpr: MJ = ["Equal", nextLhs, nextRhs] as MJNode;
+    return { kind: "equal", nodeId: equalId, nextExpr };
+  }
+
+  return null;
 }
 
 function findCancellablePair(
   tree: ExpressionTree,
   candidateIds: string[]
-): { divideId: string; nextExpr: MJ } | null {
+): CancellablePairResult | null {
   const uniqueIds = Array.from(new Set(candidateIds));
   for (let i = 0; i < uniqueIds.length; i += 1) {
     for (let j = i + 1; j < uniqueIds.length; j += 1) {
-      const res = cancelSelectedPairInFraction(tree, uniqueIds[i], uniqueIds[j]);
-      if (res) return res;
+      const resFraction = cancelSelectedPairInFraction(tree, uniqueIds[i], uniqueIds[j]);
+      if (resFraction) return resFraction;
+      const resEqual = cancelSelectedPairInEqual(tree, uniqueIds[i], uniqueIds[j]);
+      if (resEqual) return resEqual;
     }
   }
   return null;
@@ -214,9 +361,9 @@ export function cancelTerm(
     if (candidates.length < 2) return null;
     const result = findCancellablePair(tree, candidates);
     if (!result) return null;
-    const dividePath = tree.pathById[result.divideId];
-    if (!dividePath) return null;
-    const nextRoot = setAtPath(tree.rootJson, dividePath, result.nextExpr);
+    const targetPath = tree.pathById[result.nodeId];
+    if (!targetPath) return null;
+    const nextRoot = setAtPath(tree.rootJson, targetPath, result.nextExpr);
     return ExpressionTree.create(nextRoot);
   }
 

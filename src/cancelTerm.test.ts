@@ -11,6 +11,15 @@ function select(nodeId: string): ExprSelection {
   return { kind: "node", nodeId };
 }
 
+function isDescendant(tree: ReturnType<typeof treefromLatex>, nodeId: string, ancestorId: string): boolean {
+  let cur: string | null | undefined = nodeId;
+  while (cur) {
+    if (cur === ancestorId) return true;
+    cur = tree.parentById[cur] ?? null;
+  }
+  return false;
+}
+
 describe("cancelTerm", () => {
   it("removes an explicit zero term inside a sum", () => {
     const tree = treefromLatex(String.raw`a + 0 + b`);
@@ -76,6 +85,72 @@ describe("cancelTerm", () => {
     const result = cancelTerm(tree, multiSel);
     expect(result).not.toBeNull();
     expect(normalizeSpaces(result!.latexPlain)).toBe(String.raw`\frac{b}{c}`);
+  });
+
+  it("cancels a common factor across a fraction when the numerator is a sum", () => {
+    const tree = treefromLatex(
+      String.raw`\frac{-\mu_{s} m g \cos\left(\theta\right) + m g \sin\left(\theta\right)}{m}`
+    );
+    const divideId = tree.rootId;
+    const [numId, denId] = tree.childrenById[divideId] ?? [];
+    expect(numId).toBeTruthy();
+    expect(denId).toBeTruthy();
+
+    const numM = findNodeId(
+      tree,
+      (n) => n.latex === "m" && numId && isDescendant(tree, n.id, numId)
+    );
+    const denM = findNodeId(
+      tree,
+      (n) => n.latex === "m" && denId && isDescendant(tree, n.id, denId)
+    );
+    expect(numM).toBeTruthy();
+    expect(denM).toBeTruthy();
+
+    const multiSel: ExprSelection = { kind: "multi", nodeIds: [numM, denM].filter(Boolean) as string[] };
+    const result = cancelTerm(tree, multiSel);
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe(
+      String.raw`-\mu_{s} g \cos\left(\theta\right) + g \sin\left(\theta\right)`
+    );
+  });
+
+  it("cancels matching additive terms across an equals sign", () => {
+    const tree = treefromLatex(String.raw`a + b = b + c`);
+    const equalKids = tree.childrenById[tree.rootId] ?? [];
+    const lhsId = equalKids[0];
+    const rhsId = equalKids[1];
+    const leftB = findNodeId(
+      tree,
+      (n) => n.latex === "b" && lhsId && isDescendant(tree, n.id, lhsId)
+    );
+    const rightB = findNodeId(
+      tree,
+      (n) => n.latex === "b" && rhsId && isDescendant(tree, n.id, rhsId)
+    );
+    const sel: ExprSelection = { kind: "multi", nodeIds: [leftB, rightB].filter(Boolean) as string[] };
+    const result = cancelTerm(tree, sel);
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe("a = c");
+  });
+
+  it("cancels matching multiplicative factors across an equals sign", () => {
+    const tree = treefromLatex(String.raw`m a = m b`);
+    const equalKids = tree.childrenById[tree.rootId] ?? [];
+    const lhsId = equalKids[0];
+    const rhsId = equalKids[1];
+    const leftM = findNodeId(
+      tree,
+      (n) => n.latex === "m" && lhsId && isDescendant(tree, n.id, lhsId)
+    );
+    const rightM = findNodeId(
+      tree,
+      (n) => n.latex === "m" && rhsId && isDescendant(tree, n.id, rhsId)
+    );
+    const sel: ExprSelection = { kind: "multi", nodeIds: [leftM, rightM].filter(Boolean) as string[] };
+    const result = cancelTerm(tree, sel);
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe("a = b");
   });
 
   it("returns null when the selection is not cancellable", () => {

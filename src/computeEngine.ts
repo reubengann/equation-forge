@@ -594,10 +594,18 @@ const ddotEntry: LatexDictionaryEntry = {
   },
 };
 
+// Handle bare DifferentialD symbols (without an operand) to render upright d.
+const differentialDSymbolEntry: LatexDictionaryEntry = {
+  name: "DifferentialD",
+  kind: "symbol",
+  serialize: () => "\\mathrm{d}",
+};
+
 // Remove any built-in Vector entry so we can supply our own shape.
 const baseDictionary = ComputeEngine.getLatexDictionary("all").filter(
   (entry) =>
     entry.name !== "Vector" &&
+    entry.name !== "DifferentialD" &&
     // Remove the built-in centered dot-as-multiply entry so we can override it.
     (entry as any).latexTrigger !== "\\cdot"
 );
@@ -616,5 +624,6 @@ ce.latexDictionary = [
   overDotEntry,
   dotEntry,
   ddotEntry,
+  differentialDSymbolEntry,
   ...baseDictionary,
 ];

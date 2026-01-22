@@ -17,6 +17,8 @@ type MoveModeToolbarProps = {
   canCancelTerm: boolean;
   onEvaluate: () => void;
   canEvaluate: boolean;
+  onFactor: () => void;
+  canFactor: boolean;
   onOpenApply: () => void;
   canApply: boolean;
   onOpenSubstitute: () => void;
@@ -76,6 +78,8 @@ export const MoveModeToolbar = forwardRef<
     canCancelTerm,
     onEvaluate,
     canEvaluate,
+    onFactor,
+    canFactor,
     onOpenApply,
     canApply,
     onOpenSubstitute,
@@ -162,6 +166,17 @@ export const MoveModeToolbar = forwardRef<
         onClick={onExpand}
         disabled={!canExpand}
         testId="expand-button"
+      />
+      <IconButton
+        label="Factor"
+        icon={
+          <span style={materialSymbolStyle} aria-hidden>
+            call_split
+          </span>
+        }
+        onClick={onFactor}
+        disabled={!canFactor}
+        testId="factor-button"
       />
       <IconButton
         label="Cancel term"

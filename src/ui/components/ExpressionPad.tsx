@@ -52,6 +52,7 @@ import {
   evaluateSelection,
 } from "../../evaluateSelection";
 import { lhsMatchesSelected } from "../../mathJson/match";
+import { canFactorSelection, factorSelection } from "../../factorSelection";
 
 type InputMode = "mathlive" | "text";
 
@@ -427,6 +428,13 @@ export function ExpressionPad({
     if (!next) return;
     commitJson(next.rootJson, { latex: next.latexPlain });
   }, [tree, expandTargetId]);
+
+  const onFactor = useCallback(() => {
+    if (!tree || !selection) return;
+    const next = factorSelection(tree, selection);
+    if (!next) return;
+    commitJson(next.rootJson, { latex: next.latexPlain });
+  }, [tree, selection, commitJson]);
 
   const onCancelTerm = useCallback(() => {
     if (!tree || !selection) return;
@@ -914,6 +922,10 @@ export function ExpressionPad({
     () => canEvaluateSelection(tree, selection),
     [tree, selection]
   );
+  const canFactor = useMemo(
+    () => canFactorSelection(tree, selection),
+    [tree, selection]
+  );
   const selectedNodeLatex =
     canSubstitute && tree && substituteTargetId
       ? tree.nodesById[substituteTargetId]?.latex ?? ""
@@ -1210,6 +1222,8 @@ export function ExpressionPad({
                 canFlip={canFlip}
                 onExpand={onExpand}
                 canExpand={canExpand}
+                onFactor={onFactor}
+                canFactor={canFactor}
                 onCancelTerm={onCancelTerm}
                 canCancelTerm={canCancel}
                 onEvaluate={onEvaluate}
