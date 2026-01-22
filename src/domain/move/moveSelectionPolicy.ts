@@ -193,7 +193,10 @@ function collapseMultiplicativeSelection(args: {
         !parentHasVector &&
         (productParentOp === "Equal" || inDenominator)
       ) {
-        if (crossEqualHover) return ids;
+        // Keep whole denominator together when under a Divide.
+        if (inDenominator) return [parentId];
+        // For direct Equal child, allow factor-only cross-equal moves.
+        if (crossEqualHover && productParentOp === "Equal") return ids;
         return [parentId];
       }
     }

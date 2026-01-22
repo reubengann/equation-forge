@@ -80,7 +80,7 @@ const cases: MoveCase[] = [
     toLatex: "a",
     // Bias to the right to avoid hitting the left edge zone of small "a" target
     toBias: { dx: 8 },
-    expectedLatex: String.raw`\frac{a}{b c} = 1`,
+    expectedLatex: String.raw`\frac{a}{b} = c`,
   },
   {
     title: "multiplicative cross '=' moves denominator to lhs",

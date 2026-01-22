@@ -51,7 +51,10 @@ export function LatexInputWithToggle({
   const derivativeMathLive =
     "\\dfrac{\\differentialD \\placeholder{}}{\\mathrm{d}\\placeholder{}}";
   const derivativeText = "\\dfrac{\\mathrm{d}{}}{\\mathrm{d}{}}";
-  const derivativeTextCaretOffset = derivativeText.indexOf("{}") + 1;
+  const derivativeTextCaretOffset = (() => {
+    const idx = derivativeText.indexOf("{}");
+    return idx >= 0 ? idx + 1 : derivativeText.length;
+  })();
 
   const partialMathLive =
     "\\dfrac{\\partial \\placeholder{}}{\\partial \\placeholder{}}";

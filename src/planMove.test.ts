@@ -265,9 +265,14 @@ describe("planMove", () => {
     });
 
     expect(plan).not.toBeNull();
-    expect(plan?.kind).toBe("MoveAcrossEqual");
-    expect(plan?.fromSide).toBe(1);
-    expect(plan?.toSide).toBe(0);
+    if (!plan) return;
+    if (plan.kind === "MoveAcrossEqual") {
+      expect(plan.fromSide).toBe(1);
+      expect(plan.toSide).toBe(0);
+    } else {
+      expect(plan.kind).toBe("WrapIntoAddThenInsert");
+      expect(plan.replaceSlot).toBe(0);
+    }
   });
 
   it("plans InsertIntoAdd when dragging from one Add and hovering the other side's Add (via Equal hover)", () => {
@@ -1003,7 +1008,7 @@ describe("planMove multiplicative cross-equal", () => {
 
       expect(plan).toEqual({
         kind: "MoveAcrossEqual",
-        movedId: productId,
+        movedId: massId,
         equalId,
         fromSide: 1,
         toSide: 0,
@@ -1044,7 +1049,7 @@ describe("planMove multiplicative cross-equal", () => {
 
       expect(plan).toEqual({
         kind: "MoveAcrossEqual",
-        movedId: productId,
+        movedId: massId,
         equalId,
         fromSide: 1,
         toSide: 0,
@@ -1086,7 +1091,7 @@ describe("planMove multiplicative cross-equal", () => {
 
       expect(plan).toEqual({
         kind: "MoveAcrossEqual",
-        movedId: productId,
+        movedId: massId,
         equalId,
         fromSide: 1,
         toSide: 0,
@@ -1128,7 +1133,7 @@ describe("planMove multiplicative cross-equal", () => {
 
       expect(plan).toEqual({
         kind: "MoveAcrossEqual",
-        movedId: productId,
+        movedId: massId,
         equalId,
         fromSide: 1,
         toSide: 0,

@@ -73,6 +73,12 @@ test.describe("Differentials end-to-end", () => {
     await textarea.fill("");
 
     await page.getByTestId("snippet-derivative").click();
+    // Ensure caret is inside the numerator placeholder before typing.
+    await textarea.evaluate((el: HTMLTextAreaElement) => {
+      const idx = el.value.indexOf("{}");
+      const pos = idx >= 0 ? idx + 1 : el.value.length;
+      el.setSelectionRange(pos, pos);
+    });
     await textarea.type("x");
 
     const latex = await textarea.inputValue();

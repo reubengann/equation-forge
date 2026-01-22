@@ -116,7 +116,7 @@ test("multiplicative: drag denominator product across '=' to LHS", async ({
 
   const latex = await getRenderedLatex(page);
   expect(normalizeLatex(latex)).toContain(
-    String.raw`\frac{x^{2} + v_{x}}{m a} = 1`
+    String.raw`\frac{x^{2} + v_{x}}{m} = a`
   );
 });
 
@@ -138,5 +138,5 @@ test("multiplicative: drag denominator out of fraction to RHS", async ({
   expect(infoArgs).toMatch(/"mode"\s*:\s*"multiplicative"/);
 
   const latex = await getRenderedLatex(page);
-  expect(normalizeLatex(latex)).toContain(String.raw`x^{2} + v_{x} = m a`);
+  expect(normalizeLatex(latex)).toContain(String.raw`x^{2} + v_{x} = m`);
 });

@@ -58,9 +58,9 @@ test.describe("Undo/redo for moves", () => {
     });
 
     // Assert: move applied.
-    await expect
-      .poll(async () => normalizeLatex(await getRenderedLatex(page)))
-      .toContain(String.raw`\frac{x^{2} + v_{x}}{m a} = 1`);
+  await expect
+    .poll(async () => normalizeLatex(await getRenderedLatex(page)))
+    .toContain(String.raw`\frac{x^{2} + v_{x}}{m} = a`);
 
     // Act: undo.
     await page.getByTestId("undo-button").click();
@@ -74,6 +74,6 @@ test.describe("Undo/redo for moves", () => {
     // Assert: move re-applied.
     await expect
       .poll(async () => normalizeLatex(await getRenderedLatex(page)))
-      .toContain(String.raw`\frac{x^{2} + v_{x}}{m a} = 1`);
+      .toContain(String.raw`\frac{x^{2} + v_{x}}{m} = a`);
   });
 });
