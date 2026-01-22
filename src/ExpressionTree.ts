@@ -8,7 +8,21 @@ export type NodeInfo = {
   json: MJ;
 };
 
-const FUNCTION_OPS = new Set(["Sin", "Cos", "Tan", "Exp", "Log", "Ln", "Abs"]);
+const FUNCTION_OPS = new Set([
+  "Sin",
+  "Cos",
+  "Tan",
+  "Arctan",
+  "ArcTan",
+  "Arcsin",
+  "ArcSin",
+  "Arccos",
+  "ArcCos",
+  "Exp",
+  "Log",
+  "Ln",
+  "Abs",
+]);
 
 const GREEK_LATEX: Record<string, string> = {
   // Lowercase
@@ -359,6 +373,12 @@ export class ExpressionTree {
         Sin: String.raw`\sin`,
         Cos: String.raw`\cos`,
         Tan: String.raw`\tan`,
+        Arctan: String.raw`\arctan`,
+        ArcTan: String.raw`\arctan`,
+        Arcsin: String.raw`\arcsin`,
+        ArcSin: String.raw`\arcsin`,
+        Arccos: String.raw`\arccos`,
+        ArcCos: String.raw`\arccos`,
         Exp: String.raw`\exp`,
         Log: String.raw`\log`,
         Ln: String.raw`\ln`,
@@ -786,6 +806,12 @@ export class ExpressionTree {
       Sin: String.raw`\sin`,
       Cos: String.raw`\cos`,
       Tan: String.raw`\tan`,
+      Arctan: String.raw`\arctan`,
+      ArcTan: String.raw`\arctan`,
+      Arcsin: String.raw`\arcsin`,
+      ArcSin: String.raw`\arcsin`,
+      Arccos: String.raw`\arccos`,
+      ArcCos: String.raw`\arccos`,
       Exp: String.raw`\exp`,
       Log: String.raw`\log`,
       Ln: String.raw`\ln`,

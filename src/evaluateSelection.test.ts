@@ -109,4 +109,20 @@ describe("evaluateSelection", () => {
     const foo = evaluateRaw(tree.rootJson);
     expect(foo.valueOf()).toBe(2);
   });
+
+  it("evaluates inverse tangent result without crashing", () => {
+    const latex = String.raw`\tan^{-1}\left(\mu_{s}\right) = \tan^{-1}\left(\tan\left(\theta\right)\right)`;
+    const tree = buildTree(latex);
+    const rhsLatex = String.raw`\tan^{-1}\left(\tan\left(\theta\right)\right)`;
+    const nodeId = findNodeIdByLatex(tree, rhsLatex);
+    const sel: ExprSelection = { kind: "node", nodeId };
+
+    const next = evaluateSelection(tree, sel);
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe(
+      normalizeLatex(
+        String.raw`\tan^{-1}\left(\mu_{s}\right) = \arctan\left(\tan\left(\theta\right)\right)`
+      )
+    );
+  });
 });
