@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { fromMathLiveLatex } from "../src/infra/mathlive/differentialLatex";
 import { waitForMathRender } from "./helpers/dragMathlive";
 
 test.describe("Differentials end-to-end", () => {
@@ -36,5 +37,70 @@ test.describe("Differentials end-to-end", () => {
 
     expect(JSON.stringify(mj)).not.toContain("d_upright");
     expect(JSON.stringify(mj)).toContain("Differential");
+  });
+
+  test("mathlive snippet button inserts derivative with placeholders and tab flow", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page
+      .locator('input[name="entry-mode"][value="mathlive"]')
+      .click({ force: true });
+
+    const field = page.getByTestId("latex-input");
+    await field.waitFor();
+
+    await page.getByTestId("snippet-derivative").click();
+    await field.type("x");
+    await field.press("Tab");
+    await field.type("t");
+
+    const latex = await field.evaluate((el: any) => {
+      if (typeof el.getValue === "function") return el.getValue("latex");
+      return el.value;
+    });
+
+    const normalized = fromMathLiveLatex(latex);
+
+    expect(normalized).toContain(String.raw`\dfrac{\mathrm{d}{x}}{\mathrm{d}{t}}`);
+  });
+
+  test("plain text snippet button inserts d/dt at caret", async ({ page }) => {
+    await page.goto("/");
+    await page.locator('input[name="entry-mode"][value="text"]').click();
+
+    const textarea = page.getByTestId("latex-input");
+    await textarea.fill("");
+
+    await page.getByTestId("snippet-derivative").click();
+    await textarea.type("x");
+
+    const latex = await textarea.inputValue();
+    expect(latex).toBe(String.raw`\dfrac{\mathrm{d}{x}}{\mathrm{d}{}}`);
+  });
+
+  test("mathlive snippet button inserts definite integral template", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page
+      .locator('input[name="entry-mode"][value="mathlive"]')
+      .click({ force: true });
+
+    const field = page.getByTestId("latex-input");
+    await field.waitFor();
+
+    await page.getByTestId("snippet-integral").click();
+    await field.type("x");
+
+    const latex = await field.evaluate((el: any) => {
+      if (typeof el.getValue === "function") return el.getValue("latex");
+      return el.value;
+    });
+
+    expect(latex).toContain(
+      String.raw`\int_{a}^{b}\,x\,\differentialD x`
+    );
+    expect(latex).not.toContain("d_upright");
   });
 });

@@ -48,6 +48,78 @@ export function LatexInputWithToggle({
   fieldStyle,
   actionButton,
 }: LatexInputWithToggleProps) {
+  const derivativeMathLive =
+    "\\dfrac{\\differentialD \\placeholder{}}{\\mathrm{d}\\placeholder{}}";
+  const derivativeText = "\\dfrac{\\mathrm{d}{}}{\\mathrm{d}{}}";
+  const derivativeTextCaretOffset = derivativeText.indexOf("{}") + 1;
+
+  const integralMathLive =
+    "\\int_{a}^{b}\\, \\placeholder{}\\,\\differentialD x";
+  const integralText = "\\int_{a}^{b} \\, \\mathrm{d}{x}";
+  const integralTextCaretOffset = integralText.indexOf("\\mathrm");
+
+  function insertMathLive(latexSnippet: string) {
+    const field = mathFieldRef?.current as any;
+    if (!field) return;
+
+    if (typeof field.insert === "function") {
+      field.insert(latexSnippet, {
+        insertionMode: "replaceSelection",
+        selectionMode: "placeholder",
+        format: "latex",
+        focus: true,
+      });
+    } else if (typeof field.executeCommand === "function") {
+      field.executeCommand(["insert", latexSnippet]);
+    }
+
+    const value =
+      typeof field.getValue === "function"
+        ? field.getValue("latex")
+        : field.value ?? "";
+    onLatexChange(fromMathLiveLatex(value ?? ""));
+  }
+
+  function insertText(snippet: { text: string; caretOffset: number }) {
+    const ta = textAreaRef?.current;
+    const start = ta?.selectionStart ?? latex.length;
+    const end = ta?.selectionEnd ?? latex.length;
+    const next = latex.slice(0, start) + snippet.text + latex.slice(end);
+    const caret = start + snippet.caretOffset;
+
+    const setCaret = (target: HTMLTextAreaElement | null | undefined) => {
+      if (!target) return;
+      const pos = Math.min(Math.max(0, caret), next.length);
+      target.value = next;
+      target.focus();
+      target.setSelectionRange(pos, pos);
+    };
+
+    // Apply immediately to the live textarea so the next user keystroke lands correctly.
+    setCaret(ta);
+
+    onLatexChange(next);
+
+    // Restore caret after the controlled update/render.
+    requestAnimationFrame(() => setCaret(textAreaRef?.current));
+  }
+
+  function handleInsertDerivative() {
+    if (inputMode === "mathlive") {
+      insertMathLive(derivativeMathLive);
+    } else {
+      insertText({ text: derivativeText, caretOffset: derivativeTextCaretOffset });
+    }
+  }
+
+  function handleInsertIntegral() {
+    if (inputMode === "mathlive") {
+      insertMathLive(integralMathLive);
+    } else {
+      insertText({ text: integralText, caretOffset: integralTextCaretOffset });
+    }
+  }
+
   const sharedFieldStyle: CSSProperties = {
     width: "100%",
     padding: 10,
@@ -112,6 +184,49 @@ export function LatexInputWithToggle({
               data-testid={dataTestId}
             />
           )}
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              marginTop: 8,
+            }}
+          >
+            <button
+              type="button"
+              onClick={handleInsertDerivative}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid var(--dp-border, #666)",
+                background: "var(--dp-surface, #111)",
+                color: "inherit",
+                cursor: "pointer",
+              }}
+              title="Insert derivative d/dt"
+              aria-label="Insert derivative d over dt"
+              data-testid="snippet-derivative"
+            >
+              d/dt
+            </button>
+            <button
+              type="button"
+              onClick={handleInsertIntegral}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 6,
+                border: "1px solid var(--dp-border, #666)",
+                background: "var(--dp-surface, #111)",
+                color: "inherit",
+                cursor: "pointer",
+              }}
+              title="Insert definite integral"
+              aria-label="Insert definite integral"
+              data-testid="snippet-integral"
+            >
+              ∫
+            </button>
+          </div>
         </div>
         {actionButton ? (
           <button
