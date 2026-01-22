@@ -53,10 +53,18 @@ export function LatexInputWithToggle({
   const derivativeText = "\\dfrac{\\mathrm{d}{}}{\\mathrm{d}{}}";
   const derivativeTextCaretOffset = derivativeText.indexOf("{}") + 1;
 
-  const integralMathLive =
-    "\\int_{a}^{b}\\, \\placeholder{}\\,\\differentialD x";
+  const partialMathLive =
+    "\\dfrac{\\partial \\placeholder{}}{\\partial \\placeholder{}}";
+  const partialText = "\\dfrac{\\partial {}}{\\partial {}}";
+  const partialTextCaretOffset = partialText.indexOf("{}") + 1;
+
+  const integralMathLive = "\\int_{a}^{b}\\,\\differentialD x";
   const integralText = "\\int_{a}^{b} \\, \\mathrm{d}{x}";
   const integralTextCaretOffset = integralText.indexOf("\\mathrm");
+
+  const indefiniteIntegralMathLive = "\\int\\,\\differentialD x";
+  const indefiniteIntegralText = "\\int  \\, \\mathrm{d}{x}";
+  const indefiniteIntegralTextCaretOffset = indefiniteIntegralText.indexOf("  ") + 2;
 
   function insertMathLive(latexSnippet: string) {
     const field = mathFieldRef?.current as any;
@@ -77,7 +85,9 @@ export function LatexInputWithToggle({
       typeof field.getValue === "function"
         ? field.getValue("latex")
         : field.value ?? "";
-    onLatexChange(fromMathLiveLatex(value ?? ""));
+
+    const normalized = fromMathLiveLatex(value ?? "");
+    onLatexChange(normalized);
   }
 
   function insertText(snippet: { text: string; caretOffset: number }) {
@@ -102,6 +112,7 @@ export function LatexInputWithToggle({
 
     // Restore caret after the controlled update/render.
     requestAnimationFrame(() => setCaret(textAreaRef?.current));
+    setTimeout(() => setCaret(textAreaRef?.current), 0);
   }
 
   function handleInsertDerivative() {
@@ -120,6 +131,25 @@ export function LatexInputWithToggle({
     }
   }
 
+  function handleInsertIndefiniteIntegral() {
+    if (inputMode === "mathlive") {
+      insertMathLive(indefiniteIntegralMathLive);
+    } else {
+      insertText({
+        text: indefiniteIntegralText,
+        caretOffset: indefiniteIntegralTextCaretOffset,
+      });
+    }
+  }
+
+  function handleInsertPartialDerivative() {
+    if (inputMode === "mathlive") {
+      insertMathLive(partialMathLive);
+    } else {
+      insertText({ text: partialText, caretOffset: partialTextCaretOffset });
+    }
+  }
+
   const sharedFieldStyle: CSSProperties = {
     width: "100%",
     padding: 10,
@@ -130,27 +160,114 @@ export function LatexInputWithToggle({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, ...containerStyle }}>
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <input
-            type="radio"
-            name={radioName}
-            value="mathlive"
-            checked={inputMode === "mathlive"}
-            onChange={() => onInputModeChange("mathlive")}
-          />
-          MathLive
-        </label>
-        <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <input
-            type="radio"
-            name={radioName}
-            value="text"
-            checked={inputMode === "text"}
-            onChange={() => onInputModeChange("text")}
-          />
-          Plain text (LaTeX)
-        </label>
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input
+              type="radio"
+              name={radioName}
+              value="mathlive"
+              checked={inputMode === "mathlive"}
+              onChange={() => onInputModeChange("mathlive")}
+            />
+            MathLive
+          </label>
+          <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input
+              type="radio"
+              name={radioName}
+              value="text"
+              checked={inputMode === "text"}
+              onChange={() => onInputModeChange("text")}
+            />
+            Plain text (LaTeX)
+          </label>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          <button
+            type="button"
+            onClick={handleInsertDerivative}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 6,
+              border: "1px solid var(--dp-border, #666)",
+              background: "var(--dp-surface, #111)",
+              color: "inherit",
+              cursor: "pointer",
+            }}
+            title="Insert derivative d/dt"
+            aria-label="Insert derivative d over dt"
+            data-testid="snippet-derivative"
+          >
+            d/dt
+          </button>
+          <button
+            type="button"
+            onClick={handleInsertIntegral}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 6,
+              border: "1px solid var(--dp-border, #666)",
+              background: "var(--dp-surface, #111)",
+              color: "inherit",
+              cursor: "pointer",
+            }}
+            title="Insert definite integral"
+            aria-label="Insert definite integral"
+            data-testid="snippet-integral"
+          >
+            ∫
+          </button>
+          <button
+            type="button"
+            onClick={handleInsertIndefiniteIntegral}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 6,
+              border: "1px solid var(--dp-border, #666)",
+              background: "var(--dp-surface, #111)",
+              color: "inherit",
+              cursor: "pointer",
+            }}
+            title="Insert indefinite integral"
+            aria-label="Insert indefinite integral"
+            data-testid="snippet-indef-integral"
+          >
+            ∫ dx
+          </button>
+          <button
+            type="button"
+            onClick={handleInsertPartialDerivative}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 6,
+              border: "1px solid var(--dp-border, #666)",
+              background: "var(--dp-surface, #111)",
+              color: "inherit",
+              cursor: "pointer",
+            }}
+            title="Insert partial derivative"
+            aria-label="Insert partial derivative"
+            data-testid="snippet-partial-derivative"
+          >
+            ∂/∂
+          </button>
+        </div>
       </div>
 
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -184,49 +301,6 @@ export function LatexInputWithToggle({
               data-testid={dataTestId}
             />
           )}
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
-              marginTop: 8,
-            }}
-          >
-            <button
-              type="button"
-              onClick={handleInsertDerivative}
-              style={{
-                padding: "6px 10px",
-                borderRadius: 6,
-                border: "1px solid var(--dp-border, #666)",
-                background: "var(--dp-surface, #111)",
-                color: "inherit",
-                cursor: "pointer",
-              }}
-              title="Insert derivative d/dt"
-              aria-label="Insert derivative d over dt"
-              data-testid="snippet-derivative"
-            >
-              d/dt
-            </button>
-            <button
-              type="button"
-              onClick={handleInsertIntegral}
-              style={{
-                padding: "6px 10px",
-                borderRadius: 6,
-                border: "1px solid var(--dp-border, #666)",
-                background: "var(--dp-surface, #111)",
-                color: "inherit",
-                cursor: "pointer",
-              }}
-              title="Insert definite integral"
-              aria-label="Insert definite integral"
-              data-testid="snippet-integral"
-            >
-              ∫
-            </button>
-          </div>
         </div>
         {actionButton ? (
           <button

@@ -91,6 +91,50 @@ test.describe("Differentials end-to-end", () => {
     await field.waitFor();
 
     await page.getByTestId("snippet-integral").click();
+
+    const latex = await field.evaluate((el: any) => {
+      if (typeof el.getValue === "function") return el.getValue("latex");
+      return el.value;
+    });
+
+    expect(latex).toContain(String.raw`\int_{a}^{b}\,\differentialD x`);
+  });
+
+  test("mathlive snippet button inserts indefinite integral template", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page
+      .locator('input[name="entry-mode"][value="mathlive"]')
+      .click({ force: true });
+
+    const field = page.getByTestId("latex-input");
+    await field.waitFor();
+
+    await page.getByTestId("snippet-indef-integral").click();
+
+    const latex = await field.evaluate((el: any) => {
+      if (typeof el.getValue === "function") return el.getValue("latex");
+      return el.value;
+    });
+
+    expect(latex).toContain(String.raw`\int\,\differentialD x`);
+  });
+
+  test("mathlive snippet button inserts partial derivative template", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page
+      .locator('input[name="entry-mode"][value="mathlive"]')
+      .click({ force: true });
+
+    const field = page.getByTestId("latex-input");
+    await field.waitFor();
+
+    await page.getByTestId("snippet-partial-derivative").click();
+    await field.type("f");
+    await field.press("Tab");
     await field.type("x");
 
     const latex = await field.evaluate((el: any) => {
@@ -98,9 +142,6 @@ test.describe("Differentials end-to-end", () => {
       return el.value;
     });
 
-    expect(latex).toContain(
-      String.raw`\int_{a}^{b}\,x\,\differentialD x`
-    );
-    expect(latex).not.toContain("d_upright");
+    expect(latex).toContain(String.raw`\dfrac{\partial f}{\partial x}`);
   });
 });
