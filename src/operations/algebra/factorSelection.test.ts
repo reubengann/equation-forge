@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { treefromLatex } from "./testHelpers";
+import { treefromLatex } from "../../testHelpers";
 import { factorSelection } from "./factorSelection";
 
 function normalizeSpaces(s: string): string {

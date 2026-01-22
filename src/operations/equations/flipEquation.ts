@@ -1,4 +1,4 @@
-import type { MJ } from "./ExpressionTree";
+import type { MJ } from "../../ExpressionTree";
 
 function isEqualNode(node: MJ): boolean {
   return Array.isArray(node) && node[0] === "Equal";

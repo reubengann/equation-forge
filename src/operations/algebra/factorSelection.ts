@@ -1,7 +1,7 @@
-import { ExpressionTree, type MJ, type MJNode } from "./ExpressionTree";
-import { getAtPath, setAtPath } from "./movePath";
-import { box, normalizeMathJson } from "./computeEngine";
-import type { ExprSelection } from "./selectionSemantics";
+import { ExpressionTree, type MJ, type MJNode } from "../../ExpressionTree";
+import { getAtPath, setAtPath } from "../../movePath";
+import { box, normalizeMathJson } from "../../computeEngine";
+import type { ExprSelection } from "../../selectionSemantics";
 
 function deepEqualMJ(a: MJ, b: MJ): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {
@@ -197,7 +197,7 @@ function commonFactorFromAdd(expr: MJ): MJ | null {
 
 function factorExpression(expr: MJ): MJ | null {
   const ceReady = toComputeEngine(expr);
-  const ceBox = box(ceReady);
+  const ceBox = box(ceReady) as any;
   const candidates: MJ[] = [];
 
   const factored = ceBox?.factor?.();

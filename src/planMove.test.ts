@@ -269,9 +269,10 @@ describe("planMove", () => {
     if (plan.kind === "MoveAcrossEqual") {
       expect(plan.fromSide).toBe(1);
       expect(plan.toSide).toBe(0);
+    } else if (plan.kind === "WrapIntoAddThenInsert") {
+      expect(plan.replaceSlot).toBe(0);
     } else {
       expect(plan.kind).toBe("WrapIntoAddThenInsert");
-      expect(plan.replaceSlot).toBe(0);
     }
   });
 
@@ -745,17 +746,15 @@ describe("planMove", () => {
     expect(tree.nodesById[rhsId]?.op).toBe("Integrate");
 
     const integrandId = tree.childrenById[rhsId]?.[0];
-    const twoId = findNodeId(
-      tree,
-      (n) =>
-        n.latex === "2" &&
-        integrandId &&
-        tree.parentById[n.id] &&
-        ["InvisibleOperator", "Multiply"].includes(
-          tree.nodesById[tree.parentById[n.id] as string]?.op
-        ) &&
-        isAncestorOrSelf(tree, integrandId, tree.parentById[n.id] as string)
-    );
+    const twoId = findNodeId(tree, (n) => {
+      if (n.latex !== "2") return false;
+      if (!integrandId) return false;
+      const parentId = tree.parentById[n.id];
+      if (!parentId) return false;
+      const parentOp = tree.nodesById[parentId]?.op;
+      if (!parentOp || !["InvisibleOperator", "Multiply"].includes(parentOp)) return false;
+      return isAncestorOrSelf(tree, integrandId, parentId);
+    });
     const mulId = tree.parentById[twoId]!;
 
     const plan = planMove({
@@ -789,17 +788,15 @@ describe("planMove", () => {
     expect(tree.nodesById[rhsId]?.op).toBe("Integrate");
 
     const integrandId = tree.childrenById[rhsId]?.[0];
-    const twoId = findNodeId(
-      tree,
-      (n) =>
-        n.latex === "2" &&
-        integrandId &&
-        tree.parentById[n.id] &&
-        ["InvisibleOperator", "Multiply"].includes(
-          tree.nodesById[tree.parentById[n.id] as string]?.op
-        ) &&
-        isAncestorOrSelf(tree, integrandId, tree.parentById[n.id] as string)
-    );
+    const twoId = findNodeId(tree, (n) => {
+      if (n.latex !== "2") return false;
+      if (!integrandId) return false;
+      const parentId = tree.parentById[n.id];
+      if (!parentId) return false;
+      const parentOp = tree.nodesById[parentId]?.op;
+      if (!parentOp || !["InvisibleOperator", "Multiply"].includes(parentOp)) return false;
+      return isAncestorOrSelf(tree, integrandId, parentId);
+    });
     const mulId = tree.parentById[twoId]!;
 
     const plan = planMove({
@@ -988,8 +985,6 @@ describe("planMove multiplicative cross-equal", () => {
       const rhsId = tree.childrenById[equalId][1];
 
       const massId = findNodeId(tree, (n) => n.latex === "m");
-      const productId = tree.parentById[massId]!;
-
       // LHS rect: left=0, right=100, so main body is roughly 12-88 (excluding 12px edge zones)
       const rects: Record<string, RectLTRB> = {
         [lhsId]: { left: 0, right: 100, top: 90, bottom: 120 },
@@ -1029,8 +1024,6 @@ describe("planMove multiplicative cross-equal", () => {
       const rhsId = tree.childrenById[equalId][1];
 
       const massId = findNodeId(tree, (n) => n.latex === "m");
-      const productId = tree.parentById[massId]!;
-
       // LHS rect: left=0, right=100, left edge zone is 0-12
       const rects: Record<string, RectLTRB> = {
         [lhsId]: { left: 0, right: 100, top: 90, bottom: 120 },
@@ -1071,8 +1064,6 @@ describe("planMove multiplicative cross-equal", () => {
       const rhsId = tree.childrenById[equalId][1];
 
       const massId = findNodeId(tree, (n) => n.latex === "m");
-      const productId = tree.parentById[massId]!;
-
       // LHS rect: left=0, right=100, right edge zone is 88-100
       const rects: Record<string, RectLTRB> = {
         [lhsId]: { left: 0, right: 100, top: 90, bottom: 120 },
@@ -1113,8 +1104,6 @@ describe("planMove multiplicative cross-equal", () => {
       const rhsId = tree.childrenById[equalId][1];
 
       const massId = findNodeId(tree, (n) => n.latex === "m");
-      const productId = tree.parentById[massId]!;
-
       // LHS rect: left=0, right=100, pointer is to the left (outside by PAD=6)
       const rects: Record<string, RectLTRB> = {
         [lhsId]: { left: 0, right: 100, top: 90, bottom: 120 },

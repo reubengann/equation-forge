@@ -1,7 +1,7 @@
-import { box, normalizeMathJson, withRealScope } from "./computeEngine";
-import { ExpressionTree, type MJ } from "./ExpressionTree";
-import { getAtPath, setAtPath } from "./movePath";
-import type { ExprSelection } from "./selectionSemantics";
+import { normalizeMathJson, withRealScope } from "../../computeEngine";
+import { ExpressionTree, type MJ } from "../../ExpressionTree";
+import { getAtPath, setAtPath } from "../../movePath";
+import type { ExprSelection } from "../../selectionSemantics";
 
 const SUBSCRIPT_PREFIX = "__pd_sub__";
 

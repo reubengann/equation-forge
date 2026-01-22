@@ -1,5 +1,5 @@
 import { useRef, type CSSProperties, type RefObject } from "react";
-import type { SubstituteScope } from "../../substitute";
+import type { SubstituteScope } from "../../operations";
 import { vecMacroOptions } from "../../infra/mathlive/vecMacroOptions";
 import {
   LatexInputWithToggle,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { ExpressionTree } from "./ExpressionTree";
+import { ExpressionTree } from "../../ExpressionTree";
 import { flipEquation, isFlippableEquation } from "./flipEquation";
-import { makeMJfromLatex } from "./testHelpers";
+import { makeMJfromLatex } from "../../testHelpers";
 
 describe("flipEquation", () => {
   it("flips a simple equation", () => {

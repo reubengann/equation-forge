@@ -4,10 +4,10 @@ overview: Organize root-level operation modules (e.g., factor/cancel/evaluate/ex
 todos:
   - id: create-ops-folders
     content: Add src/operations/ with algebra/ and equations/ subfolders (and optional barrel index exports).
-    status: pending
+    status: completed
   - id: move-ops-and-tests
     content: Move the operation modules + their colocated *.test.ts files into the new folders, updating relative imports as needed (or add root re-export shims).
-    status: pending
+    status: in_progress
   - id: update-call-sites
     content: Update imports across UI and other modules to reference the new locations (either directly or via src/operations barrel exports).
     status: pending

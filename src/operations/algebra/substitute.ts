@@ -1,5 +1,5 @@
-import { ExpressionTree, type MJ } from "./ExpressionTree";
-import { setAtPath } from "./movePath";
+import { ExpressionTree, type MJ } from "../../ExpressionTree";
+import { setAtPath } from "../../movePath";
 
 export type SubstituteScope = "single" | "all";
 

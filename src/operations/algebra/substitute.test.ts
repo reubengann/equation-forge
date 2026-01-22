@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { substitute } from "./substitute";
-import { makeMJfromLatex, treefromLatex } from "./testHelpers";
+import { makeMJfromLatex, treefromLatex } from "../../testHelpers";
 
 describe("substitute", () => {
   it("replaces a single occurrence", () => {

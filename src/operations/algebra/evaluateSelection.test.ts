@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { evaluateRaw, parse } from "./computeEngine";
-import { ExpressionTree } from "./ExpressionTree";
-import type { ExprSelection } from "./selectionSemantics";
+import { evaluateRaw, parse } from "../../computeEngine";
+import { ExpressionTree } from "../../ExpressionTree";
+import type { ExprSelection } from "../../selectionSemantics";
 import { canEvaluateSelection, evaluateSelection } from "./evaluateSelection";
 
 function buildTree(latex: string): ExpressionTree {
@@ -187,7 +187,7 @@ describe("evaluateSelection", () => {
     const sel: ExprSelection = {
       kind: "span",
       parentId: tree.rootId,
-      op: "Power",
+      op: "Add",
       start: 0,
       end: 0,
     };
@@ -227,10 +227,10 @@ describe("evaluateSelection", () => {
   });
 
   it("converts compute-engine numeric objects to primitives", async () => {
-    const ce = await import("./computeEngine");
+    const ce = await import("../../computeEngine");
     const spy = vi
       .spyOn(ce, "withRealScope")
-      .mockImplementation((ceReady: any, fn: any) =>
+      .mockImplementation((_: any, fn: any) =>
         fn({
           box: () => ({
             evaluate: () => ({ json: { num: "2" } }),
@@ -251,10 +251,10 @@ describe("evaluateSelection", () => {
   });
 
   it("multiplies numeric factors when compute engine returns no candidates", async () => {
-    const ce = await import("./computeEngine");
+    const ce = await import("../../computeEngine");
     const spy = vi
       .spyOn(ce, "withRealScope")
-      .mockImplementation((ceReady: any, fn: any) =>
+      .mockImplementation((_: any, fn: any) =>
         fn({
           box: () => ({
             evaluate: () => undefined,
@@ -275,7 +275,7 @@ describe("evaluateSelection", () => {
   });
 
   it("normalizes EvaluateAt candidates returned by the compute engine", async () => {
-    const ce = await import("./computeEngine");
+    const ce = await import("../../computeEngine");
     const spy = vi
       .spyOn(ce, "withRealScope")
       .mockImplementation((_expr: any, fn: any) =>
@@ -314,7 +314,7 @@ describe("canEvaluateSelection", () => {
     const sel: ExprSelection = {
       kind: "span",
       parentId: tree.rootId,
-      op: "Power",
+      op: "Add",
       start: 0,
       end: 0,
     };

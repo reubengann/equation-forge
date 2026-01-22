@@ -1,6 +1,6 @@
-import type { MJ } from "../ExpressionTree";
+import type { MJ, MJNode } from "../ExpressionTree";
 
-function isMJNode(value: MJ): value is MJ[] {
+function isMJNode(value: MJ): value is MJNode {
   return Array.isArray(value);
 }
 

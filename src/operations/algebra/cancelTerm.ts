@@ -1,8 +1,8 @@
-import { ExpressionTree, type MJ, type MJNode } from "./ExpressionTree";
-import { getAtPath, setAtPath } from "./movePath";
-import { normalizeMathJson, box } from "./computeEngine";
-import type { ExprSelection } from "./selectionSemantics";
-import { getDescendantNodeIds } from "./selectionSemantics";
+import { ExpressionTree, type MJ, type MJNode } from "../../ExpressionTree";
+import { getAtPath, setAtPath } from "../../movePath";
+import { normalizeMathJson, box } from "../../computeEngine";
+import type { ExprSelection } from "../../selectionSemantics";
+import { getDescendantNodeIds } from "../../selectionSemantics";
 
 type CancellablePairResult =
   | { kind: "divide"; nodeId: string; nextExpr: MJ }

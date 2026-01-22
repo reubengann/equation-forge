@@ -1,5 +1,5 @@
-import { normalizeMathJson, parse } from "./computeEngine";
-import type { MJ } from "./ExpressionTree";
+import { normalizeMathJson, parse } from "../../computeEngine";
+import type { MJ } from "../../ExpressionTree";
 
 type MJNode = [op: string, ...args: MJ[]];
 

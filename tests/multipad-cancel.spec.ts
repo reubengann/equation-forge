@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { ExpressionTree } from "../src/ExpressionTree";
-import { cancelTerm } from "../src/cancelTerm";
+import { cancelTerm } from "../src/operations";
 import { getNodeRects, getSelectedNodeIds, waitForMathRender } from "./helpers/dragMathlive";
 
 const MULTIPAD_STORAGE = [

@@ -21,11 +21,23 @@ import {
   normalizeSelection,
   type ExprSelection,
 } from "../../selectionSemantics";
-import { substitute, type SubstituteScope } from "../../substitute";
+import {
+  applyOperationToBothSides,
+  cancelTerm,
+  canCancelTerm as canCancelTermCheck,
+  canEvaluateSelection,
+  evaluateSelection,
+  expandSubexpression,
+  canFactorSelection,
+  factorSelection,
+  flipEquation,
+  isFlippableEquation,
+  substitute,
+  type SubstituteScope,
+} from "../../operations";
 import { useHistory } from "../../hooks/useHistory";
 import { useSelection, getNodeIdsFromPointerEvent } from "../../hooks/useSelection";
 import { useDragMove } from "../../hooks/useDragMove";
-import { flipEquation, isFlippableEquation } from "../../flipEquation";
 import {
   applySelectionHighlight,
   getSelectionDetailsForNode,
@@ -38,21 +50,13 @@ import { MathDisplayPanel } from "./MathDisplayPanel";
 import { MoveModeToolbar } from "./MoveModeToolbar";
 import { ApplyModal } from "./ApplyModal";
 import { SubstituteModal } from "./SubstituteModal";
-import { expandSubexpression } from "../../expandSubexpression";
 import type { MoveMode } from "../../moveExpression/applyMove";
 import { hitTestNodeIdInMathliveShadow } from "../../infra/mathlive/mathliveShadow";
-import { applyOperationToBothSides } from "../../applyBothSides";
 import {
   installShadowStyle,
   setHighlightedText,
 } from "../../infra/mathlive/derivationPadHighlight";
-import { cancelTerm, canCancelTerm as canCancelTermCheck } from "../../cancelTerm";
-import {
-  canEvaluateSelection,
-  evaluateSelection,
-} from "../../evaluateSelection";
 import { lhsMatchesSelected } from "../../mathJson/match";
-import { canFactorSelection, factorSelection } from "../../factorSelection";
 import {
   LatexInputWithToggle,
   type InputMode,

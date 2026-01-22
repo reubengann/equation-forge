@@ -103,12 +103,16 @@ const cases: IntegrationCase[] = [
         tree,
         (n) =>
           n.latex === "2" &&
-          integrandId &&
-          tree.parentById[n.id] &&
-          ["InvisibleOperator", "Multiply"].includes(
-            tree.nodesById[tree.parentById[n.id] as string]?.op
-          ) &&
-          isAncestorOrSelf(tree, integrandId, tree.parentById[n.id] as string)
+          integrandId !== null &&
+          tree.parentById[n.id] !== undefined &&
+          tree.parentById[n.id] !== null &&
+          (() => {
+            const parentId = tree.parentById[n.id] as string;
+            const parentOp = tree.nodesById[parentId]?.op;
+            if (!parentOp) return false;
+            if (!["InvisibleOperator", "Multiply"].includes(parentOp)) return false;
+            return isAncestorOrSelf(tree, integrandId, parentId);
+          })()
       );
       return [twoId];
     },
@@ -133,12 +137,16 @@ const cases: IntegrationCase[] = [
         tree,
         (n) =>
           n.latex === "2" &&
-          integrandId &&
-          tree.parentById[n.id] &&
-          ["InvisibleOperator", "Multiply"].includes(
-            tree.nodesById[tree.parentById[n.id] as string]?.op
-          ) &&
-          isAncestorOrSelf(tree, integrandId, tree.parentById[n.id] as string)
+          integrandId !== null &&
+          tree.parentById[n.id] !== undefined &&
+          tree.parentById[n.id] !== null &&
+          (() => {
+            const parentId = tree.parentById[n.id] as string;
+            const parentOp = tree.nodesById[parentId]?.op;
+            if (!parentOp) return false;
+            if (!["InvisibleOperator", "Multiply"].includes(parentOp)) return false;
+            return isAncestorOrSelf(tree, integrandId, parentId);
+          })()
       );
       return [twoId];
     },

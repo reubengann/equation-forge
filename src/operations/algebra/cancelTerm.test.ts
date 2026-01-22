@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ExprSelection } from "./selectionSemantics";
-import { treefromLatex, findNodeId } from "./testHelpers";
+import type { ExprSelection } from "../../selectionSemantics";
+import { treefromLatex, findNodeId } from "../../testHelpers";
 import { cancelTerm } from "./cancelTerm";
 
 function normalizeSpaces(s: string): string {

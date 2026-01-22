@@ -213,7 +213,6 @@ function fixBlankIntegrals(mj: MJ | null): MJ | null {
 
   if (op === "Integrate") {
     const integrand = kids[0];
-    const integrandIsOne = integrand === 1;
     const badIntegrand =
       (Array.isArray(integrand) &&
         (integrand[0] === "LatexString" ||

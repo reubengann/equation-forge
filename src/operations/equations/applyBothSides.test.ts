@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyOperationToBothSides } from "./applyBothSides";
-import { ExpressionTree, type MJ } from "./ExpressionTree";
-import { makeMJfromLatex } from "./testHelpers";
+import { ExpressionTree, type MJ } from "../../ExpressionTree";
+import { makeMJfromLatex } from "../../testHelpers";
 
 function containsOp(mj: MJ, opName: string): boolean {
   if (Array.isArray(mj)) {

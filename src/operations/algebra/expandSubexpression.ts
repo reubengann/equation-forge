@@ -1,6 +1,6 @@
-import { box, normalizeMathJson } from "./computeEngine";
-import { ExpressionTree, type MJ } from "./ExpressionTree";
-import { getAtPath, setAtPath } from "./movePath";
+import { box, normalizeMathJson } from "../../computeEngine";
+import { ExpressionTree, type MJ } from "../../ExpressionTree";
+import { getAtPath, setAtPath } from "../../movePath";
 
 function deepEqualMJ(a: MJ, b: MJ): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {

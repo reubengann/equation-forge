@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { treefromLatex, findNodeId } from "./testHelpers";
+import { treefromLatex, findNodeId } from "../../testHelpers";
 import { expandSubexpression } from "./expandSubexpression";
 
 function normalizeSpaces(s: string): string {
