@@ -221,6 +221,41 @@ test.describe("Term cancellation", () => {
     expect(normalizeLatex(latex)).toBe("a = b");
   });
 
+  test("ctrl/cmd+click cancels a factor when the opposite side is zero", async ({
+    page,
+  }) => {
+    const equation = String.raw`0 = g \left(\sin\left(\theta\right) - \mu_{s} \cos\left(\theta\right)\right)`;
+    await setEquation(page, equation);
+    const tree = buildTree(equation);
+
+    const isDescendant = (nodeId: string, ancestorId: string) => {
+      let cur: string | undefined | null = nodeId;
+      while (cur) {
+        if (cur === ancestorId) return true;
+        cur = tree.parentById[cur] ?? null;
+      }
+      return false;
+    };
+
+    const equalId = tree.rootId;
+    const [lhsId, rhsId] = tree.childrenById[equalId] ?? [];
+    const gId = Object.values(tree.nodesById).find(
+      (n) => n?.latex === "g" && rhsId && isDescendant(n.id, rhsId)
+    )?.id;
+
+    expect(gId).toBeTruthy();
+
+    await waitForMathRender(page, [gId!]);
+    const rects = await getNodeRects(page, [gId!]);
+
+    await page.mouse.click(rects[gId!].center.x, rects[gId!].center.y);
+    await page.keyboard.press("Delete");
+    const latex = await getRenderedLatex(page);
+    expect(normalizeLatex(latex)).toBe(
+      String.raw`0 = \sin\left(\theta\right) - \mu_{s} \cos\left(\theta\right)`
+    );
+  });
+
   test("ctrl/cmd+click cancels all matching factors across an equals sign with additive numerator", async ({
     page,
   }) => {

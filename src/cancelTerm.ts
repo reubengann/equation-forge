@@ -223,7 +223,7 @@ function cancelSelectedPairInFraction(
   const bExpr = tree.nodesById[bId]?.json;
   const numExpr = tree.nodesById[numId]?.json;
   const denExpr = tree.nodesById[denId]?.json;
-  if (!aExpr || !bExpr || !numExpr || !denExpr) return null;
+  if (aExpr == null || bExpr == null || numExpr == null || denExpr == null) return null;
 
   const aCanonical = unwrapDelimiter(aExpr);
   const bCanonical = unwrapDelimiter(bExpr);
@@ -285,7 +285,40 @@ function cancelSelectedPairInEqual(
   const bExpr = tree.nodesById[bId]?.json;
   const lhsExpr = tree.nodesById[lhsId]?.json;
   const rhsExpr = tree.nodesById[rhsId]?.json;
-  if (!aExpr || !bExpr || !lhsExpr || !rhsExpr) return null;
+  if (aExpr == null || bExpr == null || lhsExpr == null || rhsExpr == null) return null;
+
+  const lhsIsZero = isZeroEquivalent(lhsExpr);
+  const rhsIsZero = isZeroEquivalent(rhsExpr);
+
+  // If exactly one side is zero, allow cancelling any multiplicative factor on the non-zero side.
+  if (lhsIsZero !== rhsIsZero) {
+    const zeroIsLhs = lhsIsZero;
+    const zeroExpr = zeroIsLhs ? lhsExpr : rhsExpr;
+    const nonZeroExpr = zeroIsLhs ? rhsExpr : lhsExpr;
+    const factorId = aEqual.isLhs === zeroIsLhs ? bId : aId;
+    const factorExpr = tree.nodesById[factorId]?.json;
+    if (!factorExpr) return null;
+    const factorCanonical = unwrapDelimiter(factorExpr);
+
+    const addRemoval = removeFactorFromAddTerms(nonZeroExpr, factorCanonical);
+    if (addRemoval?.removed) {
+      const nextNonZero = unwrapDelimiter(addRemoval.next);
+      const nextExpr: MJ = zeroIsLhs
+        ? (["Equal", zeroExpr, nextNonZero] as MJNode)
+        : (["Equal", nextNonZero, zeroExpr] as MJNode);
+      return { kind: "equal", nodeId: equalId, nextExpr };
+    }
+
+    const nonZeroFactors = factorsOf(nonZeroExpr);
+    const nonZeroRemoval = removeFactorOnce(nonZeroFactors, factorCanonical);
+    if (nonZeroRemoval.removed) {
+      const nextNonZero = unwrapDelimiter(buildProductFromFactors(nonZeroRemoval.remaining));
+      const nextExpr: MJ = zeroIsLhs
+        ? (["Equal", zeroExpr, nextNonZero] as MJNode)
+        : (["Equal", nextNonZero, zeroExpr] as MJNode);
+      return { kind: "equal", nodeId: equalId, nextExpr };
+    }
+  }
 
   const aCanonical = unwrapDelimiter(aExpr);
   const bCanonical = unwrapDelimiter(bExpr);
@@ -348,6 +381,58 @@ function cancelSelectedPairInEqual(
   return null;
 }
 
+function cancelSingleFactorWhenOtherSideIsZero(tree: ExpressionTree, selId: string): ExpressionTree | null {
+  const equalInfo = findEqualAncestor(tree, selId);
+  if (!equalInfo) return null;
+
+  const equalId = equalInfo.equalId;
+  const kids = tree.childrenById[equalId] ?? [];
+  if (kids.length < 2) return null;
+  const lhsId = kids[0];
+  const rhsId = kids[1];
+
+  const lhsExpr = tree.nodesById[lhsId]?.json;
+  const rhsExpr = tree.nodesById[rhsId]?.json;
+  const selExpr = tree.nodesById[selId]?.json;
+  if (lhsExpr == null || rhsExpr == null || selExpr == null) return null;
+
+  const selIsLhs = equalInfo.isLhs;
+  const otherIsZero = selIsLhs ? isZeroEquivalent(rhsExpr) : isZeroEquivalent(lhsExpr);
+  if (!otherIsZero) return null;
+
+  const sideExpr = selIsLhs ? lhsExpr : rhsExpr;
+  const target = unwrapDelimiter(selExpr);
+
+  // Try removing as a common factor across additive terms on the selected side.
+  const addRemoval = removeFactorFromAddTerms(sideExpr, target);
+  if (addRemoval?.removed) {
+    const nextSide = unwrapDelimiter(addRemoval.next);
+    const nextExpr: MJ = selIsLhs
+      ? (["Equal", nextSide, rhsExpr] as MJNode)
+      : (["Equal", lhsExpr, nextSide] as MJNode);
+    const targetPath = tree.pathById[equalId];
+    if (!targetPath) return null;
+    const nextRoot = setAtPath(tree.rootJson, targetPath, nextExpr);
+    return ExpressionTree.create(nextRoot);
+  }
+
+  // Fallback: multiplicative removal on the selected side.
+  const factors = factorsOf(sideExpr);
+  const removal = removeFactorOnce(factors, target);
+  if (removal.removed) {
+    const nextSide = unwrapDelimiter(buildProductFromFactors(removal.remaining));
+    const nextExpr: MJ = selIsLhs
+      ? (["Equal", nextSide, rhsExpr] as MJNode)
+      : (["Equal", lhsExpr, nextSide] as MJNode);
+    const targetPath = tree.pathById[equalId];
+    if (!targetPath) return null;
+    const nextRoot = setAtPath(tree.rootJson, targetPath, nextExpr);
+    return ExpressionTree.create(nextRoot);
+  }
+
+  return null;
+}
+
 function findCancellablePair(
   tree: ExpressionTree,
   candidateIds: string[]
@@ -400,6 +485,10 @@ export function cancelTerm(
   const selId = selection.nodeId;
   const selInfo = tree.nodesById[selId];
   if (!selInfo) return null;
+
+  // If the opposite side of an equals sign is zero, allow cancelling this factor alone.
+  const zeroSideCancel = cancelSingleFactorWhenOtherSideIsZero(tree, selId);
+  if (zeroSideCancel) return zeroSideCancel;
 
   const parentId = tree.parentById[selId];
   if (!parentId) return null;

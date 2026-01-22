@@ -153,6 +153,28 @@ describe("cancelTerm", () => {
     expect(normalizeSpaces(result!.latexPlain)).toBe("a = b");
   });
 
+  it("cancels a multiplicative factor when the other side is zero", () => {
+    const tree = treefromLatex(
+      String.raw`0 = g \left(\sin\left(\theta\right) - \mu_{s} \cos\left(\theta\right)\right)`
+    );
+    const equalKids = tree.childrenById[tree.rootId] ?? [];
+    const lhsId = equalKids[0];
+    const rhsId = equalKids[1];
+    expect(lhsId).toBeTruthy();
+    expect(rhsId).toBeTruthy();
+
+    const gId = findNodeId(
+      tree,
+      (n) => n.latex === "g" && rhsId && isDescendant(tree, n.id, rhsId)
+    );
+    expect(gId).toBeTruthy();
+    const result = cancelTerm(tree, select(gId));
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe(
+      String.raw`0 = \sin\left(\theta\right) - \mu_{s} \cos\left(\theta\right)`
+    );
+  });
+
   it("returns null when the selection is not cancellable", () => {
     const tree = treefromLatex(String.raw`a + b`);
     const aId = findNodeId(tree, (n) => n.latex === "a");
