@@ -11,6 +11,8 @@ type SubstituteModalProps = {
   onSubmit: () => void;
   onClose: () => void;
   substituteFieldRef: RefObject<any>;
+  suggestions?: { padIndex: number; rhsLatex: string }[];
+  onSuggestionPick?: (rhsLatex: string) => void;
   MathField: any;
   MathDiv: any;
 };
@@ -50,6 +52,8 @@ export function SubstituteModal({
   onSubmit,
   onClose,
   substituteFieldRef,
+  suggestions,
+  onSuggestionPick,
   MathField,
   MathDiv,
 }: SubstituteModalProps) {
@@ -120,6 +124,44 @@ export function SubstituteModal({
               gap: 8,
             }}
           >
+            {suggestions && suggestions.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ ...labelStyle, marginBottom: 2 }}>
+                  Use definition from another pad
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {suggestions.map((s) => (
+                    <button
+                      key={`pad-${s.padIndex}`}
+                      type="button"
+                      onClick={() => onSuggestionPick?.(s.rhsLatex)}
+                      data-testid={`substitute-suggestion-pad-${s.padIndex}`}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        border: "1px solid var(--dp-border)",
+                        background: "var(--dp-surface)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <span style={{ fontSize: 12, color: "var(--dp-muted)" }}>
+                        Pad {s.padIndex}
+                      </span>
+                      <MathDiv
+                        mode="math"
+                        macros={JSON.stringify(vecMacroOptions.macros)}
+                        style={{ fontSize: "1rem" }}
+                      >
+                        {s.rhsLatex}
+                      </MathDiv>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <div style={{ ...labelStyle, marginBottom: 2 }}>
               Replace with (LaTeX)
             </div>

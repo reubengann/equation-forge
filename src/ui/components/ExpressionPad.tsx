@@ -51,6 +51,7 @@ import {
   canEvaluateSelection,
   evaluateSelection,
 } from "../../evaluateSelection";
+import { lhsMatchesSelected } from "../../mathJson/match";
 
 type InputMode = "mathlive" | "text";
 
@@ -89,6 +90,11 @@ export type ExpressionPadSnapshot = {
   rootJson: MJ;
 };
 
+export type OtherPadSnapshot = {
+  padIndex: number;
+  snapshot: ExpressionPadSnapshot;
+};
+
 export type ExpressionPadProps = {
   debug?: {
     render?: (
@@ -112,6 +118,11 @@ export type ExpressionPadProps = {
    * Called whenever the pad commits a new state (including undo/redo).
    */
   onSnapshot?: (snapshot: ExpressionPadSnapshot) => void;
+  /**
+   * Snapshots from sibling pads (derivation view) to surface substitution
+   * suggestions. Optional so debug page remains unchanged.
+   */
+  otherPadSnapshots?: OtherPadSnapshot[];
 };
 
 MathfieldElement.fontsDirectory = "/fonts";
@@ -130,6 +141,7 @@ export function ExpressionPad({
   prefillLatex,
   prefillKey,
   onSnapshot,
+  otherPadSnapshots,
 }: ExpressionPadProps) {
   const MathDiv = useMemo(() => "math-div" as any, []);
   const MathField = useMemo(() => "math-field" as any, []);
@@ -451,6 +463,26 @@ export function ExpressionPad({
     setShowApplyModal(false);
     setApplyError("");
   }
+
+  const applySuggestionToField = useCallback(
+    (rhsLatex: string) => {
+      const el = substituteFieldRef.current as any;
+      if (!el) return;
+      const mlLatex = toMathLiveLatex(rhsLatex);
+      try {
+        if (typeof el.setValue === "function") {
+          el.setValue(mlLatex);
+        } else {
+          el.value = mlLatex;
+        }
+        el.focus?.();
+        setSubstituteError("");
+      } catch {
+        // Ignore MathLive upgrade timing; user can still type manually.
+      }
+    },
+    [setSubstituteError]
+  );
 
   function submitSubstitution() {
     if (!tree || !substituteTargetId) {
@@ -886,6 +918,24 @@ export function ExpressionPad({
     canSubstitute && tree && substituteTargetId
       ? tree.nodesById[substituteTargetId]?.latex ?? ""
       : "";
+  const substituteSuggestions = useMemo(() => {
+    if (!otherPadSnapshots || !tree || !substituteTargetId) return [];
+    const targetNode = tree.nodesById[substituteTargetId];
+    if (!targetNode) return [];
+    const selectedJson = targetNode.json;
+
+    return otherPadSnapshots.flatMap(({ padIndex, snapshot }) => {
+      const root = snapshot.rootJson;
+      if (!Array.isArray(root) || root[0] !== "Equal" || root.length < 3)
+        return [];
+      const lhs = root[1] as MJ;
+      const rhs = root[2] as MJ;
+      if (!lhsMatchesSelected(lhs, selectedJson)) return [];
+      const rhsLatex = ExpressionTree.create(rhs).latexPlain;
+      return [{ padIndex, rhsLatex }];
+    });
+  }, [otherPadSnapshots, substituteTargetId, tree]);
+
   const latexForCopy =
     latexText && latexText !== "Type an equation, click Add / Update."
       ? latexText
@@ -1201,6 +1251,8 @@ export function ExpressionPad({
         onSubmit={submitSubstitution}
         onClose={closeSubstituteModal}
         substituteFieldRef={substituteFieldRef}
+        suggestions={substituteSuggestions}
+        onSuggestionPick={applySuggestionToField}
         MathField={MathField}
         MathDiv={MathDiv}
       />

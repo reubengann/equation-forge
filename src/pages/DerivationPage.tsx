@@ -216,6 +216,11 @@ export function DerivationPage() {
                 key={pad.id}
                 initialSnapshot={pad.snapshot}
                 onSnapshot={(snapshot) => updateSnapshot(pad.id, snapshot)}
+                otherPadSnapshots={pads.flatMap((p, pIdx) =>
+                  pIdx === idx || !p.snapshot
+                    ? []
+                    : [{ padIndex: pIdx + 1, snapshot: p.snapshot }]
+                )}
               />
               <span
                 style={{

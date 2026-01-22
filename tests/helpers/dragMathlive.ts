@@ -239,12 +239,13 @@ export async function getExpressionJson(page: Page): Promise<any> {
 export async function clickNodeByLatex(
   page: Page,
   equationLatex: string,
-  match: LatexMatch
+  match: LatexMatch,
+  displayIndex = 0
 ) {
   const tree = buildTree(equationLatex);
   const nodeId = findNodeIdByLatex(tree, match);
-  await waitForMathRender(page, [nodeId]);
-  const rects = await getNodeRects(page, [nodeId]);
+  await waitForMathRender(page, [nodeId], displayIndex);
+  const rects = await getNodeRects(page, [nodeId], displayIndex);
   const pt = rects[nodeId].center;
   await page.mouse.click(pt.x, pt.y);
   return { nodeId, point: pt };
