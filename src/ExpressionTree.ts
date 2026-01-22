@@ -231,11 +231,20 @@ export class ExpressionTree {
     }
 
     // Render multi-letter identifiers upright to avoid unintended italics, e.g., f_max.
-    if (typeof node === "string" && /^[A-Za-z]{2,}$/.test(node)) {
-      const plain = String.raw`\mathrm{${node}}`;
-      this.nodesById[id] = { id, op: "Symbol", latex: plain, json: node };
-      const tagged = this.wrap(id, plain);
-      return this.recordTagged({ id, latexTagged: tagged, latexPlain: plain });
+    // Skip if the symbol was already transformed by _leafLatex (e.g., DifferentialD -> \mathrm{d}).
+    if (
+      typeof node === "string" &&
+      plain === node &&
+      /^[A-Za-z]{2,}$/.test(node)
+    ) {
+      const upright = String.raw`\mathrm{${node}}`;
+      this.nodesById[id] = { id, op: "Symbol", latex: upright, json: node };
+      const tagged = this.wrap(id, upright);
+      return this.recordTagged({
+        id,
+        latexTagged: tagged,
+        latexPlain: upright,
+      });
     }
 
     if (typeof node === "string" && /^[A-Za-z]$/.test(node)) {
