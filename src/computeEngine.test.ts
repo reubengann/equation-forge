@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { box, parse } from "./computeEngine";
+import { describe, it, expect, vi } from "vitest";
+import { box, parse, normalizeMathJson, withRealScope } from "./computeEngine";
 
 describe("computeEngine custom dictionary", () => {
   it("parses differential symbol", () => {
@@ -121,5 +121,70 @@ describe("computeEngine custom dictionary", () => {
       ["InverseFunction", "Tan"],
       "x",
     ]);
+  });
+
+  it("parses explicit vector macro", () => {
+    expect(parse(String.raw`\vec{v}`)).toEqual(["Vector", "v"]);
+    expect(parse(String.raw`\vec w`)).toEqual([
+      "InvisibleOperator",
+      ["Vector"],
+      "w",
+    ]);
+  });
+
+  it("injects implicit 1 when integrand is missing", () => {
+    expect(parse(String.raw`\int \,\mathrm{d}{x}`)).toEqual([
+      "Integrate",
+      1,
+      "x",
+    ]);
+  });
+
+  it("parses differential-only integral form", () => {
+    expect(parse(String.raw`\int_{0}^{2}\differentialD(y)`)).toEqual([
+      "Integrate",
+      1,
+      ["Tuple", ["Delimiter", "y"], 0, 2],
+    ]);
+  });
+
+  it("fixes blank integrals and fills tuple defaults", () => {
+    const mj = normalizeMathJson([
+      "Integrate",
+      "unexpected-command",
+      ["Tuple", "Nothing", undefined, undefined],
+    ] as any);
+    expect(mj).toEqual(["Integrate", 1, ["Tuple", "x", 0, 0]]);
+  });
+
+  it("serializes ddot correctly", () => {
+    const latex = box(["OverDot", "q", 2]).toLatex().replace(/\\\\/g, "\\");
+    expect(latex).toBe("\\ddot{q}");
+  });
+
+  it("withRealScope declares symbols and skips numerics", () => {
+    const engine = (box(0) as any).engine;
+    const declareSpy = vi.spyOn(engine, "declare");
+    const pushSpy = vi.spyOn(engine, "pushScope");
+    const popSpy = vi.spyOn(engine, "popScope");
+
+    const result = withRealScope(
+      ["InvisibleOperator", "a", "2", ["Apply", "f", "b"]] as any,
+      () => 42
+    );
+
+    expect(result).toBe(42);
+    expect(pushSpy).toHaveBeenCalledTimes(1);
+    expect(popSpy).toHaveBeenCalledTimes(1);
+    expect(declareSpy).toHaveBeenCalledWith("a", "real");
+    expect(declareSpy).toHaveBeenCalledWith("b", "real");
+    // Numeric literal should not be declared.
+    expect(
+      declareSpy.mock.calls.some((args) => args[0] === "2")
+    ).toBe(false);
+
+    declareSpy.mockRestore();
+    pushSpy.mockRestore();
+    popSpy.mockRestore();
   });
 });
