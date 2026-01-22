@@ -783,11 +783,79 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
 
   if (!replaceContains && !parentContains) return null;
 
+  const fromSideInfo = findEqualSideRoot(tree, movedId);
+  const toSideInfo =
+    replaceParentId && replaceSlot !== undefined
+      ? { equalId: replaceParentId, sideSlot: replaceSlot as 0 | 1 }
+      : null;
+  const isCrossEqual =
+    fromSideInfo &&
+    toSideInfo &&
+    fromSideInfo.equalId === toSideInfo.equalId &&
+    fromSideInfo.sideSlot !== toSideInfo.sideSlot;
+
   // If we have replaceRect, use it for before/after.
   // Otherwise default to "after" (we know we're on the correct side, but not the fine position).
   let insertIndex: 0 | 1 = 1;
   if (replaceRect) {
     insertIndex = pointer.x < midX(replaceRect) ? 0 : 1;
+  }
+
+  if (isCrossEqual) {
+    const equalId = toSideInfo!.equalId;
+    const fromSide = fromSideInfo!.sideSlot;
+    const toSide = toSideInfo!.sideSlot;
+
+    if (mode === "multiplicative") {
+      const drop = determineMultiplicativeDropKind({
+        sideRootId: replaceId,
+        pointer,
+        rectFor,
+        equalId,
+        toSide,
+      });
+      if (!drop) {
+        // Fallback when rects are missing
+        return {
+          kind: "MoveAcrossEqual",
+          movedId,
+          equalId,
+          fromSide,
+          toSide,
+          drop: {
+            kind: "ontoSideRoot",
+            replaceId,
+            replaceParentId,
+            replaceSlot: replaceSlot as 0 | 1,
+            insertIndex,
+          },
+        };
+      }
+      return {
+        kind: "MoveAcrossEqual",
+        movedId,
+        equalId,
+        fromSide,
+        toSide,
+        drop,
+      };
+    }
+
+    // Additive mode cross-equal drop onto side root
+    return {
+      kind: "MoveAcrossEqual",
+      movedId,
+      equalId,
+      fromSide,
+      toSide,
+      drop: {
+        kind: "ontoSideRoot",
+        replaceId,
+        replaceParentId,
+        replaceSlot: replaceSlot as 0 | 1,
+        insertIndex,
+      },
+    };
   }
 
   return {

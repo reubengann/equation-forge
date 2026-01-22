@@ -44,6 +44,19 @@ const cases: MoveCase[] = [
     toBias: { dx: 6 },
   },
   {
+    title:
+      "additive cross '=' moves friction term product from RHS to LHS",
+    mode: "additive",
+    equation: String.raw`0 = \sin\left(\theta\right) - \mu_{s} \cos\left(\theta\right)`,
+    fromLatex: [
+      String.raw`\mu_{s} \cos\left(\theta\right)`,
+      String.raw`-\mu_{s} \cos\left(\theta\right)`,
+    ],
+    toLatex: "0",
+    expectedLatex: String.raw`\mu_{s} \cos\left(\theta\right) = \sin\left(\theta\right)`,
+    clickCount: 2,
+  },
+  {
     title: "additive cross '=' wraps into other side with sign flip",
     mode: "additive",
     equation: String.raw`a + b = c`,
@@ -132,6 +145,17 @@ const cases: MoveCase[] = [
     expectedLatex: String.raw`x^{2} - m a + v_{x} = 0`,
     clickCount: 2, // double-click to select the product
   },
+  {
+    title:
+      "multiplicative cross '=' moves cos alone, leaving mu on LHS",
+    mode: "multiplicative",
+    equation: String.raw`\mu_{s} \cos\left(\theta\right) = \sin\left(\theta\right)`,
+    fromLatex: String.raw`\cos\left(\theta\right)`,
+    toLatex: String.raw`\sin\left(\theta\right)`,
+    expectedLatex: String.raw`\mu_{s} = \frac{\sin\left(\theta\right)}{\cos\left(\theta\right)}`,
+  },
+  // Regression: manual double-click on μ_s then drag should also work
+  // even if the selection starts from the μ factor instead of the whole product.
 ];
 
 for (const c of cases) {
@@ -313,6 +337,42 @@ test("double-click m then drag to LHS should move m a additively", async ({
   expect(normalizedLatex).toContain("v_{x}");
   // Verify it's not the original equation
   expect(normalizedLatex).not.toContain("x^{2} + v_{x} = m a");
+});
+
+test("double-click mu then drag friction term to LHS additively", async ({
+  page,
+}) => {
+  const equation = String.raw`0 = \sin\left(\theta\right) - \mu_{s} \cos\left(\theta\right)`;
+  await setEquation(page, equation);
+  await setMoveMode(page, "additive");
+
+  const tree = buildTree(equation);
+  const muId = findNodeIdByLatex(tree, String.raw`\mu_{s}`);
+  const zeroId = findNodeIdByLatex(tree, "0");
+
+  await waitForMathRender(page, [muId, zeroId]);
+  const rects = await getNodeRects(page, [muId, zeroId]);
+  const muCenter = rects[muId].center;
+  const zeroCenter = rects[zeroId].center;
+
+  // Manual-style double-click: two clicks, then press/drag
+  await page.mouse.click(muCenter.x, muCenter.y);
+  await page.waitForTimeout(80);
+  await page.mouse.click(muCenter.x, muCenter.y);
+  await page.waitForTimeout(80);
+
+  await page.mouse.move(muCenter.x, muCenter.y);
+  await page.mouse.down();
+  await page.mouse.move(zeroCenter.x, zeroCenter.y, { steps: 15 });
+  await page.mouse.up();
+
+  const latex = await getRenderedLatex(page);
+  const normalized = normalizeLatex(latex);
+  expect(normalized).toContain(
+    normalizeLatex(
+      String.raw`\mu_{s} \cos\left(\theta\right) = \sin\left(\theta\right)`
+    )
+  );
 });
 
 test("additive cross '=' keeps moved product selectable", async ({ page }) => {

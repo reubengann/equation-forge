@@ -65,13 +65,92 @@ function isAncestorOrSelf(
   return false;
 }
 
+/**
+ * Find the lowest common ancestor that is a multiplicative container directly
+ * under an Equal. This lets us promote multi-selection cases where the user
+ * clicked inside different children (e.g., a subscript symbol and a function
+ * call) that together form a product term on one side of an equation.
+ */
+function lcaMulUnderEqual(
+  tree: ExpressionTree,
+  ids: string[]
+): string | null {
+  if (ids.length < 2) return null;
+
+  const isUnderEqualSide = (nodeId: string): boolean => {
+    let cur: string | null | undefined = tree.parentById[nodeId];
+    while (cur) {
+      const op = tree.nodesById[cur]?.op;
+      if (op === "Equal") return true;
+      if (
+        op === "Add" ||
+        op === "Negate" ||
+        op === "Divide"
+      ) {
+        cur = tree.parentById[cur];
+        continue;
+      }
+      cur = tree.parentById[cur];
+    }
+    return false;
+  };
+
+  const ancestorSets = ids.map((id) => {
+    const chain: string[] = [];
+    let cur: string | null | undefined = id;
+    while (cur) {
+      chain.push(cur);
+      cur = tree.parentById[cur] ?? null;
+    }
+    return chain;
+  });
+
+  // Intersect ancestor chains, preserving order from closest to farthest.
+  const firstChain = ancestorSets[0];
+  for (const candidate of firstChain) {
+    const candidateOp = tree.nodesById[candidate]?.op;
+    if (!isMulOp(candidateOp)) continue;
+    if (!isUnderEqualSide(candidate)) continue;
+
+    const presentInAll = ancestorSets.every((chain) =>
+      chain.includes(candidate)
+    );
+    if (presentInAll) return candidate;
+  }
+
+  return null;
+}
+
+function findEqualSideRoot(
+  tree: ExpressionTree,
+  nodeId: string
+): { equalId: string; sideSlot: 0 | 1 } | null {
+  let cur: string | null | undefined = nodeId;
+  while (cur) {
+    const parentId: string | null | undefined = tree.parentById[cur];
+    if (!parentId) return null;
+    const parentOp = tree.nodesById[parentId]?.op;
+    if (parentOp === "Equal") {
+      const kids = tree.childrenById[parentId] ?? [];
+      if (kids.length >= 2) {
+        if (kids[0] === cur) return { equalId: parentId, sideSlot: 0 };
+        if (kids[1] === cur) return { equalId: parentId, sideSlot: 1 };
+      }
+      return null;
+    }
+    cur = parentId;
+  }
+  return null;
+}
+
 function collapseMultiplicativeSelection(args: {
   tree: ExpressionTree;
   ids: string[];
   mode: MoveMode;
+  hoverId?: string | null;
   disableEqualPromotion?: boolean;
 }) {
-  const { tree, ids, mode, disableEqualPromotion } = args;
+  const { tree, ids, mode, hoverId, disableEqualPromotion } = args;
   if (ids.length === 0) return ids;
 
   // Single-selection promotion rules
@@ -99,10 +178,22 @@ function collapseMultiplicativeSelection(args: {
         isVectorNode(tree.nodesById[sibId])
       );
 
+      // If hover is across '=', do NOT promote the factor to the whole product
+      // (we only want to move the chosen factor across).
+      const fromSide = findEqualSideRoot(tree, parentId);
+      const hoverSide =
+        hoverId != null ? findEqualSideRoot(tree, hoverId) : null;
+      const crossEqualHover =
+        fromSide &&
+        hoverSide &&
+        fromSide.equalId === hoverSide.equalId &&
+        fromSide.sideSlot !== hoverSide.sideSlot;
+
       if (
         !parentHasVector &&
         (productParentOp === "Equal" || inDenominator)
       ) {
+        if (crossEqualHover) return ids;
         return [parentId];
       }
     }
@@ -114,11 +205,21 @@ function collapseMultiplicativeSelection(args: {
       parentId &&
       isMulOp(parentOp)
     ) {
-      const productParentId = tree.parentById[parentId];
-      if (productParentId) {
-        const productParentOp = tree.nodesById[productParentId]?.op;
-        if (productParentOp === "Equal") return [parentId];
+    let ancestor: string | null | undefined = tree.parentById[parentId];
+    while (ancestor) {
+      const ancestorOp = tree.nodesById[ancestor]?.op;
+      if (ancestorOp === "Equal") return [parentId];
+      // Allow climbing through common wrappers on a side of '='
+      if (
+        ancestorOp === "Add" ||
+        ancestorOp === "Negate" ||
+        ancestorOp === "Divide"
+      ) {
+        ancestor = tree.parentById[ancestor];
+        continue;
       }
+      break;
+    }
     }
     return ids;
   }
@@ -160,6 +261,15 @@ function collapseMultiplicativeSelection(args: {
         }
       }
     }
+
+    // If the selected ids live under different branches of the same product
+    // (e.g., subscript + cosine), promote to that product when it is directly
+    // under an Equal. This matches UI cases where double-click selects multiple
+    // factors that together form the term to move.
+    const lcaProductId = lcaMulUnderEqual(tree, ids);
+    if (lcaProductId && !disableEqualPromotion) {
+      return [lcaProductId];
+    }
   }
 
   return ids;
@@ -185,6 +295,7 @@ export function normalizeSelectedIdsForMove(args: {
     tree,
     ids: normalizedIds,
     mode,
+    hoverId,
     disableEqualPromotion,
   });
 

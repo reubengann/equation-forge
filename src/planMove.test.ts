@@ -240,6 +240,36 @@ describe("planMove", () => {
     });
   });
 
+  it("plans additive cross '=' for a negated friction product on RHS", () => {
+    const tree = treefromLatex(
+      String.raw`0 = \sin\left(\theta\right) - \mu_{s} \cos\left(\theta\right)`
+    );
+
+    const equalId = tree.rootId!;
+    const [lhsId, rhsId] = tree.childrenById[equalId];
+
+    const muId = findNodeByLatex(tree, String.raw`\mu_{s}`);
+    const cosId = findNodeByLatex(tree, String.raw`\cos\left(\theta\right)`);
+
+    const plan = planMove({
+      tree,
+      selectedIds: [muId, cosId],
+      hoverId: lhsId,
+      pointer: { x: 20, y: 50 },
+      mode: "additive",
+      rectFor: rectProvider({
+        [equalId]: { left: 0, right: 200, top: 0, bottom: 100 },
+        [lhsId]: { left: 10, right: 40, top: 0, bottom: 100 },
+        [rhsId]: { left: 120, right: 190, top: 0, bottom: 100 },
+      }),
+    });
+
+    expect(plan).not.toBeNull();
+    expect(plan?.kind).toBe("MoveAcrossEqual");
+    expect(plan?.fromSide).toBe(1);
+    expect(plan?.toSide).toBe(0);
+  });
+
   it("plans InsertIntoAdd when dragging from one Add and hovering the other side's Add (via Equal hover)", () => {
     const tree = treefromLatex("a + b = c + d");
 
