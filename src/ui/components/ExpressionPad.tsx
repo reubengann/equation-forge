@@ -52,8 +52,10 @@ import {
   evaluateSelection,
 } from "../../evaluateSelection";
 import { lhsMatchesSelected } from "../../mathJson/match";
-
-type InputMode = "mathlive" | "text";
+import {
+  LatexInputWithToggle,
+  type InputMode,
+} from "./LatexInputWithToggle";
 
 export type ExpressionPadDebugState = {
   latexText: string;
@@ -562,13 +564,7 @@ export function ExpressionPad({
   }
 
   function onAddEquation() {
-    const rawLatex: string =
-      inputMode === "mathlive"
-        ? (inputRef.current?.getValue?.("latex") ??
-            (inputRef.current?.value as string))
-        : textInputRef.current?.value ?? "";
-    const latex =
-      inputMode === "mathlive" ? fromMathLiveLatex(rawLatex) : rawLatex;
+    const latex = latexDraft;
     const mj = parse(latex);
     if (mj == null) {
       setLatexText(latex);
@@ -1082,9 +1078,6 @@ export function ExpressionPad({
     toggleDebugBoxes: () => setDebugBoxes((v) => !v),
   };
 
-  const monoFont =
-    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
-
   return (
     <div style={{ padding: 24, maxWidth: 1000 }}>
       {mode === "entry" && (
@@ -1099,99 +1092,28 @@ export function ExpressionPad({
             }}
           >
             <div style={{ flex: "1 1 auto" }}>
-              {inputMode === "mathlive" ? (
-                <>
-                  {/* MathLive note: pass macros as an object prop to avoid the
-                      parenthesis duplication bug we saw when stringifying. */}
-                  <MathField
-                    ref={(el: any) => {
-                      inputRef.current = el;
-                    }}
-                    value={latexDraft}
-                    style={{
-                      width: "100%",
-                      padding: 10,
-                      border: "1px solid #ccc",
-                      borderRadius: 8,
-                    }}
-                    data-testid="latex-input"
-                    onInput={(e: any) => setLatexDraft(e.target?.value ?? "")}
-                    macros={vecMacroOptions.macros}
-                  />
-                </>
-              ) : (
-                <textarea
-                  ref={textInputRef}
-                  value={latexDraft}
-                  style={{
-                    width: "100%",
-                    padding: 10,
-                    border: "1px solid #ccc",
-                    borderRadius: 8,
-                    minHeight: 80,
-                    fontFamily: monoFont,
-                    background: "var(--dp-surface)",
-                    color: "inherit",
-                  }}
-                  data-testid="latex-input"
-                  onChange={(e) => setLatexDraft(e.target.value)}
-                />
-              )}
+              <LatexInputWithToggle
+                inputMode={inputMode}
+                latex={latexDraft}
+                onLatexChange={setLatexDraft}
+                onInputModeChange={setInputMode}
+                mathFieldRef={inputRef}
+                textAreaRef={textInputRef}
+                MathField={MathField}
+                dataTestId="latex-input"
+                radioName="entry-mode"
+                fieldStyle={{ border: "1px solid #ccc" }}
+                actionButton={{
+                  label: "✓",
+                  onClick: onAddEquation,
+                  title: "Add / Update",
+                  ariaLabel: "Add / Update",
+                  dataTestId: "add-update",
+                }}
+              />
             </div>
-            <button
-              onClick={onAddEquation}
-              style={{
-                padding: "10px 14px",
-                borderRadius: 8,
-                border: "1px solid #888",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                minWidth: 44,
-                minHeight: 44,
-              }}
-              title="Add / Update"
-              aria-label="Add / Update"
-              data-testid="add-update"
-            >
-              ✓
-            </button>
           </div>
 
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <input
-                type="radio"
-                name="entry-mode"
-                value="mathlive"
-                checked={inputMode === "mathlive"}
-                onChange={() => setInputMode("mathlive")}
-              />
-              MathLive
-            </label>
-            <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <input
-                type="radio"
-                name="entry-mode"
-                value="text"
-                checked={inputMode === "text"}
-                onChange={() => setInputMode("text")}
-              />
-              Plain text (LaTeX)
-            </label>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              alignItems: "center",
-              flexWrap: "wrap",
-            }}
-          >
-          </div>
         </div>
       )}
 

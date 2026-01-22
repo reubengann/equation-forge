@@ -2,11 +2,9 @@ import { useRef, type CSSProperties, type RefObject } from "react";
 import type { SubstituteScope } from "../../substitute";
 import { vecMacroOptions } from "../../infra/mathlive/vecMacroOptions";
 import {
-  fromMathLiveLatex,
-  toMathLiveLatex,
-} from "../../infra/mathlive/differentialLatex";
-
-type InputMode = "mathlive" | "text";
+  LatexInputWithToggle,
+  type InputMode,
+} from "./LatexInputWithToggle";
 
 type SubstituteModalProps = {
   open: boolean;
@@ -181,71 +179,18 @@ export function SubstituteModal({
             <div style={{ ...labelStyle, marginBottom: 2 }}>
               Replace with (LaTeX)
             </div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <input
-                  type="radio"
-                  name="substitute-input-mode"
-                  value="mathlive"
-                  checked={substituteInputMode === "mathlive"}
-                  onChange={() => onSubstituteInputModeChange("mathlive")}
-                />
-                MathLive
-              </label>
-              <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <input
-                  type="radio"
-                  name="substitute-input-mode"
-                  value="text"
-                  checked={substituteInputMode === "text"}
-                  onChange={() => onSubstituteInputModeChange("text")}
-                />
-                Plain text (LaTeX)
-              </label>
-            </div>
-            {substituteInputMode === "mathlive" ? (
-              <>
-                {/* MathLive note: pass macros as an object prop; stringifying caused
-                    issues in earlier builds. */}
-                <MathField
-                  ref={(el: any) => {
-                    substituteFieldRef.current = el;
-                  }}
-                  value={toMathLiveLatex(substituteLatexDraft)}
-                  style={{
-                    width: "100%",
-                    padding: 10,
-                    border: "1px solid var(--dp-border)",
-                    borderRadius: 8,
-                  }}
-                  data-testid="substitute-input"
-                  onInput={(e: any) =>
-                    onSubstituteLatexChange(
-                      fromMathLiveLatex(e.target?.value ?? "")
-                    )
-                  }
-                  macros={vecMacroOptions.macros}
-                />
-              </>
-            ) : (
-              <textarea
-                ref={substituteTextFieldRef as RefObject<HTMLTextAreaElement>}
-                value={substituteLatexDraft}
-                onChange={(e) => onSubstituteLatexChange(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: 10,
-                  border: "1px solid var(--dp-border)",
-                  borderRadius: 8,
-                  minHeight: 80,
-                  fontFamily:
-                    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-                  background: "var(--dp-surface)",
-                  color: "inherit",
-                }}
-                data-testid="substitute-input"
-              />
-            )}
+            <LatexInputWithToggle
+              inputMode={substituteInputMode}
+              latex={substituteLatexDraft}
+              onLatexChange={onSubstituteLatexChange}
+              onInputModeChange={onSubstituteInputModeChange}
+              mathFieldRef={substituteFieldRef}
+              textAreaRef={substituteTextFieldRef}
+              MathField={MathField}
+              dataTestId="substitute-input"
+              radioName="substitute-input-mode"
+              fieldStyle={{ border: "1px solid var(--dp-border)" }}
+            />
             {substituteError ? (
               <div style={{ color: "#d32f2f", fontSize: 12 }}>
                 {substituteError}
