@@ -96,14 +96,14 @@ describe("cancelTerm", () => {
     expect(numId).toBeTruthy();
     expect(denId).toBeTruthy();
 
-    const numM = findNodeId(
-      tree,
-      (n) => n.latex === "m" && numId && isDescendant(tree, n.id, numId)
-    );
-    const denM = findNodeId(
-      tree,
-      (n) => n.latex === "m" && denId && isDescendant(tree, n.id, denId)
-    );
+    const numM = findNodeId(tree, (n) => {
+      if (!numId) return false;
+      return n.latex === "m" && isDescendant(tree, n.id, numId);
+    });
+    const denM = findNodeId(tree, (n) => {
+      if (!denId) return false;
+      return n.latex === "m" && isDescendant(tree, n.id, denId);
+    });
     expect(numM).toBeTruthy();
     expect(denM).toBeTruthy();
 
@@ -120,14 +120,14 @@ describe("cancelTerm", () => {
     const equalKids = tree.childrenById[tree.rootId] ?? [];
     const lhsId = equalKids[0];
     const rhsId = equalKids[1];
-    const leftB = findNodeId(
-      tree,
-      (n) => n.latex === "b" && lhsId && isDescendant(tree, n.id, lhsId)
-    );
-    const rightB = findNodeId(
-      tree,
-      (n) => n.latex === "b" && rhsId && isDescendant(tree, n.id, rhsId)
-    );
+    const leftB = findNodeId(tree, (n) => {
+      if (!lhsId) return false;
+      return n.latex === "b" && isDescendant(tree, n.id, lhsId);
+    });
+    const rightB = findNodeId(tree, (n) => {
+      if (!rhsId) return false;
+      return n.latex === "b" && isDescendant(tree, n.id, rhsId);
+    });
     const sel: ExprSelection = { kind: "multi", nodeIds: [leftB, rightB].filter(Boolean) as string[] };
     const result = cancelTerm(tree, sel);
     expect(result).not.toBeNull();
@@ -139,14 +139,14 @@ describe("cancelTerm", () => {
     const equalKids = tree.childrenById[tree.rootId] ?? [];
     const lhsId = equalKids[0];
     const rhsId = equalKids[1];
-    const leftM = findNodeId(
-      tree,
-      (n) => n.latex === "m" && lhsId && isDescendant(tree, n.id, lhsId)
-    );
-    const rightM = findNodeId(
-      tree,
-      (n) => n.latex === "m" && rhsId && isDescendant(tree, n.id, rhsId)
-    );
+    const leftM = findNodeId(tree, (n) => {
+      if (!lhsId) return false;
+      return n.latex === "m" && isDescendant(tree, n.id, lhsId);
+    });
+    const rightM = findNodeId(tree, (n) => {
+      if (!rhsId) return false;
+      return n.latex === "m" && isDescendant(tree, n.id, rhsId);
+    });
     const sel: ExprSelection = { kind: "multi", nodeIds: [leftM, rightM].filter(Boolean) as string[] };
     const result = cancelTerm(tree, sel);
     expect(result).not.toBeNull();
@@ -163,10 +163,10 @@ describe("cancelTerm", () => {
     expect(lhsId).toBeTruthy();
     expect(rhsId).toBeTruthy();
 
-    const gId = findNodeId(
-      tree,
-      (n) => n.latex === "g" && rhsId && isDescendant(tree, n.id, rhsId)
-    );
+    const gId = findNodeId(tree, (n) => {
+      if (!rhsId) return false;
+      return n.latex === "g" && isDescendant(tree, n.id, rhsId);
+    });
     expect(gId).toBeTruthy();
     const result = cancelTerm(tree, select(gId));
     expect(result).not.toBeNull();
