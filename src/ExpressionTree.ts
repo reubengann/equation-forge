@@ -230,6 +230,14 @@ export class ExpressionTree {
       }
     }
 
+    // Render multi-letter identifiers upright to avoid unintended italics, e.g., f_max.
+    if (typeof node === "string" && /^[A-Za-z]{2,}$/.test(node)) {
+      const plain = String.raw`\mathrm{${node}}`;
+      this.nodesById[id] = { id, op: "Symbol", latex: plain, json: node };
+      const tagged = this.wrap(id, plain);
+      return this.recordTagged({ id, latexTagged: tagged, latexPlain: plain });
+    }
+
     if (typeof node === "string" && /^[A-Za-z]$/.test(node)) {
       const plain = node; // italic by default in math mode
       this.nodesById[id] = { id, op: "Symbol", latex: plain, json: node };
