@@ -68,6 +68,14 @@ function greekSymbolToLatex(name: string): string | null {
   return GREEK_LATEX[name] ?? null;
 }
 
+const CALLIGRAPHIC_REGEX = /^([A-Z])_calligraphic$/;
+function calligraphicSymbolToLatex(name: string): string | null {
+  const m = CALLIGRAPHIC_REGEX.exec(name);
+  if (!m) return null;
+  const letter = m[1];
+  return String.raw`\mathcal{${letter}}`;
+}
+
 export class ExpressionTree {
   readonly rootJson: MJ;
 
@@ -236,6 +244,17 @@ export class ExpressionTree {
     this.nodesById[id] = { id, op, latex: plain, json: node };
 
     if (typeof node === "string") {
+      const calligraphicLatex = calligraphicSymbolToLatex(node);
+      if (calligraphicLatex) {
+        const taggedCalligraphic = this.wrap(id, calligraphicLatex);
+        this.nodesById[id] = { id, op: "Symbol", latex: calligraphicLatex, json: node };
+        return {
+          id,
+          latexPlain: calligraphicLatex,
+          latexTagged: taggedCalligraphic,
+        };
+      }
+
       const greekLatex = greekSymbolToLatex(node);
       if (greekLatex) {
         plain = greekLatex;
@@ -281,9 +300,12 @@ export class ExpressionTree {
     this.rootJson = normalized;
     // Map atomic symbols to display forms before general leaf handling.
     this._leafLatex = (x) => {
+      const asString = String(x);
       if (x === "DifferentialD") return String.raw`\mathrm{d}`;
       if (x === "PartialD") return String.raw`\partial`;
-      return String(x);
+      const calligraphicLatex = calligraphicSymbolToLatex(asString);
+      if (calligraphicLatex) return calligraphicLatex;
+      return asString;
     };
     const parseResult = this.emit(normalized, null, []);
     const patchDiffD = (s: string) =>

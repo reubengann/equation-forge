@@ -507,4 +507,16 @@ describe("ExpressionTree", () => {
     const t = treefromLatex(String.raw`\rho + \Gamma`);
     expect(t.latexPlain).toBe(String.raw`\rho + \Gamma`);
   });
+
+  it("renders calligraphic symbol tokens as \\mathcal", () => {
+    const t = ExpressionTree.create(["Add", "O_calligraphic", "Z_calligraphic"]);
+    expect(t.latexPlain).toBe(String.raw`\mathcal{O} + \mathcal{Z}`);
+    expect(t.latexTagged).not.toContain("calligraphic");
+  });
+
+  it("round-trips \\mathcal{O} through parse and render", () => {
+    const t = treefromLatex(String.raw`\mathcal{O}`);
+    expect(t.latexPlain).toBe(String.raw`\mathcal{O}`);
+    expect(t.latexTagged).not.toContain("calligraphic");
+  });
 });
