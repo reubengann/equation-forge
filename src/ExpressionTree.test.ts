@@ -6,7 +6,7 @@ describe("ExpressionTree", () => {
   it("Wraps each node", () => {
     const t = ExpressionTree.create(makeMJfromLatex("a + b = c + d"));
     expect(t.latexTagged).toBe(
-      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{\htmlData{node-id="n3"}{a} + \htmlData{node-id="n4"}{b}} = \htmlData{node-id="n5"}{\htmlData{node-id="n6"}{c} + \htmlData{node-id="n7"}{d}}}`
+      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{\htmlData{node-id="n3"}{a} + \htmlData{node-id="n4"}{b}} = \htmlData{node-id="n5"}{\htmlData{node-id="n6"}{c} + \htmlData{node-id="n7"}{d}}}`,
     );
   });
 
@@ -18,7 +18,7 @@ describe("ExpressionTree", () => {
   it("Can parse a sum", () => {
     const t = ExpressionTree.create(makeMJfromLatex("a + b"));
     expect(t.latexTagged).toBe(
-      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{a} + \htmlData{node-id="n3"}{b}}`
+      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{a} + \htmlData{node-id="n3"}{b}}`,
     );
   });
 
@@ -28,7 +28,7 @@ describe("ExpressionTree", () => {
 
     const t2 = ExpressionTree.create(["Power", ["Add", "a", "b"], 2]);
     expect(t2.latexPlain.replace(/\s+/g, "")).toBe(
-      String.raw`\left(a+b\right)^{2}`
+      String.raw`\left(a+b\right)^{2}`,
     );
   });
 
@@ -40,7 +40,7 @@ describe("ExpressionTree", () => {
   it("Can parse an equality", () => {
     const t = ExpressionTree.create(makeMJfromLatex("a = b"));
     expect(t.latexTagged).toBe(
-      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{a} = \htmlData{node-id="n3"}{b}}`
+      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{a} = \htmlData{node-id="n3"}{b}}`,
     );
   });
 
@@ -190,7 +190,7 @@ describe("ExpressionTree", () => {
     const t = ExpressionTree.create(mj);
 
     expect(t.latexTagged).toBe(
-      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{e} + \htmlData{node-id="n3"}{f}}`
+      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{e} + \htmlData{node-id="n3"}{f}}`,
     );
     expect(t.latexTagged).not.toContain(`\\exponentialE`);
   });
@@ -198,13 +198,13 @@ describe("ExpressionTree", () => {
   it("Renders Divide as a fraction", () => {
     const t = ExpressionTree.create(["Divide", ["Add", "a", "b"], 2]);
     expect(t.latexTagged).toBe(
-      String.raw`\htmlData{node-id="n1"}{\frac{\htmlData{node-id="n2"}{\htmlData{node-id="n3"}{a} + \htmlData{node-id="n4"}{b}}}{\htmlData{node-id="n5"}{2}}}`
+      String.raw`\htmlData{node-id="n1"}{\frac{\htmlData{node-id="n2"}{\htmlData{node-id="n3"}{a} + \htmlData{node-id="n4"}{b}}}{\htmlData{node-id="n5"}{2}}}`,
     );
   });
 
   it("parses derivative fraction into FractionDerivative", () => {
     const mj = makeMJfromLatex(
-      String.raw`\dfrac{\differentialD f}{\differentialD x}`
+      String.raw`\dfrac{\differentialD f}{\differentialD x}`,
     );
     expect(mj).toEqual([
       "FractionDerivative",
@@ -215,7 +215,7 @@ describe("ExpressionTree", () => {
 
   it("parses derivative fraction with composite expressions", () => {
     const mj = makeMJfromLatex(
-      String.raw`\dfrac{\differentialD g(x)}{\differentialD x^2}`
+      String.raw`\dfrac{\differentialD g(x)}{\differentialD x^2}`,
     );
     expect(mj).toEqual([
       "FractionDerivative",
@@ -241,7 +241,7 @@ describe("ExpressionTree", () => {
     ]);
 
     expect(t.latexPlain).toBe(
-      String.raw`\frac{\mathrm{d}{f}}{\mathrm{d}{x^{2}}}`
+      String.raw`\frac{\mathrm{d}{f}}{\mathrm{d}{x^{2}}}`,
     );
   });
 
@@ -263,7 +263,9 @@ describe("ExpressionTree", () => {
     ]);
 
     expect(t.latexPlain.replace(/\s+/g, " ").trim()).toBe(
-      String.raw`\int_{0}^{5} x^{2} \,\mathrm{d}{x}`.replace(/\s+/g, " ").trim()
+      String.raw`\int_{0}^{5} x^{2} \,\mathrm{d}{x}`
+        .replace(/\s+/g, " ")
+        .trim(),
     );
   });
 
@@ -277,18 +279,18 @@ describe("ExpressionTree", () => {
     expect(t.latexPlain.replace(/\s+/g, " ").trim()).toBe(
       String.raw`\int f \left(x\right) \,\mathrm{d}{x}`
         .replace(/\s+/g, " ")
-        .trim()
+        .trim(),
     );
   });
 
   it("renders integral with implicit integrand (blank)", () => {
     const t = treefromLatex(
-      String.raw`v_{0}^{2} = 2 g \sin\left(\theta\right) \int_{0}^{x_{0}} \,\mathrm{d}{x}`
+      String.raw`v_{0}^{2} = 2 g \sin\left(\theta\right) \int_{0}^{x_{0}} \,\mathrm{d}{x}`,
     );
     expect(t.latexPlain.replace(/\s+/g, " ").trim()).toContain(
       String.raw`2 g \sin\left(\theta\right) \int_{0}^{x_{0}} \,\mathrm{d}{x}`
         .replace(/\s+/g, " ")
-        .trim()
+        .trim(),
     );
   });
 
@@ -331,7 +333,7 @@ describe("ExpressionTree", () => {
 
   it("parses standalone differentials in sums", () => {
     const mj = makeMJfromLatex(
-      String.raw`\differentialD x + \differentialD y = \differentialD y`
+      String.raw`\differentialD x + \differentialD y = \differentialD y`,
     );
     expect(mj).toEqual([
       "Equal",
@@ -342,7 +344,7 @@ describe("ExpressionTree", () => {
 
   it("does not inject InvisibleOperator into differential sums", () => {
     const mj = makeMJfromLatex(
-      String.raw`\differentialD x + \differentialD y = \differentialD y`
+      String.raw`\differentialD x + \differentialD y = \differentialD y`,
     );
     const jsonStr = JSON.stringify(mj);
     expect(jsonStr).not.toContain("InvisibleOperator");
@@ -351,7 +353,7 @@ describe("ExpressionTree", () => {
   it("does not tag inside Differential (atomic selection)", () => {
     const t = ExpressionTree.create(["Differential", "f"]);
     expect(t.latexTagged).toBe(
-      String.raw`\htmlData{node-id="n1"}{\mathrm{d}{f}}`
+      String.raw`\htmlData{node-id="n1"}{\mathrm{d}{f}}`,
     );
     expect(t.latexTagged).not.toContain(`node-id="n2"`);
   });
@@ -359,7 +361,7 @@ describe("ExpressionTree", () => {
   it("does not tag inside Partial (atomic selection)", () => {
     const t = ExpressionTree.create(["Partial", ["Power", "x", 2]]);
     expect(t.latexTagged).toBe(
-      String.raw`\htmlData{node-id="n1"}{\partial{x^{2}}}`
+      String.raw`\htmlData{node-id="n1"}{\partial{x^{2}}}`,
     );
     expect(t.latexTagged).not.toContain(`node-id="n2"`);
   });
@@ -369,7 +371,7 @@ describe("ExpressionTree", () => {
     const t = ExpressionTree.create(mj);
 
     expect(t.latexTagged).toBe(
-      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{b} + \htmlData{node-id="n3"}{a}}`
+      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{b} + \htmlData{node-id="n3"}{a}}`,
     );
   });
 
@@ -378,7 +380,7 @@ describe("ExpressionTree", () => {
     const t = ExpressionTree.create(mj);
 
     expect(t.latexTagged).toBe(
-      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{a}\,\htmlData{node-id="n3"}{b}}`
+      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{a}\,\htmlData{node-id="n3"}{b}}`,
     );
   });
 
@@ -393,7 +395,7 @@ describe("ExpressionTree", () => {
   it("Renders subtraction as a - b (not a + -b)", () => {
     const t = ExpressionTree.create(makeMJfromLatex("a - b = c"));
     expect(t.latexTagged).toBe(
-      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{\htmlData{node-id="n3"}{a} - \htmlData{node-id="n5"}{b}} = \htmlData{node-id="n6"}{c}}`
+      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{\htmlData{node-id="n3"}{a} - \htmlData{node-id="n5"}{b}} = \htmlData{node-id="n6"}{c}}`,
     );
 
     // The "b" term is still represented by a Negate node in the tree.
@@ -405,8 +407,23 @@ describe("ExpressionTree", () => {
     const t = ExpressionTree.create(makeMJfromLatex("(a+b)"));
     expect(t.latexPlain).toContain(String.raw`\left(a + b\right)`);
     expect(Object.values(t.nodesById).some((n) => n.op === "Delimiter")).toBe(
-      true
+      true,
     );
+  });
+
+  it("renders ddot", () => {
+    const t = ExpressionTree.create(makeMJfromLatex(String.raw`\ddot{x}`));
+    expect(t.latexPlain).toContain(String.raw`\ddot{x}`);
+  });
+
+  it("renders primes", () => {
+    const t = ExpressionTree.create(makeMJfromLatex(String.raw`x'`));
+    expect(t.latexPlain).toContain(String.raw`x'`);
+  });
+
+  it("renders primes 2", () => {
+    const t = ExpressionTree.create(makeMJfromLatex(String.raw`x''`));
+    expect(t.latexPlain).toContain(String.raw`x''`);
   });
 
   it("renders List as square brackets", () => {
@@ -428,7 +445,7 @@ describe("ExpressionTree", () => {
 
     expect(t.latexPlain).toBe("a, b");
     expect(Object.values(t.nodesById).some((n) => n.op === "Sequence")).toBe(
-      true
+      true,
     );
   });
 
@@ -444,7 +461,9 @@ describe("ExpressionTree", () => {
     const t = ExpressionTree.create(mj);
 
     expect(t.latexPlain).toBe(String.raw`\vec{v}`);
-    expect(Object.values(t.nodesById).some((n) => n.op === "Vector")).toBe(true);
+    expect(Object.values(t.nodesById).some((n) => n.op === "Vector")).toBe(
+      true,
+    );
   });
 
   it("renders OverVector over a grouped expression", () => {
@@ -468,7 +487,7 @@ describe("ExpressionTree", () => {
     const t = ExpressionTree.create(["Sin", ["Degrees", 30]]);
     expect(t.latexPlain).toBe(String.raw`\sin\left(30^{\circ}\right)`);
     const degreesNode = Object.values(t.nodesById).find(
-      (n) => n.op === "Degrees"
+      (n) => n.op === "Degrees",
     );
     expect(degreesNode?.latex).toBe(String.raw`30^{\circ}`);
   });
@@ -509,7 +528,11 @@ describe("ExpressionTree", () => {
   });
 
   it("renders calligraphic symbol tokens as \\mathcal", () => {
-    const t = ExpressionTree.create(["Add", "O_calligraphic", "Z_calligraphic"]);
+    const t = ExpressionTree.create([
+      "Add",
+      "O_calligraphic",
+      "Z_calligraphic",
+    ]);
     expect(t.latexPlain).toBe(String.raw`\mathcal{O} + \mathcal{Z}`);
     expect(t.latexTagged).not.toContain("calligraphic");
   });

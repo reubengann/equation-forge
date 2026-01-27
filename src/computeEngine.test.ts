@@ -8,7 +8,7 @@ describe("computeEngine custom dictionary", () => {
 
   it("parses derivative fraction", () => {
     expect(
-      parse(String.raw`\dfrac{\differentialD f}{\differentialD x}`)
+      parse(String.raw`\dfrac{\differentialD f}{\differentialD x}`),
     ).toEqual([
       "FractionDerivative",
       ["Differential", "f"],
@@ -101,7 +101,7 @@ describe("computeEngine custom dictionary", () => {
 
   it("parses integral with non-symbol differential operand", () => {
     const mj = parse(
-      String.raw`\int_{0}^{v_0^2}\differentialD\left(\dot{x}^2\right)`
+      String.raw`\int_{0}^{v_0^2}\differentialD\left(\dot{x}^2\right)`,
     );
     expect(mj).toEqual([
       "Integrate",
@@ -113,6 +113,11 @@ describe("computeEngine custom dictionary", () => {
         ["Power", ["Subscript", "v", 0], 2],
       ],
     ]);
+  });
+
+  it("parses primes", () => {
+    const mj = parse(String.raw`x''`);
+    expect(mj).toEqual(["Prime", "x", 2]);
   });
 
   it("parses inverse tangent", () => {
@@ -170,7 +175,7 @@ describe("computeEngine custom dictionary", () => {
 
     const result = withRealScope(
       ["InvisibleOperator", "a", "2", ["Apply", "f", "b"]] as any,
-      () => 42
+      () => 42,
     );
 
     expect(result).toBe(42);
@@ -179,9 +184,7 @@ describe("computeEngine custom dictionary", () => {
     expect(declareSpy).toHaveBeenCalledWith("a", "real");
     expect(declareSpy).toHaveBeenCalledWith("b", "real");
     // Numeric literal should not be declared.
-    expect(
-      declareSpy.mock.calls.some((args) => args[0] === "2")
-    ).toBe(false);
+    expect(declareSpy.mock.calls.some((args) => args[0] === "2")).toBe(false);
 
     declareSpy.mockRestore();
     pushSpy.mockRestore();

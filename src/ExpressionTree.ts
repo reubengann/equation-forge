@@ -125,7 +125,7 @@ export class ExpressionTree {
   private emit(
     node: MJ,
     parentId: string | null,
-    path: number[]
+    path: number[],
   ): { id: string; latexTagged: string; latexPlain: string } {
     const id = this.newId();
     if (parentId == null) {
@@ -152,12 +152,12 @@ export class ExpressionTree {
       }
       if (op === "FractionDerivative") {
         return this.recordTagged(
-          this.emitFractionDerivative(node, id, path, op)
+          this.emitFractionDerivative(node, id, path, op),
         );
       }
       if (op === "FractionPartialDerivative") {
         return this.recordTagged(
-          this.emitFractionPartialDerivative(node, id, path, op)
+          this.emitFractionPartialDerivative(node, id, path, op),
         );
       }
       if (op === "Integrate") {
@@ -220,13 +220,14 @@ export class ExpressionTree {
       if (op === "OverDot") {
         return this.recordTagged(this.emitOverDot(node, id, path, op));
       }
+      if (op === "Prime") {
+        return this.recordTagged(this.emitPrime(node, id, path, op));
+      }
       if (op === "Degrees") {
         return this.recordTagged(this.emitDegrees(node, id, path, op));
       }
       if (op === "InverseFunction") {
-        return this.recordTagged(
-          this.emitInverseFunction(node, id, path, op)
-        );
+        return this.recordTagged(this.emitInverseFunction(node, id, path, op));
       }
       if (FUNCTION_OPS.has(op)) {
         return this.recordTagged(this.emitFunctionCall(node, id, path, op));
@@ -239,15 +240,20 @@ export class ExpressionTree {
       typeof node === "string"
         ? "Symbol"
         : typeof node === "number"
-        ? "Number"
-        : "Atom";
+          ? "Number"
+          : "Atom";
     this.nodesById[id] = { id, op, latex: plain, json: node };
 
     if (typeof node === "string") {
       const calligraphicLatex = calligraphicSymbolToLatex(node);
       if (calligraphicLatex) {
         const taggedCalligraphic = this.wrap(id, calligraphicLatex);
-        this.nodesById[id] = { id, op: "Symbol", latex: calligraphicLatex, json: node };
+        this.nodesById[id] = {
+          id,
+          op: "Symbol",
+          latex: calligraphicLatex,
+          json: node,
+        };
         return {
           id,
           latexPlain: calligraphicLatex,
@@ -315,7 +321,7 @@ export class ExpressionTree {
   }
 
   private recordTagged<T extends { id: string; latexTagged: string }>(
-    result: T
+    result: T,
   ): T {
     this.latexTaggedById[result.id] = result.latexTagged;
     return result;
@@ -327,7 +333,7 @@ export class ExpressionTree {
     path: number[],
     op: string,
     open: string,
-    close: string
+    close: string,
   ) {
     // Shape is typically ["Delimiter", expr] (or Set/List similarly).
     const inner = this.emit(node[1], id, [...path, 1]);
@@ -373,7 +379,7 @@ export class ExpressionTree {
     node: MJNode,
     id: string,
     path: number[],
-    op: string
+    op: string,
   ) {
     const children = node
       .slice(1)
@@ -415,14 +421,14 @@ export class ExpressionTree {
         funcNameRaw === "Abs"
           ? String.raw`${fnLatex}${argsPlain}\right|`
           : singleIsDelimiter
-          ? `${fnLatex}${argsPlain}`
-          : `${fnLatex}\\left(${argsPlain}\\right)`;
+            ? `${fnLatex}${argsPlain}`
+            : `${fnLatex}\\left(${argsPlain}\\right)`;
       const taggedInner =
         funcNameRaw === "Abs"
           ? String.raw`${fnLatex}${argsTagged}\right|`
           : singleIsDelimiter
-          ? `${fnLatex}${argsTagged}`
-          : `${fnLatex}\\left(${argsTagged}\\right)`;
+            ? `${fnLatex}${argsTagged}`
+            : `${fnLatex}\\left(${argsTagged}\\right)`;
 
       this.nodesById[id] = { id, op, latex: plain, json: node };
       return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
@@ -461,7 +467,7 @@ export class ExpressionTree {
     node: MJNode,
     id: string,
     path: number[],
-    op: string
+    op: string,
   ) {
     const num = this.emit(node[1], id, [...path, 1]);
     const den = this.emit(node[2], id, [...path, 2]);
@@ -485,7 +491,7 @@ export class ExpressionTree {
     node: MJNode,
     id: string,
     path: number[],
-    op: string
+    op: string,
   ) {
     const num = this.emit(node[1], id, [...path, 1]);
     const den = this.emit(node[2], id, [...path, 2]);
@@ -568,6 +574,22 @@ export class ExpressionTree {
     const cmd = count >= 2 ? String.raw`\ddot` : String.raw`\dot`;
 
     const plain = String.raw`${cmd}{${inner.latexPlain}}`;
+    const taggedInner = String.raw`${cmd}{${inner.latexTagged}}`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
+  private emitPrime(node: MJNode, id: string, path: number[], op: string) {
+    const inner = this.emit(node[1], id, [...path, 1]);
+
+    this.childrenById[id] = [inner.id];
+    this.childIndexById[inner.id] = 0;
+
+    const count = typeof node[2] === "number" ? Number(node[2]) : 1;
+    const cmd = "'".repeat(count);
+
+    const plain = String.raw`${inner.latexPlain}${cmd}`;
     const taggedInner = String.raw`${cmd}{${inner.latexTagged}}`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
@@ -810,7 +832,7 @@ export class ExpressionTree {
     node: MJNode,
     id: string,
     path: number[],
-    op: string
+    op: string,
   ) {
     // Generic function call for known FUNCTION_OPS: [op, arg1, arg2, ...]
     if (!FUNCTION_OPS.has(op)) {
@@ -852,14 +874,14 @@ export class ExpressionTree {
       op === "Abs"
         ? String.raw`${fnLatex}${argsPlain}\right|`
         : singleIsDelimiter
-        ? `${fnLatex}${argsPlain}`
-        : `${fnLatex}\\left(${argsPlain}\\right)`;
+          ? `${fnLatex}${argsPlain}`
+          : `${fnLatex}\\left(${argsPlain}\\right)`;
     const taggedInner =
       op === "Abs"
         ? String.raw`${fnLatex}${argsTagged}\right|`
         : singleIsDelimiter
-        ? `${fnLatex}${argsTagged}`
-        : `${fnLatex}\\left(${argsTagged}\\right)`;
+          ? `${fnLatex}${argsTagged}`
+          : `${fnLatex}\\left(${argsTagged}\\right)`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
@@ -869,7 +891,7 @@ export class ExpressionTree {
     node: MJNode,
     id: string,
     path: number[],
-    op: string
+    op: string,
   ) {
     const inner = this.emit(node[1], id, [...path, 1]);
 
@@ -889,7 +911,7 @@ export class ExpressionTree {
     node: MJNode,
     id: string,
     path: number[],
-    op: string
+    op: string,
   ) {
     const base = this.emit(node[1], id, [...path, 1]);
 
@@ -909,7 +931,7 @@ export class ExpressionTree {
     const head = node[1];
     const fnLatex =
       typeof head === "string"
-        ? nameMap[head] ?? base.latexPlain
+        ? (nameMap[head] ?? base.latexPlain)
         : base.latexPlain;
 
     const plain = `${fnLatex}^{-1}`;
@@ -946,7 +968,11 @@ export class ExpressionTree {
     this.childIndexById[rhs.id] = 1;
 
     const sep = String.raw` \cdot `;
-    const wrapIfLowPrecedence = (child: { id: string; latexPlain: string; latexTagged: string }) => {
+    const wrapIfLowPrecedence = (child: {
+      id: string;
+      latexPlain: string;
+      latexTagged: string;
+    }) => {
       const childOp = this.nodesById[child.id]?.op;
       const needsParens = childOp === "Add" || childOp === "Equal";
       if (!needsParens) {
@@ -973,7 +999,9 @@ export class ExpressionTree {
 function normalizeVectors(expr: MJ): MJ {
   if (!Array.isArray(expr)) return expr;
   const op = String(expr[0]);
-  const normalizedChildren = expr.slice(1).map((child) => normalizeVectors(child));
+  const normalizedChildren = expr
+    .slice(1)
+    .map((child) => normalizeVectors(child));
   const newOp = op === "OverVector" ? "Vector" : op;
   return [newOp, ...normalizedChildren] as MJNode;
 }
