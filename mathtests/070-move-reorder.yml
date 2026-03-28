@@ -1,0 +1,18 @@
+version: 1
+name: Reorder additive terms with move
+tags: [move]
+initial:
+  latex: "a + b"
+steps:
+  - name: move b to slot 0
+    select:
+      kind: node
+      path: [2]
+    action:
+      type: move
+      hover:
+        path: []
+      targetSlot: 0
+      mode: additive
+    expect:
+      latex: "b + a"

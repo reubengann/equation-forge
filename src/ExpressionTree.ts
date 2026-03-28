@@ -217,6 +217,9 @@ export class ExpressionTree {
       if (op === "Differential") {
         return this.recordTagged(this.emitDifferential(node, id, path, op));
       }
+      if (op === "DeltaOfQuantity") {
+        return this.recordTagged(this.emitDeltaOfQuantity(node, id, path, op));
+      }
       if (op === "OverDot") {
         return this.recordTagged(this.emitOverDot(node, id, path, op));
       }
@@ -902,6 +905,26 @@ export class ExpressionTree {
     const plain = String.raw`\mathrm{d}{${innerPlain}}`;
     // Keep differential atomic for selection: no tags inside.
     const taggedInner = String.raw`\mathrm{d}{${innerPlain}}`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
+  private emitDeltaOfQuantity(
+    node: MJNode,
+    id: string,
+    path: number[],
+    op: string,
+  ) {
+    const inner = this.emit(node[1], id, [...path, 1]);
+
+    this.childrenById[id] = [inner.id];
+    this.childIndexById[inner.id] = 0;
+
+    const innerPlain = inner.latexPlain;
+    const plain = String.raw`\Delta ${innerPlain}`;
+    // Keep DeltaOfQuantity atomic for selection: no tags inside.
+    const taggedInner = String.raw`\Delta ${innerPlain}`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };

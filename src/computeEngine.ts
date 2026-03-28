@@ -82,9 +82,42 @@ export function parse(latex: string): MJ | null {
 export function normalizeMathJson(mj: MJ | null): MJ | null {
   return fixBlankIntegrals(
     normalizeDotProducts(
-      rewriteNegateToFrontOfProduct(normalizeProducts(normalizeVectors(mj)))
+      rewriteNegateToFrontOfProduct(
+        normalizeDeltaOfQuantity(normalizeProducts(normalizeVectors(mj)))
+      )
     )
   );
+}
+
+function normalizeDeltaOfQuantity(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+
+  const op = mj[0];
+  const kids = mj.slice(1).map((child) => normalizeDeltaOfQuantity(child as MJ));
+
+  if (op !== "InvisibleOperator" && op !== "Multiply") {
+    return [op, ...kids] as MJ;
+  }
+
+  const factors = [...(kids as MJ[])];
+  const out: MJ[] = [];
+
+  for (let i = 0; i < factors.length; i += 1) {
+    const cur = factors[i];
+    const next = factors[i + 1];
+    const isCurDelta = cur === "Delta" || cur === String.raw`\Delta`;
+    const hasNextQuantity = next !== undefined;
+    if (isCurDelta && hasNextQuantity) {
+      out.push(["DeltaOfQuantity", next] as MJ);
+      i += 1;
+      continue;
+    }
+    out.push(cur);
+  }
+
+  if (out.length === 1) return out[0];
+  return ["InvisibleOperator", ...out] as MJ;
 }
 
 function rewriteNegateToFrontOfProduct(mj: MJ | null): MJ | null {
@@ -600,6 +633,18 @@ const differentialDSymbolEntry: LatexDictionaryEntry = {
   serialize: () => "\\mathrm{d}",
 };
 
+// Parse and serialize quantity deltas like \Delta E as one semantic object.
+const deltaOfQuantityEntry: LatexDictionaryEntry = {
+  name: "DeltaOfQuantity",
+  kind: "expression",
+  serialize: (serializer, expr) => {
+    if (!Array.isArray(expr)) return String.raw`\Delta`;
+    const operand = (expr[1] ?? null) as Expression | null;
+    const inner = serializer.wrap(operand, 0);
+    return String.raw`\Delta ${inner}`;
+  },
+};
+
 // Remove any built-in Vector entry so we can supply our own shape.
 const baseDictionary = ComputeEngine.getLatexDictionary("all").filter(
   (entry) =>
@@ -615,6 +660,7 @@ export function evaluateRaw(mj: MJ) {
 }
 
 ce.latexDictionary = [
+  deltaOfQuantityEntry,
   vectorEntry,
   partialEntry,
   differentialEntry,

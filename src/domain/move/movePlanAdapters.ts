@@ -20,7 +20,9 @@ export function describeMovePlan(plan: MovePlan | null): string {
       return `Factor ${plan.movedId} out of Integrate ${plan.integrateId} and place ${posLabel} it`;
     }
     case "MergeIntoFractionNumerator":
-      return `Merge ${plan.movedId} into numerator of fraction ${plan.divideId}`;
+      return `Merge ${plan.movedId} into numerator of fraction ${plan.divideId} ${
+        plan.insertIndex === 0 ? "before" : "after"
+      }`;
     case "MoveAcrossEqual": {
       const sideLabel = (side: 0 | 1) => (side === 0 ? "LHS" : "RHS");
       if (plan.drop.kind === "intoAdd") {
@@ -73,7 +75,7 @@ export function planToApplyMoveTarget(plan: MovePlan | null): {
     case "WrapIntoAddThenInsert":
       return { hoverId: plan.replaceId, targetSlot: plan.insertIndex };
     case "MergeIntoFractionNumerator":
-      return { hoverId: plan.divideId, targetSlot: null };
+      return { hoverId: plan.divideId, targetSlot: plan.insertIndex };
     case "FactorOutOfIntegrate":
       return { hoverId: plan.integrateId, targetSlot: plan.insertIndex };
     case "MoveAcrossEqual":

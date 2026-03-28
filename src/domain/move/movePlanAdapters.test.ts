@@ -51,6 +51,7 @@ describe("describeMovePlan", () => {
       fromMulId: "mul",
       divideId: "div",
       movedId: "m",
+      insertIndex: 0,
     };
     const moveAcrossIntoAdd: MovePlan = {
       kind: "MoveAcrossEqual",
@@ -100,7 +101,7 @@ describe("describeMovePlan", () => {
       "Factor m out of Integrate int and place after it"
     );
     expect(describeMovePlan(merge)).toBe(
-      "Merge m into numerator of fraction div"
+      "Merge m into numerator of fraction div before"
     );
     expect(describeMovePlan(moveAcrossIntoAdd)).toBe(
       "Move m across '=' LHS → RHS into Add addRhs at slot 2"
@@ -208,6 +209,18 @@ describe("planToApplyMoveTarget", () => {
     expect(planToApplyMoveTarget(factor)).toEqual({
       hoverId: "int",
       targetSlot: 0,
+    });
+
+    const merge: MovePlan = {
+      kind: "MergeIntoFractionNumerator",
+      fromMulId: "mul",
+      divideId: "div",
+      movedId: "m",
+      insertIndex: 1,
+    };
+    expect(planToApplyMoveTarget(merge)).toEqual({
+      hoverId: "div",
+      targetSlot: 1,
     });
   });
 });

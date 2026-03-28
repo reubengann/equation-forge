@@ -208,6 +208,14 @@ function collapseMultiplicativeSelection(args: {
       parentId &&
       isMulOp(parentOp)
     ) {
+    const parentKids = tree.childrenById[parentId] ?? [];
+    const hasFractionChild = parentKids.some(
+      (kidId) => tree.nodesById[kidId]?.op === "Divide"
+    );
+    // Keep factor-level selection inside mixed product/fraction terms so users can
+    // drag a factor into a fraction numerator/denominator.
+    if (hasFractionChild) return ids;
+
     let ancestor: string | null | undefined = tree.parentById[parentId];
     while (ancestor) {
       const ancestorOp = tree.nodesById[ancestor]?.op;

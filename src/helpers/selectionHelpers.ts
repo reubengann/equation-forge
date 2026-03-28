@@ -3,6 +3,16 @@ import type { ExprSelection } from "../selectionSemantics";
 import { getDescendantNodeIds } from "../selectionSemantics";
 import { setHighlightedText } from "../infra/mathlive/derivationPadHighlight";
 
+export function expandAtomicSelectionNodeIds(
+  tree: ExpressionTree,
+  nodeIds: string[]
+): string[] {
+  // Delta-like quantities are now represented as dedicated atomic nodes
+  // (e.g. ["DeltaOfQuantity", ...]) by the compute-engine layer.
+  void tree;
+  return nodeIds;
+}
+
 export function applySelectionHighlight(
   sel: ExprSelection | null,
   tree: ExpressionTree | null,
@@ -19,7 +29,8 @@ export function applySelectionHighlight(
   }
 
   if (sel.kind === "node") {
-    setHighlightedText(displayEl, getDescendantNodeIds(tree, [sel.nodeId]));
+    const expanded = expandAtomicSelectionNodeIds(tree, [sel.nodeId]);
+    setHighlightedText(displayEl, getDescendantNodeIds(tree, expanded));
     return;
   }
 

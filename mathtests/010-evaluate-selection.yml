@@ -1,0 +1,13 @@
+version: 1
+name: Evaluate trig selection
+tags: [evaluate]
+initial:
+  latex: "\\sin\\left(30^{\\circ}\\right)"
+steps:
+  - name: evaluate selected node
+    select:
+      kind: node
+      path: []
+    action: evaluate
+    expect:
+      latex: "\\frac{1}{2}"

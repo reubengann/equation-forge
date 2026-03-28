@@ -76,6 +76,26 @@ describe("computeEngine custom dictionary", () => {
     ]);
   });
 
+  it("canonicalizes Delta quantity into DeltaOfQuantity object", () => {
+    expect(parse(String.raw`\Delta t`)).toEqual(["DeltaOfQuantity", "t"]);
+    expect(parse(String.raw`\Delta E`)).toEqual(["DeltaOfQuantity", "E"]);
+    expect(parse(String.raw`a \Delta t`)).toEqual([
+      "InvisibleOperator",
+      "a",
+      ["DeltaOfQuantity", "t"],
+    ]);
+  });
+
+  it("serializes DeltaOfQuantity back to Delta form", () => {
+    const latex = box(["DeltaOfQuantity", "E"]).toLatex().replace(/\\\\/g, "\\");
+    expect(latex).toBe(String.raw`\Delta E`);
+  });
+
+  it("keeps standalone Delta as a symbol", () => {
+    const latex = box("Delta").toLatex().replace(/\\\\/g, "\\");
+    expect(latex).toBe(String.raw`\Delta`);
+  });
+
   it("has negate outside of the product", () => {
     const mj = parse("a - b c");
     expect(mj).toEqual([

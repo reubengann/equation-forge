@@ -1,0 +1,16 @@
+version: 1
+name: Substitute selected node once
+tags: [substitute]
+initial:
+  latex: "x + y"
+steps:
+  - name: replace x with z
+    select:
+      kind: node
+      path: [1]
+    action:
+      type: substitute
+      replacementLatex: "z"
+      scope: single
+    expect:
+      latex: "z + y"

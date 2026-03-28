@@ -83,6 +83,24 @@ describe("applyMoveMultiplicative executor", () => {
     );
   });
 
+  it("moves lhs denominator factor across '=' when hovering rhs fraction root at slot 0", () => {
+    const next = runMove({
+      latex: String.raw`\frac{a}{b} = \frac{\left(c+d\right)}{e}`,
+      select: (tree) => [findNodeByLatex(tree, "b")],
+      hover: (tree) => {
+        const rhsId = tree.childrenById[tree.rootId!]?.[1];
+        if (!rhsId) throw new Error("Missing RHS");
+        return rhsId;
+      },
+      targetSlot: 0,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`a = b \frac{\left(c + d\right)}{e}`
+    );
+  });
+
   it("merges a sibling factor into the numerator of a fraction", () => {
     const next = runMove({
       latex: String.raw`\vec{F} \frac{1}{m} = \vec{a}`,
@@ -104,6 +122,143 @@ describe("applyMoveMultiplicative executor", () => {
     expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
       String.raw`\frac{\vec{F}}{m} = \vec{a}`
     );
+  });
+
+  it("treats Delta t as an atomic factor when merging into numerator", () => {
+    const next = runMove({
+      latex: String.raw`x_{n+1} = x_{n} + \frac{\left(a+b\right)}{2} \Delta t`,
+      select: (tree) => {
+        const deltaId = tree.idByPath["2.2.2"];
+        if (!deltaId) throw new Error("Missing delta path");
+        return [deltaId];
+      },
+      hover: (tree) => {
+        const divideId = findNodeId(tree, (n) => n.op === "Divide");
+        return divideId;
+      },
+      targetSlot: null,
+    });
+
+    expect(next).not.toBeNull();
+    const normalized = next!.latexPlain.replace(/\s+/g, "");
+    const noLeftRight = normalized.replace(/\\left|\\right/g, "");
+    expect(noLeftRight).toContain(
+      String.raw`x_{n+1}=x_{n}+\frac{(a+b)\Deltat}{2}`
+    );
+  });
+
+  it("merges into numerator before existing factor when targetSlot is 0", () => {
+    const next = runMove({
+      latex: String.raw`a = \frac{b}{c} d`,
+      select: (tree) => [findNodeByLatex(tree, "d")],
+      hover: (tree) => {
+        const divideId = findNodeId(tree, (n) => n.op === "Divide");
+        return divideId;
+      },
+      targetSlot: 0,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`a = \frac{d b}{c}`
+    );
+  });
+
+  it("merges into numerator after existing factor when targetSlot is 1", () => {
+    const next = runMove({
+      latex: String.raw`a = \frac{b}{c} d`,
+      select: (tree) => [findNodeByLatex(tree, "d")],
+      hover: (tree) => {
+        const divideId = findNodeId(tree, (n) => n.op === "Divide");
+        return divideId;
+      },
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`a = \frac{b d}{c}`
+    );
+  });
+
+  it("pulls numerator factor outside fraction at slot 0", () => {
+    const next = runMove({
+      latex: String.raw`a = \frac{b d}{c}`,
+      select: (tree) => [findNodeByLatex(tree, "b")],
+      hover: (tree) => {
+        const divideId = findNodeId(tree, (n) => n.op === "Divide");
+        return divideId;
+      },
+      targetSlot: 0,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`a = b \frac{d}{c}`
+    );
+  });
+
+  it("pulls numerator factor outside fraction at slot 1", () => {
+    const next = runMove({
+      latex: String.raw`a = \frac{b d}{c}`,
+      select: (tree) => [findNodeByLatex(tree, "b")],
+      hover: (tree) => {
+        const divideId = findNodeId(tree, (n) => n.op === "Divide");
+        return divideId;
+      },
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`a = \frac{d}{c} b`
+    );
+  });
+
+  it("reorders Delta t as an atomic pair inside numerator product", () => {
+    const nextFromDelta = runMove({
+      latex: String.raw`a = \frac{\left(b+c\right) \Delta t}{d}`,
+      select: (tree) => [findNodeId(tree, (n) => n.latex === String.raw`\Delta t`)],
+      hover: (tree) => {
+        const numeratorMulId = findNodeId(
+          tree,
+          (n) =>
+            n.op === "InvisibleOperator" &&
+            n.latex.includes(String.raw`\left(b + c\right)`) &&
+            n.latex.includes(String.raw`\Delta t`)
+        );
+        return numeratorMulId;
+      },
+      targetSlot: 0,
+    });
+
+    const nextFromT = runMove({
+      latex: String.raw`a = \frac{\left(b+c\right) \Delta t}{d}`,
+      select: (tree) => [findNodeId(tree, (n) => n.latex === String.raw`\Delta t`)],
+      hover: (tree) => {
+        const numeratorMulId = findNodeId(
+          tree,
+          (n) =>
+            n.op === "InvisibleOperator" &&
+            n.latex.includes(String.raw`\left(b + c\right)`) &&
+            n.latex.includes(String.raw`\Delta t`)
+        );
+        return numeratorMulId;
+      },
+      targetSlot: 0,
+    });
+
+    expect(nextFromDelta).not.toBeNull();
+    expect(nextFromT).not.toBeNull();
+
+    const normalizedDelta = nextFromDelta!.latexPlain
+      .replace(/\s+/g, "")
+      .replace(/\\left|\\right/g, "");
+    const normalizedT = nextFromT!.latexPlain
+      .replace(/\s+/g, "")
+      .replace(/\\left|\\right/g, "");
+    expect(normalizedDelta).toBe(String.raw`a=\frac{\Deltat(b+c)}{d}`);
+    expect(normalizedT).toBe(String.raw`a=\frac{\Deltat(b+c)}{d}`);
   });
 
   describe("three outcomes for cross-equal multiplicative moves", () => {

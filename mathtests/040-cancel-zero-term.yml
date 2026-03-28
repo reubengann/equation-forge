@@ -1,0 +1,13 @@
+version: 1
+name: Cancel additive zero term
+tags: [cancel]
+initial:
+  latex: "a + 0 + b"
+steps:
+  - name: cancel middle zero term
+    select:
+      kind: node
+      path: [2]
+    action: cancel
+    expect:
+      latex: "a + b"

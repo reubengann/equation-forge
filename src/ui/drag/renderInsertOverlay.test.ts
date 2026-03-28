@@ -150,6 +150,7 @@ describe("targetRectForPlan", () => {
       fromMulId: "mul",
       divideId: "divideId",
       movedId: "m",
+      insertIndex: 0,
     };
     const liftDot: MovePlan = {
       kind: "LiftDotScalar",

@@ -1,0 +1,139 @@
+scenarios:
+  - version: 1
+    name: Issue 1 - cannot move Delta t into fraction
+    tags: [issue, move, fraction]
+    initial:
+      latex: "x_{n+1} = x_{n} + \\frac{\\left(a + b\\right)}{2} \\Delta t"
+    steps:
+      - name: attempt to move Delta t into fraction numerator
+        select:
+          kind: node
+          path: [2, 2, 2]
+        action:
+          type: move
+          hover:
+            path: [2, 2, 1, 1]
+          targetSlot: 2
+          mode: additive
+  - version: 1
+    name: Issue 1 diagnostic - multiplicative merge succeeds
+    tags: [issue, move, fraction, diagnostic]
+    initial:
+      latex: "x_{n+1} = x_{n} + \\frac{\\left(a + b\\right)}{2} \\Delta t"
+    steps:
+      - name: move Delta t into fraction by multiplicative merge
+        select:
+          kind: node
+          path: [2, 2, 2]
+        action:
+          type: move
+          hover:
+            path: [2, 2, 1]
+          targetSlot: null
+          mode: multiplicative
+  - version: 1
+    name: Issue 1 simple - additive drag into numerator
+    tags: [issue, move, fraction, simple]
+    initial:
+      latex: "a = \\frac{b}{c} d"
+    steps:
+      - name: drag d into fraction numerator
+        select:
+          kind: node
+          path: [2, 2]
+        action:
+          type: move
+          hover:
+            path: [2, 1]
+          targetSlot: null
+          mode: additive
+  - version: 1
+    name: Issue 1 simple - multiplicative before b
+    tags: [issue, move, fraction, simple, multiplicative]
+    initial:
+      latex: "a = \\frac{b}{c} d"
+    steps:
+      - name: drag d to before b in numerator
+        select:
+          kind: node
+          path: [2, 2]
+        action:
+          type: move
+          hover:
+            path: [2, 1]
+          targetSlot: 0
+          mode: multiplicative
+        expect:
+          latex: "a = \\frac{d b}{c}"
+  - version: 1
+    name: Issue 1 simple - multiplicative after b
+    tags: [issue, move, fraction, simple, multiplicative]
+    initial:
+      latex: "a = \\frac{b}{c} d"
+    steps:
+      - name: drag d to after b in numerator
+        select:
+          kind: node
+          path: [2, 2]
+        action:
+          type: move
+          hover:
+            path: [2, 1]
+          targetSlot: 1
+          mode: multiplicative
+        expect:
+          latex: "a = \\frac{b d}{c}"
+  - version: 1
+    name: Issue 1 pull out from numerator
+    tags: [issue, move, fraction, simple, multiplicative]
+    initial:
+      latex: "a = \\frac{b d}{c}"
+    steps:
+      - name: drag b outside fraction on left
+        select:
+          kind: node
+          path: [2, 1, 1]
+        action:
+          type: move
+          hover:
+            path: [2]
+          targetSlot: 0
+          mode: multiplicative
+        expect:
+          latex: "a = b \\frac{d}{c}"
+  - version: 1
+    name: Delta t reorder stays atomic
+    tags: [issue, move, fraction, multiplicative, delta_t]
+    initial:
+      latex: "a = \\frac{\\left(b + c\\right) \\Delta t}{d}"
+    steps:
+      - name: move delta to left of parentheses
+        select:
+          kind: node
+          path: [2, 1, 2]
+        action:
+          type: move
+          hover:
+            path: [2, 1]
+          targetSlot: 0
+          mode: multiplicative
+        expect:
+          latex: "a = \\frac{\\Delta t \\left(b + c\\right)}{d}"
+  - version: 1
+    name: Issue 2 - move lhs denominator b to RHS
+    tags: [issue, move, equation, multiplicative]
+    initial:
+      latex: "\\frac{a}{b} = \\frac{\\left(c + d\\right)}{e}"
+    steps:
+      - name: drag b multiplicatively to RHS side root
+        select:
+          kind: node
+          path: [1, 2]
+        action:
+          type: move
+          hover:
+            path: [2]
+          targetSlot: null
+          mode: multiplicative
+        expect:
+          latex: "a = \\frac{\\left(c + d\\right)}{e} b"

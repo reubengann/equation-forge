@@ -11,6 +11,10 @@ export type State = {
     | null; // after drop
 };
 
+function isOneTerm(mj: MJ): boolean {
+  return mj === 1 || mj === "1";
+}
+
 function isZeroTerm(mj: MJ): boolean {
   if (mj === 0 || mj === "0") return true;
   if (
@@ -36,6 +40,25 @@ function normalizeAdd(
     return use[0];
   }
   return ["Add", ...use] as MJNode;
+}
+
+function normalizeMul(factors: MJ[]): MJ {
+  const flattened: MJ[] = [];
+  for (const f of factors) {
+    if (
+      Array.isArray(f) &&
+      (f[0] === "InvisibleOperator" || f[0] === "Multiply")
+    ) {
+      flattened.push(...(f.slice(1) as MJ[]));
+    } else {
+      flattened.push(f);
+    }
+  }
+
+  const filtered = flattened.filter((f) => !isOneTerm(f));
+  const use = filtered.length === 0 ? [1] : filtered;
+  if (use.length === 1) return use[0];
+  return ["InvisibleOperator", ...use] as MJNode;
 }
 
 export function stepCrossEqual(state: State): State | null {
@@ -270,7 +293,9 @@ export function applyMoveAdditive(args: {
   // if lift point is the LCA (common for leaf moves within an Add), lift there
   if (
     state.payload?.kind === "Selection" &&
-    tree.nodesById[r.lcaId]?.op === "Add"
+    (tree.nodesById[r.lcaId]?.op === "Add" ||
+      tree.nodesById[r.lcaId]?.op === "InvisibleOperator" ||
+      tree.nodesById[r.lcaId]?.op === "Multiply")
   ) {
     const nextState = stepUp(tree, state, r.lcaId, prevChildId);
     if (!nextState) return null;
@@ -400,7 +425,7 @@ export function stepUp(
   const op = tree.nodesById[id]?.op;
 
   // -------------------------
-  // 1) Extract from Add (only while carrying Selection)
+  // 1) Extract from additive / multiplicative containers while carrying Selection
   // -------------------------
   if (state.payload?.kind === "Selection") {
     if (op === "Divide") {
@@ -413,40 +438,76 @@ export function stepUp(
       // Otherwise fall through (no-op here); the Divide term will be lifted by an Add ancestor.
       return state;
     }
-    if (op !== "Add") return state;
+    if (op !== "Add" && op !== "InvisibleOperator" && op !== "Multiply") {
+      return state;
+    }
 
-    const addId = id;
     const selected = state.payload.ids;
 
-    // Require: all selected ids are direct children of this Add.
+    // Require: all selected ids are direct children of this container.
     for (const sid of selected) {
-      if (tree.parentById[sid] !== addId) return state; // not lift point
+      if (tree.parentById[sid] !== id) return state; // not lift point
     }
 
     const childIdxs = selected
       .map((sid) => tree.childIndexById[sid])
-      .filter((x): x is number => typeof x === "number")
-      .sort((a, b) => a - b);
+      .filter((x): x is number => typeof x === "number");
     if (childIdxs.length !== selected.length) return null;
 
-    const addPath = tree.pathById[addId];
-    if (!addPath) return null;
+    if (op === "Add") {
+      const addId = id;
+      const sortedIdxs = [...childIdxs].sort((a, b) => a - b);
+      const addPath = tree.pathById[addId];
+      if (!addPath) return null;
 
-    const addExpr = getAtPath(state.root, addPath);
-    if (!Array.isArray(addExpr) || addExpr[0] !== "Add") return null;
+      const addExpr = getAtPath(state.root, addPath);
+      if (!Array.isArray(addExpr) || addExpr[0] !== "Add") return null;
 
-    const nKids = addExpr.length - 1;
-    const remove = new Set<number>();
-    for (const i of childIdxs) {
-      if (i < 0 || i >= nKids) return null;
-      remove.add(i);
+      const nKids = addExpr.length - 1;
+      const remove = new Set<number>();
+      for (const i of sortedIdxs) {
+        if (i < 0 || i >= nKids) return null;
+        remove.add(i);
+      }
+
+      const payloadMJ = buildLiftPayloadFromSelectedChildren(addExpr as MJNode, [
+        ...remove,
+      ]);
+      const rewrittenAdd = rewriteAddRemovingChildren(addExpr as MJNode, remove);
+      const rootAfter = setAtPath(state.root, addPath, rewrittenAdd);
+
+      return { root: rootAfter, payload: { kind: "Expr", mj: payloadMJ } };
     }
 
-    const payloadMJ = buildLiftPayloadFromSelectedChildren(addExpr as MJNode, [
-      ...remove,
-    ]);
-    const rewrittenAdd = rewriteAddRemovingChildren(addExpr as MJNode, remove);
-    const rootAfter = setAtPath(state.root, addPath, rewrittenAdd);
+    const mulId = id;
+    const initialIdxs = selected
+      .map((sid) => tree.childIndexById[sid])
+      .filter((x): x is number => typeof x === "number");
+    if (initialIdxs.length !== selected.length) return null;
+
+    const expandedIdxs = new Set<number>(initialIdxs);
+
+    const mulPath = tree.pathById[mulId];
+    if (!mulPath) return null;
+    const mulExpr = getAtPath(state.root, mulPath);
+    if (
+      !Array.isArray(mulExpr) ||
+      (mulExpr[0] !== "InvisibleOperator" && mulExpr[0] !== "Multiply")
+    ) {
+      return null;
+    }
+
+    const factors = mulExpr.slice(1) as MJ[];
+    const payloadFactors = [...expandedIdxs]
+      .sort((a, b) => a - b)
+      .map((i) => factors[i])
+      .filter((v): v is MJ => v !== undefined);
+    if (payloadFactors.length === 0) return null;
+
+    const remainingFactors = factors.filter((_, i) => !expandedIdxs.has(i));
+    const payloadMJ = normalizeMul(payloadFactors);
+    const rewrittenMul = normalizeMul(remainingFactors);
+    const rootAfter = setAtPath(state.root, mulPath, rewrittenMul);
 
     return { root: rootAfter, payload: { kind: "Expr", mj: payloadMJ } };
   }

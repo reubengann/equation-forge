@@ -1,0 +1,16 @@
+version: 1
+name: Factor selected span in sum
+tags: [factor]
+initial:
+  latex: "a b + a c + d"
+steps:
+  - name: factor first two terms
+    select:
+      kind: span
+      parentPath: []
+      op: Add
+      start: 0
+      end: 1
+    action: factor
+    expect:
+      latex: "a \\left(b + c\\right) + d"

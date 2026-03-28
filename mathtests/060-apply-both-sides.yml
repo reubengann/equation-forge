@@ -1,0 +1,12 @@
+version: 1
+name: Apply operation to both sides
+tags: [equation, apply]
+initial:
+  latex: "x = y"
+steps:
+  - name: add one to each side
+    action:
+      type: applyToBothSides
+      operationLatex: "eqn + 1"
+    expect:
+      latex: "x + 1 = y + 1"

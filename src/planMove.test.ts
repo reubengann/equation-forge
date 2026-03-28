@@ -733,6 +733,7 @@ describe("planMove", () => {
       fromMulId: mulId,
       divideId,
       movedId: forceId,
+      insertIndex: 0,
     });
   });
 
@@ -863,6 +864,48 @@ describe("planMove multiplicative cross-equal", () => {
         replaceId: rhsId,
         replaceParentId: equalId,
         replaceSlot: 1,
+      },
+    });
+  });
+
+  it("uses edge insertion when destination side root is a fraction", () => {
+    const tree = treefromLatex(String.raw`\frac{a}{b} = \frac{\left(c+d\right)}{e}`);
+
+    const equalId = tree.rootId!;
+    const lhsId = tree.childrenById[equalId][0];
+    const rhsId = tree.childrenById[equalId][1];
+    const bId = tree.idByPath["1.2"];
+    expect(bId).toBeTruthy();
+    expect(tree.nodesById[rhsId]?.op).toBe("Divide");
+
+    const rects: Record<string, RectLTRB> = {
+      [lhsId]: { left: 0, right: 80, top: 90, bottom: 120 },
+      [rhsId]: { left: 120, right: 200, top: 90, bottom: 120 },
+    };
+    const rectFor = (id: string) => rects[id] ?? null;
+
+    // Pointer in the visual center of RHS fraction.
+    const plan = planMove({
+      tree,
+      selectedIds: [bId!],
+      hoverId: rhsId,
+      pointer: { x: 160, y: 100 },
+      rectFor,
+      mode: "multiplicative",
+    });
+
+    expect(plan).toEqual({
+      kind: "MoveAcrossEqual",
+      movedId: bId,
+      equalId,
+      fromSide: 0,
+      toSide: 1,
+      drop: {
+        kind: "ontoSideRoot",
+        replaceId: rhsId,
+        replaceParentId: equalId,
+        replaceSlot: 1,
+        insertIndex: 1,
       },
     });
   });

@@ -61,6 +61,7 @@ export type MovePlan =
       fromMulId: string;
       divideId: string;
       movedId: string;
+      insertIndex: 0 | 1; // 0 = before numerator factors, 1 = after
     }
   | {
       kind: "MoveAcrossEqual";
@@ -134,6 +135,53 @@ function findEqualSideRoot(
     cur = parentId;
   }
   return null;
+}
+
+function normalizeCrossEqualDropForFractionRoot(args: {
+  tree: ExpressionTree;
+  drop:
+    | {
+        kind: "ontoSideRootWhole";
+        replaceId: string;
+        replaceParentId: string;
+        replaceSlot: 0 | 1;
+      }
+    | {
+        kind: "ontoSideRoot";
+        replaceId: string;
+        replaceParentId: string;
+        replaceSlot: 0 | 1;
+        insertIndex: 0 | 1;
+      };
+  pointer: { x: number; y: number };
+  rectFor: RectProvider;
+}):
+  | {
+      kind: "ontoSideRootWhole";
+      replaceId: string;
+      replaceParentId: string;
+      replaceSlot: 0 | 1;
+    }
+  | {
+      kind: "ontoSideRoot";
+      replaceId: string;
+      replaceParentId: string;
+      replaceSlot: 0 | 1;
+      insertIndex: 0 | 1;
+    } {
+  const { tree, drop, pointer, rectFor } = args;
+  if (drop.kind !== "ontoSideRootWhole") return drop;
+  if (tree.nodesById[drop.replaceId]?.op !== "Divide") return drop;
+
+  const rect = rectFor(drop.replaceId);
+  const insertIndex: 0 | 1 = rect ? (pointer.x < midX(rect) ? 0 : 1) : 1;
+  return {
+    kind: "ontoSideRoot",
+    replaceId: drop.replaceId,
+    replaceParentId: drop.replaceParentId,
+    replaceSlot: drop.replaceSlot,
+    insertIndex,
+  };
 }
 
 function findIntegrateAncestor(
@@ -218,8 +266,10 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
     }
   }
 
-  // Multiplicative: merge a sibling factor into the numerator of a fraction within the same product.
-  if (mode === "multiplicative" && movedParentId) {
+  // Merge a sibling factor into the numerator of a fraction within the same product.
+  // Allow this in both move modes so additive-mode dragging can still perform
+  // the fraction-numerator merge intent.
+  if (movedParentId) {
     const parentOp = tree.nodesById[movedParentId]?.op;
     if (isMulOp(parentOp)) {
       const divideId = (() => {
@@ -250,11 +300,14 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
             NUMERATOR_PAD
           );
         if (inNumerator) {
+          const insertIndex: 0 | 1 =
+            pointer.x < midX(numeratorRect) ? 0 : 1;
           return {
             kind: "MergeIntoFractionNumerator",
             fromMulId: movedParentId,
             divideId,
             movedId,
+            insertIndex,
           };
         }
       }
@@ -428,13 +481,19 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
           },
         };
       }
+      const normalizedDrop = normalizeCrossEqualDropForFractionRoot({
+        tree,
+        drop,
+        pointer,
+        rectFor,
+      });
       return {
         kind: "MoveAcrossEqual",
         movedId,
         equalId: fromSide.equalId,
         fromSide: fromSide.sideSlot,
         toSide: toSide.sideSlot,
-        drop,
+        drop: normalizedDrop,
       };
     }
   }
@@ -649,13 +708,19 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
           },
         };
       }
+      const normalizedDrop = normalizeCrossEqualDropForFractionRoot({
+        tree,
+        drop,
+        pointer,
+        rectFor,
+      });
       return {
         kind: "MoveAcrossEqual",
         movedId,
         equalId: fromSide.equalId,
         fromSide: fromSide.sideSlot,
         toSide: toSide.sideSlot,
-        drop,
+        drop: normalizedDrop,
       };
     }
   }
@@ -700,13 +765,19 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
           },
         };
       }
+      const normalizedDrop = normalizeCrossEqualDropForFractionRoot({
+        tree,
+        drop,
+        pointer,
+        rectFor,
+      });
       return {
         kind: "MoveAcrossEqual",
         movedId,
         equalId: fromSide.equalId,
         fromSide: fromSide.sideSlot,
         toSide: toSide.sideSlot,
-        drop,
+        drop: normalizedDrop,
       };
     }
   }

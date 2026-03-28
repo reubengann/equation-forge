@@ -287,6 +287,31 @@ describe("applyMove", () => {
     expect((normalized.match(/b/g) || []).length).toBe(1);
     expect(normalizedNoLeftRight).toContain(String.raw`\frac{a+b+2(c+d)}{2}`);
   });
+
+  it("treats Delta t as atomic when moving into a fraction numerator", () => {
+    const tree = treefromLatex(
+      String.raw`x_{n+1} = x_{n} + \frac{\left(a+b\right)}{2} \Delta t`
+    );
+
+    const deltaId = tree.idByPath["2.2.2"];
+    expect(deltaId).toBeTruthy();
+    const numeratorAddId = tree.idByPath["2.2.1.1"];
+    expect(numeratorAddId).toBeTruthy();
+
+    const result = applyMove({
+      tree,
+      selectedIds: [deltaId!],
+      hoverId: numeratorAddId!,
+      targetSlot: 2,
+    });
+
+    expect(result).not.toBeNull();
+    const normalized = result!.latexPlain.replace(/\s+/g, "");
+    const noLeftRight = normalized.replace(/\\left|\\right/g, "");
+    expect(noLeftRight).toContain(
+      String.raw`x_{n+1}=x_{n}+\frac{(a+b+2\Deltat)}{2}`
+    );
+  });
 });
 
 describe("stepUp", () => {

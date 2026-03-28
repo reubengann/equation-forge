@@ -10,31 +10,12 @@ import {
   type ReactNode,
 } from "react";
 import { ExpressionTree, type MJ } from "../../ExpressionTree";
-import { parse } from "../../computeEngine";
 import { vecMacroOptions } from "../../infra/mathlive/vecMacroOptions";
 import {
   fromMathLiveLatex,
   toMathLiveLatex,
 } from "../../infra/mathlive/differentialLatex";
-import {
-  chooseBestAllowedSelectedNode,
-  normalizeSelection,
-  type ExprSelection,
-} from "../../selectionSemantics";
-import {
-  applyOperationToBothSides,
-  cancelTerm,
-  canCancelTerm as canCancelTermCheck,
-  canEvaluateSelection,
-  evaluateSelection,
-  expandSubexpression,
-  canFactorSelection,
-  factorSelection,
-  flipEquation,
-  isFlippableEquation,
-  substitute,
-  type SubstituteScope,
-} from "../../operations";
+import { mathPadFacade, type ExprSelection, type SubstituteScope } from "../../application";
 import { useHistory } from "../../hooks/useHistory";
 import { useSelection, getNodeIdsFromPointerEvent } from "../../hooks/useSelection";
 import { useDragMove } from "../../hooks/useDragMove";
@@ -303,24 +284,8 @@ export function ExpressionPad({
   }, [showApplyModal]);
 
   const substituteTargetId = useMemo(() => {
-    if (!tree || !selection) return null;
-    if (selection.kind === "node") return selection.nodeId;
-    if (selection.kind !== "span") return null;
-
-    const parentOp = tree.nodesById[selection.parentId]?.op;
-    const isMultiplicative =
-      parentOp === "InvisibleOperator" || parentOp === "Multiply";
-    const kids = tree.childrenById[selection.parentId] ?? [];
-    const coversAll =
-      kids.length > 0 &&
-      selection.start === 0 &&
-      selection.end === kids.length - 1;
-
-    if (isMultiplicative && coversAll) {
-      // A span covering the full multiplicative group should behave like selecting the parent.
-      return selection.parentId;
-    }
-    return null;
+    if (!tree) return null;
+    return mathPadFacade.getSubstituteTargetId(tree, selection);
   }, [tree, selection]);
 
   useEffect(() => {
@@ -404,48 +369,56 @@ export function ExpressionPad({
   }
 
   const canFlip = useMemo(() => {
-    return !!tree && isFlippableEquation(tree.rootJson);
+    return !!tree && mathPadFacade.isFlippableEquation(tree.rootJson);
   }, [tree]);
 
   const onFlip = useCallback(() => {
     if (!tree) return;
-    const flipped = flipEquation(tree.rootJson);
-    if (!flipped) return;
-    const latex = ExpressionTree.create(flipped).latexPlain;
-    commitJson(flipped, { latex });
+    const result = mathPadFacade.applyAction({
+      tree,
+      selection: null,
+      action: { type: "flip" },
+    });
+    if (!result.ok) return;
+    commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
   }, [tree]);
 
   const expandTargetId = useMemo(() => {
-    if (!tree || !selection) return null;
-    if (selection.kind === "multi") return null;
-    if (selection.kind === "node") return selection.nodeId;
-    const kids = tree.childrenById[selection.parentId] ?? [];
-    const coversAll =
-      kids.length > 0 &&
-      selection.start === 0 &&
-      selection.end === kids.length - 1;
-    return coversAll ? selection.parentId : null;
+    if (!tree) return null;
+    return mathPadFacade.getExpandTargetId(tree, selection);
   }, [tree, selection]);
 
   const onExpand = useCallback(() => {
     if (!tree || !expandTargetId) return;
-    const next = expandSubexpression(tree, expandTargetId);
-    if (!next) return;
-    commitJson(next.rootJson, { latex: next.latexPlain });
+    const result = mathPadFacade.applyAction({
+      tree,
+      selection: null,
+      action: { type: "expand", targetId: expandTargetId },
+    });
+    if (!result.ok) return;
+    commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
   }, [tree, expandTargetId]);
 
   const onFactor = useCallback(() => {
     if (!tree || !selection) return;
-    const next = factorSelection(tree, selection);
-    if (!next) return;
-    commitJson(next.rootJson, { latex: next.latexPlain });
+    const result = mathPadFacade.applyAction({
+      tree,
+      selection,
+      action: { type: "factor" },
+    });
+    if (!result.ok) return;
+    commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
   }, [tree, selection, commitJson]);
 
   const onCancelTerm = useCallback(() => {
     if (!tree || !selection) return;
-    const next = cancelTerm(tree, selection);
-    if (!next) return;
-    commitJson(next.rootJson, { latex: next.latexPlain });
+    const result = mathPadFacade.applyAction({
+      tree,
+      selection,
+      action: { type: "cancel" },
+    });
+    if (!result.ok) return;
+    commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
   }, [tree, selection, commitJson]);
 
   function undo() {
@@ -524,32 +497,35 @@ export function ExpressionPad({
       return;
     }
 
-    const parsed = parse(rhsLatex);
+    const parsed = mathPadFacade.parseLatex(rhsLatex);
     if (parsed == null) {
       setSubstituteError("Could not parse replacement.");
       return;
     }
 
-    const replacement = parsed as MJ;
-    const result = substitute({
+    const result = mathPadFacade.applyAction({
       tree,
-      targetId: substituteTargetId,
-      replacement,
-      scope: substituteScope,
+      selection,
+      action: {
+        type: "substitute",
+        targetId: substituteTargetId,
+        replacement: parsed as MJ,
+        scope: substituteScope,
+      },
     });
 
-    if (!result) {
-      setSubstituteError("Substitution failed.");
+    if (!result.ok) {
+      setSubstituteError(result.reason);
       return;
     }
 
-    commitJson(result.rootJson, { latex: result.latexPlain });
+    commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
     setSubstituteError("");
     setShowSubstituteModal(false);
   }
 
   function submitApplyOperation() {
-    if (!tree || !isFlippableEquation(tree.rootJson)) {
+    if (!tree || !mathPadFacade.isFlippableEquation(tree.rootJson)) {
       setApplyError("Enter an equation first.");
       return;
     }
@@ -564,20 +540,23 @@ export function ExpressionPad({
       return;
     }
 
-    try {
-      const result = applyOperationToBothSides(tree.rootJson, opLatex);
-      const latex = ExpressionTree.create(result).latexPlain;
-      commitJson(result, { latex });
+    const result = mathPadFacade.applyAction({
+      tree,
+      selection,
+      action: { type: "applyToBothSides", operationLatex: opLatex },
+    });
+    if (result.ok) {
+      commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
       setApplyError("");
       setShowApplyModal(false);
-    } catch (err: any) {
-      setApplyError(err?.message || "Could not apply operation.");
+      return;
     }
+    setApplyError(result.reason);
   }
 
   function onAddEquation() {
     const latex = latexDraft;
-    const mj = parse(latex);
+    const mj = mathPadFacade.parseLatex(latex);
     if (mj == null) {
       setLatexText(latex);
       setExpressionJsonText("Parse failed. Check LaTeX input.");
@@ -607,7 +586,7 @@ export function ExpressionPad({
       );
       if (hitId) ids = [hitId];
     }
-    const clickedId = chooseBestAllowedSelectedNode(ids, tree);
+    const clickedId = mathPadFacade.chooseBestAllowedSelectedNode(ids, tree);
 
     if (!clickedId) {
       clearSelection();
@@ -702,7 +681,7 @@ export function ExpressionPad({
     }
 
     // Logging
-    const normalizedId = normalizeSelection(tree, clickedId);
+    const normalizedId = mathPadFacade.normalizeSelection(tree, clickedId);
     const hit = tree.nodesById[normalizedId];
     if (!hit) {
       const resetDetails = getResetSelectionDetails(
@@ -763,10 +742,14 @@ export function ExpressionPad({
 
     if (key === "delete" || key === "backspace") {
       if (!tree || !selection) return;
-      const next = cancelTerm(tree, selection);
-      if (!next) return;
+      const result = mathPadFacade.applyAction({
+        tree,
+        selection,
+        action: { type: "cancel" },
+      });
+      if (!result.ok) return;
       e.preventDefault();
-      commitJson(next.rootJson, { latex: next.latexPlain });
+      commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
       return;
     }
 
@@ -922,20 +905,14 @@ export function ExpressionPad({
   }
 
   const canSubstitute = !!substituteTargetId;
-  const canApply = !!tree && isFlippableEquation(tree.rootJson);
+  const canApply = !!tree && mathPadFacade.isFlippableEquation(tree.rootJson);
   const canExpand = !!tree && !!expandTargetId;
-  const canCancel = useMemo(
-    () => canCancelTermCheck(tree, selection),
-    [tree, selection]
-  );
+  const canCancel = useMemo(() => mathPadFacade.canCancel(tree, selection), [tree, selection]);
   const canEvaluate = useMemo(
-    () => canEvaluateSelection(tree, selection),
+    () => mathPadFacade.canEvaluate(tree, selection),
     [tree, selection]
   );
-  const canFactor = useMemo(
-    () => canFactorSelection(tree, selection),
-    [tree, selection]
-  );
+  const canFactor = useMemo(() => mathPadFacade.canFactor(tree, selection), [tree, selection]);
   const selectedNodeLatex =
     canSubstitute && tree && substituteTargetId
       ? tree.nodesById[substituteTargetId]?.latex ?? ""
@@ -999,34 +976,13 @@ export function ExpressionPad({
 
   const onEvaluate = useCallback(() => {
     if (!tree || !selection) return;
-    const evalSelection =
-      selection.kind === "node"
-        ? (() => {
-            let target = selection.nodeId;
-            while (true) {
-              const targetOp = tree.nodesById[target]?.op;
-              const parentId = tree.parentById[target];
-              if (!parentId) break;
-              const parentOp = tree.nodesById[parentId]?.op;
-              if (
-                parentOp &&
-                parentOp !== "Equal" &&
-                (targetOp === "Number" ||
-                  targetOp === "Degrees" ||
-                  targetOp === "Delimiter")
-              ) {
-                target = parentId;
-                continue;
-              }
-              break;
-            }
-            return { kind: "node", nodeId: target } as ExprSelection;
-          })()
-        : selection;
-
-    const next = evaluateSelection(tree, evalSelection);
-    if (!next) return;
-    commitJson(next.rootJson, { latex: next.latexPlain });
+    const result = mathPadFacade.applyAction({
+      tree,
+      selection,
+      action: { type: "evaluate" },
+    });
+    if (!result.ok) return;
+    commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
   }, [tree, selection, commitJson]);
 
   async function onCopyLatex() {

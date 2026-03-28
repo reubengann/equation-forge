@@ -164,9 +164,10 @@ export function renderInsertOverlay(
 
     const line = document.createElement("div");
     line.style.position = "absolute";
-    // Draw a vertical line alongside the numerator to signal the target.
-    const GAP = 4;
-    line.style.left = `${numeratorRect.left - hostRect.left - GAP}px`;
+    // Draw a vertical line on the chosen insertion side of numerator.
+    const x =
+      plan.insertIndex === 0 ? numeratorRect.left - 4 : numeratorRect.right + 4;
+    line.style.left = `${x - hostRect.left}px`;
     line.style.top = `${numeratorRect.top - hostRect.top}px`;
     line.style.width = "2px";
     line.style.height = `${numeratorRect.bottom - numeratorRect.top}px`;
