@@ -229,3 +229,15 @@ scenarios:
           scope: single
         expect:
           latex: "2 \\left(a + b\\right) - x_{1}"
+  - version: 1
+    name: Issue 6 - apply both sides multiplies full RHS sum
+    tags: [issue, equation, apply, distributive]
+    initial:
+      latex: "a = b - c"
+    steps:
+      - name: apply multiplication by d to both sides
+        action:
+          type: applyToBothSides
+          operationLatex: "eqn*d"
+        expect:
+          latex: "a d = b d - c d"

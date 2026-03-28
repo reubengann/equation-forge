@@ -14,9 +14,7 @@
 5.  `2 x_2 - x_1`
     if we substitute `x_2` `a+b`, we expect `2 (a+b) - x_1`, but instead we get `2 a + b - x_1`, which is incorrect.
 
-6.  P = \frac{R T}{\left(v - b\right)} - \frac{a}{v^{2}}
-    apply eqn\*v
-    P v = \frac{R T}{\left(v - b\right)} - \frac{a}{v^{2}} v
-    This is wrong. It didn't apply to both terms on the rhs
+6.  `a=b-c`
+    apply `eqn * v`. The result is `a d = b - c d` instead of `a d = b d - c d`
 
 7.  Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu

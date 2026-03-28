@@ -58,6 +58,43 @@ function replaceSymbol(mj: MJ, symbolName: string, replacement: MJ): MJ {
   return [mj[0] as string, ...replacedKids];
 }
 
+function normalizeMulExpr(factors: MJ[]): MJ {
+  const flat: MJ[] = [];
+  for (const f of factors) {
+    if (
+      Array.isArray(f) &&
+      (f[0] === "InvisibleOperator" || f[0] === "Multiply")
+    ) {
+      flat.push(...(f.slice(1) as MJ[]));
+    } else {
+      flat.push(f);
+    }
+  }
+  if (flat.length === 0) return 1;
+  if (flat.length === 1) return flat[0];
+  return ["InvisibleOperator", ...flat];
+}
+
+function distributeTopLevelMulOverAdd(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  if (op !== "InvisibleOperator" && op !== "Multiply") return expr;
+  const factors = expr.slice(1) as MJ[];
+  const addIndex = factors.findIndex((f) => Array.isArray(f) && f[0] === "Add");
+  if (addIndex < 0) return expr;
+
+  const addExpr = factors[addIndex] as MJNode;
+  const terms = addExpr.slice(1) as MJ[];
+  if (terms.length === 0) return expr;
+
+  const distributedTerms = terms.map((term) => {
+    const termFactors = [...factors];
+    termFactors[addIndex] = term;
+    return normalizeMulExpr(termFactors);
+  });
+  return ["Add", ...distributedTerms];
+}
+
 /**
  * Apply a user-specified operation (containing the placeholder symbol "eqn")
  * to both sides of a top-level equality.
@@ -82,6 +119,9 @@ export function applyOperationToBothSides(
   }
 
   const preparedLatex = operationLatex.replace(/\beqn\b/g, "\\mathrm{eqn}");
+  const shouldDistributeByExplicitMultiply =
+    operationLatex.includes("*") ||
+    /\\cdot|\\times|·|×/.test(operationLatex);
 
   const template = parse(preparedLatex);
   if (!template) {
@@ -97,7 +137,10 @@ export function applyOperationToBothSides(
 
   const applyToSide = (side: MJ): MJ => {
     const substituted = replaceSymbol(template, "eqn", side);
-    const parsed = normalizeMathJson(substituted);
+    let parsed = normalizeMathJson(substituted);
+    if (shouldDistributeByExplicitMultiply && parsed) {
+      parsed = normalizeMathJson(distributeTopLevelMulOverAdd(parsed));
+    }
     if (!parsed) {
       throw new Error("Could not parse applied expression.");
     }

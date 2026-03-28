@@ -74,6 +74,27 @@ describe("applyOperationToBothSides", () => {
     expect(containsOp(lhs, "Add")).toBe(true);
   });
 
+  it("distributes when using explicit * in operation latex", () => {
+    const eqn = makeMJfromLatex("a = b - c");
+    const result = applyOperationToBothSides(eqn, "eqn*d");
+    expect(result).toEqual([
+      "Equal",
+      ["InvisibleOperator", "a", "d"],
+      [
+        "Add",
+        ["InvisibleOperator", "b", "d"],
+        ["Negate", ["InvisibleOperator", "c", "d"]],
+      ],
+    ]);
+    expect(ExpressionTree.create(result).latexPlain).toBe("a d = b d - c d");
+  });
+
+  it("distributes when using explicit \\cdot in operation latex", () => {
+    const eqn = makeMJfromLatex("a = b - c");
+    const result = applyOperationToBothSides(eqn, String.raw`eqn \cdot d`);
+    expect(ExpressionTree.create(result).latexPlain).toBe("a d = b d - c d");
+  });
+
   it("parses vec notation into a Vector node", () => {
     const mj = makeMJfromLatex("\\vec{e}");
     expect(mj).toEqual(["Vector", "e"]);
