@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { substitute } from "./substitute";
-import { makeMJfromLatex, treefromLatex } from "../../testHelpers";
+import { findNodeByLatex, makeMJfromLatex, treefromLatex } from "../../testHelpers";
 
 describe("substitute", () => {
   it("replaces a single occurrence", () => {
@@ -50,6 +50,24 @@ describe("substitute", () => {
     expect(result).not.toBeNull();
     expect(result?.rootJson).toEqual(
       makeMJfromLatex(String.raw`m \ddot{\vec{r}} = \vec{F}_{g} + \vec{N}`)
+    );
+  });
+
+  it("wraps additive replacement when substituting into a product", () => {
+    const tree = treefromLatex(String.raw`2 x_{2} - x_{1}`);
+    const targetId = findNodeByLatex(tree, String.raw`x_{2}`);
+    const replacement = makeMJfromLatex(String.raw`a+b`);
+
+    const result = substitute({
+      tree,
+      targetId,
+      replacement,
+      scope: "single",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`2 \left(a + b\right) - x_{1}`
     );
   });
 });

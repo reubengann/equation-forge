@@ -1,5 +1,5 @@
 import { ExpressionTree, type MJ } from "../../ExpressionTree";
-import { setAtPath } from "../../movePath";
+import { getAtPath, setAtPath } from "../../movePath";
 
 export type SubstituteScope = "single" | "all";
 
@@ -21,6 +21,23 @@ type SubstituteArgs = {
   scope: SubstituteScope;
 };
 
+function replacementForPath(root: MJ, path: number[], replacement: MJ): MJ {
+  if (path.length === 0) return replacement;
+  if (Array.isArray(replacement) && replacement[0] === "Delimiter") return replacement;
+
+  const parentPath = path.slice(0, -1);
+  const parent = getAtPath(root, parentPath) as MJ;
+  if (
+    Array.isArray(parent) &&
+    (parent[0] === "InvisibleOperator" || parent[0] === "Multiply") &&
+    Array.isArray(replacement) &&
+    replacement[0] === "Add"
+  ) {
+    return ["Delimiter", replacement] as MJ;
+  }
+  return replacement;
+}
+
 export function substitute({
   tree,
   targetId,
@@ -31,7 +48,8 @@ export function substitute({
   if (path === undefined) return null;
 
   if (scope === "single") {
-    const nextRoot = setAtPath(tree.rootJson, path, replacement) as MJ;
+    const wrappedReplacement = replacementForPath(tree.rootJson, path, replacement);
+    const nextRoot = setAtPath(tree.rootJson, path, wrappedReplacement) as MJ;
     return ExpressionTree.create(nextRoot);
   }
 
@@ -53,7 +71,8 @@ export function substitute({
 
   let nextRoot = tree.rootJson;
   for (const p of paths) {
-    nextRoot = setAtPath(nextRoot, p, replacement) as MJ;
+    const wrappedReplacement = replacementForPath(nextRoot, p, replacement);
+    nextRoot = setAtPath(nextRoot, p, wrappedReplacement) as MJ;
   }
 
   return ExpressionTree.create(nextRoot);

@@ -213,3 +213,19 @@ scenarios:
           mode: multiplicative
         expect:
           latex: "a \\left(b\\right) = \\frac{e}{c d}"
+  - version: 1
+    name: Issue 5 - substitute x_2 under factor 2
+    tags: [issue, substitute, precedence]
+    initial:
+      latex: "2 x_{2} - x_{1}"
+    steps:
+      - name: substitute x_2 with a+b
+        select:
+          kind: node
+          latex: "x_{2}"
+        action:
+          type: substitute
+          replacementLatex: "a+b"
+          scope: single
+        expect:
+          latex: "2 \\left(a + b\\right) - x_{1}"
