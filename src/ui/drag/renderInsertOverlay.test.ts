@@ -102,6 +102,35 @@ describe("computeInsertX", () => {
 
     expect(computeInsertX(plan, addTree, rects)).toBeNull();
   });
+
+  it("returns inner expression edge X for MergeIntoDelimiterProduct", () => {
+    const tree = ExpressionTree.create([
+      "Equal",
+      "c",
+      ["InvisibleOperator", "b", ["Delimiter", "a"]],
+    ]);
+    const rhsId = tree.childrenById[tree.rootId][1];
+    const delId = tree.childrenById[rhsId][1];
+    const innerId = tree.childrenById[delId][0];
+
+    const rects = rectFor({
+      [delId]: rect(100, 160),
+      [innerId]: rect(120, 140),
+    });
+    const planLeft: MovePlan = {
+      kind: "MergeIntoDelimiterProduct",
+      fromMulId: "mul",
+      delimiterId: delId,
+      movedId: "m",
+      insertIndex: 0,
+    };
+    const planRight: MovePlan = {
+      ...planLeft,
+      insertIndex: 1,
+    };
+    expect(computeInsertX(planLeft, tree, rects)).toBe(120);
+    expect(computeInsertX(planRight, tree, rects)).toBe(140);
+  });
 });
 
 describe("targetRectForPlan", () => {
@@ -109,6 +138,8 @@ describe("targetRectForPlan", () => {
     addTarget: rect(0, 10),
     replaceTarget: rect(20, 30),
     divideId: rect(40, 50),
+    delimiterId: rect(52, 58),
+    delimiterInner: rect(53, 57),
     dotId: rect(60, 70),
   });
 
@@ -159,11 +190,33 @@ describe("targetRectForPlan", () => {
       operandIndex: 0,
       insertIndex: 1,
     };
+    const treeWithDelimiter = ExpressionTree.create([
+      "Equal",
+      "c",
+      ["InvisibleOperator", "b", ["Delimiter", "a"]],
+    ]);
+    const rhsId = treeWithDelimiter.childrenById[treeWithDelimiter.rootId][1];
+    const delId = treeWithDelimiter.childrenById[rhsId][1];
+    const innerId = treeWithDelimiter.childrenById[delId][0];
+    const dynamicRects = rectFor({
+      [delId]: rect(52, 58),
+      [innerId]: rect(53, 57),
+    });
+    const mergeDelimiter: MovePlan = {
+      kind: "MergeIntoDelimiterProduct",
+      fromMulId: "mul",
+      delimiterId: delId,
+      movedId: "m",
+      insertIndex: 0,
+    };
 
     expect(targetRectForPlan(insert, rects)).toEqual(rect(0, 10));
     expect(targetRectForPlan(wrap, rects)).toEqual(rect(20, 30));
     expect(targetRectForPlan(moveAcrossEdge, rects)).toEqual(rect(20, 30));
     expect(targetRectForPlan(merge, rects)).toEqual(rect(40, 50));
+    expect(targetRectForPlan(mergeDelimiter, dynamicRects, treeWithDelimiter)).toEqual(
+      rect(53, 57)
+    );
     expect(targetRectForPlan(liftDot, rects)).toEqual(rect(60, 70));
   });
 });

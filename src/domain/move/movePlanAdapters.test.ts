@@ -222,5 +222,17 @@ describe("planToApplyMoveTarget", () => {
       hoverId: "div",
       targetSlot: 1,
     });
+
+    const mergeIntoDelimiter: MovePlan = {
+      kind: "MergeIntoDelimiterProduct",
+      fromMulId: "mul",
+      delimiterId: "del",
+      movedId: "m",
+      insertIndex: 0,
+    };
+    expect(planToApplyMoveTarget(mergeIntoDelimiter)).toEqual({
+      hoverId: "del",
+      targetSlot: 0,
+    });
   });
 });

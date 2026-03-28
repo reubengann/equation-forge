@@ -101,6 +101,45 @@ describe("applyMoveMultiplicative executor", () => {
     );
   });
 
+  it("pulls a factor out of parenthesized product", () => {
+    const next = runMove({
+      latex: String.raw`c = \left(a b\right)`,
+      select: (tree) => [findNodeByLatex(tree, "b")],
+      hover: (tree) => {
+        const rhsId = tree.childrenById[tree.rootId!]?.[1];
+        if (!rhsId) throw new Error("Missing RHS");
+        return rhsId;
+      },
+      targetSlot: 0,
+    });
+
+    expect(next).not.toBeNull();
+    const normalized = next!.latexPlain
+      .replace(/\s+/g, " ")
+      .replace(/\\left|\\right/g, "")
+      .trim();
+    expect(normalized).toBe(String.raw`c = b (a)`);
+  });
+
+  it("merges a sibling factor back into parenthesized product", () => {
+    const next = runMove({
+      latex: String.raw`c = b \left(a\right)`,
+      select: (tree) => [findNodeByLatex(tree, "b")],
+      hover: (tree) => {
+        const delimId = findNodeId(tree, (n) => n.op === "Delimiter");
+        return delimId;
+      },
+      targetSlot: 0,
+    });
+
+    expect(next).not.toBeNull();
+    const normalized = next!.latexPlain
+      .replace(/\s+/g, " ")
+      .replace(/\\left|\\right/g, "")
+      .trim();
+    expect(normalized).toBe(String.raw`c = (b a)`);
+  });
+
   it("merges a sibling factor into the numerator of a fraction", () => {
     const next = runMove({
       latex: String.raw`\vec{F} \frac{1}{m} = \vec{a}`,

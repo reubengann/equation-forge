@@ -137,3 +137,39 @@ scenarios:
           mode: multiplicative
         expect:
           latex: "a = \\frac{\\left(c + d\\right)}{e} b"
+  - version: 1
+    name: Issue 3 - move b outside parentheses
+    tags: [issue, move, multiplicative, delimiter]
+    initial:
+      latex: "c = \\left(a b\\right)"
+    steps:
+      - name: drag b to outside left of parenthesized product
+        select:
+          kind: node
+          path: [2, 1, 2]
+        action:
+          type: move
+          hover:
+            path: [2]
+          targetSlot: 0
+          mode: multiplicative
+        expect:
+          latex: "c = b \\left(a\\right)"
+  - version: 1
+    name: Issue 3b - move b back into parentheses
+    tags: [issue, move, multiplicative, delimiter]
+    initial:
+      latex: "c = b \\left(a\\right)"
+    steps:
+      - name: drag b into parenthesized product
+        select:
+          kind: node
+          path: [2, 1]
+        action:
+          type: move
+          hover:
+            path: [2, 2]
+          targetSlot: 0
+          mode: multiplicative
+        expect:
+          latex: "c = \\left(b a\\right)"

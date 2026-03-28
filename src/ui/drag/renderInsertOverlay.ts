@@ -111,6 +111,14 @@ export function computeInsertX(
   if (plan.kind === "MergeIntoFractionNumerator") {
     return null;
   }
+  if (plan.kind === "MergeIntoDelimiterProduct") {
+    const innerId = tree.childrenById[plan.delimiterId]?.[0];
+    const innerRect = innerId ? rectForVisual(innerId, rectFor, tree) : null;
+    const fallbackRect = rectFor(plan.delimiterId);
+    const r = innerRect ?? fallbackRect;
+    if (!r) return null;
+    return plan.insertIndex === 0 ? r.left : r.right;
+  }
   if (plan.kind === "LiftDotScalar") {
     const r = rectFor(plan.dotId);
     if (!r) return null;
@@ -122,7 +130,8 @@ export function computeInsertX(
 
 export function targetRectForPlan(
   plan: MovePlan | null,
-  rectFor: RectProvider
+  rectFor: RectProvider,
+  tree?: ExpressionTree | null
 ): RectLTRB | null {
   if (!plan) return null;
   if (plan.kind === "ReorderAdd") return rectFor(plan.addId);
@@ -135,6 +144,12 @@ export function targetRectForPlan(
   }
   if (plan.kind === "MergeIntoFractionNumerator")
     return rectFor(plan.divideId);
+  if (plan.kind === "MergeIntoDelimiterProduct") {
+    if (!tree) return rectFor(plan.delimiterId);
+    const innerId = tree.childrenById[plan.delimiterId]?.[0];
+    const innerRect = innerId ? rectForVisual(innerId, rectFor, tree) : null;
+    return innerRect ?? rectFor(plan.delimiterId);
+  }
   if (plan.kind === "LiftDotScalar") return rectFor(plan.dotId);
   return null;
 }
@@ -152,7 +167,7 @@ export function renderInsertOverlay(
   if (!plan) return;
 
   const hostRect = mathDivEl.getBoundingClientRect();
-  const targetRect = targetRectForPlan(plan, rectFor);
+  const targetRect = targetRectForPlan(plan, rectFor, tree);
   if (!targetRect) return;
 
   // Special-case: merging into a fraction numerator — underline the numerator zone.

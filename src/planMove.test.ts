@@ -737,6 +737,33 @@ describe("planMove", () => {
     });
   });
 
+  it("plans MergeIntoDelimiterProduct when dragging sibling factor onto delimiter", () => {
+    const tree = treefromLatex(String.raw`c = b \left(a\right)`);
+    const bId = findNodeId(tree, (n) => n.latex === "b");
+    const delimiterId = findNodeId(tree, (n) => n.op === "Delimiter");
+    const mulId = tree.parentById[bId]!;
+    expect(tree.nodesById[mulId]?.op).toBe("InvisibleOperator");
+
+    const plan = planMove({
+      tree,
+      selectedIds: [bId],
+      hoverId: delimiterId,
+      pointer: { x: 70, y: 10 },
+      rectFor: rectProvider({
+        [delimiterId]: { left: 60, right: 100, top: 0, bottom: 20 },
+      }),
+      mode: "multiplicative",
+    });
+
+    expect(plan).toEqual({
+      kind: "MergeIntoDelimiterProduct",
+      fromMulId: mulId,
+      delimiterId,
+      movedId: bId,
+      insertIndex: 0,
+    });
+  });
+
   it("plans FactorOutOfIntegrate when dragging a factor from an integrand (multiplicative)", () => {
     const tree = treefromLatex(
       String.raw`v_{0}^{2} = \int_{0}^{x_{0}} 2 g \sin\left(\theta\right) \,\mathrm{d}{x}`

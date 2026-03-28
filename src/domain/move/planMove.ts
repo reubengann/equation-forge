@@ -64,6 +64,13 @@ export type MovePlan =
       insertIndex: 0 | 1; // 0 = before numerator factors, 1 = after
     }
   | {
+      kind: "MergeIntoDelimiterProduct";
+      fromMulId: string;
+      delimiterId: string;
+      movedId: string;
+      insertIndex: 0 | 1; // 0 = before inner factors, 1 = after
+    }
+  | {
       kind: "MoveAcrossEqual";
       movedId: string;
 
@@ -306,6 +313,56 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
             kind: "MergeIntoFractionNumerator",
             fromMulId: movedParentId,
             divideId,
+            movedId,
+            insertIndex,
+          };
+        }
+      }
+    }
+  }
+
+  // Merge a sibling factor into a parenthesized product within the same product.
+  if (mode === "multiplicative" && movedParentId) {
+    const parentOp = tree.nodesById[movedParentId]?.op;
+    if (isMulOp(parentOp)) {
+      const delimiterId = (() => {
+        let current: string | null = hoverId;
+        while (current) {
+          const parentId: string | null | undefined = tree.parentById[current];
+          if (!parentId) return null;
+          if (
+            parentId === movedParentId &&
+            tree.nodesById[current]?.op === "Delimiter"
+          ) {
+            return current;
+          }
+          current = parentId;
+        }
+        return null;
+      })();
+
+      if (delimiterId && delimiterId !== movedId) {
+        const delimiterRect = rectFor(delimiterId);
+        const DELIMITER_PAD = 6;
+        const inDelimiter =
+          delimiterRect != null &&
+          containsPoint(
+            delimiterRect,
+            pointer.x,
+            pointer.y,
+            DELIMITER_PAD
+          );
+
+        if (inDelimiter || (hoverId === delimiterId && !delimiterRect)) {
+          const insertIndex: 0 | 1 = delimiterRect
+            ? pointer.x < midX(delimiterRect)
+              ? 0
+              : 1
+            : 1;
+          return {
+            kind: "MergeIntoDelimiterProduct",
+            fromMulId: movedParentId,
+            delimiterId,
             movedId,
             insertIndex,
           };
