@@ -237,15 +237,9 @@ function collapseMultiplicativeSelection(args: {
 
   // Multiplicative mode: collapse to the shared product container
   if (mode === "multiplicative") {
-    const parents = ids.map((id) => tree.parentById[id]).filter(Boolean);
-    const uniqueParents = Array.from(new Set(parents));
-    if (uniqueParents.length === 1) {
-      const parentId = uniqueParents[0]!;
-      const pop = tree.nodesById[parentId]?.op;
-      if (isMulOp(pop)) {
-        return [parentId];
-      }
-    }
+    // Keep explicit multi-factor selections as-is so drag operations can move
+    // exactly the selected subset (e.g. c,d out of (b c d)).
+    if (ids.length > 1) return ids;
     return ids;
   }
 

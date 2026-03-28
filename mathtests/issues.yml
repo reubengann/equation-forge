@@ -173,3 +173,43 @@ scenarios:
           mode: multiplicative
         expect:
           latex: "c = \\left(b a\\right)"
+  - version: 1
+    name: Issue 4a - move c d outside parentheses on LHS
+    tags: [issue, move, multiplicative, multi, delimiter]
+    initial:
+      latex: "a \\left(b c d\\right) = e"
+    steps:
+      - name: drag c,d outside parentheses on lhs
+        select:
+          kind: multi
+          paths:
+            - [1, 2, 1, 2]
+            - [1, 2, 1, 3]
+        action:
+          type: move
+          hover:
+            path: [1]
+          targetSlot: 2
+          mode: multiplicative
+        expect:
+          latex: "a \\left(b\\right) c d = e"
+  - version: 1
+    name: Issue 4b - move c d to RHS only
+    tags: [issue, move, multiplicative, multi, equation]
+    initial:
+      latex: "a \\left(b c d\\right) = e"
+    steps:
+      - name: drag c,d to rhs
+        select:
+          kind: multi
+          paths:
+            - [1, 2, 1, 2]
+            - [1, 2, 1, 3]
+        action:
+          type: move
+          hover:
+            path: [2]
+          targetSlot: null
+          mode: multiplicative
+        expect:
+          latex: "a \\left(b\\right) = \\frac{e}{c d}"

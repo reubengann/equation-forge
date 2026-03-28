@@ -76,12 +76,10 @@ describe("moveSelectionPolicy", () => {
     expect(result).toEqual([productId]);
   });
 
-  it("collapses multiple factors sharing a product in multiplicative mode", () => {
+  it("keeps explicit multi-factor selection in multiplicative mode", () => {
     const tree = treefromLatex("a b c");
     const aId = findNodeByLatex(tree, "a");
     const bId = findNodeByLatex(tree, "b");
-    const productId = tree.parentById[aId];
-
     const result = normalizeSelectedIdsForMove({
       tree,
       selectedIds: [aId, bId],
@@ -89,7 +87,7 @@ describe("moveSelectionPolicy", () => {
       hoverId: null,
     });
 
-    expect(result).toEqual([productId]);
+    expect(result).toEqual([aId, bId]);
   });
 
   it("collapses factors to product in additive mode only when product is under Equal", () => {

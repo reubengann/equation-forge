@@ -105,9 +105,13 @@ export function applyMoveMultiplicative(
   args: ApplyMoveArgs
 ): ExpressionTree | null {
   const { tree, selectedIds, hoverId, targetSlot } = args;
-  if (selectedIds.length !== 1) return null;
+  if (selectedIds.length < 1) return null;
+  const normalizedSelectedIds = Array.from(
+    new Set(selectedIds.map((id) => normalizeSelection(tree, id)))
+  );
+  if (normalizedSelectedIds.length < 1) return null;
 
-  const movedId = normalizeSelection(tree, selectedIds[0]);
+  const movedId = normalizedSelectedIds[0];
   const hover = hoverId;
   if (!hover) return null;
   const hoverNodeId = hover;
@@ -123,6 +127,9 @@ export function applyMoveMultiplicative(
   if (!fromParentId) return null;
   const fromParentOp = tree.nodesById[fromParentId]?.op;
   const hoverOp = tree.nodesById[hoverNodeId]?.op;
+  const movedIdsInFromParent = normalizedSelectedIds.filter(
+    (id) => tree.parentById[id] === fromParentId
+  );
 
   // -------------------------
   // Reorder within a DotProduct (commutative swap)
@@ -193,7 +200,8 @@ export function applyMoveMultiplicative(
     if (factors.length < 2) return null;
 
     const siblings = tree.childrenById[fromParentId] ?? [];
-    const movedIds = [movedId];
+    const movedIds =
+      movedIdsInFromParent.length > 0 ? movedIdsInFromParent : [movedId];
     const movedIndices = movedIds
       .map((id) => siblings.indexOf(id))
       .filter((idx) => idx >= 0)
@@ -218,6 +226,67 @@ export function applyMoveMultiplicative(
     const nextMul = normalizeMul(nextFactors);
     const nextRoot = setAtPath(tree.rootJson, mulPath, nextMul);
     return ExpressionTree.create(nextRoot);
+  }
+
+  // Pull selected factors out of a parenthesized product into its outer product.
+  if (targetSlot != null && isMulOp(fromParentOp)) {
+    const delimiterId = tree.parentById[fromParentId];
+    const delimiterOp = delimiterId ? tree.nodesById[delimiterId]?.op : null;
+    const outerMulId = delimiterId ? tree.parentById[delimiterId] : null;
+    const outerMulOp = outerMulId ? tree.nodesById[outerMulId]?.op : null;
+    const hoverInOuterMul =
+      !!outerMulId &&
+      (hoverNodeId === outerMulId || tree.parentById[hoverNodeId] === outerMulId);
+
+    if (
+      delimiterId &&
+      delimiterOp === "Delimiter" &&
+      outerMulId &&
+      isMulOp(outerMulOp) &&
+      hoverInOuterMul
+    ) {
+      const fromMulPath = tree.pathById[fromParentId];
+      const outerMulPath = tree.pathById[outerMulId];
+      if (!fromMulPath || !outerMulPath) return null;
+
+      const fromMulExpr = getAtPath(tree.rootJson, fromMulPath) as MJNode;
+      if (!Array.isArray(fromMulExpr)) return null;
+      const [fromOp, ...fromFactors] = fromMulExpr;
+      if (!isMulOp(fromOp)) return null;
+
+      const fromKids = tree.childrenById[fromParentId] ?? [];
+      const selectedIndices = movedIdsInFromParent
+        .map((id) => fromKids.indexOf(id))
+        .filter((idx) => idx >= 0)
+        .sort((a, b) => a - b);
+      if (selectedIndices.length === 0) return null;
+
+      const selectedSet = new Set<number>(selectedIndices);
+      const movedExpr = normalizeMul(
+        selectedIndices
+          .map((idx) => fromFactors[idx])
+          .filter((f): f is MJ => f !== undefined)
+      );
+      const remainingInner = normalizeMul(
+        fromFactors.filter((_, i) => !selectedSet.has(i))
+      );
+
+      let nextRoot = setAtPath(tree.rootJson, fromMulPath, remainingInner);
+
+      const outerExpr = getAtPath(nextRoot, outerMulPath) as MJNode;
+      if (!Array.isArray(outerExpr)) return null;
+      const [outerOp, ...outerFactors] = outerExpr;
+      if (!isMulOp(outerOp)) return null;
+
+      const slot = Math.max(0, Math.min(outerFactors.length, targetSlot));
+      const nextOuterFactors = [
+        ...outerFactors.slice(0, slot),
+        movedExpr,
+        ...outerFactors.slice(slot),
+      ];
+      nextRoot = setAtPath(nextRoot, outerMulPath, normalizeMul(nextOuterFactors));
+      return ExpressionTree.create(nextRoot);
+    }
   }
 
   // Factor a term out of an integral’s integrand (before/after the integral).
@@ -340,7 +409,8 @@ export function applyMoveMultiplicative(
     if (factors.length < 2) return null;
 
     const siblings = tree.childrenById[fromParentId] ?? [];
-    const movedIds = [movedId];
+    const movedIds =
+      movedIdsInFromParent.length > 0 ? movedIdsInFromParent : [movedId];
     const movedIndices = movedIds
       .map((id) => siblings.indexOf(id))
       .filter((idx) => idx >= 0)
@@ -673,8 +743,29 @@ export function applyMoveMultiplicative(
 
   const movedPath = tree.pathById[movedId];
   if (!movedPath) return null;
-
-  const movedExpr = getAtPath(tree.rootJson, movedPath) as MJ;
+  const fromParentPathForExpr = tree.pathById[fromParentId];
+  const movedExpr =
+    isMulOp(fromParentOp) &&
+    fromParentPathForExpr &&
+    movedIdsInFromParent.length > 1
+      ? (() => {
+          const mulExpr = getAtPath(tree.rootJson, fromParentPathForExpr) as MJNode;
+          if (!Array.isArray(mulExpr)) return null;
+          const [, ...factors] = mulExpr;
+          const kids = tree.childrenById[fromParentId] ?? [];
+          const indices = movedIdsInFromParent
+            .map((id) => kids.indexOf(id))
+            .filter((idx) => idx >= 0)
+            .sort((a, b) => a - b);
+          if (indices.length === 0) return null;
+          return normalizeMul(
+            indices
+              .map((idx) => factors[idx])
+              .filter((f): f is MJ => f !== undefined)
+          );
+        })()
+      : (getAtPath(tree.rootJson, movedPath) as MJ);
+  if (movedExpr == null) return null;
   const destRootId = sideInfoTo.sideRootId;
   const destRootPath = tree.pathById[destRootId];
   if (!destRootPath) return null;
@@ -693,9 +784,7 @@ export function applyMoveMultiplicative(
   // Remove the moved factor from its origin.
   let nextRoot: MJ = tree.rootJson;
   const movedParentId = tree.parentById[movedId];
-  const movedParentOp = movedParentId
-    ? tree.nodesById[movedParentId]?.op
-    : null;
+  const movedParentOp = movedParentId ? tree.nodesById[movedParentId]?.op : null;
   const movedParentPath = movedParentId ? tree.pathById[movedParentId] : null;
 
   if (
@@ -705,9 +794,13 @@ export function applyMoveMultiplicative(
   ) {
     const mulExpr = getAtPath(nextRoot, movedParentPath) as MJNode;
     const [, ...factors] = mulExpr;
-    const idx = (tree.childrenById[movedParentId] ?? []).indexOf(movedId);
-    if (idx < 0) return null;
-    const remaining = factors.filter((_, i) => i !== idx);
+    const siblings = tree.childrenById[movedParentId] ?? [];
+    const indices = movedIdsInFromParent
+      .map((id) => siblings.indexOf(id))
+      .filter((idx) => idx >= 0);
+    if (indices.length === 0) return null;
+    const idxSet = new Set(indices);
+    const remaining = factors.filter((_, i) => !idxSet.has(i));
     const normalized = normalizeMul(remaining);
     nextRoot = setAtPath(nextRoot, movedParentPath, normalized);
   } else {

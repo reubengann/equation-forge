@@ -7,19 +7,16 @@
 3.  `c=\left(a b\right)`
     Preview says we can move b outside the parentheses, but when dropping nothing happens.
 
-4.  In this expression
-    x \left(t + \Delta t\right) = x \left(t\right) + \frac{v \left(t\right) \Delta t}{2} + \frac{v \left(t + \frac{\Delta t}{2}\right) \Delta t}{2} + \frac{1}{2} a \left(t\right) \left(\frac{\Delta t}{2}\right)^{2} + \mathcal{O} \left(\left(\frac{\Delta t}{2}\right)^{3}\right) + \frac{1}{2} \left(a \left(t\right) + \frac{1}{2} \dot{a} \left(t\right) \Delta t\right) \frac{\Delta t}{2}^{2} + \mathcal{O} \left(\left(\frac{\Delta t}{2}\right)^{3}\right)
-    Dragging the second a(t) out of the parentheses generates a plan, but it doesn't seem to execute.
+4.  `a \left(b c d\right) = e`
+    Select both c and d. Dragging the multi-selection out of the parentheses to the LHS does not work (no preview, no execution). Dragging onto the RHS generates a preview, but when executed, incorrectly moves all of b c d to the RHS, resulting in
+    `a \left(1\right) = \frac{1}{b c d} e`, which is not desired.
 
-5.  x \left(t + \Delta t\right) = x \left(t\right) + v \left(t\right) \Delta t + \frac{1}{2} a \left(t\right) \left(\Delta t\right)^{2} + \mathcal{O} \left(\left(\Delta t\right)^{3}\right)
-    If we choose to substitute \Delta t, and select the "replace all" button, it doesn't replace the one in front of v.
+5.  `2 x_2 - x_1`
+    if we substitute `x_2` `a+b`, we expect `2 (a+b) - x_1`, but instead we get `2 a + b - x_1`, which is incorrect.
 
-6.  2 x*{2} - x*{1}
-    if we substitute for x_2, the factor of two does not go everywhere.
-
-7.  P = \frac{R T}{\left(v - b\right)} - \frac{a}{v^{2}}
+6.  P = \frac{R T}{\left(v - b\right)} - \frac{a}{v^{2}}
     apply eqn\*v
     P v = \frac{R T}{\left(v - b\right)} - \frac{a}{v^{2}} v
     This is wrong. It didn't apply to both terms on the rhs
 
-8.  Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu
+7.  Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu
