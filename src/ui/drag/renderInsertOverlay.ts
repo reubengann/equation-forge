@@ -119,6 +119,11 @@ export function computeInsertX(
     if (!r) return null;
     return plan.insertIndex === 0 ? r.left : r.right;
   }
+  if (plan.kind === "PullOutOfFraction") {
+    const r = rectFor(plan.divideId);
+    if (!r) return null;
+    return plan.insertIndex === 0 ? r.left : r.right;
+  }
   if (plan.kind === "LiftDotScalar") {
     const r = rectFor(plan.dotId);
     if (!r) return null;
@@ -150,6 +155,7 @@ export function targetRectForPlan(
     const innerRect = innerId ? rectForVisual(innerId, rectFor, tree) : null;
     return innerRect ?? rectFor(plan.delimiterId);
   }
+  if (plan.kind === "PullOutOfFraction") return rectFor(plan.divideId);
   if (plan.kind === "LiftDotScalar") return rectFor(plan.dotId);
   return null;
 }

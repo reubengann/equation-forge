@@ -320,6 +320,7 @@ function parseActionFromStep(
   if (type === "expand") return { type: "expand" };
   if (type === "factor") return { type: "factor" };
   if (type === "cancel") return { type: "cancel" };
+  if (type === "toggleDelimiterStyle") return { type: "toggleDelimiterStyle" };
   if (type === "evaluate") return { type: "evaluate" };
 
   if (type === "apply" || type === "applyToBothSides") {
@@ -338,7 +339,7 @@ function parseActionFromStep(
       "step.action.replacementLatex"
     );
     const replacement = mathPadFacade.parseLatex(replacementLatex);
-    if (!replacement) {
+    if (replacement == null) {
       throw new Error(
         `Could not parse replacementLatex '${replacementLatex}' for selection ${selectionText}.`
       );

@@ -15,6 +15,8 @@ type MoveModeToolbarProps = {
   canExpand: boolean;
   onCancelTerm: () => void;
   canCancelTerm: boolean;
+  onToggleDelimiterStyle: () => void;
+  canToggleDelimiterStyle: boolean;
   onEvaluate: () => void;
   canEvaluate: boolean;
   onFactor: () => void;
@@ -76,6 +78,8 @@ export const MoveModeToolbar = forwardRef<
     canExpand,
     onCancelTerm,
     canCancelTerm,
+    onToggleDelimiterStyle,
+    canToggleDelimiterStyle,
     onEvaluate,
     canEvaluate,
     onFactor,
@@ -188,6 +192,20 @@ export const MoveModeToolbar = forwardRef<
         onClick={onCancelTerm}
         disabled={!canCancelTerm}
         testId="cancel-term-button"
+      />
+      <IconButton
+        label="Toggle delimiters ( ) and [ ]"
+        icon={
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M4 4h5v2H6v12h3v2H4zm11 0h5v16h-5v-2h3V6h-3z"
+            />
+          </svg>
+        }
+        onClick={onToggleDelimiterStyle}
+        disabled={!canToggleDelimiterStyle}
+        testId="toggle-delimiter-style-button"
       />
       <IconButton
         label="Evaluate"

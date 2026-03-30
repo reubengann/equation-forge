@@ -238,6 +238,7 @@ export function ExpressionPad({
   const [substituteInputMode, setSubstituteInputMode] =
     useState<InputMode>("mathlive");
   const [substituteLatexDraft, setSubstituteLatexDraft] = useState<string>("");
+  const [substituteSuggestionJson, setSubstituteSuggestionJson] = useState<MJ | null>(null);
   const [infoArgs, setInfoArgs] = useState<string>("");
   const [selectionKind, setSelectionKind] = useState<string>("");
   const [selectionClickedId, setSelectionClickedId] = useState<string>("");
@@ -427,6 +428,17 @@ export function ExpressionPad({
     commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
   }, [tree, selection, commitJson]);
 
+  const onToggleDelimiterStyle = useCallback(() => {
+    if (!tree || !selection) return;
+    const result = mathPadFacade.applyAction({
+      tree,
+      selection,
+      action: { type: "toggleDelimiterStyle" },
+    });
+    if (!result.ok) return;
+    commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
+  }, [tree, selection, commitJson]);
+
   function undo() {
     undoHistory(applyPresentJson);
   }
@@ -438,12 +450,27 @@ export function ExpressionPad({
   function openSubstituteModal() {
     setSubstituteScope("single");
     setSubstituteError("");
+    setSubstituteSuggestionJson(null);
     const initialLatex = (() => {
       if (!tree || !selection) return "";
       if (selection.kind === "node") {
         return tree.nodesById[selection.nodeId]?.latex ?? "";
       }
       if (selection.kind === "multi") {
+        const span = mathPadFacade.multiSelectionAsSpan(tree, selection);
+        if (span) {
+          const parentPath = tree.pathById[span.parentId];
+          if (parentPath !== undefined) {
+            const parentExpr = getAtPath(tree.rootJson, parentPath) as MJ;
+            if (Array.isArray(parentExpr)) {
+              const kids = parentExpr.slice(1) as MJ[];
+              const chosen = kids.slice(span.start, span.end + 1);
+              const selectedExpr =
+                chosen.length === 1 ? chosen[0] : ([span.op, ...chosen] as MJ);
+              return ExpressionTree.create(selectedExpr).latexPlain;
+            }
+          }
+        }
         const firstId = selection.nodeIds[0];
         return firstId ? tree.nodesById[firstId]?.latex ?? "" : "";
       }
@@ -462,6 +489,7 @@ export function ExpressionPad({
   function closeSubstituteModal() {
     setShowSubstituteModal(false);
     setSubstituteError("");
+    setSubstituteSuggestionJson(null);
   }
 
   function closeApplyModal() {
@@ -470,9 +498,26 @@ export function ExpressionPad({
   }
 
   const applySuggestionToField = useCallback(
-    (rhsLatex: string) => {
+    (padIndex: number) => {
+      if (!otherPadSnapshots || !tree || !substituteTargetId) return;
+      const targetNode = tree.nodesById[substituteTargetId];
+      if (!targetNode) return;
+      const selectedJson = targetNode.json;
+      const picked = otherPadSnapshots
+        .flatMap(({ padIndex: sourcePadIndex, snapshot }) => {
+          const root = snapshot.rootJson;
+          if (!Array.isArray(root) || root[0] !== "Equal" || root.length < 3) return [];
+          const lhs = root[1] as MJ;
+          const rhs = root[2] as MJ;
+          if (!lhsMatchesSelected(lhs, selectedJson)) return [];
+          return [{ padIndex: sourcePadIndex, rhsLatex: ExpressionTree.create(rhs).latexPlain, rhsJson: rhs }];
+        })
+        .find((s) => s.padIndex === padIndex);
+      if (!picked) return;
+      const rhsLatex = picked.rhsLatex;
       setSubstituteLatexDraft(rhsLatex);
       setSubstituteError("");
+      setSubstituteSuggestionJson(picked.rhsJson);
 
       if (substituteInputMode === "mathlive") {
         const el = substituteFieldRef.current as any;
@@ -495,7 +540,7 @@ export function ExpressionPad({
         }
       }
     },
-    [setSubstituteError, setSubstituteLatexDraft, substituteInputMode]
+    [setSubstituteError, setSubstituteLatexDraft, substituteInputMode, otherPadSnapshots, tree, substituteTargetId]
   );
 
   function submitSubstitution() {
@@ -510,7 +555,7 @@ export function ExpressionPad({
       return;
     }
 
-    const parsed = mathPadFacade.parseLatex(rhsLatex);
+    const parsed = substituteSuggestionJson ?? mathPadFacade.parseLatex(rhsLatex);
     if (parsed == null) {
       setSubstituteError("Could not parse replacement.");
       return;
@@ -542,6 +587,7 @@ export function ExpressionPad({
     commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
     setSubstituteError("");
     setShowSubstituteModal(false);
+    setSubstituteSuggestionJson(null);
   }
 
   function submitApplyOperation() {
@@ -927,6 +973,10 @@ export function ExpressionPad({
   const canApply = !!tree && mathPadFacade.isFlippableEquation(tree.rootJson);
   const canExpand = !!tree && !!expandTargetId;
   const canCancel = useMemo(() => mathPadFacade.canCancel(tree, selection), [tree, selection]);
+  const canToggleDelimiterStyle = useMemo(
+    () => mathPadFacade.canToggleDelimiterStyle(tree, selection),
+    [tree, selection]
+  );
   const canEvaluate = useMemo(
     () => mathPadFacade.canEvaluate(tree, selection),
     [tree, selection]
@@ -951,6 +1001,21 @@ export function ExpressionPad({
       return ExpressionTree.create(selectedExpr).latexPlain;
     }
     if (selection.kind === "multi") {
+      const span = mathPadFacade.multiSelectionAsSpan(tree, selection);
+      if (span) {
+        const parentPath = tree.pathById[span.parentId];
+        if (parentPath !== undefined) {
+          const parentExpr = getAtPath(tree.rootJson, parentPath) as MJ;
+          if (Array.isArray(parentExpr)) {
+            const kids = parentExpr.slice(1) as MJ[];
+            const chosen = kids.slice(span.start, span.end + 1);
+            if (chosen.length === 0) return "";
+            const selectedExpr =
+              chosen.length === 1 ? chosen[0] : ([span.op, ...chosen] as MJ);
+            return ExpressionTree.create(selectedExpr).latexPlain;
+          }
+        }
+      }
       const latexes = selection.nodeIds
         .map((id) => tree.nodesById[id]?.latex)
         .filter((s): s is string => !!s);
@@ -974,7 +1039,7 @@ export function ExpressionPad({
       const rhs = root[2] as MJ;
       if (!lhsMatchesSelected(lhs, selectedJson)) return [];
       const rhsLatex = ExpressionTree.create(rhs).latexPlain;
-      return [{ padIndex, rhsLatex }];
+      return [{ padIndex, rhsLatex, rhsJson: rhs }];
     });
   }, [otherPadSnapshots, substituteTargetId, tree]);
 
@@ -1161,6 +1226,8 @@ export function ExpressionPad({
                 canFactor={canFactor}
                 onCancelTerm={onCancelTerm}
                 canCancelTerm={canCancel}
+                onToggleDelimiterStyle={onToggleDelimiterStyle}
+                canToggleDelimiterStyle={canToggleDelimiterStyle}
                 onEvaluate={onEvaluate}
                 canEvaluate={canEvaluate}
                 onOpenApply={openApplyModal}
@@ -1202,7 +1269,10 @@ export function ExpressionPad({
         substituteLatexDraft={substituteLatexDraft}
         substituteInputMode={substituteInputMode}
         onSubstituteInputModeChange={setSubstituteInputMode}
-        onSubstituteLatexChange={setSubstituteLatexDraft}
+        onSubstituteLatexChange={(latex) => {
+          setSubstituteSuggestionJson(null);
+          setSubstituteLatexDraft(latex);
+        }}
         substituteFieldRef={substituteFieldRef}
         substituteTextFieldRef={substituteTextFieldRef}
         suggestions={substituteSuggestions}

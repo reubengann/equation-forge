@@ -52,6 +52,96 @@ function normalizeMul(factors: MJ[]): MJ {
   return ["InvisibleOperator", ...use] as MJNode;
 }
 
+function pullFactorOutOfDivide(args: {
+  tree: ExpressionTree;
+  divideId: string;
+  movedId: string;
+  targetSlot: 0 | 1;
+}): ExpressionTree | null {
+  const { tree, divideId, movedId, targetSlot } = args;
+  const dividePath = tree.pathById[divideId];
+  if (!dividePath) return null;
+  const extraction = extractFromDivide(tree, divideId, movedId);
+  if (!extraction) return null;
+  const { extractedExpr, updatedDivide } = extraction;
+
+  const nextExpr =
+    targetSlot === 0
+      ? normalizeMul([extractedExpr, updatedDivide])
+      : normalizeMul([updatedDivide, extractedExpr]);
+  const nextRoot = setAtPath(tree.rootJson, dividePath, nextExpr);
+  return ExpressionTree.create(nextRoot);
+}
+
+function extractFromDivide(
+  tree: ExpressionTree,
+  divideId: string,
+  movedId: string
+): { extractedExpr: MJ; updatedDivide: MJ } | null {
+  const dividePath = tree.pathById[divideId];
+  if (!dividePath) return null;
+  const divideExpr = getAtPath(tree.rootJson, dividePath) as MJNode;
+  if (!Array.isArray(divideExpr) || divideExpr[0] !== "Divide") return null;
+
+  const kids = tree.childrenById[divideId] ?? [];
+  if (kids.length !== 2) return null;
+  const [numeratorId, denominatorId] = kids;
+  const inNumerator = isAncestorOrSelf(tree, numeratorId, movedId);
+  const inDenominator = isAncestorOrSelf(tree, denominatorId, movedId);
+  if (inNumerator === inDenominator) return null;
+
+  const numeratorExpr = getAtPath(tree.rootJson, tree.pathById[numeratorId]!) as MJ;
+  const denominatorExpr = getAtPath(tree.rootJson, tree.pathById[denominatorId]!) as MJ;
+
+  let extractedExpr: MJ | null = null;
+  let nextNumerator: MJ = numeratorExpr;
+  let nextDenominator: MJ = denominatorExpr;
+
+  if (inNumerator) {
+    if (
+      Array.isArray(numeratorExpr) &&
+      (numeratorExpr[0] === "InvisibleOperator" || numeratorExpr[0] === "Multiply")
+    ) {
+      const numeratorKids = tree.childrenById[numeratorId] ?? [];
+      const idx = numeratorKids.indexOf(movedId);
+      if (idx < 0) return null;
+      const factors = numeratorExpr.slice(1) as MJ[];
+      extractedExpr = factors[idx] as MJ;
+      nextNumerator = normalizeMul(factors.filter((_, i) => i !== idx));
+    } else if (movedId === numeratorId) {
+      extractedExpr = numeratorExpr;
+      nextNumerator = 1;
+    } else {
+      return null;
+    }
+  } else {
+    if (
+      Array.isArray(denominatorExpr) &&
+      (denominatorExpr[0] === "InvisibleOperator" || denominatorExpr[0] === "Multiply")
+    ) {
+      const denominatorKids = tree.childrenById[denominatorId] ?? [];
+      const idx = denominatorKids.indexOf(movedId);
+      if (idx < 0) return null;
+      const factors = denominatorExpr.slice(1) as MJ[];
+      const extractedDenFactor = factors[idx] as MJ;
+      extractedExpr = ["Divide", 1, extractedDenFactor] as MJNode;
+      nextDenominator = normalizeMul(factors.filter((_, i) => i !== idx));
+    } else if (movedId === denominatorId) {
+      extractedExpr = ["Divide", 1, denominatorExpr] as MJNode;
+      nextDenominator = 1;
+    } else {
+      return null;
+    }
+  }
+
+  if (!extractedExpr) return null;
+  const updatedDivide: MJ =
+    isOneTerm(nextDenominator)
+      ? nextNumerator
+      : (["Divide", nextNumerator, nextDenominator] as MJNode);
+  return { extractedExpr, updatedDivide };
+}
+
 function findEqualSideRoot(
   tree: ExpressionTree,
   nodeId: string
@@ -162,6 +252,106 @@ export function applyMoveMultiplicative(
     const nextDot: MJNode = ["DotProduct", ...reordered];
     const nextRoot = setAtPath(tree.rootJson, dotPath, nextDot);
     return ExpressionTree.create(nextRoot);
+  }
+
+  // Pull a factor out of a fraction when the hover target is the Add that owns
+  // that fraction term (common for edge-drops in multiplicative mode).
+  if (targetSlot != null && tree.nodesById[hoverNodeId]?.op === "Add") {
+    const divideAncestor = (() => {
+      let cur: string | null = movedId;
+      while (cur) {
+        const p = tree.parentById[cur];
+        if (!p) return null;
+        if (tree.nodesById[p]?.op === "Divide") return p;
+        cur = p;
+      }
+      return null;
+    })();
+    if (divideAncestor && tree.parentById[divideAncestor] === hoverNodeId) {
+      const addKids = tree.childrenById[hoverNodeId] ?? [];
+      const divideIndex = addKids.indexOf(divideAncestor);
+      if (divideIndex >= 0) {
+        // targetSlot can be either:
+        // - full Add insertion slot space [0..kids.length] (manual/tests), or
+        // - compressed side-root slot space {0,1} from planner replace intents.
+        const edgeSlot =
+          addKids.length === 2 && (targetSlot === 0 || targetSlot === 1)
+            ? (targetSlot as 0 | 1)
+            : targetSlot === divideIndex
+              ? 0
+              : targetSlot === divideIndex + 1
+                ? 1
+                : targetSlot === 0
+                  ? 0
+                  : targetSlot === 1
+                    ? 1
+                    : null;
+        if (edgeSlot != null) {
+          const pulled = pullFactorOutOfDivide({
+            tree,
+            divideId: divideAncestor,
+            movedId,
+            targetSlot: edgeSlot as 0 | 1,
+          });
+          if (pulled) return pulled;
+        }
+      }
+    }
+  }
+
+  // Pull out of fraction when hovering a sibling factor in the same product.
+  if (targetSlot != null && tree.nodesById[fromParentId]?.op === "Divide") {
+    const divideId = fromParentId;
+    const parentMulId = tree.parentById[divideId];
+    const parentMulOp = parentMulId ? tree.nodesById[parentMulId]?.op : null;
+    const hoverParentId = tree.parentById[hoverNodeId];
+    const hoverInSameMul =
+      !!parentMulId &&
+      isMulOp(parentMulOp) &&
+      (hoverNodeId === parentMulId || hoverParentId === parentMulId);
+    if (hoverInSameMul) {
+      const mulKids = tree.childrenById[parentMulId!] ?? [];
+      const divideIndex = mulKids.indexOf(divideId);
+      const hoverIndex = mulKids.indexOf(hoverNodeId);
+      if (hoverIndex >= 0 && divideIndex >= 0 && hoverNodeId !== parentMulId) {
+        const extraction = extractFromDivide(tree, divideId, movedId);
+        if (!extraction) return null;
+        const { extractedExpr, updatedDivide } = extraction;
+        const parentPath = tree.pathById[parentMulId!];
+        if (!parentPath) return null;
+        const parentExpr = getAtPath(tree.rootJson, parentPath) as MJNode;
+        if (!Array.isArray(parentExpr)) return null;
+        const [, ...factors] = parentExpr;
+        const replaced = [...factors];
+        replaced[divideIndex] = updatedDivide;
+        const insertAfterHover = targetSlot === 1;
+        const insertionIndex = hoverIndex + (insertAfterHover ? 1 : 0);
+        const nextFactors = [
+          ...replaced.slice(0, insertionIndex),
+          extractedExpr,
+          ...replaced.slice(insertionIndex),
+        ];
+        const nextParent = normalizeMul(nextFactors as MJ[]);
+        const nextRoot = setAtPath(tree.rootJson, parentPath, nextParent);
+        return ExpressionTree.create(nextRoot);
+      } else {
+        const edgeSlot: 0 | 1 =
+          hoverIndex >= 0 && divideIndex >= 0
+            ? hoverIndex < divideIndex
+              ? 0
+              : 1
+            : targetSlot === 0
+              ? 0
+              : 1;
+        const pulled = pullFactorOutOfDivide({
+          tree,
+          divideId,
+          movedId,
+          targetSlot: edgeSlot,
+        });
+        if (pulled) return pulled;
+      }
+    }
   }
 
   let targetMulId: string | null = null;
@@ -519,60 +709,12 @@ export function applyMoveMultiplicative(
     tree.nodesById[hoverNodeId]?.op === "Divide" &&
     isAncestorOrSelf(tree, hoverNodeId, movedId)
   ) {
-    const divideId = hoverNodeId;
-    const dividePath = tree.pathById[divideId];
-    if (!dividePath) return null;
-    const divideExpr = getAtPath(tree.rootJson, dividePath) as MJNode;
-    if (!Array.isArray(divideExpr) || divideExpr[0] !== "Divide") return null;
-
-    const kids = tree.childrenById[divideId] ?? [];
-    if (kids.length !== 2) return null;
-    const [numeratorId, denominatorId] = kids;
-    if (!isAncestorOrSelf(tree, numeratorId, movedId)) return null;
-    if (isAncestorOrSelf(tree, denominatorId, movedId)) return null;
-
-    const movedIds = [movedId];
-
-    const numeratorExpr = getAtPath(tree.rootJson, tree.pathById[numeratorId]!) as MJ;
-    const denominatorExpr = getAtPath(tree.rootJson, tree.pathById[denominatorId]!) as MJ;
-    let extractedExpr: MJ | null = null;
-    let nextNumerator: MJ | null = null;
-
-    if (
-      Array.isArray(numeratorExpr) &&
-      (numeratorExpr[0] === "InvisibleOperator" || numeratorExpr[0] === "Multiply")
-    ) {
-      const numeratorKids = tree.childrenById[numeratorId] ?? [];
-      const indices = movedIds
-        .map((id) => numeratorKids.indexOf(id))
-        .filter((idx) => idx >= 0)
-        .sort((a, b) => a - b);
-      if (indices.length === 0) return null;
-      const factors = numeratorExpr.slice(1) as MJ[];
-      const idxSet = new Set(indices);
-      const extractedFactors = factors.filter((_, i) => idxSet.has(i));
-      const remainingFactors = factors.filter((_, i) => !idxSet.has(i));
-      extractedExpr = normalizeMul(extractedFactors);
-      nextNumerator = normalizeMul(remainingFactors);
-    } else if (movedId === numeratorId) {
-      extractedExpr = numeratorExpr;
-      nextNumerator = 1;
-    } else {
-      return null;
-    }
-
-    if (!extractedExpr || nextNumerator == null) return null;
-
-    const updatedDivide: MJ = ["Divide", nextNumerator, denominatorExpr];
-    const wrappedDivide: MJ =
-      nextNumerator === 1 ? (["Divide", 1, denominatorExpr] as MJ) : updatedDivide;
-
-    const nextExpr =
-      targetSlot === 0
-        ? normalizeMul([extractedExpr, wrappedDivide])
-        : normalizeMul([wrappedDivide, extractedExpr]);
-    const nextRoot = setAtPath(tree.rootJson, dividePath, nextExpr);
-    return ExpressionTree.create(nextRoot);
+    return pullFactorOutOfDivide({
+      tree,
+      divideId: hoverNodeId,
+      movedId,
+      targetSlot,
+    });
   }
 
   // Pull a factor out of a parenthesized multiplicative expression.

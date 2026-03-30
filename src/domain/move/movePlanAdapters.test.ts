@@ -234,5 +234,16 @@ describe("planToApplyMoveTarget", () => {
       hoverId: "del",
       targetSlot: 0,
     });
+
+    const pullOutFraction: MovePlan = {
+      kind: "PullOutOfFraction",
+      divideId: "div",
+      movedId: "m",
+      insertIndex: 1,
+    };
+    expect(planToApplyMoveTarget(pullOutFraction)).toEqual({
+      hoverId: "div",
+      targetSlot: 1,
+    });
   });
 });

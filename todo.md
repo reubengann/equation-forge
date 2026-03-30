@@ -39,10 +39,29 @@
     Once parsed, comes out as `'dq = du + P dv`. The prime is not in the correct position.
     Also, differentials like `dv` and `d'q ` should really be atomic.
 
-13. Feature: `\left(a + b - c d e\right) = f`, we should have a way to either add or remove the parentheses
-    surrounding the left-hand sum, since it's optional. Maybe a button.
-
-14. `\left(a + b + c d - c e\right) = f`
+13. `\left( a + b + c d - c e \right) = f`
     It should be able to factor c d - c e into c (d - e), but the factor button is grayed.
 
-15. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu
+14. `a = b c + \left[d + e\right] f`
+    Select `\left[d + e\right] f` with alt, go to replace function. The selected preview is
+    `[d+e](+1selected)` which is weird.
+    If you then choose to replace with zero, both terms get replaced. I.e., the result is
+    `a = b c + 0 0`
+
+15. `a = \frac{b c + \left[\left(d + e\right)\right] f}{g}`
+    If we select `b c` and move it additively outside the fraction, it shows up without
+    the denominator, which is mathematically false.
+
+16. `a = b + \frac{\left[c + d\right] e}{f}`
+    I can't move e multiplicatively outside the fraction on its own (i.e., I want
+    `a = b + \frac{\left[c + d\right]}{f} e` )
+    This should also work with the denominator, so I can subsequently do
+    `a = b + \left[c + d\right] \frac{e}{f}`
+
+17. `\frac{\partial{u}}{\partial{T}}\right)_{v}`
+    In a partial derivative, the inside part of the parentheses is selectable, but actually this whole thing including the parentheses should be atomic.
+
+18. Feature: `\left(a + b - c d e\right) = f`, we should have a way to either add or remove the parentheses
+    surrounding the left-hand sum, since it's optional. Maybe a button.
+
+19. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu

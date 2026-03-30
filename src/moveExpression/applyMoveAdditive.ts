@@ -349,6 +349,14 @@ export function applyMoveAdditive(args: {
     state = nextState;
   }
 
+  // If the LCA is a Divide, we still need to carry the payload through that
+  // fraction boundary (numerator -> payload/denominator) before any drop logic.
+  if (state.payload?.kind === "Expr" && tree.nodesById[r.lcaId]?.op === "Divide") {
+    const carried = stepUp(tree, state, r.lcaId, prevChildId);
+    if (!carried) return null;
+    state = carried;
+  }
+
   // It's possible that the target is a single term that is a child of an equals sign. If so,
   // and providing we've moved it to the other side, implicitly insert a sum there.
   if (state.payload?.kind === "Selection") {

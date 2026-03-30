@@ -25,6 +25,14 @@ describe("computeEngine custom dictionary", () => {
     ]);
   });
 
+  it("parses \\frac partial derivative into FractionPartialDerivative", () => {
+    expect(parse(String.raw`\frac{\partial u}{\partial T}`)).toEqual([
+      "FractionPartialDerivative",
+      ["Partial", "u"],
+      ["Partial", "T"],
+    ]);
+  });
+
   it("falls back to Divide when differential is missing", () => {
     expect(parse(String.raw`\dfrac{\differentialD f}{b}`)).toEqual([
       "Divide",
@@ -181,6 +189,48 @@ describe("computeEngine custom dictionary", () => {
     expect(mj).not.toBeNull();
     expect(JSON.stringify(mj)).toContain('"Partial"');
     expect(() => ExpressionTree.create(mj!)).not.toThrow();
+  });
+
+  it("normalizes plain differential tokens and d'q into atomic Differential nodes", () => {
+    const mj = parse(String.raw`d'q = du + P \, dv`);
+    expect(mj).not.toBeNull();
+    expect(JSON.stringify(mj)).toContain('"Differential"');
+    expect(JSON.stringify(mj)).toContain('"InexactDifferential"');
+    const tree = ExpressionTree.create(mj!);
+    expect(tree.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\mathrm{d}'{q} = \mathrm{d}{u} + P \mathrm{d}{v}`
+    );
+  });
+
+  it("normalizes \\mathrm{d}'q into InexactDifferential", () => {
+    const mj = parse(String.raw`\mathrm{d}'q = \mathrm{d}u + P \, \mathrm{d}v`);
+    expect(mj).not.toBeNull();
+    expect(JSON.stringify(mj)).toContain('"InexactDifferential"');
+    const tree = ExpressionTree.create(mj!);
+    expect(tree.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\mathrm{d}'{q} = \mathrm{d}{u} + P \mathrm{d}{v}`
+    );
+  });
+
+  it("keeps partial derivatives in fraction form inside subscripted coefficients", () => {
+    const mj = parse(
+      String.raw`du = \left(\dfrac{\partial u}{\partial T}\right)_v \, dT + \left(\dfrac{\partial u}{\partial v}\right)_T \, dv`
+    );
+    expect(mj).not.toBeNull();
+    const tree = ExpressionTree.create(mj!);
+    const latex = tree.latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toContain(String.raw`\frac{\partial{u}}{\partial{T}}`);
+    expect(latex).toContain(String.raw`\frac{\partial{u}}{\partial{v}}`);
+  });
+
+  it("round-trips user thermodynamics form with \\frac partials", () => {
+    const mj = parse(
+      String.raw`\mathrm{d}'{q} = \left(\frac{\partial{u}}{\partial{T}}\right)_{v}  \mathrm{d}{T} + \left(\frac{\partial{u}}{\partial{v}}\right)_{T}  \mathrm{d}{v} + P  \mathrm{d}{v}`
+    );
+    expect(mj).not.toBeNull();
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toContain(String.raw`\frac{\partial{u}}{\partial{T}}`);
+    expect(latex).toContain(String.raw`\frac{\partial{u}}{\partial{v}}`);
   });
 
   it("fixes blank integrals and fills tuple defaults", () => {

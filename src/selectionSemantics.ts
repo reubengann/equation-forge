@@ -12,6 +12,8 @@ export function normalizeSelection(
     if (
       op === "Negate" ||
       op === "Subscript" ||
+      op === "Differential" ||
+      op === "InexactDifferential" ||
       op === "OverVector" ||
       op === "Vector" ||
       op === "OverDot"

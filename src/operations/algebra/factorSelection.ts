@@ -219,7 +219,49 @@ function factorExpression(expr: MJ): MJ | null {
 }
 
 function computeFactoredRoot(tree: ExpressionTree, sel: ExprSelection): MJ | null {
-  if (sel.kind === "multi") return null;
+  if (sel.kind === "multi") {
+    const selectedIds = Array.from(new Set(sel.nodeIds));
+    if (selectedIds.length < 2) return null;
+
+    const mapToAddTerm = (
+      nodeId: string
+    ): { addId: string; termId: string; termIndex: number } | null => {
+      let cur: string | null = nodeId;
+      while (cur) {
+        const parentId = tree.parentById[cur];
+        if (!parentId) return null;
+        if (tree.nodesById[parentId]?.op === "Add") {
+          const idx = tree.childIndexById[cur];
+          if (idx == null) return null;
+          return { addId: parentId, termId: cur, termIndex: idx };
+        }
+        cur = parentId;
+      }
+      return null;
+    };
+
+    const mapped = selectedIds
+      .map((id) => mapToAddTerm(id))
+      .filter((v): v is { addId: string; termId: string; termIndex: number } => !!v);
+    if (mapped.length < 2) return null;
+
+    const addId = mapped[0].addId;
+    if (!mapped.every((m) => m.addId === addId)) return null;
+
+    const uniqueIdxs = Array.from(new Set(mapped.map((m) => m.termIndex))).sort((a, b) => a - b);
+    if (uniqueIdxs.length < 2) return null;
+    const start = uniqueIdxs[0];
+    const end = uniqueIdxs[uniqueIdxs.length - 1];
+    if (end - start + 1 !== uniqueIdxs.length) return null;
+
+    return computeFactoredRoot(tree, {
+      kind: "span",
+      parentId: addId,
+      op: "Add",
+      start,
+      end,
+    });
+  }
 
   if (sel.kind === "node") {
     const path = tree.pathById[sel.nodeId];
@@ -259,5 +301,11 @@ export function factorSelection(tree: ExpressionTree, sel: ExprSelection): Expre
 
 export function canFactorSelection(tree: ExpressionTree | null, sel: ExprSelection | null): boolean {
   if (!tree || !sel) return false;
-  return computeFactoredRoot(tree, sel) !== null;
+  if (computeFactoredRoot(tree, sel) !== null) return true;
+
+  // Be permissive for multi/span selections to avoid false negatives in UI enablement.
+  // The executor still performs full structural validation.
+  if (sel.kind === "multi") return sel.nodeIds.length >= 2;
+  if (sel.kind === "span") return sel.end > sel.start;
+  return false;
 }

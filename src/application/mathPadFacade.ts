@@ -16,6 +16,8 @@ import {
   substitute,
   substituteMany,
   substituteSpan,
+  toggleDelimiterStyle,
+  canToggleDelimiterStyle,
   type SubstituteScope,
 } from "../operations";
 import {
@@ -45,6 +47,7 @@ export type MathAction =
   | { type: "expand"; targetId?: string }
   | { type: "factor" }
   | { type: "cancel" }
+  | { type: "toggleDelimiterStyle" }
   | { type: "evaluate" }
   | { type: "applyToBothSides"; operationLatex: string }
   | {
@@ -93,6 +96,42 @@ function getSubstituteTargetId(
     selection.end === kids.length - 1;
 
   return isMultiplicative && coversAll ? selection.parentId : null;
+}
+
+function multiSelectionAsSpan(
+  tree: ExpressionTree,
+  selection: ExprSelection | null
+): { parentId: string; op: "Add" | "InvisibleOperator"; start: number; end: number } | null {
+  if (!selection || selection.kind !== "multi") return null;
+  const ids = Array.from(new Set(selection.nodeIds));
+  if (ids.length < 2) return null;
+
+  const firstParent = tree.parentById[ids[0]];
+  if (!firstParent) return null;
+  if (!ids.every((id) => tree.parentById[id] === firstParent)) return null;
+
+  const parentOpRaw = tree.nodesById[firstParent]?.op;
+  if (parentOpRaw !== "Add" && parentOpRaw !== "InvisibleOperator" && parentOpRaw !== "Multiply") {
+    return null;
+  }
+  const op: "Add" | "InvisibleOperator" =
+    parentOpRaw === "Add" ? "Add" : "InvisibleOperator";
+
+  const indices = ids
+    .map((id) => tree.childIndexById[id])
+    .filter((idx): idx is number => idx !== undefined)
+    .sort((a, b) => a - b);
+  if (indices.length !== ids.length) return null;
+  for (let i = 1; i < indices.length; i += 1) {
+    if (indices[i] !== indices[i - 1] + 1) return null;
+  }
+
+  return {
+    parentId: firstParent,
+    op,
+    start: indices[0],
+    end: indices[indices.length - 1],
+  };
 }
 
 function getExpandTargetId(
@@ -227,6 +266,12 @@ function applyAction(input: ApplyActionInput): ApplyActionResult {
     return { ok: true, tree: next };
   }
 
+  if (action.type === "toggleDelimiterStyle") {
+    const next = toggleDelimiterStyle(tree, selection);
+    if (!next) return { ok: false, reason: "No delimiter selected." };
+    return { ok: true, tree: next };
+  }
+
   if (action.type === "evaluate") {
     if (!selection) return { ok: false, reason: "No selection for evaluate." };
     const evalSelection = toEvaluationSelection(tree, selection);
@@ -260,12 +305,23 @@ function applyAction(input: ApplyActionInput): ApplyActionResult {
 
   let next: ExpressionTree | null = null;
   if (selection?.kind === "multi" && !action.targetId) {
-    next = substituteMany({
-      tree,
-      targetIds: selection.nodeIds,
-      replacement: action.replacement,
-      scope: action.scope,
-    });
+    const span = multiSelectionAsSpan(tree, selection);
+    if (span && action.scope === "single") {
+      next = substituteSpan({
+        tree,
+        parentId: span.parentId,
+        start: span.start,
+        end: span.end,
+        replacement: action.replacement,
+      });
+    } else {
+      next = substituteMany({
+        tree,
+        targetIds: selection.nodeIds,
+        replacement: action.replacement,
+        scope: action.scope,
+      });
+    }
   } else if (selection?.kind === "span" && !action.targetId) {
     next = substituteSpan({
       tree,
@@ -328,6 +384,13 @@ export const mathPadFacade = {
     return canCancelTerm(tree, selection);
   },
 
+  canToggleDelimiterStyle(
+    tree: ExpressionTree | null,
+    selection: ExprSelection | null
+  ): boolean {
+    return canToggleDelimiterStyle(tree, selection);
+  },
+
   canEvaluate(
     tree: ExpressionTree | null,
     selection: ExprSelection | null
@@ -341,6 +404,7 @@ export const mathPadFacade = {
 
   getExpandTargetId,
   getSubstituteTargetId,
+  multiSelectionAsSpan,
   toEvaluationSelection,
 
   resolveNodeId,

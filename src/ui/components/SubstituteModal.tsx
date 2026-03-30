@@ -21,7 +21,7 @@ type SubstituteModalProps = {
   substituteFieldRef: RefObject<any>;
   substituteTextFieldRef: RefObject<HTMLTextAreaElement | null>;
   suggestions?: { padIndex: number; rhsLatex: string }[];
-  onSuggestionPick?: (rhsLatex: string) => void;
+  onSuggestionPick?: (padIndex: number) => void;
   MathField: any;
   MathDiv: any;
 };
@@ -148,7 +148,7 @@ export function SubstituteModal({
                     <button
                       key={`pad-${s.padIndex}`}
                       type="button"
-                      onClick={() => onSuggestionPick?.(s.rhsLatex)}
+                      onClick={() => onSuggestionPick?.(s.padIndex)}
                       data-testid={`substitute-suggestion-pad-${s.padIndex}`}
                       style={{
                         display: "flex",

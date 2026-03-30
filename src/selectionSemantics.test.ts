@@ -318,4 +318,20 @@ describe("selectionSemantics.bubbleThroughUnary", () => {
     const norm = normalizeSelection(tree, xId);
     expect(norm).toBe(dotId);
   });
+
+  it("normalizeSelection bubbles through Differential and Subscript so v selects d{v}_P", () => {
+    const mj: MJ = ["Subscript", ["Differential", "v"], "P"];
+    const tree = ExpressionTree.create(mj);
+
+    const vId = findNodeId(tree, (n: any) => n.latex === "v");
+    const diffId = tree.parentById[vId];
+    expect(diffId).toBeTruthy();
+    expect(tree.nodesById[diffId!]?.op).toBe("Differential");
+    const subId = tree.parentById[diffId!];
+    expect(subId).toBeTruthy();
+    expect(tree.nodesById[subId!]?.op).toBe("Subscript");
+
+    const norm = normalizeSelection(tree, vId);
+    expect(norm).toBe(subId);
+  });
 });

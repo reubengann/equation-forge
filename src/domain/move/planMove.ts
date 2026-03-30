@@ -71,6 +71,12 @@ export type MovePlan =
       insertIndex: 0 | 1; // 0 = before inner factors, 1 = after
     }
   | {
+      kind: "PullOutOfFraction";
+      divideId: string;
+      movedId: string;
+      insertIndex: 0 | 1; // 0 = before fraction, 1 = after
+    }
+  | {
       kind: "MoveAcrossEqual";
       movedId: string;
 
@@ -755,6 +761,84 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
     }
   }
 
+  // Multiplicative: pulling a factor out of a fraction term often hovers the
+  // parent Add edge. Plan this as a wrap-around the Divide so executor receives
+  // hover=divide and targetSlot=0/1.
+  if (mode === "multiplicative" && tree.nodesById[movedParentId]?.op === "Divide") {
+    const targetForFraction = resolveHoverTarget({
+      tree,
+      hoverId,
+      pointer,
+      rectFor,
+      isContainerOp: (op?: string) => isMulOp(op) || op === "Add",
+    });
+    if (targetForFraction?.kind === "add") {
+      const addId = targetForFraction.addId;
+      if (tree.parentById[movedParentId] === addId) {
+        const addKids = tree.childrenById[addId] ?? [];
+        const divideIndex = addKids.indexOf(movedParentId);
+        if (divideIndex >= 0) {
+          const slot = computeSlotByMidpoints({
+            childIds: addKids,
+            pointerX: pointer.x,
+            rectFor,
+          });
+          if (slot >= 0) {
+            return {
+              kind: "WrapIntoAddThenInsert",
+              movedId,
+              fromAddId: addId,
+              fromIndex: divideIndex,
+              replaceId: movedParentId,
+              replaceParentId: addId,
+              replaceSlot: divideIndex,
+              insertIndex: slot <= divideIndex ? 0 : 1,
+            };
+          }
+        }
+      }
+    }
+  }
+
+  // Multiplicative: pulling a factor out of a fraction directly onto a sibling
+  // factor in the same product (e.g. drag denominator e onto f in (A/e) f).
+  if (mode === "multiplicative" && tree.nodesById[movedParentId]?.op === "Divide") {
+    const parentMulId = tree.parentById[movedParentId];
+    const parentMulOp = parentMulId ? tree.nodesById[parentMulId]?.op : null;
+    const hoverParentId = tree.parentById[hoverId];
+    const hoverInSameMul =
+      !!parentMulId &&
+      isMulOp(parentMulOp) &&
+      (hoverId === parentMulId || hoverParentId === parentMulId);
+
+    if (hoverInSameMul) {
+      const parentChildren = tree.childrenById[parentMulId!] ?? [];
+      const hoverRect = rectFor(hoverId);
+      let insertIndex: 0 | 1 = 1;
+      if (hoverId === parentMulId) {
+        const divideRect = rectFor(movedParentId);
+        if (divideRect) {
+          insertIndex = pointer.x < midX(divideRect) ? 0 : 1;
+        }
+      } else if (hoverRect) {
+        insertIndex = pointer.x < midX(hoverRect) ? 0 : 1;
+      } else {
+        const divideIndex = parentChildren.indexOf(movedParentId);
+        const hoverIndex = parentChildren.indexOf(hoverId);
+        if (hoverIndex >= 0 && divideIndex >= 0) {
+          insertIndex = hoverIndex < divideIndex ? 0 : 1;
+        }
+      }
+
+      return {
+        kind: "PullOutOfFraction",
+        divideId: movedParentId,
+        movedId,
+        insertIndex,
+      };
+    }
+  }
+
   const fromAddId = tree.parentById[movedId];
   if (!fromAddId) return null;
 
@@ -772,7 +856,12 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
     hoverId,
     pointer,
     rectFor,
-    isContainerOp,
+    // In multiplicative mode, we still want to detect Add side-roots so that
+    // edge drops around a fraction term can be routed to executor pull-out logic.
+    isContainerOp:
+      mode === "multiplicative"
+        ? (op?: string) => isMulOp(op) || op === "Add"
+        : isContainerOp,
   });
 
   // Multiplicative cross-equal: if source and hover are on opposite Equal sides, synthesize a MoveAcrossEqual.

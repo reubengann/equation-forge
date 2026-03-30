@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { treefromLatex, findNodeId, findNodeByLatex } from "./testHelpers";
 import type { RectLTRB } from "./rectMath";
 import { planMove } from "./planMove";
+import { planToApplyMoveTarget } from "./domain/move/movePlanAdapters";
 
 function isAncestorOrSelf(
   tree: ReturnType<typeof treefromLatex>,
@@ -161,6 +162,30 @@ describe("planMove", () => {
       fromIndex: 0,
       toIndex: 1,
     });
+  });
+
+  it("plans pulling denominator onto sibling factor in same product", () => {
+    const tree = treefromLatex(String.raw`a = b + \frac{\left[c+d\right]}{e} f`);
+    const eId = findNodeByLatex(tree, "e");
+    const fId = findNodeByLatex(tree, "f");
+    const divideId = tree.parentById[eId]!;
+    expect(tree.nodesById[divideId]?.op).toBe("Divide");
+
+    const plan = planMove({
+      tree,
+      selectedIds: [eId],
+      hoverId: fId,
+      pointer: { x: 95, y: 110 },
+      rectFor: rectProvider({
+        [fId]: { left: 90, right: 110, top: 100, bottom: 120 },
+        [divideId]: { left: 40, right: 80, top: 100, bottom: 120 },
+      }),
+      mode: "multiplicative",
+    });
+
+    expect(plan).not.toBeNull();
+    const target = planToApplyMoveTarget(plan);
+    expect(target).toEqual({ hoverId: divideId, targetSlot: 1 });
   });
 
   it("returns null if the index does not change", () => {

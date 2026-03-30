@@ -27,6 +27,10 @@ export function describeMovePlan(plan: MovePlan | null): string {
       return `Merge ${plan.movedId} into parenthesized product ${plan.delimiterId} ${
         plan.insertIndex === 0 ? "before" : "after"
       }`;
+    case "PullOutOfFraction":
+      return `Pull ${plan.movedId} out of fraction ${plan.divideId} ${
+        plan.insertIndex === 0 ? "before" : "after"
+      }`;
     case "MoveAcrossEqual": {
       const sideLabel = (side: 0 | 1) => (side === 0 ? "LHS" : "RHS");
       if (plan.drop.kind === "intoAdd") {
@@ -82,6 +86,8 @@ export function planToApplyMoveTarget(plan: MovePlan | null): {
       return { hoverId: plan.divideId, targetSlot: plan.insertIndex };
     case "MergeIntoDelimiterProduct":
       return { hoverId: plan.delimiterId, targetSlot: plan.insertIndex };
+    case "PullOutOfFraction":
+      return { hoverId: plan.divideId, targetSlot: plan.insertIndex };
     case "FactorOutOfIntegrate":
       return { hoverId: plan.integrateId, targetSlot: plan.insertIndex };
     case "MoveAcrossEqual":

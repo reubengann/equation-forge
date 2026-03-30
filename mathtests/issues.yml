@@ -327,3 +327,174 @@ scenarios:
       - name: flip equation after parsing
         action:
           type: flip
+  - version: 1
+    name: Issue 12 - prime position and atomic differentials
+    tags: [issue, parse, differential, prime]
+    initial:
+      latex: "d'q = du + P \\, dv"
+    steps:
+      - name: parse and preserve differential semantics
+        action:
+          type: flip
+        expect:
+          latex: "\\mathrm{d}{u} + P \\mathrm{d}{v} = \\mathrm{d}'{q}"
+  - version: 1
+    name: Issue 13 - factor c d - c e within lhs sum
+    tags: [issue, factor, additive]
+    initial:
+      latex: "\\left(a + b + c d - c e\\right) = f"
+    steps:
+      - name: factor last two lhs terms
+        select:
+          kind: span
+          parent:
+            latex: "a + b + c d - c e"
+          op: Add
+          start: 2
+          end: 3
+        action:
+          type: factor
+        expect:
+          latex: "\\left(a + b + c \\left(d - e\\right)\\right) = f"
+  - version: 1
+    name: Issue 13b - factor with multi-selection terms
+    tags: [issue, factor, multi]
+    initial:
+      latex: "\\left(a + b + c d - c e\\right) = f"
+    steps:
+      - name: factor selected cd and ce terms
+        select:
+          kind: multi
+          items:
+            - latex: "c d"
+            - latex: "c e"
+        action:
+          type: factor
+        expect:
+          latex: "\\left(a + b + c \\left(d - e\\right)\\right) = f"
+  - version: 1
+    name: Issue 14 - substitute contiguous multi product as one term
+    tags: [issue, substitute, multi, product]
+    initial:
+      latex: "a = b c + \\left[d + e\\right] f"
+    steps:
+      - name: substitute [d+e] and f selection with 0 once
+        select:
+          kind: multi
+          items:
+            - latex: "\\left[d + e\\right]"
+            - latex: "f"
+        action:
+          type: substitute
+          replacementLatex: "0"
+          scope: single
+        expect:
+          latex: "a = b c + 0"
+  - version: 1
+    name: Issue 15 - additive move out of numerator keeps denominator
+    tags: [issue, move, additive, fraction]
+    initial:
+      latex: "a = \\frac{b c + \\left[\\left(d + e\\right)\\right] f}{g}"
+    steps:
+      - name: move b c out of fraction additively
+        select:
+          kind: node
+          path: [2, 1, 1]
+        action:
+          type: move
+          hover:
+            path: [2]
+          targetSlot: 1
+          mode: additive
+        expect:
+          latex: "a = \\frac{\\left[\\left(d + e\\right)\\right] f}{g} + \\frac{b c}{g}"
+  - version: 1
+    name: Issue 16a - pull e outside fraction multiplicatively
+    tags: [issue, move, multiplicative, fraction]
+    initial:
+      latex: "a = b + \\frac{\\left[c + d\\right] e}{f}"
+    steps:
+      - name: move e to right of fraction term
+        select:
+          kind: node
+          path: [2, 2, 1, 2]
+        action:
+          type: move
+          hover:
+            path: [2]
+          targetSlot: 1
+          mode: multiplicative
+        expect:
+          latex: "a = b + \\frac{\\left[c + d\\right]}{f} e"
+  - version: 1
+    name: Issue 16b - pull denominator outside as reciprocal
+    tags: [issue, move, multiplicative, fraction]
+    initial:
+      latex: "a = b + \\frac{\\left[c + d\\right] e}{f}"
+    steps:
+      - name: move denominator f outside fraction
+        select:
+          kind: node
+          path: [2, 2, 2]
+        action:
+          type: move
+          hover:
+            path: [2, 2]
+          targetSlot: 1
+          mode: multiplicative
+        expect:
+          latex: "a = b + \\left[c + d\\right] e \\frac{1}{f}"
+  - version: 1
+    name: Issue 16c - pull d v_P outside thermodynamics fraction
+    tags: [issue, move, multiplicative, fraction, differential]
+    initial:
+      latex: "c_{P} = c_{V} + \\frac{\\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right] \\mathrm{d}{v}_{P}}{\\mathrm{d}{T}_{P}}"
+    steps:
+      - name: move d v_P to right of fraction term
+        select:
+          kind: node
+          latex: "\\mathrm{d}{v}_{P}"
+        action:
+          type: move
+          hover:
+            path: [2]
+          targetSlot: 1
+          mode: multiplicative
+        expect:
+          latex: "c_{P} = c_{V} + \\frac{\\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right]}{\\mathrm{d}{T}_{P}} \\mathrm{d}{v}_{P}"
+  - version: 1
+    name: Issue 16d - pull denominator d T_P outside thermodynamics fraction
+    tags: [issue, move, multiplicative, fraction, differential]
+    initial:
+      latex: "c_{P} = c_{V} + \\frac{\\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right] \\mathrm{d}{v}_{P}}{\\mathrm{d}{T}_{P}}"
+    steps:
+      - name: move denominator d T_P to right of fraction term
+        select:
+          kind: node
+          latex: "\\mathrm{d}{T}_{P}"
+        action:
+          type: move
+          hover:
+            path: [2]
+          targetSlot: 1
+          mode: multiplicative
+        expect:
+          latex: "c_{P} = c_{V} + \\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right] \\mathrm{d}{v}_{P} \\frac{1}{\\mathrm{d}{T}_{P}}"
+  - version: 1
+    name: Issue 16e - pull denominator directly onto sibling factor
+    tags: [issue, move, multiplicative, fraction]
+    initial:
+      latex: "a = b + \\frac{\\left[c + d\\right]}{e} f"
+    steps:
+      - name: drag e onto f to form f/e
+        select:
+          kind: node
+          latex: "e"
+        action:
+          type: move
+          hover:
+            latex: "f"
+          targetSlot: 1
+          mode: multiplicative
+        expect:
+          latex: "a = b + \\left[c + d\\right] f \\frac{1}{e}"

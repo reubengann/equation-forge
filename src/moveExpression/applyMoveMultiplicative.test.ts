@@ -254,6 +254,91 @@ describe("applyMoveMultiplicative executor", () => {
     );
   });
 
+  it("pulls numerator factor out of fraction when hovering parent Add edge", () => {
+    const next = runMove({
+      latex: String.raw`a = b + \frac{\left[c+d\right] e}{f}`,
+      select: (tree) => [findNodeByLatex(tree, "e")],
+      hover: (tree) => {
+        const rhsAddId = tree.childrenById[tree.rootId!]?.[1];
+        if (!rhsAddId) throw new Error("Missing RHS Add");
+        return rhsAddId;
+      },
+      targetSlot: 2, // right edge of fraction term inside RHS Add
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`a = b + \frac{\left[c + d\right]}{f} e`
+    );
+  });
+
+  it("treats compressed add slot=1 as right edge for pull-out", () => {
+    const next = runMove({
+      latex: String.raw`a = b + \frac{\left[c+d\right] e}{f}`,
+      select: (tree) => [findNodeByLatex(tree, "e")],
+      hover: (tree) => {
+        const rhsAddId = tree.childrenById[tree.rootId!]?.[1];
+        if (!rhsAddId) throw new Error("Missing RHS Add");
+        return rhsAddId;
+      },
+      targetSlot: 1, // planner-compressed slot space for side-root hover
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`a = b + \frac{\left[c + d\right]}{f} e`
+    );
+  });
+
+  it("pulls denominator factor outside fraction as reciprocal", () => {
+    const next = runMove({
+      latex: String.raw`a = b + \frac{\left[c+d\right] e}{f}`,
+      select: (tree) => [findNodeByLatex(tree, "f")],
+      hover: (tree) => {
+        const divideId = findNodeId(tree, (n) => n.op === "Divide");
+        return divideId;
+      },
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`a = b + \left[c + d\right] e \frac{1}{f}`
+    );
+  });
+
+  it("pulls denominator directly when hovering sibling factor", () => {
+    const next = runMove({
+      latex: String.raw`a = b + \frac{\left[c+d\right]}{e} f`,
+      select: (tree) => [findNodeByLatex(tree, "e")],
+      hover: (tree) => [findNodeByLatex(tree, "f")][0],
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`a = b + \left[c + d\right] f \frac{1}{e}`
+    );
+  });
+
+  it("pulls d{v}_P outside thermodynamics fraction numerator", () => {
+    const next = runMove({
+      latex: String.raw`c_{P} = c_{V} + \frac{\left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right] \mathrm{d}{v}_{P}}{\mathrm{d}{T}_{P}}`,
+      select: (tree) => [findNodeByLatex(tree, String.raw`\mathrm{d}{v}_{P}`)],
+      hover: (tree) => {
+        const rhsAddId = tree.childrenById[tree.rootId!]?.[1];
+        if (!rhsAddId) throw new Error("Missing RHS Add");
+        return rhsAddId;
+      },
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`c_{P} = c_{V} + \frac{\left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right]}{\mathrm{d}{T}_{P}} \mathrm{d}{v}_{P}`
+    );
+  });
+
   it("reorders Delta t as an atomic pair inside numerator product", () => {
     const nextFromDelta = runMove({
       latex: String.raw`a = \frac{\left(b+c\right) \Delta t}{d}`,

@@ -67,14 +67,23 @@ function injectImplicitOneInIntegrals(latex: string): string {
   });
 }
 
+function promotePartialFracToDfrac(latex: string): string {
+  // Ensure \frac{\partial ...}{\partial ...} hits our custom derivative parser.
+  // The CE built-in \frac path can collapse this shape in larger expressions.
+  return latex.replace(/\\frac(?=\s*\{\s*\\partial\b)/g, "\\dfrac");
+}
+
 export function parse(latex: string): MJ | null {
   const prefilled = injectImplicitOneInIntegrals(latex);
+  const withPartialFractionsPromoted = promotePartialFracToDfrac(prefilled);
 
   // Special-case bare differential integrals before general parsing.
-  const special = parseIntegralWithDifferentialOnly(prefilled);
+  const special = parseIntegralWithDifferentialOnly(withPartialFractionsPromoted);
   if (special) return special;
 
-  const prepared = normalizeVectorMacros(toMathLiveLatex(prefilled));
+  const prepared = normalizeVectorMacros(
+    toMathLiveLatex(withPartialFractionsPromoted)
+  );
   const mj = (ce.parse(prepared, { canonical: false })?.json as MJ) ?? null;
   return normalizeMathJson(mj);
 }
@@ -84,7 +93,9 @@ export function normalizeMathJson(mj: MJ | null): MJ | null {
     normalizeDotProducts(
       rewriteNegateToFrontOfProduct(
         normalizeDeltaOfQuantity(
-          normalizePartialDerivativeForms(normalizeProducts(normalizeVectors(mj)))
+          normalizePlainDifferentials(
+            normalizePartialDerivativeForms(normalizeProducts(normalizeVectors(mj)))
+          )
         )
       )
     )
@@ -112,14 +123,151 @@ function normalizePartialDerivativeForms(mj: MJ | null): MJ | null {
     normalizePartialDerivativeForms(child as MJ)
   ) as MJ[];
 
+  const isPartial = (expr: MJ | null | undefined): expr is MJ =>
+    Array.isArray(expr) && expr[0] === "Partial";
+  const isDifferential = (expr: MJ | null | undefined): expr is MJ =>
+    Array.isArray(expr) && expr[0] === "Differential";
+  const extractPartialOperand = (expr: MJ | null | undefined): MJ | null => {
+    if (expr == null) return null;
+    const unwrapped = unwrapNothingPair(expr);
+    if (!Array.isArray(unwrapped)) return null;
+
+    if (unwrapped[0] === "Partial") {
+      return (unwrapped[1] ?? null) as MJ | null;
+    }
+    if (unwrapped[0] === "PartialDerivative") {
+      const raw = unwrapNothingPair((unwrapped[1] ?? "Nothing") as MJ);
+      return raw === "Nothing" ? null : (raw as MJ);
+    }
+    if (unwrapped[0] === "InvisibleOperator" || unwrapped[0] === "Multiply") {
+      const factors = unwrapped.slice(1) as MJ[];
+      if (factors.length < 2) return null;
+      const first = unwrapNothingPair(factors[0] as MJ);
+      if (first === "PartialD") return factors[1] as MJ;
+      if (Array.isArray(first) && first[0] === "Partial") {
+        return (first[1] ?? null) as MJ | null;
+      }
+      if (Array.isArray(first) && first[0] === "PartialDerivative") {
+        return factors[1] as MJ;
+      }
+    }
+    return null;
+  };
+
+  if (op === "Divide" && kids.length >= 2) {
+    const num = kids[0] as MJ;
+    const den = kids[1] as MJ;
+    const numPartialOperand = extractPartialOperand(num);
+    const denPartialOperand = extractPartialOperand(den);
+    if (numPartialOperand && denPartialOperand) {
+      return [
+        "FractionPartialDerivative",
+        ["Partial", numPartialOperand] as MJ,
+        ["Partial", denPartialOperand] as MJ,
+      ] as MJ;
+    }
+    if (isPartial(num) && isPartial(den)) {
+      return ["FractionPartialDerivative", num, den] as MJ;
+    }
+    if (isDifferential(num) && isDifferential(den)) {
+      return ["FractionDerivative", num, den] as MJ;
+    }
+  }
+
   if (op === "PartialDerivative") {
-    const rawOperand = unwrapNothingPair((kids[0] ?? "Nothing") as MJ);
-    if (rawOperand === "Nothing") return "PartialD";
-    return ["Partial", rawOperand] as MJ;
+    const rawNumerator = unwrapNothingPair((kids[0] ?? "Nothing") as MJ);
+    const rawDenominator = unwrapNothingPair((kids[1] ?? "Nothing") as MJ);
+    const hasNumerator = rawNumerator !== "Nothing";
+    const hasDenominator = rawDenominator !== "Nothing";
+
+    if (!hasNumerator) return "PartialD";
+    if (hasDenominator) {
+      return [
+        "FractionPartialDerivative",
+        ["Partial", rawNumerator] as MJ,
+        ["Partial", rawDenominator] as MJ,
+      ] as MJ;
+    }
+    return ["Partial", rawNumerator] as MJ;
+  }
+
+  if ((op === "InvisibleOperator" || op === "Multiply") && kids.length >= 2) {
+    const first = unwrapNothingPair((kids[0] ?? null) as MJ);
+    if (first === "PartialD") {
+      return ["Partial", kids[1] as MJ] as MJ;
+    }
   }
 
   return [op, ...kids] as MJ;
 }
+
+function normalizePlainDifferentials(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+
+  const op = mj[0];
+  const kids = mj.slice(1).map((child) =>
+    normalizePlainDifferentials(child as MJ)
+  ) as MJ[];
+
+  if (op !== "InvisibleOperator" && op !== "Multiply") {
+    return [op, ...kids] as MJ;
+  }
+
+  const out: MJ[] = [];
+  for (let i = 0; i < kids.length; i += 1) {
+    const cur = kids[i];
+    const next = kids[i + 1];
+    const prev = i > 0 ? kids[i - 1] : null;
+    const curIsPlainD = cur === "d";
+    const curIsPrimeD =
+      Array.isArray(cur) &&
+      cur[0] === "Prime" &&
+      (cur[1] === "d" || cur[1] === "DifferentialD");
+    const curIsPrimeDifferentialNode =
+      Array.isArray(cur) &&
+      cur[0] === "Prime" &&
+      Array.isArray(cur[1]) &&
+      cur[1][0] === "Differential" &&
+      cur[1][1] !== undefined;
+    const canCombine = next !== undefined;
+    const startsTerm = i === 0;
+    const followsExplicitSpacing =
+      Array.isArray(prev) && prev[0] === "HorizontalSpacing";
+    const allowedContext = startsTerm || followsExplicitSpacing;
+
+    if (curIsPrimeDifferentialNode) {
+      out.push(["InexactDifferential", (cur[1] as MJ[])[1]] as MJ);
+      continue;
+    }
+
+    if ((curIsPlainD || curIsPrimeD) && canCombine && allowedContext) {
+      if (curIsPrimeD) {
+        out.push(["InexactDifferential", next] as MJ);
+      } else {
+        out.push(["Differential", next] as MJ);
+      }
+      i += 1;
+      continue;
+    }
+
+    out.push(cur);
+  }
+
+  if (out.length === 1) return out[0];
+  return ["InvisibleOperator", ...out] as MJ;
+}
+
+const inexactDifferentialEntry: LatexDictionaryEntry = {
+  name: "InexactDifferential",
+  kind: "expression",
+  serialize: (serializer, expr) => {
+    if (!Array.isArray(expr)) return String.raw`\mathrm{d}'`;
+    const operand = (expr[1] ?? null) as Expression | null;
+    const inner = serializer.wrap(operand, 0);
+    return String.raw`\mathrm{d}'{${inner}}`;
+  },
+};
 
 function normalizeDeltaOfQuantity(mj: MJ | null): MJ | null {
   if (mj === null || mj === undefined) return mj;
@@ -550,6 +698,14 @@ const fractionDerivativeEntry: LatexDictionaryEntry = {
   },
 };
 
+const fractionDerivativeFracEntry: LatexDictionaryEntry = {
+  name: "FractionDerivativeFrac",
+  kind: "expression",
+  latexTrigger: "\\frac",
+  parse: fractionDerivativeEntry.parse,
+  serialize: fractionDerivativeEntry.serialize,
+};
+
 const fractionPartialDerivativeEntry: LatexDictionaryEntry = {
   name: "FractionPartialDerivative",
   kind: "expression",
@@ -693,11 +849,13 @@ export function evaluateRaw(mj: MJ) {
 
 ce.latexDictionary = [
   deltaOfQuantityEntry,
+  inexactDifferentialEntry,
   vectorEntry,
   partialEntry,
   differentialEntry,
   fractionPartialDerivativeEntry,
   fractionDerivativeEntry,
+  fractionDerivativeFracEntry,
   overDotEntry,
   dotEntry,
   ddotEntry,
