@@ -119,6 +119,48 @@ export interface PlanMoveArgs {
   mode?: MoveMode;
 }
 
+function promoteAdditiveMovedId(
+  tree: ExpressionTree,
+  normalizedSelectedIds: string[],
+  movedId: string
+): string {
+  const climbToAddTerm = (startId: string): string => {
+    let termId = startId;
+    while (true) {
+      const parentId = tree.parentById[termId];
+      if (!parentId) return startId;
+      const parentOp = tree.nodesById[parentId]?.op;
+      if (parentOp === "Delimiter" || parentOp === "Negate") {
+        termId = parentId;
+        continue;
+      }
+      return parentOp === "Add" ? termId : startId;
+    }
+  };
+
+  if (normalizedSelectedIds.length === 1) {
+    const onlyId = normalizedSelectedIds[0];
+    const onlyOp = tree.nodesById[onlyId]?.op;
+    if (onlyOp === "InvisibleOperator" || onlyOp === "Multiply") {
+      return climbToAddTerm(onlyId);
+    }
+    return movedId;
+  }
+
+  const parentId = tree.parentById[normalizedSelectedIds[0]];
+  if (!parentId) return movedId;
+  const parentOp = tree.nodesById[parentId]?.op;
+  if (parentOp !== "InvisibleOperator" && parentOp !== "Multiply") return movedId;
+  if (!normalizedSelectedIds.every((id) => tree.parentById[id] === parentId)) {
+    return movedId;
+  }
+  const children = tree.childrenById[parentId] ?? [];
+  if (children.length === 0) return movedId;
+  const selectedSet = new Set(normalizedSelectedIds);
+  if (!children.every((id) => selectedSet.has(id))) return movedId;
+  return climbToAddTerm(parentId);
+}
+
 function findEqualSideRoot(
   tree: ExpressionTree,
   nodeId: string
@@ -233,6 +275,9 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
 
   const movedRawId = normalizedSelectedIds[0];
   let movedId = normalizeSelection(tree, movedRawId);
+  if (mode === "additive") {
+    movedId = promoteAdditiveMovedId(tree, normalizedSelectedIds, movedId);
+  }
   const movedIsVector =
     hasVectorAncestor(tree, movedId) || hasVectorAncestor(tree, movedRawId);
 

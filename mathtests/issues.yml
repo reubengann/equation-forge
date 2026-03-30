@@ -241,3 +241,80 @@ scenarios:
           operationLatex: "eqn*d"
         expect:
           latex: "a d = b d - c d"
+  - version: 1
+    name: Issue 8 - move c into left parentheses
+    tags: [issue, move, additive, parentheses]
+    initial:
+      latex: "\\left(a + b\\right) - \\left(c + d\\right) = e"
+    steps:
+      - name: move c additively into left group
+        select:
+          kind: node
+          latex: "c"
+        action:
+          type: move
+          hover:
+            latex: "a + b"
+          targetSlot: 2
+          mode: additive
+        expect:
+          latex: "\\left(a + b - c\\right) - \\left(d\\right) = e"
+  - version: 1
+    name: Issue 9 - substitute supports multi-selection
+    tags: [issue, substitute, multi]
+    initial:
+      latex: "\\left(a - c + b\\right) - \\left(d\\right) = e"
+    steps:
+      - name: substitute a and c with z
+        select:
+          kind: multi
+          items:
+            - latex: "a"
+            - latex: "c"
+        action:
+          type: substitute
+          replacementLatex: "z"
+          scope: single
+        expect:
+          latex: "\\left(z - z + b\\right) - \\left(d\\right) = e"
+  - version: 1
+    name: Issue 9b - substitute supports span selection
+    tags: [issue, substitute, span]
+    initial:
+      latex: "\\left(a - c + b\\right) - \\left(d\\right) = e"
+    steps:
+      - name: substitute first two terms in additive span with z
+        select:
+          kind: span
+          parent:
+            latex: "a - c + b"
+          op: Add
+          start: 0
+          end: 1
+        action:
+          type: substitute
+          replacementLatex: "z"
+          scope: single
+        expect:
+          latex: "\\left(z + b\\right) - \\left(d\\right) = e"
+  - version: 1
+    name: Issue 10 - move c d e into left parentheses
+    tags: [issue, move, additive, multi, parentheses]
+    initial:
+      latex: "\\left(a + b\\right) - \\left(c d e\\right) = f"
+    steps:
+      - name: move c d e additively into left group
+        select:
+          kind: multi
+          items:
+            - latex: "c"
+            - latex: "d"
+            - latex: "e"
+        action:
+          type: move
+          hover:
+            latex: "a + b"
+          targetSlot: 2
+          mode: additive
+        expect:
+          latex: "\\left(a + b - c d e\\right) = f"

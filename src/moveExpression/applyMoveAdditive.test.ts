@@ -312,6 +312,29 @@ describe("applyMove", () => {
       String.raw`x_{n+1}=x_{n}+\frac{(a+b+2\Deltat)}{2}`
     );
   });
+
+  it("moves selected c d e term into left additive group", () => {
+    const tree = treefromLatex(String.raw`\left(a + b\right) - \left(c d e\right) = f`);
+    const cId = findNodeByLatex(tree, "c");
+    const dId = findNodeByLatex(tree, "d");
+    const eId = findNodeByLatex(tree, "e");
+    const leftAddId = findNodeId(
+      tree,
+      (n) => n.op === "Add" && n.latex.replace(/\s+/g, " ").includes("a + b")
+    );
+
+    const result = applyMove({
+      tree,
+      selectedIds: [cId, dId, eId],
+      hoverId: leftAddId,
+      targetSlot: 2,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\left(a + b - c d e\right) = f`
+    );
+  });
 });
 
 describe("stepUp", () => {

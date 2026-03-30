@@ -14,6 +14,8 @@ import {
   flipEquation,
   isFlippableEquation,
   substitute,
+  substituteMany,
+  substituteSpan,
   type SubstituteScope,
 } from "../operations";
 import {
@@ -256,14 +258,32 @@ function applyAction(input: ApplyActionInput): ApplyActionResult {
     return { ok: true, tree: next };
   }
 
-  const targetId = action.targetId ?? getSubstituteTargetId(tree, selection);
-  if (!targetId) return { ok: false, reason: "No substitute target selected." };
-  const next = substitute({
-    tree,
-    targetId,
-    replacement: action.replacement,
-    scope: action.scope,
-  });
+  let next: ExpressionTree | null = null;
+  if (selection?.kind === "multi" && !action.targetId) {
+    next = substituteMany({
+      tree,
+      targetIds: selection.nodeIds,
+      replacement: action.replacement,
+      scope: action.scope,
+    });
+  } else if (selection?.kind === "span" && !action.targetId) {
+    next = substituteSpan({
+      tree,
+      parentId: selection.parentId,
+      start: selection.start,
+      end: selection.end,
+      replacement: action.replacement,
+    });
+  } else {
+    const targetId = action.targetId ?? getSubstituteTargetId(tree, selection);
+    if (!targetId) return { ok: false, reason: "No substitute target selected." };
+    next = substitute({
+      tree,
+      targetId,
+      replacement: action.replacement,
+      scope: action.scope,
+    });
+  }
   if (!next) return { ok: false, reason: "Substitution failed." };
   return { ok: true, tree: next };
 }
@@ -292,6 +312,15 @@ export const mathPadFacade = {
     selection: ExprSelection | null
   ): boolean {
     if (!tree) return false;
+    if (selection?.kind === "multi") return selection.nodeIds.length > 0;
+    if (selection?.kind === "span") {
+      return (
+        (tree.childrenById[selection.parentId] ?? []).slice(
+          selection.start,
+          selection.end + 1
+        ).length > 0
+      );
+    }
     return getSubstituteTargetId(tree, selection) != null;
   },
 

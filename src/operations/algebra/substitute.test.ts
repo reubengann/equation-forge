@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { substitute } from "./substitute";
+import { substitute, substituteMany, substituteSpan } from "./substitute";
 import { findNodeByLatex, makeMJfromLatex, treefromLatex } from "../../testHelpers";
 
 describe("substitute", () => {
@@ -68,6 +68,44 @@ describe("substitute", () => {
     expect(result).not.toBeNull();
     expect(result?.latexPlain.replace(/\s+/g, " ").trim()).toBe(
       String.raw`2 \left(a + b\right) - x_{1}`
+    );
+  });
+
+  it("replaces all explicitly selected nodes for multi selection", () => {
+    const tree = treefromLatex(String.raw`\left(a - c + b\right) - \left(d\right) = e`);
+    const aId = findNodeByLatex(tree, String.raw`a`);
+    const cId = findNodeByLatex(tree, String.raw`c`);
+    const replacement = makeMJfromLatex(String.raw`z`);
+
+    const result = substituteMany({
+      tree,
+      targetIds: [aId, cId],
+      replacement,
+      scope: "single",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\left(z - z + b\right) - \left(d\right) = e`
+    );
+  });
+
+  it("replaces a span as a single expression", () => {
+    const tree = treefromLatex(String.raw`\left(a - c + b\right) - \left(d\right) = e`);
+    const addId = findNodeByLatex(tree, String.raw`a - c + b`);
+    const replacement = makeMJfromLatex(String.raw`z`);
+
+    const result = substituteSpan({
+      tree,
+      parentId: addId,
+      start: 0,
+      end: 1,
+      replacement,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\left(z + b\right) - \left(d\right) = e`
     );
   });
 });

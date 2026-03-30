@@ -61,6 +61,52 @@ function normalizeMul(factors: MJ[]): MJ {
   return ["InvisibleOperator", ...use] as MJNode;
 }
 
+function promoteToAdditiveTermRoot(
+  tree: ExpressionTree,
+  selectedIds: string[]
+): string[] {
+  const normalized = selectedIds.map((id) => normalizeSelection(tree, id));
+  if (normalized.length === 0) return selectedIds;
+
+  const promoteMulTerm = (mulId: string): string[] => {
+    let termId = mulId;
+    while (true) {
+      const parentId = tree.parentById[termId];
+      if (!parentId) return [mulId];
+      const parentOp = tree.nodesById[parentId]?.op;
+      if (parentOp === "Delimiter" || parentOp === "Negate") {
+        termId = parentId;
+        continue;
+      }
+      if (parentOp === "Add") return [termId];
+      return [mulId];
+    }
+  };
+
+  if (normalized.length === 1) {
+    const only = normalized[0];
+    const onlyOp = tree.nodesById[only]?.op;
+    if (onlyOp === "InvisibleOperator" || onlyOp === "Multiply") {
+      return promoteMulTerm(only);
+    }
+    return normalized;
+  }
+
+  const parentId = tree.parentById[normalized[0]];
+  if (!parentId) return normalized;
+  const parentOp = tree.nodesById[parentId]?.op;
+  if (parentOp !== "InvisibleOperator" && parentOp !== "Multiply") return normalized;
+  if (!normalized.every((id) => tree.parentById[id] === parentId)) return normalized;
+
+  const kids = tree.childrenById[parentId] ?? [];
+  if (kids.length === 0) return normalized;
+  const selectedSet = new Set(normalized);
+  const allSelected = kids.every((id) => selectedSet.has(id));
+  if (!allSelected) return normalized;
+
+  return promoteMulTerm(parentId);
+}
+
 export function stepCrossEqual(state: State): State | null {
   if (state.payload == null) return null;
   if (state.payload.kind !== "Expr") return null;
@@ -106,10 +152,11 @@ export function applyMoveAdditive(args: {
   const { tree, selectedIds, hoverId, targetSlot } = args;
   if (targetSlot == null) return null;
   if (selectedIds.length < 1) return null;
+  const effectiveSelectedIds = promoteToAdditiveTermRoot(tree, selectedIds);
 
   // Handle multi-term moves when all selected terms are contiguous siblings in an Add
-  if (selectedIds.length > 1) {
-    const normIds = selectedIds.map((id) => normalizeSelection(tree, id));
+  if (effectiveSelectedIds.length > 1) {
+    const normIds = effectiveSelectedIds.map((id) => normalizeSelection(tree, id));
     const parentId = tree.parentById[normIds[0]];
     if (!parentId) return null;
     const parentOp = tree.nodesById[parentId]?.op;
@@ -264,7 +311,7 @@ export function applyMoveAdditive(args: {
     return ExpressionTree.create(rootAfterInsert);
   }
 
-  const fromIdRaw = selectedIds[0];
+  const fromIdRaw = effectiveSelectedIds[0];
   const fromId = normalizeSelection(tree, fromIdRaw);
   // Allow moving a whole fraction (Divide) as a term, but still forbid lifting
   // through Divide when the selection is inside numerator/denominator. The actual
@@ -413,7 +460,7 @@ function rewriteAddRemovingChildren(
   for (let i = 0; i < kids.length; i++) {
     if (!removeIdxs.has(i)) remain.push(kids[i]);
   }
-  return normalizeAdd(remain);
+  return normalizeAdd(remain, { preserveWrapper: true });
 }
 
 export function stepUp(
@@ -549,6 +596,11 @@ export function stepUp(
     return { ...state, payload: { kind: "Expr", mj: nextPayload } };
   }
 
+  // Carry through grouping wrappers (e.g. \left( ... \right)) without changing payload.
+  if (op === "Delimiter") {
+    return state;
+  }
+
   // -------------------------
   // 3) Default: no-op for other ops (for now)
   // -------------------------
@@ -562,6 +614,27 @@ function asAddChildren(expr: MJ): MJ[] {
 
 function buildAdd(children: MJ[]): MJ {
   return normalizeAdd(children);
+}
+
+function stripRedundantDelimiterForAddPayload(mj: MJ): MJ {
+  if (
+    Array.isArray(mj) &&
+    mj[0] === "Negate" &&
+    Array.isArray(mj[1]) &&
+    mj[1][0] === "Delimiter"
+  ) {
+    const inner = mj[1][1] as MJ;
+    if (!Array.isArray(inner) || (inner[0] !== "Add" && inner[0] !== "Equal")) {
+      return ["Negate", inner] as MJNode;
+    }
+  }
+  if (Array.isArray(mj) && mj[0] === "Delimiter") {
+    const inner = mj[1] as MJ;
+    if (!Array.isArray(inner) || (inner[0] !== "Add" && inner[0] !== "Equal")) {
+      return inner;
+    }
+  }
+  return mj;
 }
 
 export function maybeDropHere(
@@ -583,6 +656,7 @@ export function maybeDropHere(
 
   const destExpr = getAtPath(state.root, destPath);
   const slotRaw = typeof targetSlot === "number" ? targetSlot : null;
+  const payloadForDrop = stripRedundantDelimiterForAddPayload(state.payload.mj);
 
   const destIsAdd =
     tree.nodesById[destId]?.op === "Add" ||
@@ -600,7 +674,7 @@ export function maybeDropHere(
 
     const nextKids = [
       ...kids.slice(0, ins),
-      state.payload.mj,
+      payloadForDrop,
       ...kids.slice(ins),
     ];
     const nextAddExpr = buildAdd(nextKids);
@@ -637,8 +711,8 @@ export function maybeDropHere(
 
   const nextKids =
     wrapSlot === 0
-      ? [state.payload.mj, destExpr]
-      : [destExpr, state.payload.mj];
+      ? [payloadForDrop, destExpr]
+      : [destExpr, payloadForDrop];
 
   const nextAddExpr = buildAdd(nextKids);
   const rootAfter = setAtPath(state.root, destPath, nextAddExpr);

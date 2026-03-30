@@ -21,7 +21,21 @@
     This is not parsed right. It comes out mangled in the output as V_s cript_2^2
 
 8.  `\left(a + b \right) - \left(c + d\right) = e`
-    It should be possible to move c into the left-hand parentheses to get
+    It should be possible to move c in additive mode into the left-hand parentheses to get
     `\left(a + b - c\right) - \left(d\right) = e`
 
-9.  Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu
+9.  `\left(a - c + b\right) - \left(d\right) = e`
+    It should be possible to select a and c to substitute for them. But the button is disabled when multiple
+    items are selected.
+
+10. `\left(a + b\right) - \left(c d e\right) = f`
+    It should be possible to select c d e and move it into the left parentheses to get
+    `\left(a + b - c d e\right) = f`
+
+11. Feature: `\left(a + b - c d e\right) = f`, we should have a way to either add or remove the parentheses
+    surrounding the left-hand sum, since it's optional. Maybe a button.
+
+12. `\left(a + b + c d - c e\right) = f`
+    It should be able to factor c d - c e into c (d - e), but the factor button is grayed.
+
+13. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu

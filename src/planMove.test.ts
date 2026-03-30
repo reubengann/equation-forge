@@ -76,6 +76,43 @@ describe("planMove", () => {
     });
   });
 
+  it("plans additive insert when selecting full multiplicative span inside a negated term", () => {
+    const tree = treefromLatex(String.raw`\left(a + b\right) - \left(c d e\right) = f`);
+    const cId = findNodeByLatex(tree, "c");
+    const dId = findNodeByLatex(tree, "d");
+    const eId = findNodeByLatex(tree, "e");
+    const lhsOuterAddId = tree.childrenById[tree.rootId!][0];
+    const lhsKids = tree.childrenById[lhsOuterAddId] ?? [];
+    const movedTermId = lhsKids[1];
+    const leftInnerAddId = findNodeId(
+      tree,
+      (n) => n.op === "Add" && n.latex.replace(/\s+/g, " ").includes("a + b")
+    );
+    const [aId, bId] = tree.childrenById[leftInnerAddId];
+
+    const plan = planMove({
+      tree,
+      selectedIds: [cId, dId, eId],
+      hoverId: leftInnerAddId,
+      pointer: { x: 95, y: 110 }, // to the right of b => append
+      rectFor: rectProvider({
+        [leftInnerAddId]: { left: 0, right: 100, top: 100, bottom: 120 },
+        [aId]: { left: 10, right: 30, top: 100, bottom: 120 },
+        [bId]: { left: 50, right: 70, top: 100, bottom: 120 },
+      }),
+      mode: "additive",
+    });
+
+    expect(plan).toEqual({
+      kind: "InsertIntoAdd",
+      fromAddId: lhsOuterAddId,
+      toAddId: leftInnerAddId,
+      movedId: movedTermId,
+      fromIndex: 1,
+      toIndex: 2,
+    });
+  });
+
   it("returns null if pointer is outside the Add container band (Y gate)", () => {
     const tree = treefromLatex("a + b");
 
