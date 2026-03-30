@@ -32,10 +32,17 @@
     It should be possible to select c d e and move it into the left parentheses to get
     `\left(a + b - c d e\right) = f`
 
-11. Feature: `\left(a + b - c d e\right) = f`, we should have a way to either add or remove the parentheses
+11. `du = \left(\dfrac{\partial {u}}{\partial {T}}\right)_v \, dT`
+    Won't parse. Gives an error
+
+12. `d'q = du + P \, dv`
+    Once parsed, comes out as `'dq = du + P dv`. The prime is not in the correct position.
+    Also, differentials like `dv` and `d'q ` should really be atomic.
+
+13. Feature: `\left(a + b - c d e\right) = f`, we should have a way to either add or remove the parentheses
     surrounding the left-hand sum, since it's optional. Maybe a button.
 
-12. `\left(a + b + c d - c e\right) = f`
+14. `\left(a + b + c d - c e\right) = f`
     It should be able to factor c d - c e into c (d - e), but the factor button is grayed.
 
-13. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu
+15. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu

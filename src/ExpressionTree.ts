@@ -187,6 +187,9 @@ export class ExpressionTree {
       if (op === "Partial") {
         return this.recordTagged(this.emitPartial(node, id, path, op));
       }
+      if (op === "PartialDerivative") {
+        return this.recordTagged(this.emitPartialDerivative(node, id, path, op));
+      }
       if (op === "Tuple") {
         return this.recordTagged(this.emitTuple(node, id, path, op));
       }
@@ -975,6 +978,37 @@ export class ExpressionTree {
     const plain = String.raw`\partial{${innerPlain}}`;
     // Keep partial atomic for selection: no tags inside.
     const taggedInner = String.raw`\partial{${innerPlain}}`;
+
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
+  private emitPartialDerivative(
+    node: MJNode,
+    id: string,
+    path: number[],
+    op: string
+  ) {
+    const operand = node[1];
+    if (operand === undefined) {
+      const plain = String.raw`\partial`;
+      this.childrenById[id] = [];
+      this.nodesById[id] = { id, op, latex: plain, json: node };
+      return { id, latexPlain: plain, latexTagged: this.wrap(id, plain) };
+    }
+
+    const normalizedOperand =
+      Array.isArray(operand) && operand.length === 1
+        ? (operand[0] as MJ)
+        : (operand as MJ);
+    const inner = this.emit(normalizedOperand, id, [...path, 1]);
+    this.childrenById[id] = [inner.id];
+    this.childIndexById[inner.id] = 0;
+
+    const innerPlain = inner.latexPlain;
+    const plain = String.raw`\partial ${innerPlain}`;
+    // Keep as one atomic unit for selection/highlight consistency with Partial.
+    const taggedInner = String.raw`\partial ${innerPlain}`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };

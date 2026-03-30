@@ -318,3 +318,12 @@ scenarios:
           mode: additive
         expect:
           latex: "\\left(a + b - c d e\\right) = f"
+  - version: 1
+    name: Issue 11 - parse subscripted partial derivative coefficient
+    tags: [issue, parse, partial]
+    initial:
+      latex: "du = \\left(\\dfrac{\\partial {u}}{\\partial {T}}\\right)_v \\, dT"
+    steps:
+      - name: flip equation after parsing
+        action:
+          type: flip

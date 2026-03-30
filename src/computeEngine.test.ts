@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { box, parse, normalizeMathJson, withRealScope } from "./computeEngine";
+import { ExpressionTree } from "./ExpressionTree";
 
 describe("computeEngine custom dictionary", () => {
   it("parses differential symbol", () => {
@@ -171,6 +172,15 @@ describe("computeEngine custom dictionary", () => {
       1,
       ["Tuple", ["Delimiter", "y"], 0, 2],
     ]);
+  });
+
+  it("parses subscripted partial-derivative coefficient with trailing differential", () => {
+    const mj = parse(
+      String.raw`du = \left(\dfrac{\partial {u}}{\partial {T}}\right)_v \, dT`
+    );
+    expect(mj).not.toBeNull();
+    expect(JSON.stringify(mj)).toContain('"Partial"');
+    expect(() => ExpressionTree.create(mj!)).not.toThrow();
   });
 
   it("fixes blank integrals and fills tuple defaults", () => {

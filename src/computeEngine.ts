@@ -83,10 +83,42 @@ export function normalizeMathJson(mj: MJ | null): MJ | null {
   return fixBlankIntegrals(
     normalizeDotProducts(
       rewriteNegateToFrontOfProduct(
-        normalizeDeltaOfQuantity(normalizeProducts(normalizeVectors(mj)))
+        normalizeDeltaOfQuantity(
+          normalizePartialDerivativeForms(normalizeProducts(normalizeVectors(mj)))
+        )
       )
     )
   );
+}
+
+function unwrapNothingPair(expr: MJ): MJ {
+  if (
+    Array.isArray(expr) &&
+    expr.length >= 2 &&
+    expr[1] === "Nothing" &&
+    typeof expr[0] === "string"
+  ) {
+    return expr[0] as MJ;
+  }
+  return expr;
+}
+
+function normalizePartialDerivativeForms(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+
+  const op = mj[0];
+  const kids = mj.slice(1).map((child) =>
+    normalizePartialDerivativeForms(child as MJ)
+  ) as MJ[];
+
+  if (op === "PartialDerivative") {
+    const rawOperand = unwrapNothingPair((kids[0] ?? "Nothing") as MJ);
+    if (rawOperand === "Nothing") return "PartialD";
+    return ["Partial", rawOperand] as MJ;
+  }
+
+  return [op, ...kids] as MJ;
 }
 
 function normalizeDeltaOfQuantity(mj: MJ | null): MJ | null {
