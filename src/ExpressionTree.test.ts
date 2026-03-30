@@ -542,4 +542,13 @@ describe("ExpressionTree", () => {
     expect(t.latexPlain).toBe(String.raw`\mathcal{O}`);
     expect(t.latexTagged).not.toContain("calligraphic");
   });
+
+  it("renders script-style CE symbols as \\mathscr and avoids raw _script tokens", () => {
+    const t = treefromLatex(
+      String.raw`- w_\text{sh} = \Delta h + \frac12 \left(\mathscr{V}_2^2 - \mathscr{V}_1^2\right)`
+    );
+    expect(t.latexPlain).toContain(String.raw`\mathscr{V}_{2}^{2}`);
+    expect(t.latexPlain).toContain(String.raw`\mathscr{V}_{1}^{2}`);
+    expect(t.latexPlain).not.toContain("_script");
+  });
 });

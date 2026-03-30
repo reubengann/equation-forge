@@ -68,11 +68,13 @@ function greekSymbolToLatex(name: string): string | null {
   return GREEK_LATEX[name] ?? null;
 }
 
-const CALLIGRAPHIC_REGEX = /^([A-Z])_calligraphic$/;
+const SCRIPT_STYLE_REGEX = /^([A-Z])_(calligraphic|script)$/;
 function calligraphicSymbolToLatex(name: string): string | null {
-  const m = CALLIGRAPHIC_REGEX.exec(name);
+  const m = SCRIPT_STYLE_REGEX.exec(name);
   if (!m) return null;
   const letter = m[1];
+  const style = m[2];
+  if (style === "script") return String.raw`\mathscr{${letter}}`;
   return String.raw`\mathcal{${letter}}`;
 }
 

@@ -17,4 +17,11 @@
 6.  `a=b-c`
     apply `eqn * v`. The result is `a d = b - c d` instead of `a d = b d - c d`
 
-7.  Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu
+7.  `- w_\text{sh} = \Delta h + \frac12 (\mathscr{V}_2^2 - \mathscr{V}_1^2)`
+    This is not parsed right. It comes out mangled in the output as V_s cript_2^2
+
+8.  `\left(a + b \right) - \left(c + d\right) = e`
+    It should be possible to move c into the left-hand parentheses to get
+    `\left(a + b - c\right) - \left(d\right) = e`
+
+9.  Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu
