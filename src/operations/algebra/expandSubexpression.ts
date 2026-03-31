@@ -16,7 +16,12 @@ function deepEqualMJ(a: MJ, b: MJ): boolean {
 function toComputeEngine(expr: MJ): MJ {
   if (!Array.isArray(expr)) return expr;
   const op = expr[0];
-  const mappedOp = op === "InvisibleOperator" ? ("Multiply" as const) : op;
+  const mappedOp =
+    op === "InvisibleOperator"
+      ? ("Multiply" as const)
+      : op === "List"
+        ? ("Delimiter" as const)
+        : op;
   return [mappedOp, ...expr.slice(1).map(toComputeEngine)] as MJ;
 }
 
@@ -38,7 +43,11 @@ function containsOp(expr: MJ, op: string): boolean {
 }
 
 function unwrapDelimiter(expr: MJ): MJ {
-  if (Array.isArray(expr) && expr[0] === "Delimiter" && expr.length >= 2) {
+  if (
+    Array.isArray(expr) &&
+    (expr[0] === "Delimiter" || expr[0] === "List") &&
+    expr.length >= 2
+  ) {
     return expr[1] as MJ;
   }
   return expr;
@@ -79,32 +88,205 @@ function distributeDotProduct(expr: MJ): MJ {
   return [op, ...kids] as MJ;
 }
 
+function distributeInvisibleOperator(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map(distributeInvisibleOperator) as MJ[];
+
+  if (op !== "InvisibleOperator") {
+    return [op, ...kids] as MJ;
+  }
+
+  const addIndex = kids.findIndex((kid) => {
+    const unwrapped = unwrapDelimiter(kid);
+    return isAdd(unwrapped);
+  });
+  if (addIndex < 0) {
+    return [op, ...kids] as MJ;
+  }
+
+  const addNode = unwrapDelimiter(kids[addIndex]) as MJ;
+  const addTerms = (addNode as [string, ...MJ[]]).slice(1) as MJ[];
+  const expandedTerms = addTerms.map((term) => {
+    const productKids = kids.map((kid, idx) => (idx === addIndex ? term : kid));
+    const productExpr =
+      productKids.length === 1
+        ? productKids[0]
+        : (["InvisibleOperator", ...productKids] as MJ);
+    return distributeInvisibleOperator(productExpr);
+  });
+  return ["Add", ...expandedTerms] as MJ;
+}
+
+function distributeNegateOverAdd(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map(distributeNegateOverAdd) as MJ[];
+
+  if (op === "Negate" && kids.length >= 1) {
+    const inner = unwrapDelimiter(kids[0] as MJ);
+    if (isAdd(inner)) {
+      const terms = (inner as [string, ...MJ[]]).slice(1) as MJ[];
+      return [
+        "Add",
+        ...terms.map((term) =>
+          distributeNegateOverAdd(["Negate", term] as MJ)
+        ),
+      ] as MJ;
+    }
+    return ["Negate", kids[0] as MJ] as MJ;
+  }
+
+  return [op, ...kids] as MJ;
+}
+
+function normalizeMul(factors: MJ[]): MJ {
+  const flattened: MJ[] = [];
+  for (const factor of factors) {
+    if (
+      Array.isArray(factor) &&
+      (factor[0] === "InvisibleOperator" || factor[0] === "Multiply")
+    ) {
+      flattened.push(...(factor.slice(1) as MJ[]));
+    } else {
+      flattened.push(factor);
+    }
+  }
+  if (flattened.length === 0) return 1;
+  if (flattened.length === 1) return flattened[0];
+  return ["InvisibleOperator", ...flattened] as MJ;
+}
+
+function distributeDifferential(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map(distributeDifferential) as MJ[];
+
+  if (op === "Differential" && kids.length >= 1) {
+    const innerRaw = kids[0] as MJ;
+    const inner = unwrapDelimiter(innerRaw);
+    if (isAdd(inner)) {
+      const terms = (inner as [string, ...MJ[]]).slice(1) as MJ[];
+      return [
+        "Add",
+        ...terms.map((term) =>
+          distributeDifferential(["Differential", term] as MJ)
+        ),
+      ] as MJ;
+    }
+    if (
+      Array.isArray(inner) &&
+      (inner[0] === "InvisibleOperator" || inner[0] === "Multiply")
+    ) {
+      const factors = inner.slice(1) as MJ[];
+      if (factors.length >= 2) {
+        return [
+          "Add",
+          ...factors.map((_, idx) =>
+            distributeDifferential(
+              normalizeMul(
+                factors.map((factor, j) =>
+                  j === idx ? (["Differential", factor] as MJ) : factor
+                )
+              )
+            )
+          ),
+        ] as MJ;
+      }
+    }
+    if (Array.isArray(inner) && inner[0] === "Negate" && inner.length >= 2) {
+      return [
+        "Negate",
+        distributeDifferential(["Differential", inner[1] as MJ] as MJ),
+      ] as MJ;
+    }
+    return ["Differential", innerRaw] as MJ;
+  }
+
+  return [op, ...kids] as MJ;
+}
+
 export function expandSubexpression(
   tree: ExpressionTree,
   targetId: string
 ): ExpressionTree | null {
   const path = tree.pathById[targetId];
   if (!path) return null;
+  let effectivePath = path;
+  let target = getAtPath(tree.rootJson, effectivePath) as MJ;
 
-  const target = getAtPath(tree.rootJson, path) as MJ;
+  // If the selected node is the grouped child under a Negate, expand the Negate
+  // expression so bracket-selection behaves like direct negated-group expansion.
+  const parentId = tree.parentById[targetId];
+  if (
+    parentId &&
+    tree.nodesById[parentId]?.op === "Negate" &&
+    tree.childrenById[parentId]?.[0] === targetId
+  ) {
+    const parentPath = tree.pathById[parentId];
+    if (parentPath) {
+      effectivePath = parentPath;
+      target = getAtPath(tree.rootJson, effectivePath) as MJ;
+    }
+  }
+  if (
+    parentId &&
+    tree.nodesById[parentId]?.op === "Differential" &&
+    tree.childrenById[parentId]?.[0] === targetId
+  ) {
+    const parentPath = tree.pathById[parentId];
+    if (parentPath) {
+      effectivePath = parentPath;
+      target = getAtPath(tree.rootJson, effectivePath) as MJ;
+    }
+  }
 
-  // Step 1: custom bilinear distribution for DotProduct over Add.
-  const distributed = distributeDotProduct(target);
+  // Step 1: custom bilinear/distributive passes in our dialect.
+  const distributedDot = distributeDotProduct(target);
+  const distributedMul = distributeInvisibleOperator(distributedDot);
+  const distributedNegate = distributeNegateOverAdd(distributedMul);
+  const distributed = distributeDifferential(distributedNegate);
+  const customChanged = !deepEqualMJ(distributed, target);
 
-  // Step 2: let the Compute Engine do standard expansion.
-  const ceReady = toComputeEngine(distributed);
-  const skipCeExpand = containsOp(distributed, "DotProduct");
-  const expandedBox = skipCeExpand ? null : box(ceReady)?.expand?.();
-  const expanded = expandedBox ? expandedBox.json : ceReady;
+  // Step 2: let the Compute Engine do standard expansion where safe.
+  let back: MJ;
+  if (customChanged) {
+    back = distributed;
+  } else {
+    const ceReady = toComputeEngine(distributed);
+    const skipCeExpand = containsOp(distributed, "DotProduct");
+    let expanded: MJ = ceReady;
+    if (!skipCeExpand) {
+      try {
+        const expandedBox = box(ceReady)?.expand?.();
+        expanded = (expandedBox?.json as MJ) ?? ceReady;
+      } catch {
+        // Some CE expansions emit unsupported array forms for our tree dialect.
+        return null;
+      }
+    }
+    back = fromComputeEngine(expanded as MJ);
+  }
 
   // Step 3: translate back to our dialect and normalize.
-  const back = fromComputeEngine(expanded as MJ);
-  const normalized = normalizeMathJson(back);
-  if (!normalized) return null;
+  if (containsOp(back, "Error")) return null;
+  let normalized: MJ | null = null;
+  try {
+    normalized = normalizeMathJson(back);
+  } catch {
+    return null;
+  }
+  if (!normalized) {
+    return null;
+  }
 
   // If nothing changed, treat as no-op.
   if (deepEqualMJ(normalized, target)) return null;
 
-  const nextRoot = setAtPath(tree.rootJson, path, normalized) as MJ;
-  return ExpressionTree.create(nextRoot);
+  const nextRoot = setAtPath(tree.rootJson, effectivePath, normalized) as MJ;
+  try {
+    return ExpressionTree.create(nextRoot);
+  } catch {
+    return null;
+  }
 }

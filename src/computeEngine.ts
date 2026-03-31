@@ -89,17 +89,80 @@ export function parse(latex: string): MJ | null {
 }
 
 export function normalizeMathJson(mj: MJ | null): MJ | null {
-  return fixBlankIntegrals(
-    normalizeDotProducts(
-      rewriteNegateToFrontOfProduct(
-        normalizeDeltaOfQuantity(
-          normalizePlainDifferentials(
-            normalizePartialDerivativeForms(normalizeProducts(normalizeVectors(mj)))
+  return normalizeAssociativeAdd(
+    collapseSingletonAdd(
+      fixBlankIntegrals(
+        normalizeDotProducts(
+          rewriteNegateToFrontOfProduct(
+            normalizeDeltaOfQuantity(
+              normalizeDifferentialOperands(
+                normalizePlainDifferentials(
+                  normalizePartialDerivativeForms(normalizeProducts(normalizeVectors(mj)))
+                )
+              )
+            )
           )
         )
       )
     )
   );
+}
+
+function collapseSingletonAdd(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+  const op = mj[0];
+  const kids = mj.slice(1).map((child) => collapseSingletonAdd(child as MJ)) as MJ[];
+  if (op === "Add" && kids.length === 1) return kids[0] as MJ;
+  return [op, ...kids] as MJ;
+}
+
+function unwrapSingleDelimiter(expr: MJ): MJ {
+  if (
+    Array.isArray(expr) &&
+    (expr[0] === "Delimiter" || expr[0] === "List") &&
+    expr.length >= 2
+  ) {
+    return expr[1] as MJ;
+  }
+  return expr;
+}
+
+function normalizeDifferentialOperands(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+  const op = mj[0];
+  const kids = mj
+    .slice(1)
+    .map((child) => normalizeDifferentialOperands(child as MJ)) as MJ[];
+
+  if ((op === "Differential" || op === "InexactDifferential") && kids.length >= 1) {
+    const operand = unwrapSingleDelimiter(kids[0] as MJ);
+    return [op, operand] as MJ;
+  }
+  return [op, ...kids] as MJ;
+}
+
+function normalizeAssociativeAdd(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+  const op = mj[0];
+  const kids = mj
+    .slice(1)
+    .map((child) => normalizeAssociativeAdd(child as MJ)) as MJ[];
+  if (op !== "Add") return [op, ...kids] as MJ;
+
+  const flat: MJ[] = [];
+  for (const child of kids) {
+    if (Array.isArray(child) && child[0] === "Add") {
+      flat.push(...(child.slice(1) as MJ[]));
+    } else {
+      flat.push(child);
+    }
+  }
+  if (flat.length === 0) return 0;
+  if (flat.length === 1) return flat[0];
+  return ["Add", ...flat] as MJ;
 }
 
 function unwrapNothingPair(expr: MJ): MJ {
@@ -215,6 +278,17 @@ function normalizePlainDifferentials(mj: MJ | null): MJ | null {
   }
 
   const out: MJ[] = [];
+  const isFactorLike = (expr: MJ | null): boolean => {
+    if (expr == null) return false;
+    if (!Array.isArray(expr)) return true;
+    const op = expr[0];
+    return (
+      op !== "Add" &&
+      op !== "Equal" &&
+      op !== "Tuple" &&
+      op !== "HorizontalSpacing"
+    );
+  };
   for (let i = 0; i < kids.length; i += 1) {
     const cur = kids[i];
     const next = kids[i + 1];
@@ -234,7 +308,8 @@ function normalizePlainDifferentials(mj: MJ | null): MJ | null {
     const startsTerm = i === 0;
     const followsExplicitSpacing =
       Array.isArray(prev) && prev[0] === "HorizontalSpacing";
-    const allowedContext = startsTerm || followsExplicitSpacing;
+    const followsFactor = isFactorLike(prev as MJ | null);
+    const allowedContext = startsTerm || followsExplicitSpacing || followsFactor;
 
     if (curIsPrimeDifferentialNode) {
       out.push(["InexactDifferential", (cur[1] as MJ[])[1]] as MJ);

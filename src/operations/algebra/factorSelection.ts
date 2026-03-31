@@ -79,6 +79,33 @@ function unwrapNegate(expr: MJ): { sign: 1 | -1; core: MJ } {
   return { sign, core: unwrapDelimiter(cur) };
 }
 
+function isAncestorOrSelf(
+  tree: ExpressionTree,
+  ancestorId: string,
+  nodeId: string
+): boolean {
+  let cur: string | null = nodeId;
+  while (cur) {
+    if (cur === ancestorId) return true;
+    cur = tree.parentById[cur] ?? null;
+  }
+  return false;
+}
+
+function flattenAddTermIds(tree: ExpressionTree, addId: string): string[] {
+  const out: string[] = [];
+  const walk = (nodeId: string) => {
+    if (tree.nodesById[nodeId]?.op === "Add") {
+      const kids = tree.childrenById[nodeId] ?? [];
+      for (const kid of kids) walk(kid);
+      return;
+    }
+    out.push(nodeId);
+  };
+  walk(addId);
+  return out;
+}
+
 function isNumericLiteral(expr: MJ): number | null {
   if (typeof expr === "number") return expr;
   if (typeof expr === "string" && /^-?\d+(?:\.\d+)?$/.test(expr)) return Number(expr);
@@ -222,45 +249,62 @@ function computeFactoredRoot(tree: ExpressionTree, sel: ExprSelection): MJ | nul
   if (sel.kind === "multi") {
     const selectedIds = Array.from(new Set(sel.nodeIds));
     if (selectedIds.length < 2) return null;
-
-    const mapToAddTerm = (
-      nodeId: string
-    ): { addId: string; termId: string; termIndex: number } | null => {
+    const addAncestors = (nodeId: string): string[] => {
+      const out: string[] = [];
       let cur: string | null = nodeId;
       while (cur) {
         const parentId = tree.parentById[cur];
-        if (!parentId) return null;
-        if (tree.nodesById[parentId]?.op === "Add") {
-          const idx = tree.childIndexById[cur];
-          if (idx == null) return null;
-          return { addId: parentId, termId: cur, termIndex: idx };
-        }
+        if (!parentId) break;
+        if (tree.nodesById[parentId]?.op === "Add") out.push(parentId);
         cur = parentId;
       }
-      return null;
+      return out;
     };
 
-    const mapped = selectedIds
-      .map((id) => mapToAddTerm(id))
-      .filter((v): v is { addId: string; termId: string; termIndex: number } => !!v);
-    if (mapped.length < 2) return null;
+    const firstAddAncestors = addAncestors(selectedIds[0]);
+    const commonAddId =
+      firstAddAncestors.find((candidate) =>
+        selectedIds.every((id) => isAncestorOrSelf(tree, candidate, id))
+      ) ?? null;
+    if (!commonAddId) return null;
 
-    const addId = mapped[0].addId;
-    if (!mapped.every((m) => m.addId === addId)) return null;
+    const flatTermIds = flattenAddTermIds(tree, commonAddId);
+    if (flatTermIds.length < 2) return null;
 
-    const uniqueIdxs = Array.from(new Set(mapped.map((m) => m.termIndex))).sort((a, b) => a - b);
-    if (uniqueIdxs.length < 2) return null;
-    const start = uniqueIdxs[0];
-    const end = uniqueIdxs[uniqueIdxs.length - 1];
-    if (end - start + 1 !== uniqueIdxs.length) return null;
+    const selectedTermIndices = Array.from(
+      new Set(
+        selectedIds
+          .map((id) =>
+            flatTermIds.findIndex((termId) => isAncestorOrSelf(tree, termId, id))
+          )
+          .filter((idx) => idx >= 0)
+      )
+    ).sort((a, b) => a - b);
+    if (selectedTermIndices.length < 2) return null;
 
-    return computeFactoredRoot(tree, {
-      kind: "span",
-      parentId: addId,
-      op: "Add",
-      start,
-      end,
+    const start = selectedTermIndices[0];
+    const end = selectedTermIndices[selectedTermIndices.length - 1];
+    if (end - start + 1 !== selectedTermIndices.length) return null;
+
+    const parentPath = tree.pathById[commonAddId];
+    if (!parentPath) return null;
+    const termExprs = flatTermIds.map((id) => {
+      const p = tree.pathById[id];
+      return p ? (getAtPath(tree.rootJson, p) as MJ) : null;
     });
+    if (termExprs.some((x) => x == null)) return null;
+    const typedTerms = termExprs as MJ[];
+    const segmentExpr = buildAddFromTerms(typedTerms.slice(start, end + 1));
+    const factoredSegment = factorExpression(segmentExpr);
+    if (!factoredSegment || deepEqualMJ(factoredSegment, segmentExpr)) return null;
+
+    const rebuiltTerms = [
+      ...typedTerms.slice(0, start),
+      factoredSegment,
+      ...typedTerms.slice(end + 1),
+    ];
+    const rebuiltAdd = buildAddFromTerms(rebuiltTerms);
+    return setAtPath(tree.rootJson, parentPath, rebuiltAdd) as MJ;
   }
 
   if (sel.kind === "node") {

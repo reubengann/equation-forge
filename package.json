@@ -13,7 +13,8 @@
     "mathtests": "vitest run src/mathtests/mathtests.runner.test.ts",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "create_test_case": "node scripts/create-test-case.mjs"
   },
   "dependencies": {
     "@cortex-js/compute-engine": "^0.30.2",

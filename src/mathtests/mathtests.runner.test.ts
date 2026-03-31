@@ -55,9 +55,9 @@ describe("math scenarios", () => {
           ? scenario.name
           : `${scenario.name} [${scenarioIdx + 1}]`;
       it(`executes ${relPath} :: ${caseLabel}`, () => {
-      const result = executeScenario(scenario);
-      expect(result.steps.length).toBeGreaterThan(0);
-    });
+        const result = executeScenario(scenario, { scenarioFilePath: filePath });
+        expect(result.steps.length).toBeGreaterThan(0);
+      });
     });
   }
 });

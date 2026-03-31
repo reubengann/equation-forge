@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyMove } from "./applyMove";
+import { ExpressionTree, type MJ } from "../ExpressionTree";
 import { findNodeByLatex, findNodeId, treefromLatex } from "../testHelpers";
 
 function runMove({
@@ -336,6 +337,37 @@ describe("applyMoveMultiplicative executor", () => {
     expect(next).not.toBeNull();
     expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
       String.raw`c_{P} = c_{V} + \frac{\left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right]}{\mathrm{d}{T}_{P}} \mathrm{d}{v}_{P}`
+    );
+  });
+
+  it("pulls c_V from numerator when divide numerator is single-term Add wrapper", () => {
+    const root: MJ = [
+      "Equal",
+      [
+        "Divide",
+        [
+          "Add",
+          ["InvisibleOperator", ["Subscript", "c", "V"], ["Differential", "T"]],
+        ],
+        ["Differential", "v"],
+      ],
+      "r",
+    ];
+    const tree = ExpressionTree.create(root);
+    const selectedId = findNodeByLatex(tree, String.raw`c_{V}`);
+    const divideId = findNodeId(tree, (n) => n.op === "Divide");
+
+    const next = applyMove({
+      tree,
+      selectedIds: [selectedId],
+      hoverId: divideId,
+      targetSlot: 0,
+      mode: "multiplicative",
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`c_{V} \frac{\mathrm{d}{T}}{\mathrm{d}{v}} = r`
     );
   });
 

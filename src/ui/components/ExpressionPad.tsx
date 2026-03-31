@@ -32,6 +32,10 @@ import { MoveModeToolbar } from "./MoveModeToolbar";
 import { ApplyModal } from "./ApplyModal";
 import { SubstituteModal } from "./SubstituteModal";
 import type { MoveMode } from "../../moveExpression/applyMove";
+import type {
+  MoveCaptureFixture,
+  MoveTraceSample,
+} from "../../domain/move/moveDebugFixture";
 import { hitTestNodeIdInMathliveShadow } from "../../infra/mathlive/mathliveShadow";
 import {
   installShadowStyle,
@@ -112,6 +116,25 @@ export type ExpressionPadProps = {
    * suggestions. Optional so debug page remains unchanged.
    */
   otherPadSnapshots?: OtherPadSnapshot[];
+};
+
+type ActiveMoveCapture = {
+  pointerId: number;
+  expressionLatex: string;
+  mode: MoveMode;
+  selectedIds: string[];
+  rects: Record<string, { left: number; top: number; right: number; bottom: number }>;
+  samples: MoveTraceSample[];
+};
+
+type MoveApplyAttempt = {
+  source: "primary" | "pullOutFallback" | "crossEqualFallback";
+  selectedIds: string[];
+  hoverId: string;
+  targetSlot: number | null;
+  mode: MoveMode;
+  planKind: string | null;
+  succeeded: boolean;
 };
 
 MathfieldElement.fontsDirectory = "/fonts";
@@ -212,7 +235,54 @@ export function ExpressionPad({
     displayRef.current,
     displayRef.current,
     insertOverlayRef.current,
-    handleMoveComplete
+    handleMoveComplete,
+    {
+      onDragStart: ({ pointerId, selectedIds, mode, rects }) => {
+        moveApplyAttemptsRef.current = [];
+        activeMoveCaptureRef.current = {
+          pointerId,
+          expressionLatex: tree?.latexPlain ?? latexDraft,
+          mode,
+          selectedIds,
+          rects,
+          samples: [],
+        };
+      },
+      onMoveSample: ({ pointer, hoverId, hoverUsedFallback }) => {
+        const active = activeMoveCaptureRef.current;
+        if (!active) return;
+        active.samples.push({
+          pointer,
+          hoverId,
+          hoverUsedFallback,
+        });
+      },
+      onDragEnd: () => {
+        const active = activeMoveCaptureRef.current;
+        if (!active) return;
+        lastMoveCaptureRef.current = {
+          version: 1,
+          name: "captured-drag",
+          expressionLatex: active.expressionLatex,
+          mode: active.mode,
+          selectedIds: active.selectedIds,
+          rects: active.rects,
+          samples: active.samples,
+        };
+        activeMoveCaptureRef.current = null;
+      },
+      onApplyAttempt: (payload) => {
+        moveApplyAttemptsRef.current.push({
+          source: payload.source,
+          selectedIds: payload.selectedIds,
+          hoverId: payload.hoverId,
+          targetSlot: payload.targetSlot,
+          mode: payload.mode,
+          planKind: payload.planKind ?? null,
+          succeeded: payload.succeeded,
+        });
+      },
+    }
   );
 
   const [latexText, setLatexText] = useState<string>(
@@ -254,6 +324,9 @@ export function ExpressionPad({
   const [selectionNote, setSelectionNote] = useState<string>("");
   const [copyFeedback, setCopyFeedback] = useState<"idle" | "done">("idle");
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
+  const activeMoveCaptureRef = useRef<ActiveMoveCapture | null>(null);
+  const lastMoveCaptureRef = useRef<MoveCaptureFixture | null>(null);
+  const moveApplyAttemptsRef = useRef<MoveApplyAttempt[]>([]);
 
   useEffect(() => {
     if (!initialSnapshot) return;
@@ -328,6 +401,58 @@ export function ExpressionPad({
       closeSubstituteModal();
     }
   }, [showSubstituteModal, canSubstitute]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const host = displayRef.current;
+    if (!host) return;
+
+    const api = {
+      getNodeIdByLatex: (latex: string) => {
+        if (!tree || !latex) return null;
+        const hit = Object.values(tree.nodesById).find((node) => node.latex === latex);
+        return hit?.id ?? null;
+      },
+      getTreeLatex: () => tree?.latexPlain ?? "",
+      getMoveCapture: () => lastMoveCaptureRef.current,
+      clearMoveCapture: () => {
+        lastMoveCaptureRef.current = null;
+      },
+      getMoveApplyAttempts: () => moveApplyAttemptsRef.current,
+      clearMoveApplyAttempts: () => {
+        moveApplyAttemptsRef.current = [];
+      },
+      getNodeRectById: (nodeId: string) => {
+        if (!nodeId) return null;
+        const sr = (host as any).shadowRoot as ShadowRoot | null;
+        if (!sr) return null;
+        const els = sr.querySelectorAll<HTMLElement>(
+          `[data-node-id="${CSS.escape(nodeId)}"]`
+        );
+        if (!els.length) return null;
+        let left = Infinity;
+        let right = -Infinity;
+        let top = Infinity;
+        let bottom = -Infinity;
+        for (const el of els) {
+          const r = el.getBoundingClientRect();
+          left = Math.min(left, r.left);
+          right = Math.max(right, r.right);
+          top = Math.min(top, r.top);
+          bottom = Math.max(bottom, r.bottom);
+        }
+        if (!Number.isFinite(left) || !Number.isFinite(right)) return null;
+        return { left, right, top, bottom };
+      },
+    };
+
+    (window as any).__dpDebug = api;
+    return () => {
+      if ((window as any).__dpDebug === api) {
+        delete (window as any).__dpDebug;
+      }
+    };
+  }, [tree, mode]);
 
   // Render once the display element is mounted in render mode
   useEffect(() => {
@@ -716,7 +841,7 @@ export function ExpressionPad({
 
     // Start drag
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    startDrag(e.pointerId, clickResult.dragIds);
+    startDrag(e.pointerId, clickResult.dragIds, { x: e.clientX, y: e.clientY });
     setDragSlot("");
 
     // Update selection and details

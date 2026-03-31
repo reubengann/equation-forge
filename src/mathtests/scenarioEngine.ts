@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { readFileSync } from "fs";
+import { dirname, resolve } from "path";
 import { parse as parseYaml } from "yaml";
 import {
   mathPadFacade,
@@ -8,6 +9,14 @@ import {
   type NodeSelector,
   type SelectionSpec,
 } from "../application";
+import type { MoveMode } from "../moveExpression/applyMove";
+import { applyMove } from "../moveExpression/applyMove";
+import {
+  applyReplayResult,
+  replayFinalMoveSample,
+  replayMoveCapture,
+  type MoveCaptureFixture,
+} from "../domain/move/moveDebugFixture";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -34,6 +43,18 @@ export type ScenarioStep = {
 };
 
 type StepActionInput = string | (JsonRecord & { type?: unknown });
+
+type ReplayMoveAction = {
+  type: "moveReplay";
+  mode: MoveMode;
+  selectedIds: string[];
+  fixturePath?: string;
+  fallbackTarget?: { hoverId: string; targetSlot: number | null };
+  expectPlanKind?: string;
+  finalSampleOnly?: boolean;
+};
+
+type ParsedAction = MathAction | ReplayMoveAction;
 
 export type StepExecutionResult = {
   index: number;
@@ -306,8 +327,9 @@ function parseActionFromStep(
   tree: ReturnType<typeof mathPadFacade.createTree>,
   selection: ReturnType<typeof mathPadFacade.resolveSelection>,
   step: ScenarioStep,
-  selectionText: string
-): MathAction {
+  selectionText: string,
+  scenarioFilePath?: string
+): ParsedAction {
   const actionInput = step.action;
   const actionRecord =
     typeof actionInput === "string"
@@ -367,7 +389,7 @@ function parseActionFromStep(
     };
   }
 
-  if (type === "move") {
+  if (type === "move" || type === "moveReplay") {
     const selectedRaw = actionRecord.selected;
     let selectedIds: string[] = [];
     if (Array.isArray(selectedRaw)) {
@@ -390,16 +412,20 @@ function parseActionFromStep(
       );
     }
 
-    const hoverSelector = parseNodeSelector(actionRecord.hover, "step.action.hover");
-    const hoverId = mathPadFacade.resolveNodeId(tree, hoverSelector);
-    if (!hoverId) {
-      throw new Error("Could not resolve step.action.hover for move action.");
-    }
-    const targetSlotRaw = actionRecord.targetSlot;
-    const targetSlot =
-      targetSlotRaw === null
-        ? null
-        : asNumber(targetSlotRaw, "step.action.targetSlot");
+    const fallbackTarget = (() => {
+      if (!("hover" in actionRecord)) return undefined;
+      const hoverSelector = parseNodeSelector(actionRecord.hover, "step.action.hover");
+      const hoverId = mathPadFacade.resolveNodeId(tree, hoverSelector);
+      if (!hoverId) {
+        throw new Error("Could not resolve step.action.hover for move action.");
+      }
+      const targetSlotRaw = actionRecord.targetSlot;
+      const targetSlot =
+        targetSlotRaw === null
+          ? null
+          : asNumber(targetSlotRaw, "step.action.targetSlot");
+      return { hoverId, targetSlot };
+    })();
     const mode =
       "mode" in actionRecord
         ? maybeString(actionRecord.mode, "additive")
@@ -407,7 +433,32 @@ function parseActionFromStep(
     if (mode !== "additive" && mode !== "multiplicative") {
       throw new Error("step.action.mode must be additive or multiplicative.");
     }
-    return { type: "move", selectedIds, hoverId, targetSlot, mode };
+    const fixturePath = (() => {
+      if (!("fixture" in actionRecord)) return undefined;
+      const rawFixture = asString(actionRecord.fixture, "step.action.fixture");
+      if (scenarioFilePath) {
+        return resolve(dirname(scenarioFilePath), rawFixture);
+      }
+      return resolve(process.cwd(), rawFixture);
+    })();
+    const expectPlanKind =
+      "expectPlanKind" in actionRecord
+        ? asString(actionRecord.expectPlanKind, "step.action.expectPlanKind")
+        : undefined;
+    const finalSampleOnly =
+      "finalSampleOnly" in actionRecord
+        ? actionRecord.finalSampleOnly === true
+        : undefined;
+
+    return {
+      type: "moveReplay",
+      mode,
+      selectedIds,
+      fixturePath,
+      fallbackTarget,
+      expectPlanKind,
+      finalSampleOnly,
+    };
   }
 
   throw new Error(`Unsupported action type: ${type}`);
@@ -428,13 +479,137 @@ function deepEqualMJ(a: MJ, b: MJ): boolean {
   return a === b;
 }
 
+const fixtureCache = new Map<string, MoveCaptureFixture>();
+
+function loadMoveFixture(filePath: string): MoveCaptureFixture {
+  const cached = fixtureCache.get(filePath);
+  if (cached) return cached;
+  const parsed = JSON.parse(readFileSync(filePath, "utf8")) as MoveCaptureFixture;
+  if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.samples)) {
+    throw new Error(`Invalid move fixture file: ${filePath}`);
+  }
+  fixtureCache.set(filePath, parsed);
+  return parsed;
+}
+
+function executeReplayMoveAction(args: {
+  tree: ReturnType<typeof mathPadFacade.createTree>;
+  action: ReplayMoveAction;
+}): ReturnType<typeof mathPadFacade.applyAction> {
+  const { tree, action } = args;
+  let effectiveSelectedIds = action.selectedIds;
+  let derivedFallbackTarget: { hoverId: string; targetSlot: number | null } | null =
+    action.fallbackTarget ?? null;
+  let replayDebug:
+    | {
+        selectedIds: string[];
+        finalPlanKind: string | null;
+        finalTarget: { hoverId: string; targetSlot: number | null } | null;
+      }
+    | null = null;
+
+  if (action.fixturePath) {
+    const fixture = loadMoveFixture(action.fixturePath);
+    const selectedIds =
+      action.selectedIds.length > 0 ? action.selectedIds : fixture.selectedIds;
+    effectiveSelectedIds = selectedIds;
+    const finalOnly =
+      action.finalSampleOnly === true ||
+      process.env.DP_REPLAY_FINAL_SAMPLE_ONLY === "1";
+    const replay = finalOnly
+      ? replayFinalMoveSample({
+          tree,
+          mode: action.mode,
+          selectedIds,
+          rects: fixture.rects,
+          samples: fixture.samples,
+        })
+      : replayMoveCapture({
+          tree,
+          mode: action.mode,
+          selectedIds,
+          rects: fixture.rects,
+          samples: fixture.samples,
+        });
+    replayDebug = {
+      selectedIds,
+      finalPlanKind: replay.finalPlan?.kind ?? null,
+      finalTarget: replay.finalTarget ?? null,
+    };
+
+    if (action.expectPlanKind) {
+      const planKind = replay.finalPlan?.kind ?? "null";
+      if (planKind !== action.expectPlanKind) {
+        return {
+          ok: false,
+          reason: `Expected final plan kind '${action.expectPlanKind}', got '${planKind}'.`,
+        };
+      }
+    }
+
+    const replayNext = applyReplayResult({
+      tree,
+      mode: action.mode,
+      selectedIds,
+      replay,
+    });
+    if (replayNext) {
+      return { ok: true, tree: replayNext };
+    }
+
+    // If final-sample replay has no target (common when pointer-up hovers nothing),
+    // recover by using the latest frame in a full replay that produced an apply target.
+    const latestFrameTarget =
+      [...replay.frames].reverse().find((f) => !!f.applyTarget)?.applyTarget ?? null;
+    if (latestFrameTarget) {
+      derivedFallbackTarget = latestFrameTarget;
+    } else if (finalOnly) {
+      const fullReplay = replayMoveCapture({
+        tree,
+        mode: action.mode,
+        selectedIds,
+        rects: fixture.rects,
+        samples: fixture.samples,
+      });
+      derivedFallbackTarget =
+        [...fullReplay.frames].reverse().find((f) => !!f.applyTarget)?.applyTarget ??
+        null;
+    }
+  }
+
+  if (!derivedFallbackTarget) {
+    return {
+      ok: false,
+      reason: `Move replay did not produce a target and no fallbackTarget was provided.${
+        replayDebug ? ` Debug: ${JSON.stringify(replayDebug)}` : ""
+      }`,
+    };
+  }
+
+  const next = applyMove({
+    tree,
+    selectedIds: effectiveSelectedIds,
+    hoverId: derivedFallbackTarget.hoverId,
+    targetSlot: derivedFallbackTarget.targetSlot,
+    mode: action.mode,
+  });
+  if (!next) {
+    return {
+      ok: false,
+      reason: "Move replay fallback produced no change.",
+    };
+  }
+  return { ok: true, tree: next };
+}
+
 function selectionDebugText(selection: SelectionSpec | null): string {
   if (!selection) return "none";
   return JSON.stringify(selection);
 }
 
 export function executeScenario(
-  scenario: MathScenario
+  scenario: MathScenario,
+  opts?: { scenarioFilePath?: string }
 ): { finalLatex: string; steps: StepExecutionResult[] } {
   const initialJson =
     scenario.initial.mathJson ??
@@ -469,9 +644,13 @@ export function executeScenario(
       tree,
       selection,
       step,
-      selectionDebugText(step.select ?? null)
+      selectionDebugText(step.select ?? null),
+      opts?.scenarioFilePath
     );
-    const result = mathPadFacade.applyAction({ tree, selection, action });
+    const result =
+      action.type === "moveReplay"
+        ? executeReplayMoveAction({ tree, action })
+        : mathPadFacade.applyAction({ tree, selection, action });
     const actionName = typeof step.action === "string" ? step.action : String(step.action.type);
 
     if (step.expectError) {

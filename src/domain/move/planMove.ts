@@ -75,6 +75,8 @@ export type MovePlan =
       divideId: string;
       movedId: string;
       insertIndex: 0 | 1; // 0 = before fraction, 1 = after
+      targetHoverId?: string; // optional sibling-factor hover target for apply
+      strategy?: "adjacentGap" | "ontoFactor";
     }
   | {
       kind: "MoveAcrossEqual";
@@ -248,6 +250,69 @@ function findIntegrateAncestor(
     const op = tree.nodesById[cur]?.op;
     if (op === "Integrate") return cur;
     cur = tree.parentById[cur] ?? null;
+  }
+  return null;
+}
+
+function resolveFractionPullOutIntent(args: {
+  tree: ExpressionTree;
+  divideId: string;
+  hoverId: string;
+  pointer: { x: number; y: number };
+  rectFor: RectProvider;
+}):
+  | { strategy: "ontoFactor"; targetHoverId: string; insertIndex: 1 }
+  | { strategy: "adjacentGap"; insertIndex: 0 | 1 }
+  | null {
+  const { tree, divideId, hoverId, pointer, rectFor } = args;
+  const parentMulId = tree.parentById[divideId];
+  if (!parentMulId) return null;
+  const parentMulOp = tree.nodesById[parentMulId]?.op;
+  const isMulOp = (op?: string) => op === "InvisibleOperator" || op === "Multiply";
+  if (!isMulOp(parentMulOp)) return null;
+
+  const parentChildren = tree.childrenById[parentMulId] ?? [];
+  const divideIndex = parentChildren.indexOf(divideId);
+  if (divideIndex < 0) return null;
+
+  const HIT_PAD = 6;
+  for (const siblingId of parentChildren) {
+    if (siblingId === divideId) continue;
+    const r = rectFor(siblingId);
+    if (r && containsPoint(r, pointer.x, pointer.y, HIT_PAD)) {
+      return {
+        strategy: "ontoFactor",
+        targetHoverId: siblingId,
+        insertIndex: 1,
+      };
+    }
+  }
+
+  const slot = computeSlotByMidpoints({
+    childIds: parentChildren,
+    pointerX: pointer.x,
+    rectFor,
+  });
+  if (slot != null) {
+    const insertIndex: 0 | 1 = slot <= divideIndex ? 0 : 1;
+    return { strategy: "adjacentGap", insertIndex };
+  }
+
+  const hoverParentId = tree.parentById[hoverId];
+  const hoverInSameMul =
+    hoverId === parentMulId || hoverParentId === parentMulId;
+  if (hoverInSameMul && hoverId !== parentMulId && hoverId !== divideId) {
+    return {
+      strategy: "ontoFactor",
+      targetHoverId: hoverId,
+      insertIndex: 1,
+    };
+  }
+
+  const divideRect = rectFor(divideId);
+  if (divideRect) {
+    const insertIndex: 0 | 1 = pointer.x < midX(divideRect) ? 0 : 1;
+    return { strategy: "adjacentGap", insertIndex };
   }
   return null;
 }
@@ -761,80 +826,28 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
     }
   }
 
-  // Multiplicative: pulling a factor out of a fraction term often hovers the
-  // parent Add edge. Plan this as a wrap-around the Divide so executor receives
-  // hover=divide and targetSlot=0/1.
+  // Multiplicative: pull a factor out of a fraction term inside a product.
+  // Use semantic intent derived from pointer geometry, not raw hoverId shape,
+  // so symbol factors and wrapped differential factors behave consistently.
   if (mode === "multiplicative" && tree.nodesById[movedParentId]?.op === "Divide") {
-    const targetForFraction = resolveHoverTarget({
+    const intent = resolveFractionPullOutIntent({
       tree,
+      divideId: movedParentId,
       hoverId,
       pointer,
       rectFor,
-      isContainerOp: (op?: string) => isMulOp(op) || op === "Add",
     });
-    if (targetForFraction?.kind === "add") {
-      const addId = targetForFraction.addId;
-      if (tree.parentById[movedParentId] === addId) {
-        const addKids = tree.childrenById[addId] ?? [];
-        const divideIndex = addKids.indexOf(movedParentId);
-        if (divideIndex >= 0) {
-          const slot = computeSlotByMidpoints({
-            childIds: addKids,
-            pointerX: pointer.x,
-            rectFor,
-          });
-          if (slot >= 0) {
-            return {
-              kind: "WrapIntoAddThenInsert",
-              movedId,
-              fromAddId: addId,
-              fromIndex: divideIndex,
-              replaceId: movedParentId,
-              replaceParentId: addId,
-              replaceSlot: divideIndex,
-              insertIndex: slot <= divideIndex ? 0 : 1,
-            };
-          }
-        }
-      }
-    }
-  }
-
-  // Multiplicative: pulling a factor out of a fraction directly onto a sibling
-  // factor in the same product (e.g. drag denominator e onto f in (A/e) f).
-  if (mode === "multiplicative" && tree.nodesById[movedParentId]?.op === "Divide") {
-    const parentMulId = tree.parentById[movedParentId];
-    const parentMulOp = parentMulId ? tree.nodesById[parentMulId]?.op : null;
-    const hoverParentId = tree.parentById[hoverId];
-    const hoverInSameMul =
-      !!parentMulId &&
-      isMulOp(parentMulOp) &&
-      (hoverId === parentMulId || hoverParentId === parentMulId);
-
-    if (hoverInSameMul) {
-      const parentChildren = tree.childrenById[parentMulId!] ?? [];
-      const hoverRect = rectFor(hoverId);
-      let insertIndex: 0 | 1 = 1;
-      if (hoverId === parentMulId) {
-        const divideRect = rectFor(movedParentId);
-        if (divideRect) {
-          insertIndex = pointer.x < midX(divideRect) ? 0 : 1;
-        }
-      } else if (hoverRect) {
-        insertIndex = pointer.x < midX(hoverRect) ? 0 : 1;
-      } else {
-        const divideIndex = parentChildren.indexOf(movedParentId);
-        const hoverIndex = parentChildren.indexOf(hoverId);
-        if (hoverIndex >= 0 && divideIndex >= 0) {
-          insertIndex = hoverIndex < divideIndex ? 0 : 1;
-        }
-      }
-
+    if (intent) {
       return {
         kind: "PullOutOfFraction",
         divideId: movedParentId,
         movedId,
-        insertIndex,
+        insertIndex: intent.insertIndex,
+        strategy: intent.strategy,
+        targetHoverId:
+          intent.strategy === "ontoFactor"
+            ? intent.targetHoverId
+            : undefined,
       };
     }
   }

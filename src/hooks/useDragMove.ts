@@ -4,7 +4,10 @@ import type { MoveMode } from "../moveExpression/applyMove";
 import type { MovePlan } from "../planMove";
 import { planMove } from "../planMove";
 import { applyMove } from "../moveExpression/applyMove";
-import { createRectProvider } from "../infra/mathlive/rectProvider";
+import {
+  createRectProvider,
+  snapshotRectsForTree,
+} from "../infra/mathlive/rectProvider";
 import {
   planToApplyMoveTarget,
   describeMovePlan,
@@ -19,6 +22,40 @@ import { normalizeSelectedIdsForMove } from "../domain/move/moveSelectionPolicy"
 export type DragState = null | {
   pointerId: number;
   selectedIds: string[];
+  startPointer: { x: number; y: number };
+};
+
+export type MoveDragCaptureHooks = {
+  onDragStart?: (payload: {
+    pointerId: number;
+    selectedIds: string[];
+    mode: MoveMode;
+    rects: Record<string, { left: number; top: number; right: number; bottom: number }>;
+  }) => void;
+  onMoveSample?: (payload: {
+    pointer: { x: number; y: number };
+    selectedIds: string[];
+    hoverId: string | null;
+    hoverUsedFallback: boolean;
+    mode: MoveMode;
+    plan: MovePlan | null;
+    infoArgs: string;
+  }) => void;
+  onDragEnd?: (payload: {
+    pointer: { x: number; y: number };
+    mode: MoveMode;
+    moved: boolean;
+    plan: MovePlan | null;
+  }) => void;
+  onApplyAttempt?: (payload: {
+    source: "primary" | "pullOutFallback" | "crossEqualFallback";
+    selectedIds: string[];
+    hoverId: string;
+    targetSlot: number | null;
+    mode: MoveMode;
+    planKind: MovePlan["kind"] | null;
+    succeeded: boolean;
+  }) => void;
 };
 
 export function useDragMove(
@@ -27,17 +64,31 @@ export function useDragMove(
   measureEl: HTMLElement | null,
   displayEl: HTMLElement | null,
   insertOverlayEl: HTMLDivElement | null,
-  onMoveComplete: (newTree: ExpressionTree, latex: string) => void
+  onMoveComplete: (newTree: ExpressionTree, latex: string) => void,
+  captureHooks?: MoveDragCaptureHooks
 ) {
   const [drag, setDrag] = useState<DragState>(null);
   const lastPlanRef = useRef<MovePlan | null>(null);
+  const maxDragDistanceRef = useRef(0);
+  const DRAG_APPLY_THRESHOLD_PX = 4;
 
   const rectFor = createRectProvider(measureEl, tree);
 
-  const startDrag = useCallback((pointerId: number, selectedIds: string[]) => {
-    setDrag({ pointerId, selectedIds });
+  const startDrag = useCallback((
+    pointerId: number,
+    selectedIds: string[],
+    startPointer: { x: number; y: number }
+  ) => {
+    setDrag({ pointerId, selectedIds, startPointer });
     lastPlanRef.current = null;
-  }, []);
+    maxDragDistanceRef.current = 0;
+    captureHooks?.onDragStart?.({
+      pointerId,
+      selectedIds,
+      mode: moveMode,
+      rects: snapshotRectsForTree(measureEl, tree),
+    });
+  }, [captureHooks, moveMode, measureEl, tree]);
 
   const handlePointerMove = useCallback(
     (
@@ -97,6 +148,13 @@ export function useDragMove(
         hoverId: hover,
       });
 
+      const dx = e.clientX - drag.startPointer.x;
+      const dy = e.clientY - drag.startPointer.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance > maxDragDistanceRef.current) {
+        maxDragDistanceRef.current = distance;
+      }
+
       const plan = planMove({
         tree,
         selectedIds: effectiveSelectedIds,
@@ -106,7 +164,11 @@ export function useDragMove(
         mode: moveMode,
       });
 
-      lastPlanRef.current = plan;
+      // Keep the most recent actionable plan so a transient hover miss at release
+      // (common near pad edges in multi-pad layout) does not drop a valid move.
+      if (plan) {
+        lastPlanRef.current = plan;
+      }
 
       const planDescription = describeMovePlan(plan);
       const infoArgs = JSON.stringify(
@@ -123,6 +185,15 @@ export function useDragMove(
 
       // Render overlay
       renderInsertOverlay(plan, insertOverlayEl, displayEl, rectFor, tree);
+      captureHooks?.onMoveSample?.({
+        pointer: { x: e.clientX, y: e.clientY },
+        selectedIds: effectiveSelectedIds,
+        hoverId: hover,
+        hoverUsedFallback: hoverHit.usedFallback,
+        mode: moveMode,
+        plan,
+        infoArgs,
+      });
 
       return {
         plan,
@@ -132,7 +203,7 @@ export function useDragMove(
         hoverUsedFallback: hoverHit.usedFallback,
       };
     },
-    [drag, tree, measureEl, displayEl, insertOverlayEl, moveMode, rectFor]
+    [drag, tree, measureEl, displayEl, insertOverlayEl, moveMode, rectFor, captureHooks]
   );
 
   const handlePointerUp = useCallback(
@@ -141,6 +212,21 @@ export function useDragMove(
       if (e.pointerId !== drag.pointerId) return false;
 
       let plan = lastPlanRef.current;
+      const draggedEnough = maxDragDistanceRef.current >= DRAG_APPLY_THRESHOLD_PX;
+
+      if (!draggedEnough) {
+        renderInsertOverlay(null, insertOverlayEl, displayEl, rectFor, tree);
+        setDrag(null);
+        lastPlanRef.current = null;
+        maxDragDistanceRef.current = 0;
+        captureHooks?.onDragEnd?.({
+          pointer: { x: e.clientX, y: e.clientY },
+          mode: moveMode,
+          moved: false,
+          plan,
+        });
+        return false;
+      }
 
       // If we somehow missed a pointer-move update, recompute a plan at pointer-up.
       if (!plan && tree && measureEl) {
@@ -248,11 +334,62 @@ export function useDragMove(
           targetSlot: moveTarget.targetSlot,
           mode: effectiveMode,
         });
+        captureHooks?.onApplyAttempt?.({
+          source: "primary",
+          selectedIds: effectiveSelectedIds,
+          hoverId: moveTarget.hoverId,
+          targetSlot: moveTarget.targetSlot,
+          mode: effectiveMode,
+          planKind: plan.kind,
+          succeeded: !!next,
+        });
         if (next) {
           onMoveComplete(next, next.latexPlain);
           renderInsertOverlay(null, insertOverlayEl, displayEl, rectFor, tree);
           setDrag(null);
           lastPlanRef.current = null;
+          maxDragDistanceRef.current = 0;
+          captureHooks?.onDragEnd?.({
+            pointer: { x: e.clientX, y: e.clientY },
+            mode: moveMode,
+            moved: true,
+            plan,
+          });
+          return true;
+        }
+      }
+
+      // Fallback: if planner predicted a pull-out from fraction but execution
+      // failed with normalized runtime selections, retry with plan-native ids.
+      if (tree && plan?.kind === "PullOutOfFraction" && moveMode === "multiplicative") {
+        const retry = applyMove({
+          tree,
+          selectedIds: [plan.movedId],
+          hoverId: plan.divideId,
+          targetSlot: plan.insertIndex,
+          mode: "multiplicative",
+        });
+        captureHooks?.onApplyAttempt?.({
+          source: "pullOutFallback",
+          selectedIds: [plan.movedId],
+          hoverId: plan.divideId,
+          targetSlot: plan.insertIndex,
+          mode: "multiplicative",
+          planKind: plan.kind,
+          succeeded: !!retry,
+        });
+        if (retry) {
+          onMoveComplete(retry, retry.latexPlain);
+          renderInsertOverlay(null, insertOverlayEl, displayEl, rectFor, tree);
+          setDrag(null);
+          lastPlanRef.current = null;
+          maxDragDistanceRef.current = 0;
+          captureHooks?.onDragEnd?.({
+            pointer: { x: e.clientX, y: e.clientY },
+            mode: moveMode,
+            moved: true,
+            plan,
+          });
           return true;
         }
       }
@@ -277,12 +414,28 @@ export function useDragMove(
           targetSlot: fallbackSlot,
           mode: "multiplicative",
         });
+        captureHooks?.onApplyAttempt?.({
+          source: "crossEqualFallback",
+          selectedIds: [plan.movedId],
+          hoverId: fallbackHover,
+          targetSlot: fallbackSlot,
+          mode: "multiplicative",
+          planKind: plan.kind,
+          succeeded: !!retry,
+        });
 
         if (retry) {
           onMoveComplete(retry, retry.latexPlain);
           renderInsertOverlay(null, insertOverlayEl, displayEl, rectFor, tree);
           setDrag(null);
           lastPlanRef.current = null;
+          maxDragDistanceRef.current = 0;
+          captureHooks?.onDragEnd?.({
+            pointer: { x: e.clientX, y: e.clientY },
+            mode: moveMode,
+            moved: true,
+            plan,
+          });
           return true;
         }
       }
@@ -290,15 +443,32 @@ export function useDragMove(
       renderInsertOverlay(null, insertOverlayEl, displayEl, rectFor, tree);
       setDrag(null);
       lastPlanRef.current = null;
+      maxDragDistanceRef.current = 0;
+      captureHooks?.onDragEnd?.({
+        pointer: { x: e.clientX, y: e.clientY },
+        mode: moveMode,
+        moved: false,
+        plan,
+      });
       return false;
     },
-    [drag, tree, moveMode, onMoveComplete, insertOverlayEl, displayEl, rectFor]
+    [
+      drag,
+      tree,
+      moveMode,
+      onMoveComplete,
+      insertOverlayEl,
+      displayEl,
+      rectFor,
+      captureHooks,
+    ]
   );
 
   const cancelDrag = useCallback(() => {
     renderInsertOverlay(null, insertOverlayEl, displayEl, rectFor, tree);
     setDrag(null);
     lastPlanRef.current = null;
+    maxDragDistanceRef.current = 0;
   }, [insertOverlayEl, displayEl, rectFor, tree]);
 
   return {

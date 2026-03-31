@@ -449,6 +449,34 @@ function findCancellablePair(
   return null;
 }
 
+function findZeroFactorCandidate(
+  tree: ExpressionTree,
+  candidateIds: string[]
+): string | null {
+  for (const id of candidateIds) {
+    const info = tree.nodesById[id];
+    if (!info) continue;
+    if (!isZeroEquivalent(info.json)) continue;
+    const parentId = tree.parentById[id];
+    if (!parentId) continue;
+    if (tree.nodesById[parentId]?.op !== "InvisibleOperator") continue;
+    return id;
+  }
+  return null;
+}
+
+function spanCandidateIds(tree: ExpressionTree, selection: ExprSelection & { kind: "span" }): string[] {
+  const kids = tree.childrenById[selection.parentId] ?? [];
+  const slice = kids.slice(selection.start, selection.end + 1);
+  return getDescendantNodeIds(tree, slice);
+}
+
+function canCancelCandidates(tree: ExpressionTree, candidateIds: string[]): boolean {
+  if (candidateIds.length === 0) return false;
+  if (findCancellablePair(tree, candidateIds)) return true;
+  return findZeroFactorCandidate(tree, candidateIds) != null;
+}
+
 export function canCancelTerm(
   tree: ExpressionTree | null,
   selection: ExprSelection | null
@@ -456,8 +484,11 @@ export function canCancelTerm(
   if (!tree || !selection) return false;
   if (selection.kind === "multi") {
     const candidates = getDescendantNodeIds(tree, selection.nodeIds);
-    if (candidates.length < 2) return false;
-    return findCancellablePair(tree, candidates) !== null || selection.nodeIds.length >= 2;
+    return canCancelCandidates(tree, candidates);
+  }
+  if (selection.kind === "span") {
+    const candidates = spanCandidateIds(tree, selection);
+    return canCancelCandidates(tree, candidates);
   }
   if (selection.kind !== "node") return false;
   return cancelTerm(tree, selection) !== null;
@@ -471,13 +502,35 @@ export function cancelTerm(
 
   if (selection.kind === "multi") {
     const candidates = getDescendantNodeIds(tree, selection.nodeIds);
-    if (candidates.length < 2) return null;
     const result = findCancellablePair(tree, candidates);
-    if (!result) return null;
-    const targetPath = tree.pathById[result.nodeId];
-    if (!targetPath) return null;
-    const nextRoot = setAtPath(tree.rootJson, targetPath, result.nextExpr);
-    return ExpressionTree.create(nextRoot);
+    if (result) {
+      const targetPath = tree.pathById[result.nodeId];
+      if (!targetPath) return null;
+      const nextRoot = setAtPath(tree.rootJson, targetPath, result.nextExpr);
+      return ExpressionTree.create(nextRoot);
+    }
+
+    const zeroId = findZeroFactorCandidate(tree, candidates);
+    if (zeroId) {
+      return cancelTerm(tree, { kind: "node", nodeId: zeroId });
+    }
+    return null;
+  }
+
+  if (selection.kind === "span") {
+    const candidates = spanCandidateIds(tree, selection);
+    const result = findCancellablePair(tree, candidates);
+    if (result) {
+      const targetPath = tree.pathById[result.nodeId];
+      if (!targetPath) return null;
+      const nextRoot = setAtPath(tree.rootJson, targetPath, result.nextExpr);
+      return ExpressionTree.create(nextRoot);
+    }
+    const zeroId = findZeroFactorCandidate(tree, candidates);
+    if (zeroId) {
+      return cancelTerm(tree, { kind: "node", nodeId: zeroId });
+    }
+    return null;
   }
 
   if (selection.kind !== "node") return null;
@@ -511,6 +564,29 @@ export function cancelTerm(
 
   // 2) Product factor removal
   if (parentOp === "InvisibleOperator") {
+    if (isZeroEquivalent(selInfo.json)) {
+      const parentParentId = tree.parentById[parentId];
+      const nextRoot = setAtPath(tree.rootJson, parentPath, 0);
+
+      // If this product sits as a term inside a sum, remove the now-zero term.
+      if (parentParentId && tree.nodesById[parentParentId]?.op === "Add") {
+        const addPath = tree.pathById[parentParentId];
+        if (!addPath) return ExpressionTree.create(nextRoot);
+        const addExpr = getAtPath(nextRoot, addPath) as MJ;
+        if (!Array.isArray(addExpr) || addExpr[0] !== "Add") {
+          return ExpressionTree.create(nextRoot);
+        }
+        const idx = tree.childIndexById[parentId];
+        if (idx == null) return ExpressionTree.create(nextRoot);
+        const remaining = (addExpr as MJNode).slice(1).filter((_, i) => i !== idx);
+        const nextAdd = buildAddFromTerms(remaining);
+        const cleanedRoot = setAtPath(nextRoot, addPath, nextAdd);
+        return ExpressionTree.create(cleanedRoot);
+      }
+
+      return ExpressionTree.create(nextRoot);
+    }
+
     if (!isOneEquivalent(selInfo.json)) return null;
     const mulExpr = getAtPath(tree.rootJson, parentPath) as MJ;
     if (!Array.isArray(mulExpr)) return null;

@@ -3,6 +3,13 @@ import type { MJ } from "../../ExpressionTree";
 
 type MJNode = [op: string, ...args: MJ[]];
 
+function isDifferentialOfEqnOperation(operationLatex: string): boolean {
+  const compact = operationLatex.replace(/\s+/g, "");
+  return /^(?:d|\\mathrm\{d\}|\\differentialD)(?:\\left\(|\()eqn(?:\\right\)|\))$/.test(
+    compact
+  );
+}
+
 function isEqualNode(mj: MJ): mj is MJNode {
   return Array.isArray(mj) && mj[0] === "Equal" && mj.length === 3;
 }
@@ -75,6 +82,21 @@ function normalizeMulExpr(factors: MJ[]): MJ {
   return ["InvisibleOperator", ...flat];
 }
 
+function wrapDifferentialOperand(side: MJ): MJ {
+  if (
+    Array.isArray(side) &&
+    (side[0] === "Add" ||
+      side[0] === "InvisibleOperator" ||
+      side[0] === "Multiply" ||
+      side[0] === "Divide" ||
+      side[0] === "Negate" ||
+      side[0] === "DotProduct")
+  ) {
+    return ["Delimiter", deepClone(side)] as MJ;
+  }
+  return deepClone(side);
+}
+
 function distributeTopLevelMulOverAdd(expr: MJ): MJ {
   if (!Array.isArray(expr)) return expr;
   const op = expr[0];
@@ -116,6 +138,15 @@ export function applyOperationToBothSides(
   const hasPlaceholder = /\beqn\b/.test(operationLatex);
   if (!hasPlaceholder) {
     throw new Error("Operation must contain the placeholder 'eqn'.");
+  }
+
+  // Treat d(eqn) as a semantic differential operator over the whole side.
+  // This avoids parser ambiguity that can collapse d(u+Pv) to du+Pv.
+  if (isDifferentialOfEqnOperation(operationLatex)) {
+    const [, lhs, rhs] = equation;
+    const newLhs = ["Differential", wrapDifferentialOperand(lhs as MJ)] as MJ;
+    const newRhs = ["Differential", wrapDifferentialOperand(rhs as MJ)] as MJ;
+    return ["Equal", newLhs, newRhs];
   }
 
   const preparedLatex = operationLatex.replace(/\beqn\b/g, "\\mathrm{eqn}");

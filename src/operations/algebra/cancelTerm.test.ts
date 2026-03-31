@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ExprSelection } from "../../selectionSemantics";
 import { treefromLatex, findNodeId } from "../../testHelpers";
-import { cancelTerm } from "./cancelTerm";
+import { canCancelTerm, cancelTerm } from "./cancelTerm";
 
 function normalizeSpaces(s: string): string {
   return s.replace(/\s+/g, " ").trim();
@@ -59,6 +59,50 @@ describe("cancelTerm", () => {
     const result = cancelTerm(tree, select(oneFactorId));
     expect(result).not.toBeNull();
     expect(normalizeSpaces(result!.latexPlain)).toBe("1 = a b");
+  });
+
+  it("collapses a product containing zero when selected inside a sum", () => {
+    const tree = treefromLatex(String.raw`a + b 0`);
+    const zeroFactorId = findNodeId(
+      tree,
+      (n) =>
+        n.latex === "0" &&
+        tree.nodesById[tree.parentById[n.id] ?? ""]?.op === "InvisibleOperator"
+    );
+
+    const result = cancelTerm(tree, select(zeroFactorId));
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe("a");
+  });
+
+  it("collapses b 0 when both factors are selected as a multi-selection", () => {
+    const tree = treefromLatex(String.raw`a + b 0`);
+    const bId = findNodeId(tree, (n) => n.latex === "b");
+    const zeroFactorId = findNodeId(
+      tree,
+      (n) =>
+        n.latex === "0" &&
+        tree.nodesById[tree.parentById[n.id] ?? ""]?.op === "InvisibleOperator"
+    );
+    const selection: ExprSelection = { kind: "multi", nodeIds: [bId, zeroFactorId] };
+    expect(canCancelTerm(tree, selection)).toBe(true);
+    const result = cancelTerm(tree, selection);
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe("a");
+  });
+
+  it("collapses a standalone product containing zero to zero", () => {
+    const tree = treefromLatex(String.raw`b 0`);
+    const zeroFactorId = findNodeId(
+      tree,
+      (n) =>
+        n.latex === "0" &&
+        tree.nodesById[tree.parentById[n.id] ?? ""]?.op === "InvisibleOperator"
+    );
+
+    const result = cancelTerm(tree, select(zeroFactorId));
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe("0");
   });
 
   it("requires explicit pair selection to cancel a common factor", () => {

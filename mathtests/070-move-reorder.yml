@@ -9,7 +9,7 @@ steps:
       kind: node
       path: [2]
     action:
-      type: move
+      type: moveReplay
       hover:
         path: []
       targetSlot: 0

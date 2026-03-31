@@ -58,10 +58,50 @@
     This should also work with the denominator, so I can subsequently do
     `a = b + \left[c + d\right] \frac{e}{f}`
 
-17. `\frac{\partial{u}}{\partial{T}}\right)_{v}`
+17. `a + b 0`
+    b 0 should be cancellable via the button to 0 and remove the multiplication (InvisibleOperator) if it's in a sum
+    (or just stay 0 if it's on its own).
+
+18. `\frac{c_{V} \mathrm{d}{T}}{\mathrm{d}{v}} = -\left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right]`
+    If I try to drag `c_{V}` outside the fraction multiplicatively to the left, it doesn't work. A preview is generated indicating it should work, but the result is no change.
+
+19. `c_{V} \frac{\mathrm{d}{T}}{\mathrm{d}{v}} = -\left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right]`
+    If we choose the bracket and expand, we expect
+    `-\left(\frac{\partial{u}}{\partial{v}}\right)_{T} - P`, but actually nothing happens.
+    However, in an expression `a = -\left[b + c\right]`, the result is b + c as expected. That implies that the two are treated differently, which indicates an architecture problem.
+
+20. Feature: It would be nice to understand the differential operator. E.g.
+    `h = u + P v`
+    Then we apply to both sides `d(eqn)`. The result is `d(h) = d(u + P v)`. However, there's no semantic
+    understanding of this. For instance clearly `\mathrm{d}(h)` is equivalent to `dh`, and expansion of
+    `d(u + P v)` is `du + P dv + v dP`. If nothing else, expansion should fail due to the roman d.
+
+21. `\mathrm{d}{h} = \mathrm{d}{u} + \mathrm{d}{P} v + P \mathrm{d}{v}`
+    Select the middle term in the sum `\mathrm{d}{P} v`. Drag additively to the right of the last term.
+    Uncaught Error: Move result failed round-trip tree invariant.
+    latex: \mathrm{d}{h} = \mathrm{d}{u} + P \mathrm{d}{v} + \mathrm{d}{P} v
+    current: ["Equal",["Differential","h"],["Add",["Differential","u"],["Add",["InvisibleOperator","P",["Differential","v"]],["InvisibleOperator",["Differential","P"],"v"]]]]
+    reparsed: ["Equal",["Differential","h"],["Add",["Differential","u"],["InvisibleOperator","P",["Differential","v"]],["InvisibleOperator",["Differential","P"],"v"]]]
+
+22. When I parse `d'q = du + P dv`, the dv is not a differential. It's not roman.
+
+23. `\mathrm{d}'{q} = \mathrm{d}{h} - \mathrm{d}{P} v`
+    It seems like if a single-click (down and release) on \mathrm{d}{h} with additive mode selected, it transforms instantly, even though I didn't drag.
+
+24. `\mathrm{d}'{q} = \left(\frac{\partial{h}}{\partial{T}}\right)_{P} \mathrm{d}{T} + \left(\frac{\partial{h}}{\partial{P}}\right)_{T} \mathrm{d}{P} - \mathrm{d}{P} v`
+    Choosing the two latter parts of the sum `\left(\frac{\partial{h}}{\partial{P}}\right)_{T} \mathrm{d}{P}` and `\mathrm{d}{P} v` and choosing factor has no result. However in `a = b c + e f - f g` choosing `e f` and `f g` and choosing factor correctly results in `a = b c + f \left(e - g\right)` So there's something inconsistent about
+    possibly how we treat derivatives or differentials.
+
+25. `a = b c + d e - e f`
+    Here de should not be parsed as a differential, but currently it is.
+
+26. `\mathrm{d}'{q} = \left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right] \mathrm{d}{v}`
+    If I selected the bracketed expression and hit expand, I get an error that "Error is not a known type of array"
+
+27. `\frac{\partial{u}}{\partial{T}}\right)_{v}`
     In a partial derivative, the inside part of the parentheses is selectable, but actually this whole thing including the parentheses should be atomic.
 
-18. Feature: `\left(a + b - c d e\right) = f`, we should have a way to either add or remove the parentheses
+28. Feature: `\left(a + b - c d e\right) = f`, we should have a way to either add or remove the parentheses
     surrounding the left-hand sum, since it's optional. Maybe a button.
 
-19. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu
+29. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu

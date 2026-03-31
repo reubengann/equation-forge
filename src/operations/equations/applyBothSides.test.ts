@@ -95,6 +95,30 @@ describe("applyOperationToBothSides", () => {
     expect(ExpressionTree.create(result).latexPlain).toBe("a d = b d - c d");
   });
 
+  it("treats d(eqn) as differential of whole sides", () => {
+    const eqn = makeMJfromLatex("h = u + P v");
+    const result = applyOperationToBothSides(eqn, "d(eqn)");
+    expect(ExpressionTree.create(result).latexPlain).toBe(
+      String.raw`\mathrm{d}{h} = \mathrm{d}{\left(u + P v\right)}`
+    );
+  });
+
+  it("treats d\\left(eqn\\right) as differential of whole sides", () => {
+    const eqn = makeMJfromLatex("h = u + P v");
+    const result = applyOperationToBothSides(eqn, String.raw`d\left(eqn\right)`);
+    expect(ExpressionTree.create(result).latexPlain).toBe(
+      String.raw`\mathrm{d}{h} = \mathrm{d}{\left(u + P v\right)}`
+    );
+  });
+
+  it("treats d(eqn) over multiplicative side as grouped differential operand", () => {
+    const eqn = makeMJfromLatex("h = a b c");
+    const result = applyOperationToBothSides(eqn, "d(eqn)");
+    expect(ExpressionTree.create(result).latexPlain).toBe(
+      String.raw`\mathrm{d}{h} = \mathrm{d}{\left(a b c\right)}`
+    );
+  });
+
   it("parses vec notation into a Vector node", () => {
     const mj = makeMJfromLatex("\\vec{e}");
     expect(mj).toEqual(["Vector", "e"]);

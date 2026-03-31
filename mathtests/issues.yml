@@ -491,10 +491,167 @@ scenarios:
           kind: node
           latex: "e"
         action:
+          type: moveReplay
+          mode: multiplicative
+          fixture: "captured/issue16e-e-onto-f.json"
+          expectPlanKind: "PullOutOfFraction"
+        expect:
+          latex: "a = b + \\left[c + d\\right] \\frac{f}{e}"
+  - version: 1
+    name: Issue 16f - pull d T_P onto d v_P
+    tags: [issue, move, multiplicative, fraction, differential]
+    initial:
+      latex: "c_{P} = c_{V} + \\frac{\\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right]}{\\mathrm{d}{T}_{P}} \\mathrm{d}{v}_{P}"
+    steps:
+      - name: drag d T_P onto d v_P
+        select:
+          kind: node
+          latex: "\\mathrm{d}{T}_{P}"
+        action:
+          type: moveReplay
+          mode: multiplicative
+          fixture: "captured/issue16f-dtp-onto-dvp.json"
+          expectPlanKind: "PullOutOfFraction"
+        expect:
+          latex: "c_{P} = c_{V} + \\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right] \\frac{\\mathrm{d}{v}_{P}}{\\mathrm{d}{T}_{P}}"
+  - version: 1
+    name: Issue 17 - cancel zero factor inside a sum
+    tags: [issue, cancel, zero, multiplicative]
+    initial:
+      latex: "a + b 0"
+    steps:
+      - name: cancel zero factor in product term
+        select:
+          kind: node
+          latex: "0"
+        action:
+          type: cancel
+        expect:
+          latex: "a"
+  - version: 1
+    name: Issue 17b - cancel zero product with b and 0 selected
+    tags: [issue, cancel, zero, multiplicative, multi]
+    initial:
+      latex: "a + b 0"
+    steps:
+      - name: cancel with b and 0 multi-selection
+        select:
+          kind: multi
+          items:
+            - latex: "b"
+            - latex: "0"
+        action:
+          type: cancel
+        expect:
+          latex: "a"
+  - version: 1
+    name: Issue 18 - expand on bracketed partial expression is safely rejected
+    tags: [issue, expand, partial, differential]
+    initial:
+      latex: "\\mathrm{d}'{q} = \\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right] \\mathrm{d}{v}"
+    steps:
+      - name: expand inner bracket expression
+        select:
+          kind: node
+          path: [2, 1, 1]
+        action:
+          type: expand
+        expectError: "no change"
+  - version: 1
+    name: Issue 18b - expand full RHS distributes d v
+    tags: [issue, expand, partial, differential]
+    initial:
+      latex: "\\mathrm{d}'{q} = \\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right] \\mathrm{d}{v}"
+    steps:
+      - name: expand full rhs product
+        select:
+          kind: node
+          path: [2]
+        action:
+          type: expand
+        expect:
+          latex: "\\mathrm{d}'{q} = \\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} \\mathrm{d}{v} + P \\mathrm{d}{v}"
+  - version: 1
+    name: Issue 18 - pull c_V outside LHS fraction
+    tags: [issue, move, multiplicative, fraction, differential]
+    initial:
+      latex: "\\frac{c_{V} \\mathrm{d}{T}}{\\mathrm{d}{v}} = -\\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right]"
+    steps:
+      - name: move c_V to left of lhs fraction
+        select:
+          kind: node
+          latex: "c_{V}"
+        action:
           type: move
           hover:
-            latex: "f"
-          targetSlot: 1
+            path: [1]
+          targetSlot: 0
           mode: multiplicative
         expect:
-          latex: "a = b + \\left[c + d\\right] f \\frac{1}{e}"
+          latex: "c_{V} \\frac{\\mathrm{d}{T}}{\\mathrm{d}{v}} = -\\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right]"
+  - version: 1
+    name: Issue 19 - expand bracket under negation
+    tags: [issue, expand, negate, partial]
+    initial:
+      latex: "c_{V} \\frac{\\mathrm{d}{T}}{\\mathrm{d}{v}} = -\\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right]"
+    steps:
+      - name: expand selected bracket under minus
+        select:
+          kind: node
+          latex: "\\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right]"
+        action:
+          type: expand
+        expect:
+          latex: "c_{V} \\frac{\\mathrm{d}{T}}{\\mathrm{d}{v}} = -\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} - P"
+  - version: 1
+    name: Issue 20 - differential expansion after d(eqn)
+    tags: [issue, apply, expand, differential]
+    initial:
+      latex: "h = u + P v"
+    steps:
+      - name: apply differential operator to both sides
+        action:
+          type: applyToBothSides
+          operationLatex: "d(eqn)"
+      - name: expand rhs differential
+        select:
+          kind: node
+          path: [2]
+        action:
+          type: expand
+        expect:
+          latex: "\\mathrm{d}{h} = \\mathrm{d}{u} + \\mathrm{d}{P} v + P \\mathrm{d}{v}"
+  - version: 1
+    name: Issue 24 - factor latter two differential terms
+    tags: [issue, factor, differential, additive]
+    initial:
+      latex: "\\mathrm{d}'{q} = \\left(\\frac{\\partial{h}}{\\partial{T}}\\right)_{P} \\mathrm{d}{T} + \\left(\\frac{\\partial{h}}{\\partial{P}}\\right)_{T} \\mathrm{d}{P} - \\mathrm{d}{P} v"
+    steps:
+      - name: factor selected latter two terms on rhs
+        select:
+          kind: span
+          parent:
+            path: [2]
+          op: Add
+          start: 1
+          end: 2
+        action:
+          type: factor
+        expect:
+          latex: "\\mathrm{d}'{q} = \\left(\\frac{\\partial{h}}{\\partial{T}}\\right)_{P} \\mathrm{d}{T} + \\mathrm{d}{P} \\left(\\left(\\frac{\\partial{h}}{\\partial{P}}\\right)_{T} - v\\right)"
+  - version: 1
+    name: Issue 24b - factor latter two terms via multi-selection
+    tags: [issue, factor, differential, multi]
+    initial:
+      latex: "\\mathrm{d}'{q} = \\left(\\frac{\\partial{h}}{\\partial{T}}\\right)_{P} \\mathrm{d}{T} + \\left(\\frac{\\partial{h}}{\\partial{P}}\\right)_{T} \\mathrm{d}{P} - \\mathrm{d}{P} v"
+    steps:
+      - name: factor latter terms from multi-selection
+        select:
+          kind: multi
+          items:
+            - path: [2, 2]
+            - path: [2, 3, 1]
+        action:
+          type: factor
+        expect:
+          latex: "\\mathrm{d}'{q} = \\left(\\frac{\\partial{h}}{\\partial{T}}\\right)_{P} \\mathrm{d}{T} + \\mathrm{d}{P} \\left(\\left(\\frac{\\partial{h}}{\\partial{P}}\\right)_{T} - v\\right)"

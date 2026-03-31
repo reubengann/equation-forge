@@ -100,6 +100,17 @@ export function DerivationPage() {
     });
   }
 
+  function movePadToBottom(id: string) {
+    setPads((prev) => {
+      const index = prev.findIndex((p) => p.id === id);
+      if (index === -1 || index === prev.length - 1) return prev;
+      const next = [...prev];
+      const [item] = next.splice(index, 1);
+      next.push(item);
+      return next;
+    });
+  }
+
   function updateSnapshot(id: string, snapshot: ExpressionPadSnapshot) {
     setPads((prev) =>
       prev.map((p) => (p.id === id ? { ...p, snapshot } : p))
@@ -200,6 +211,13 @@ export function DerivationPage() {
                 onClick={() => movePad(pad.id, "down")}
                 disabled={idx === pads.length - 1}
                 testId={`pad-${idx + 1}-down`}
+              />
+              <IconButton
+                label="Move pad to bottom"
+                icon={<span style={materialSymbolStyle}>vertical_align_bottom</span>}
+                onClick={() => movePadToBottom(pad.id)}
+                disabled={idx === pads.length - 1}
+                testId={`pad-${idx + 1}-to-bottom`}
               />
             </div>
             <div

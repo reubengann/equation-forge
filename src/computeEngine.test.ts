@@ -192,10 +192,19 @@ describe("computeEngine custom dictionary", () => {
   });
 
   it("normalizes plain differential tokens and d'q into atomic Differential nodes", () => {
-    const mj = parse(String.raw`d'q = du + P \, dv`);
+    const mj = parse(String.raw`d'q = du + P dv`);
     expect(mj).not.toBeNull();
     expect(JSON.stringify(mj)).toContain('"Differential"');
     expect(JSON.stringify(mj)).toContain('"InexactDifferential"');
+    const tree = ExpressionTree.create(mj!);
+    expect(tree.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\mathrm{d}'{q} = \mathrm{d}{u} + P \mathrm{d}{v}`
+    );
+  });
+
+  it("normalizes dv after multiplicative factors without explicit spacing (issue 22)", () => {
+    const mj = parse(String.raw`d'q = du + P dv`);
+    expect(mj).not.toBeNull();
     const tree = ExpressionTree.create(mj!);
     expect(tree.latexPlain.replace(/\s+/g, " ").trim()).toBe(
       String.raw`\mathrm{d}'{q} = \mathrm{d}{u} + P \mathrm{d}{v}`
@@ -240,6 +249,45 @@ describe("computeEngine custom dictionary", () => {
       ["Tuple", "Nothing", undefined, undefined],
     ] as any);
     expect(mj).toEqual(["Integrate", 1, ["Tuple", "x", 0, 0]]);
+  });
+
+  it("collapses single-term Add wrappers", () => {
+    const mj = normalizeMathJson([
+      "Divide",
+      ["Add", ["InvisibleOperator", ["Subscript", "c", "V"], ["Differential", "T"]]],
+      ["Differential", "v"],
+    ] as any);
+    expect(mj).toEqual([
+      "Divide",
+      ["InvisibleOperator", ["Subscript", "c", "V"], ["Differential", "T"]],
+      ["Differential", "v"],
+    ]);
+  });
+
+  it("flattens nested Add trees to an associative canonical shape", () => {
+    const mj = normalizeMathJson([
+      "Equal",
+      ["Differential", "h"],
+      [
+        "Add",
+        ["Differential", "u"],
+        [
+          "Add",
+          ["InvisibleOperator", "P", ["Differential", "v"]],
+          ["InvisibleOperator", ["Differential", "P"], "v"],
+        ],
+      ],
+    ] as any);
+    expect(mj).toEqual([
+      "Equal",
+      ["Differential", "h"],
+      [
+        "Add",
+        ["Differential", "u"],
+        ["InvisibleOperator", "P", ["Differential", "v"]],
+        ["InvisibleOperator", ["Differential", "P"], "v"],
+      ],
+    ]);
   });
 
   it("serializes ddot correctly", () => {

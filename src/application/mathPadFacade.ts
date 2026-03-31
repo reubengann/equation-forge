@@ -360,7 +360,9 @@ export const mathPadFacade = {
 
   canExpand(tree: ExpressionTree | null, selection: ExprSelection | null): boolean {
     if (!tree) return false;
-    return getExpandTargetId(tree, selection) != null;
+    const targetId = getExpandTargetId(tree, selection);
+    if (!targetId) return false;
+    return expandSubexpression(tree, targetId) !== null;
   },
 
   canSubstitute(

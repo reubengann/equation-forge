@@ -95,4 +95,35 @@ describe("factorSelection", () => {
     const enabled = canFactorSelection(tree, { kind: "multi", nodeIds: [dvInSecondTerm, pId] });
     expect(enabled).toBe(true);
   });
+
+  it("factors the latter two terms in issue 24", () => {
+    const tree = treefromLatex(
+      String.raw`\mathrm{d}'{q} = \left(\frac{\partial{h}}{\partial{T}}\right)_{P} \mathrm{d}{T} + \left(\frac{\partial{h}}{\partial{P}}\right)_{T} \mathrm{d}{P} - \mathrm{d}{P} v`
+    );
+    const secondTermId = findNodeId(
+      tree,
+      (n) =>
+        n.op === "InvisibleOperator" &&
+        n.latex.includes(String.raw`\frac{\partial{h}}{\partial{P}}`) &&
+        n.latex.includes(String.raw`\mathrm{d}{P}`) &&
+        tree.parentById[n.id] != null &&
+        tree.nodesById[tree.parentById[n.id]]?.op === "Add"
+    );
+    const thirdTermInnerId = findNodeId(
+      tree,
+      (n) =>
+        n.op === "InvisibleOperator" &&
+        n.latex === String.raw`\mathrm{d}{P} v` &&
+        tree.parentById[n.id] != null &&
+        tree.nodesById[tree.parentById[n.id]]?.op === "Negate"
+    );
+    const result = factorSelection(tree, {
+      kind: "multi",
+      nodeIds: [secondTermId, thirdTermInnerId],
+    });
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe(
+      String.raw`\mathrm{d}'{q} = \left(\frac{\partial{h}}{\partial{T}}\right)_{P} \mathrm{d}{T} + \mathrm{d}{P} \left(\left(\frac{\partial{h}}{\partial{P}}\right)_{T} - v\right)`
+    );
+  });
 });

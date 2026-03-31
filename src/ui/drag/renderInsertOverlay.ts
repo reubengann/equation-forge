@@ -215,6 +215,27 @@ export function renderInsertOverlay(
     return;
   }
 
+  // PullOutOfFraction onto a sibling factor (f/e) should preview on that factor,
+  // not at the fraction edge insertion line.
+  if (
+    plan.kind === "PullOutOfFraction" &&
+    plan.strategy === "ontoFactor" &&
+    plan.targetHoverId
+  ) {
+    const hoverRect = rectFor(plan.targetHoverId);
+    if (!hoverRect) return;
+    const line = document.createElement("div");
+    line.style.position = "absolute";
+    line.style.left = `${hoverRect.left - hostRect.left}px`;
+    line.style.top = `${hoverRect.bottom - hostRect.top + 2}px`;
+    line.style.width = `${hoverRect.right - hoverRect.left}px`;
+    line.style.height = "2px";
+    line.style.background = "rgba(124, 77, 255, 0.9)";
+    line.style.pointerEvents = "none";
+    overlay.appendChild(line);
+    return;
+  }
+
   // Vertical line for other cases
   const x = computeInsertX(plan, tree, rectFor);
   if (x == null) return;

@@ -30,6 +30,10 @@ export function describeMovePlan(plan: MovePlan | null): string {
     case "PullOutOfFraction":
       return `Pull ${plan.movedId} out of fraction ${plan.divideId} ${
         plan.insertIndex === 0 ? "before" : "after"
+      }${
+        plan.strategy === "ontoFactor" && plan.targetHoverId
+          ? ` onto ${plan.targetHoverId}`
+          : ""
       }`;
     case "MoveAcrossEqual": {
       const sideLabel = (side: 0 | 1) => (side === 0 ? "LHS" : "RHS");
@@ -87,7 +91,13 @@ export function planToApplyMoveTarget(plan: MovePlan | null): {
     case "MergeIntoDelimiterProduct":
       return { hoverId: plan.delimiterId, targetSlot: plan.insertIndex };
     case "PullOutOfFraction":
-      return { hoverId: plan.divideId, targetSlot: plan.insertIndex };
+      return {
+        hoverId:
+          plan.strategy === "ontoFactor" && plan.targetHoverId
+            ? plan.targetHoverId
+            : plan.divideId,
+        targetSlot: plan.insertIndex,
+      };
     case "FactorOutOfIntegrate":
       return { hoverId: plan.integrateId, targetSlot: plan.insertIndex };
     case "MoveAcrossEqual":
