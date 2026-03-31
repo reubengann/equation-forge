@@ -999,6 +999,84 @@ describe("planMove multiplicative cross-equal", () => {
     });
   });
 
+  it("plans ontoSideFactor when dropping onto a factor on destination side", () => {
+    const tree = treefromLatex(
+      String.raw`c_{P}\mathrm{d}{T}-c_{v}\mathrm{d}{T}=-\left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T}-v\right]\mathrm{d}{P}`
+    );
+
+    const equalId = tree.rootId!;
+    const lhsId = tree.childrenById[equalId][0];
+    const rhsId = tree.childrenById[equalId][1];
+    const dTId = findNodeByLatex(tree, String.raw`\mathrm{d}{T}`);
+    const dPId = findNodeByLatex(tree, String.raw`\mathrm{d}{P}`);
+
+    const rects: Record<string, RectLTRB> = {
+      [lhsId]: { left: 0, right: 120, top: 90, bottom: 120 },
+      [rhsId]: { left: 140, right: 320, top: 90, bottom: 120 },
+      [dPId]: { left: 280, right: 315, top: 90, bottom: 120 },
+    };
+    const rectFor = (id: string) => rects[id] ?? null;
+
+    const plan = planMove({
+      tree,
+      selectedIds: [dTId],
+      hoverId: dPId,
+      pointer: { x: 300, y: 105 },
+      rectFor,
+      mode: "multiplicative",
+    });
+
+    expect(plan).toEqual({
+      kind: "MoveAcrossEqual",
+      movedId: dTId,
+      equalId,
+      fromSide: 0,
+      toSide: 1,
+      drop: {
+        kind: "ontoSideFactor",
+        factorId: dPId,
+        insertIndex: 1,
+      },
+    });
+
+    expect(planToApplyMoveTarget(plan)).toEqual({
+      hoverId: dPId,
+      targetSlot: 1,
+    });
+  });
+
+  it("plans ontoSideFactor when hovering bracket factor on destination side", () => {
+    const tree = treefromLatex(
+      String.raw`c_{P}\mathrm{d}{T}-c_{v}\mathrm{d}{T}=-\left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T}-v\right]\mathrm{d}{P}`
+    );
+
+    const equalId = tree.rootId!;
+    const dTId = findNodeByLatex(tree, String.raw`\mathrm{d}{T}`);
+    const bracketId = findNodeId(tree, (n) => n.op === "List");
+
+    const plan = planMove({
+      tree,
+      selectedIds: [dTId],
+      hoverId: bracketId,
+      pointer: { x: 220, y: 105 },
+      rectFor: rectProvider({}),
+      mode: "multiplicative",
+    });
+
+    expect(plan).toEqual({
+      kind: "MoveAcrossEqual",
+      movedId: dTId,
+      equalId,
+      fromSide: 0,
+      toSide: 1,
+      drop: {
+        kind: "ontoSideFactor",
+        factorId: bracketId,
+        insertIndex: 1,
+      },
+    });
+  });
+
   it("returns null when attempting to divide by a vector across '='", () => {
     const tree = treefromLatex(String.raw`\vec{F} = m \vec{a}`);
 

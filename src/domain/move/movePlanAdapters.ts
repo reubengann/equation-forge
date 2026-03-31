@@ -51,6 +51,11 @@ export function describeMovePlan(plan: MovePlan | null): string {
           plan.drop.replaceId
         }`;
       }
+      if (plan.drop.kind === "ontoSideFactor") {
+        return `Move ${plan.movedId} across '=' ${sideLabel(
+          plan.fromSide
+        )} → ${sideLabel(plan.toSide)} onto factor ${plan.drop.factorId}`;
+      }
       const posLabel = plan.drop.insertIndex === 0 ? "before" : "after";
       return `Move ${plan.movedId} across '=' ${sideLabel(
         plan.fromSide
@@ -106,6 +111,9 @@ export function planToApplyMoveTarget(plan: MovePlan | null): {
       }
       if (plan.drop.kind === "ontoSideRootWhole") {
         return { hoverId: plan.drop.replaceId, targetSlot: null };
+      }
+      if (plan.drop.kind === "ontoSideFactor") {
+        return { hoverId: plan.drop.factorId, targetSlot: plan.drop.insertIndex };
       }
       return {
         hoverId: plan.drop.replaceId,

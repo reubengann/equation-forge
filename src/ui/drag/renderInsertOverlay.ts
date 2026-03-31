@@ -104,6 +104,9 @@ export function computeInsertX(
       // No X coordinate needed for horizontal underline
       return null;
     }
+    if (plan.drop.kind === "ontoSideFactor") {
+      return null;
+    }
     const r = rectFor(plan.drop.replaceId);
     if (!r) return null;
     return plan.drop.insertIndex === 0 ? r.left : r.right;
@@ -145,6 +148,7 @@ export function targetRectForPlan(
   if (plan.kind === "FactorOutOfIntegrate") return rectFor(plan.integrateId);
   if (plan.kind === "MoveAcrossEqual") {
     if (plan.drop.kind === "intoAdd") return rectFor(plan.drop.addId);
+    if (plan.drop.kind === "ontoSideFactor") return rectFor(plan.drop.factorId);
     return rectFor(plan.drop.replaceId);
   }
   if (plan.kind === "MergeIntoFractionNumerator")
@@ -208,6 +212,21 @@ export function renderInsertOverlay(
     line.style.left = `${targetRect.left - hostRect.left}px`;
     line.style.top = `${targetRect.bottom - hostRect.top + 2}px`; // Just below the target
     line.style.width = `${targetRect.right - targetRect.left}px`;
+    line.style.height = "2px";
+    line.style.background = "rgba(124, 77, 255, 0.9)";
+    line.style.pointerEvents = "none";
+    overlay.appendChild(line);
+    return;
+  }
+
+  if (plan.kind === "MoveAcrossEqual" && plan.drop.kind === "ontoSideFactor") {
+    const factorRect = rectFor(plan.drop.factorId);
+    if (!factorRect) return;
+    const line = document.createElement("div");
+    line.style.position = "absolute";
+    line.style.left = `${factorRect.left - hostRect.left}px`;
+    line.style.top = `${factorRect.bottom - hostRect.top + 2}px`;
+    line.style.width = `${factorRect.right - factorRect.left}px`;
     line.style.height = "2px";
     line.style.background = "rgba(124, 77, 255, 0.9)";
     line.style.pointerEvents = "none";

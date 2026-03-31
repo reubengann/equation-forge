@@ -92,16 +92,30 @@
     Choosing the two latter parts of the sum `\left(\frac{\partial{h}}{\partial{P}}\right)_{T} \mathrm{d}{P}` and `\mathrm{d}{P} v` and choosing factor has no result. However in `a = b c + e f - f g` choosing `e f` and `f g` and choosing factor correctly results in `a = b c + f \left(e - g\right)` So there's something inconsistent about
     possibly how we treat derivatives or differentials.
 
-25. `a = b c + d e - e f`
+25. `c_{P} \mathrm{d}{T} - c_{v} \mathrm{d}{T} = -\left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T} - v\right] \mathrm{d}{P}`
+    Drag \mathrm{d}{T} multiplicatively to the RHS under \mathrm{d}{P}. The result expected is
+    `c_{P} - c_{v} = -\left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T} - v\right] \frac{\mathrm{d}{P}}{\mathrm{d}{T}}`
+    What actually happens is that the cursor is only to the right of dP. If released:
+    Uncaught Error: Move result failed round-trip tree invariant.
+    latex: c*{P} \mathrm{d}{T} - c*{v} = -\left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T} - v\right] \mathrm{d}{P} \frac{1}{\mathrm{d}{T}}
+    current: ["Equal",["Add",["InvisibleOperator",["Subscript","c","P"],["Differential","T"]],["Negate",["Subscript","c","v"]]],["Negate",["InvisibleOperator",["InvisibleOperator",["List",["Add",["Subscript",["Delimiter",["FractionPartialDerivative",["Partial","h"],["Partial","P"]]],"T"],["Negate","v"]]],["Differential","P"]],["Divide",1,["Differential","T"]]]]]
+    reparsed: ["Equal",["Add",["InvisibleOperator",["Subscript","c","P"],["Differential","T"]],["Negate",["Subscript","c","v"]]],["Negate",["InvisibleOperator",["List",["Add",["Subscript",["Delimiter",["FractionPartialDerivative",["Partial","h"],["Partial","P"]]],"T"],["Negate","v"]]],["Differential","P"],["Divide",1,["Differential","T"]]]]]
+
+26. `a b + \left[c - e\right] f = 0`
+    Rubber band selection around \left[c - e\right] f. If I click and hold to start a drag on one of the terms,
+    it immediately discards the old selection and selects the single item I just clicked. I don't think we should
+    do that unless a full click occurs.
+
+27. `a = b c + d e - e f`
     Here de should not be parsed as a differential, but currently it is.
 
-26. `\mathrm{d}'{q} = \left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right] \mathrm{d}{v}`
+28. `\mathrm{d}'{q} = \left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right] \mathrm{d}{v}`
     If I selected the bracketed expression and hit expand, I get an error that "Error is not a known type of array"
 
-27. `\frac{\partial{u}}{\partial{T}}\right)_{v}`
+29. `\frac{\partial{u}}{\partial{T}}\right)_{v}`
     In a partial derivative, the inside part of the parentheses is selectable, but actually this whole thing including the parentheses should be atomic.
 
-28. Feature: `\left(a + b - c d e\right) = f`, we should have a way to either add or remove the parentheses
+30. Feature: `\left(a + b - c d e\right) = f`, we should have a way to either add or remove the parentheses
     surrounding the left-hand sum, since it's optional. Maybe a button.
 
-29. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu
+31. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu

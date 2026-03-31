@@ -53,6 +53,7 @@ export function useSelection(tree: ExpressionTree | null, moveMode: MoveMode) {
       promotedId: string;
       clickCount: number;
       shouldUsePromotedId: boolean;
+      reuseExistingSelection: boolean;
       dragIds: string[];
       newSelection: ExprSelection | null;
       useExistingSpan: boolean;
@@ -63,6 +64,7 @@ export function useSelection(tree: ExpressionTree | null, moveMode: MoveMode) {
           promotedId: clickedId,
           clickCount: 1,
           shouldUsePromotedId: false,
+          reuseExistingSelection: false,
           dragIds: [clickedId],
           newSelection: null,
           useExistingSpan: false,
@@ -99,6 +101,7 @@ export function useSelection(tree: ExpressionTree | null, moveMode: MoveMode) {
           promotedId: normalizedId,
           clickCount: 1,
           shouldUsePromotedId: false,
+          reuseExistingSelection: false,
           dragIds: ids.length ? [ids[0]] : [],
           newSelection,
           useExistingSpan: false,
@@ -262,6 +265,7 @@ export function useSelection(tree: ExpressionTree | null, moveMode: MoveMode) {
         promotedId,
         clickCount,
         shouldUsePromotedId,
+        reuseExistingSelection: !!reuseExisting && !shouldUsePromotedId,
         dragIds: normalizeSelectedIdsForMove({
           tree,
           selectedIds: dragIds,

@@ -98,6 +98,11 @@ export type MovePlan =
             insertIndex: 0 | 1; // before/after the root expression
           }
         | {
+            kind: "ontoSideFactor";
+            factorId: string;
+            insertIndex: 0 | 1;
+          }
+        | {
             kind: "ontoSideRootWhole";
             replaceId: string;
             replaceParentId: string; // should be equalId
@@ -238,6 +243,101 @@ function normalizeCrossEqualDropForFractionRoot(args: {
     replaceParentId: drop.replaceParentId,
     replaceSlot: drop.replaceSlot,
     insertIndex,
+  };
+}
+
+function normalizeCrossEqualDropForSideFactor(args: {
+  tree: ExpressionTree;
+  sideRootId: string;
+  hoverId: string;
+  drop:
+    | {
+        kind: "ontoSideRootWhole";
+        replaceId: string;
+        replaceParentId: string;
+        replaceSlot: 0 | 1;
+      }
+    | {
+        kind: "ontoSideRoot";
+        replaceId: string;
+        replaceParentId: string;
+        replaceSlot: 0 | 1;
+        insertIndex: 0 | 1;
+      };
+  pointer: { x: number; y: number };
+  rectFor: RectProvider;
+}):
+  | {
+      kind: "ontoSideRootWhole";
+      replaceId: string;
+      replaceParentId: string;
+      replaceSlot: 0 | 1;
+    }
+  | {
+      kind: "ontoSideRoot";
+      replaceId: string;
+      replaceParentId: string;
+      replaceSlot: 0 | 1;
+      insertIndex: 0 | 1;
+    }
+  | {
+      kind: "ontoSideFactor";
+      factorId: string;
+      insertIndex: 0 | 1;
+    } {
+  const { tree, sideRootId, hoverId, drop, pointer, rectFor } = args;
+  const sideRootPath = tree.pathById[sideRootId];
+  if (!sideRootPath) return drop;
+
+  const isDescendantOfSideRoot = (id: string) => {
+    const path = tree.pathById[id];
+    if (!path || path.length <= sideRootPath.length) return false;
+    return sideRootPath.every((v, i) => path[i] === v);
+  };
+
+  const isMulOp = (op?: string) => op === "InvisibleOperator" || op === "Multiply";
+  const HIT_PAD = 6;
+
+  const nearestFactorFromHover = (() => {
+    let cur: string | null = hoverId;
+    while (cur && isDescendantOfSideRoot(cur)) {
+      const parentId = tree.parentById[cur];
+      if (!parentId || !isDescendantOfSideRoot(parentId)) break;
+      if (isMulOp(tree.nodesById[parentId]?.op)) return cur;
+      cur = parentId;
+    }
+    return null;
+  })();
+  if (nearestFactorFromHover) {
+    return {
+      kind: "ontoSideFactor",
+      factorId: nearestFactorFromHover,
+      insertIndex: 1,
+    };
+  }
+
+  let bestFactorId: string | null = null;
+  let bestArea = Number.POSITIVE_INFINITY;
+  for (const id of Object.keys(tree.nodesById)) {
+    if (!isDescendantOfSideRoot(id)) continue;
+    const parentId = tree.parentById[id];
+    if (!parentId || !isDescendantOfSideRoot(parentId)) continue;
+    if (!isMulOp(tree.nodesById[parentId]?.op)) continue;
+
+    const rect = rectFor(id);
+    if (!rect || !containsPoint(rect, pointer.x, pointer.y, HIT_PAD)) continue;
+    const area = Math.max(1, rect.right - rect.left) * Math.max(1, rect.bottom - rect.top);
+    if (area < bestArea) {
+      bestArea = area;
+      bestFactorId = id;
+    }
+  }
+
+  if (!bestFactorId) return drop;
+  return {
+    kind: "ontoSideFactor",
+    factorId: bestFactorId,
+    insertIndex: 1,
   };
 }
 
@@ -638,25 +738,43 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
         toSide: toSide.sideSlot,
       });
       if (!drop) {
-        // Fallback to safer heuristic when rects are missing
+        // Fallback to safer heuristic when rects are missing.
+        // Still run side-factor refinement so direct factor hovers remain valid.
+        const fallbackDrop = {
+          kind: "ontoSideRoot",
+          replaceId: toSide.sideRootId,
+          replaceParentId: fromSide.equalId,
+          replaceSlot: toSide.sideSlot,
+          insertIndex: 1,
+        } as const;
+        const normalizedFallbackDrop = normalizeCrossEqualDropForSideFactor({
+          tree,
+          sideRootId: toSide.sideRootId,
+          hoverId,
+          drop: fallbackDrop,
+          pointer,
+          rectFor,
+        });
         return {
           kind: "MoveAcrossEqual",
           movedId,
           equalId: fromSide.equalId,
           fromSide: fromSide.sideSlot,
           toSide: toSide.sideSlot,
-          drop: {
-            kind: "ontoSideRoot",
-            replaceId: toSide.sideRootId,
-            replaceParentId: fromSide.equalId,
-            replaceSlot: toSide.sideSlot,
-            insertIndex: 1,
-          },
+          drop: normalizedFallbackDrop,
         };
       }
-      const normalizedDrop = normalizeCrossEqualDropForFractionRoot({
+      const rootNormalizedDrop = normalizeCrossEqualDropForFractionRoot({
         tree,
         drop,
+        pointer,
+        rectFor,
+      });
+      const normalizedDrop = normalizeCrossEqualDropForSideFactor({
+        tree,
+        sideRootId: toSide.sideRootId,
+        hoverId,
+        drop: rootNormalizedDrop,
         pointer,
         rectFor,
       });
@@ -896,25 +1014,43 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
         toSide: toSide.sideSlot,
       });
       if (!drop) {
-        // Fallback to safer heuristic when rects are missing
+        // Fallback to safer heuristic when rects are missing.
+        // Still run side-factor refinement so direct factor hovers remain valid.
+        const fallbackDrop = {
+          kind: "ontoSideRoot",
+          replaceId: toSide.sideRootId,
+          replaceParentId: fromSide.equalId,
+          replaceSlot: toSide.sideSlot,
+          insertIndex: 1,
+        } as const;
+        const normalizedFallbackDrop = normalizeCrossEqualDropForSideFactor({
+          tree,
+          sideRootId: toSide.sideRootId,
+          hoverId,
+          drop: fallbackDrop,
+          pointer,
+          rectFor,
+        });
         return {
           kind: "MoveAcrossEqual",
           movedId,
           equalId: fromSide.equalId,
           fromSide: fromSide.sideSlot,
           toSide: toSide.sideSlot,
-          drop: {
-            kind: "ontoSideRoot",
-            replaceId: toSide.sideRootId,
-            replaceParentId: fromSide.equalId,
-            replaceSlot: toSide.sideSlot,
-            insertIndex: 1,
-          },
+          drop: normalizedFallbackDrop,
         };
       }
-      const normalizedDrop = normalizeCrossEqualDropForFractionRoot({
+      const rootNormalizedDrop = normalizeCrossEqualDropForFractionRoot({
         tree,
         drop,
+        pointer,
+        rectFor,
+      });
+      const normalizedDrop = normalizeCrossEqualDropForSideFactor({
+        tree,
+        sideRootId: toSide.sideRootId,
+        hoverId,
+        drop: rootNormalizedDrop,
         pointer,
         rectFor,
       });
@@ -953,25 +1089,43 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
         toSide: toSide.sideSlot,
       });
       if (!drop) {
-        // Fallback to safer heuristic when rects are missing
+        // Fallback to safer heuristic when rects are missing.
+        // Still run side-factor refinement so direct factor hovers remain valid.
+        const fallbackDrop = {
+          kind: "ontoSideRoot",
+          replaceId: toSide.sideRootId,
+          replaceParentId: fromSide.equalId,
+          replaceSlot: toSide.sideSlot,
+          insertIndex: 1,
+        } as const;
+        const normalizedFallbackDrop = normalizeCrossEqualDropForSideFactor({
+          tree,
+          sideRootId: toSide.sideRootId,
+          hoverId,
+          drop: fallbackDrop,
+          pointer,
+          rectFor,
+        });
         return {
           kind: "MoveAcrossEqual",
           movedId,
           equalId: fromSide.equalId,
           fromSide: fromSide.sideSlot,
           toSide: toSide.sideSlot,
-          drop: {
-            kind: "ontoSideRoot",
-            replaceId: toSide.sideRootId,
-            replaceParentId: fromSide.equalId,
-            replaceSlot: toSide.sideSlot,
-            insertIndex: 1,
-          },
+          drop: normalizedFallbackDrop,
         };
       }
-      const normalizedDrop = normalizeCrossEqualDropForFractionRoot({
+      const rootNormalizedDrop = normalizeCrossEqualDropForFractionRoot({
         tree,
         drop,
+        pointer,
+        rectFor,
+      });
+      const normalizedDrop = normalizeCrossEqualDropForSideFactor({
+        tree,
+        sideRootId: toSide.sideRootId,
+        hoverId,
+        drop: rootNormalizedDrop,
         pointer,
         rectFor,
       });

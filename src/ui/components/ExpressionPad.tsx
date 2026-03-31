@@ -147,6 +147,13 @@ type MarqueeState = {
   selectedIds: string[];
 };
 
+type PendingClickSelection = {
+  pointerId: number;
+  clickedId: string;
+  newSelection: ExprSelection | null;
+  multiplicativeSpan: ExprSelection | null;
+};
+
 MathfieldElement.fontsDirectory = "/fonts";
 // Ensure all MathLive fields pick up our custom macros (e.g., \differentialD).
 (MathfieldElement as any).defaultOptions = {
@@ -336,6 +343,7 @@ export function ExpressionPad({
   const [copyFeedback, setCopyFeedback] = useState<"idle" | "done">("idle");
   const [marquee, setMarquee] = useState<MarqueeState | null>(null);
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
+  const pendingClickSelectionRef = useRef<PendingClickSelection | null>(null);
   const activeMoveCaptureRef = useRef<ActiveMoveCapture | null>(null);
   const lastMoveCaptureRef = useRef<MoveCaptureFixture | null>(null);
   const moveApplyAttemptsRef = useRef<MoveApplyAttempt[]>([]);
@@ -788,15 +796,16 @@ export function ExpressionPad({
 
     const ids = Array.from(deduped);
     const idSet = new Set(ids);
-    const leafMost = ids.filter((id) => {
-      let p = tree.parentById[id];
-      while (p) {
-        if (idSet.has(p)) return true;
-        p = tree.parentById[p];
+    const survivors = ids.filter((id) => {
+      const stack = [...(tree.childrenById[id] ?? [])];
+      while (stack.length) {
+        const cur = stack.pop()!;
+        if (idSet.has(cur)) return false;
+        const kids = tree.childrenById[cur] ?? [];
+        for (const k of kids) stack.push(k);
       }
-      return false;
+      return true;
     });
-    const survivors = leafMost.length > 0 ? leafMost : ids;
 
     return survivors.sort((a, b) => {
       const ra = candidateRects[a];
@@ -822,6 +831,44 @@ export function ExpressionPad({
     return normalizeMarqueeSelectionIds(raw, candidateRects);
   }
 
+  function commitSelectionFromClickResult(
+    clickResult: {
+      newSelection: ExprSelection | null;
+      multiplicativeSpan: ExprSelection | null;
+    },
+    clickedId: string
+  ) {
+    if (!tree) return;
+    if (clickResult.newSelection) {
+      setSelection(clickResult.newSelection);
+      applySelectionHighlight(clickResult.newSelection, tree, displayRef.current);
+
+      if (clickResult.newSelection.kind === "span") {
+        const details = getSelectionDetailsForSpan(
+          tree,
+          clickResult.newSelection,
+          clickResult.multiplicativeSpan ? "Multiplicative span" : undefined
+        );
+        updateSelectionDetails(details);
+      } else if (clickResult.newSelection.kind === "multi") {
+        const details = getSelectionDetailsForMulti(tree, clickResult.newSelection);
+        updateSelectionDetails(details);
+      } else {
+        const details = getSelectionDetailsForNode(
+          tree,
+          clickResult.newSelection.nodeId,
+          { clickedId }
+        );
+        updateSelectionDetails(details);
+      }
+      return;
+    }
+
+    setSelection(null);
+    applySelectionHighlight(null, tree, displayRef.current);
+    updateSelectionDetails(getResetSelectionDetails("Cleared selection"));
+  }
+
   function onDisplayPointerDown(e: React.PointerEvent) {
     if (mode !== "render") return;
     const displayEl = displayRef.current;
@@ -845,6 +892,7 @@ export function ExpressionPad({
     const clickedId = mathPadFacade.chooseBestAllowedSelectedNode(ids, tree);
 
     if (!clickedId) {
+      pendingClickSelectionRef.current = null;
       const candidateRects = snapshotSelectableRectsForTree(displayEl, tree);
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       setMarquee({
@@ -871,36 +919,14 @@ export function ExpressionPad({
 
     // Ctrl/Cmd multi-select: update selection only, no drag start.
     if (modKey) {
-      if (clickResult.newSelection) {
-        setSelection(clickResult.newSelection);
-        applySelectionHighlight(clickResult.newSelection, tree, displayRef.current);
-
-        if (clickResult.newSelection.kind === "span") {
-          const details = getSelectionDetailsForSpan(
-            tree,
-            clickResult.newSelection,
-            clickResult.multiplicativeSpan ? "Multiplicative span" : undefined
-          );
-          updateSelectionDetails(details);
-        } else if (clickResult.newSelection.kind === "multi") {
-          const details = getSelectionDetailsForMulti(tree, clickResult.newSelection);
-          updateSelectionDetails(details);
-        } else {
-          const details = getSelectionDetailsForNode(tree, clickResult.newSelection.nodeId, {
-            clickedId,
-          });
-          updateSelectionDetails(details);
-        }
-      } else {
-        setSelection(null);
-        applySelectionHighlight(null, tree, displayRef.current);
-        updateSelectionDetails(getResetSelectionDetails("Cleared selection"));
-      }
+      pendingClickSelectionRef.current = null;
+      commitSelectionFromClickResult(clickResult, clickedId);
       return;
     }
 
     // Handle SHIFT+click range selection
     if (e.shiftKey && clickResult.newSelection?.kind === "span") {
+      pendingClickSelectionRef.current = null;
       setSelection(clickResult.newSelection);
       applySelectionHighlight(clickResult.newSelection, tree, displayRef.current);
       const details = getSelectionDetailsForSpan(
@@ -916,31 +942,21 @@ export function ExpressionPad({
     startDrag(e.pointerId, clickResult.dragIds, { x: e.clientX, y: e.clientY });
     setDragSlot("");
 
-    // Update selection and details
-    if (clickResult.newSelection) {
-      setSelection(clickResult.newSelection);
-      applySelectionHighlight(clickResult.newSelection, tree, displayRef.current);
-
-      if (clickResult.newSelection.kind === "span") {
-        const details = getSelectionDetailsForSpan(
-          tree,
-          clickResult.newSelection,
-          clickResult.multiplicativeSpan ? "Multiplicative span" : undefined
-        );
-        updateSelectionDetails(details);
-      } else if (clickResult.newSelection.kind === "multi") {
-        const details = getSelectionDetailsForMulti(tree, clickResult.newSelection);
-        updateSelectionDetails(details);
-      } else {
-        const details = getSelectionDetailsForNode(
-          tree,
-          clickResult.newSelection.nodeId,
-          {
-            clickedId,
-          }
-        );
-        updateSelectionDetails(details);
-      }
+    const shouldDeferClickSelectionCommit =
+      !e.shiftKey &&
+      !modKey &&
+      clickResult.reuseExistingSelection &&
+      clickResult.newSelection?.kind === "node";
+    if (shouldDeferClickSelectionCommit) {
+      pendingClickSelectionRef.current = {
+        pointerId: e.pointerId,
+        clickedId,
+        newSelection: clickResult.newSelection,
+        multiplicativeSpan: clickResult.multiplicativeSpan,
+      };
+    } else {
+      pendingClickSelectionRef.current = null;
+      commitSelectionFromClickResult(clickResult, clickedId);
     }
 
     // Logging
@@ -1091,6 +1107,7 @@ export function ExpressionPad({
 
   function onDisplayPointerUp(e: React.PointerEvent) {
     if (marquee && e.pointerId === marquee.pointerId) {
+      pendingClickSelectionRef.current = null;
       if (!tree) {
         setMarquee(null);
         return;
@@ -1138,8 +1155,23 @@ export function ExpressionPad({
       return;
     }
 
-    const moved = handleDragUp(e);
-    if (!moved && tree) {
+    const dragResult = handleDragUp(e);
+    const pending = pendingClickSelectionRef.current;
+    if (pending && pending.pointerId === e.pointerId) {
+      if (!dragResult.dragged) {
+        commitSelectionFromClickResult(
+          {
+            newSelection: pending.newSelection,
+            multiplicativeSpan: pending.multiplicativeSpan,
+          },
+          pending.clickedId
+        );
+      }
+      pendingClickSelectionRef.current = null;
+      return;
+    }
+
+    if (!dragResult.moved && tree) {
       // Failed move -> keep current selection/highlight
       renderTree(tree, { preview: false });
     }

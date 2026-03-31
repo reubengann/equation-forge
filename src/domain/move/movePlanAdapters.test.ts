@@ -80,6 +80,14 @@ describe("describeMovePlan", () => {
         insertIndex: 1,
       },
     };
+    const moveAcrossFactor: MovePlan = {
+      ...moveAcrossIntoAdd,
+      drop: {
+        kind: "ontoSideFactor",
+        factorId: "dP",
+        insertIndex: 1,
+      },
+    };
     const liftDot: MovePlan = {
       kind: "LiftDotScalar",
       dotId: "dot1",
@@ -108,6 +116,9 @@ describe("describeMovePlan", () => {
     );
     expect(describeMovePlan(moveAcrossWhole)).toBe(
       "Move m across '=' LHS → RHS dividing whole expression rhsRoot"
+    );
+    expect(describeMovePlan(moveAcrossFactor)).toBe(
+      "Move m across '=' LHS → RHS onto factor dP"
     );
     expect(describeMovePlan(moveAcrossEdge)).toBe(
       "Move m across '=' LHS → RHS by wrapping rhsRoot and inserting after"
@@ -181,6 +192,14 @@ describe("planToApplyMoveTarget", () => {
         insertIndex: 0,
       },
     };
+    const moveAcrossFactor: MovePlan = {
+      ...moveAcrossIntoAdd,
+      drop: {
+        kind: "ontoSideFactor",
+        factorId: "dP",
+        insertIndex: 1,
+      },
+    };
     const factor: MovePlan = {
       kind: "FactorOutOfIntegrate",
       movedId: "m",
@@ -205,6 +224,10 @@ describe("planToApplyMoveTarget", () => {
     expect(planToApplyMoveTarget(moveAcrossEdge)).toEqual({
       hoverId: "rhsRoot",
       targetSlot: 0,
+    });
+    expect(planToApplyMoveTarget(moveAcrossFactor)).toEqual({
+      hoverId: "dP",
+      targetSlot: 1,
     });
     expect(planToApplyMoveTarget(factor)).toEqual({
       hoverId: "int",

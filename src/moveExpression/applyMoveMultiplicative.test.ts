@@ -340,6 +340,23 @@ describe("applyMoveMultiplicative executor", () => {
     );
   });
 
+  it("moves dT across '=' and folds onto dP denominator in issue 25 shape", () => {
+    const next = runMove({
+      latex: String.raw`c_{P}\mathrm{d}{T}-c_{v}\mathrm{d}{T}=-\left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T}-v\right]\mathrm{d}{P}`,
+      select: (tree) => [findNodeByLatex(tree, String.raw`\mathrm{d}{T}`)],
+      hover: (tree) => {
+        const dP = findNodeByLatex(tree, String.raw`\mathrm{d}{P}`);
+        return dP;
+      },
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`c_{P} - c_{v} = -\left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T} - v\right] \frac{\mathrm{d}{P}}{\mathrm{d}{T}}`
+    );
+  });
+
   it("pulls c_V from numerator when divide numerator is single-term Add wrapper", () => {
     const root: MJ = [
       "Equal",

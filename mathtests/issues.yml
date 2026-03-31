@@ -655,3 +655,21 @@ scenarios:
           type: factor
         expect:
           latex: "\\mathrm{d}'{q} = \\left(\\frac{\\partial{h}}{\\partial{T}}\\right)_{P} \\mathrm{d}{T} + \\mathrm{d}{P} \\left(\\left(\\frac{\\partial{h}}{\\partial{P}}\\right)_{T} - v\\right)"
+  - version: 1
+    name: Issue 25 - move dT across equation onto dP
+    tags: [issue, move, multiplicative, differential, equation]
+    initial:
+      latex: "c_{P} \\mathrm{d}{T} - c_{v} \\mathrm{d}{T} = -\\left[\\left(\\frac{\\partial{h}}{\\partial{P}}\\right)_{T} - v\\right] \\mathrm{d}{P}"
+    steps:
+      - name: drag dT onto dP to divide both sides
+        select:
+          kind: node
+          latex: "\\mathrm{d}{T}"
+        action:
+          type: move
+          hover:
+            latex: "\\mathrm{d}{P}"
+          targetSlot: 1
+          mode: multiplicative
+        expect:
+          latex: "c_{P} - c_{v} = -\\left[\\left(\\frac{\\partial{h}}{\\partial{P}}\\right)_{T} - v\\right] \\frac{\\mathrm{d}{P}}{\\mathrm{d}{T}}"

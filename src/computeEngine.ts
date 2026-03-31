@@ -89,15 +89,17 @@ export function parse(latex: string): MJ | null {
 }
 
 export function normalizeMathJson(mj: MJ | null): MJ | null {
-  return normalizeAssociativeAdd(
-    collapseSingletonAdd(
-      fixBlankIntegrals(
-        normalizeDotProducts(
-          rewriteNegateToFrontOfProduct(
-            normalizeDeltaOfQuantity(
-              normalizeDifferentialOperands(
-                normalizePlainDifferentials(
-                  normalizePartialDerivativeForms(normalizeProducts(normalizeVectors(mj)))
+  return normalizeAssociativeMul(
+    normalizeAssociativeAdd(
+      collapseSingletonAdd(
+        fixBlankIntegrals(
+          normalizeDotProducts(
+            rewriteNegateToFrontOfProduct(
+              normalizeDeltaOfQuantity(
+                normalizeDifferentialOperands(
+                  normalizePlainDifferentials(
+                    normalizePartialDerivativeForms(normalizeProducts(normalizeVectors(mj)))
+                  )
                 )
               )
             )
@@ -163,6 +165,33 @@ function normalizeAssociativeAdd(mj: MJ | null): MJ | null {
   if (flat.length === 0) return 0;
   if (flat.length === 1) return flat[0];
   return ["Add", ...flat] as MJ;
+}
+
+function normalizeAssociativeMul(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+  const op = mj[0];
+  const kids = mj
+    .slice(1)
+    .map((child) => normalizeAssociativeMul(child as MJ)) as MJ[];
+  if (op !== "InvisibleOperator" && op !== "Multiply") {
+    return [op, ...kids] as MJ;
+  }
+
+  const flat: MJ[] = [];
+  for (const child of kids) {
+    if (
+      Array.isArray(child) &&
+      (child[0] === "InvisibleOperator" || child[0] === "Multiply")
+    ) {
+      flat.push(...(child.slice(1) as MJ[]));
+    } else {
+      flat.push(child);
+    }
+  }
+  if (flat.length === 0) return 1;
+  if (flat.length === 1) return flat[0];
+  return ["InvisibleOperator", ...flat] as MJ;
 }
 
 function unwrapNothingPair(expr: MJ): MJ {

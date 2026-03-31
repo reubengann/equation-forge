@@ -25,6 +25,11 @@ export type DragState = null | {
   startPointer: { x: number; y: number };
 };
 
+export type DragUpResult = {
+  moved: boolean;
+  dragged: boolean;
+};
+
 export type MoveDragCaptureHooks = {
   onDragStart?: (payload: {
     pointerId: number;
@@ -207,9 +212,9 @@ export function useDragMove(
   );
 
   const handlePointerUp = useCallback(
-    (e: React.PointerEvent): boolean => {
-      if (!drag) return false;
-      if (e.pointerId !== drag.pointerId) return false;
+    (e: React.PointerEvent): DragUpResult => {
+      if (!drag) return { moved: false, dragged: false };
+      if (e.pointerId !== drag.pointerId) return { moved: false, dragged: false };
 
       let plan = lastPlanRef.current;
       const draggedEnough = maxDragDistanceRef.current >= DRAG_APPLY_THRESHOLD_PX;
@@ -225,7 +230,7 @@ export function useDragMove(
           moved: false,
           plan,
         });
-        return false;
+        return { moved: false, dragged: false };
       }
 
       // If we somehow missed a pointer-move update, recompute a plan at pointer-up.
@@ -355,7 +360,7 @@ export function useDragMove(
             moved: true,
             plan,
           });
-          return true;
+          return { moved: true, dragged: true };
         }
       }
 
@@ -390,7 +395,7 @@ export function useDragMove(
             moved: true,
             plan,
           });
-          return true;
+          return { moved: true, dragged: true };
         }
       }
 
@@ -399,11 +404,17 @@ export function useDragMove(
       // computed moveTarget is missing.
       if (tree && plan && plan.kind === "MoveAcrossEqual" && moveMode === "multiplicative") {
         const fallbackHover =
-          plan.drop.kind === "intoAdd" ? plan.drop.addId : plan.drop.replaceId;
+          plan.drop.kind === "intoAdd"
+            ? plan.drop.addId
+            : plan.drop.kind === "ontoSideFactor"
+            ? plan.drop.factorId
+            : plan.drop.replaceId;
         const fallbackSlot =
           plan.drop.kind === "intoAdd"
             ? plan.drop.toIndex
             : plan.drop.kind === "ontoSideRoot"
+            ? plan.drop.insertIndex
+            : plan.drop.kind === "ontoSideFactor"
             ? plan.drop.insertIndex
             : null;
 
@@ -436,7 +447,7 @@ export function useDragMove(
             moved: true,
             plan,
           });
-          return true;
+          return { moved: true, dragged: true };
         }
       }
 
@@ -450,7 +461,7 @@ export function useDragMove(
         moved: false,
         plan,
       });
-      return false;
+      return { moved: false, dragged: true };
     },
     [
       drag,

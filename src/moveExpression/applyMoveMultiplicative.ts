@@ -59,6 +59,78 @@ function reciprocalDenominator(expr: MJ): MJ | null {
   return (expr[2] as MJ) ?? null;
 }
 
+function unwrapDelimiter(expr: MJ): MJ {
+  if (
+    Array.isArray(expr) &&
+    (expr[0] === "Delimiter" || expr[0] === "List") &&
+    expr.length >= 2
+  ) {
+    return expr[1] as MJ;
+  }
+  return expr;
+}
+
+function deepEqualMJ(a: MJ, b: MJ): boolean {
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i += 1) {
+      if (!deepEqualMJ(a[i] as MJ, b[i] as MJ)) return false;
+    }
+    return true;
+  }
+  return a === b;
+}
+
+function divideTermByFactor(term: MJ, factor: MJ): MJ {
+  if (Array.isArray(term) && term[0] === "Negate" && term.length >= 2) {
+    return ["Negate", divideTermByFactor(term[1] as MJ, factor)] as MJNode;
+  }
+
+  const bareTerm = unwrapDelimiter(term);
+  const bareFactor = unwrapDelimiter(factor);
+  if (deepEqualMJ(bareTerm, bareFactor)) return 1;
+
+  if (
+    Array.isArray(bareTerm) &&
+    (bareTerm[0] === "InvisibleOperator" || bareTerm[0] === "Multiply")
+  ) {
+    const factors = (bareTerm.slice(1) as MJ[]).map(unwrapDelimiter);
+    const idx = factors.findIndex((f) => deepEqualMJ(f, bareFactor));
+    if (idx >= 0) {
+      const originalFactors = bareTerm.slice(1) as MJ[];
+      const remaining = originalFactors.filter((_, i) => i !== idx);
+      return normalizeMul(remaining);
+    }
+  }
+
+  return ["Divide", term, factor] as MJNode;
+}
+
+function divideSideByFactor(sideExpr: MJ, factor: MJ): MJ {
+  if (Array.isArray(sideExpr) && sideExpr[0] === "Add") {
+    const terms = sideExpr.slice(1) as MJ[];
+    return ["Add", ...terms.map((term) => divideTermByFactor(term, factor))] as MJNode;
+  }
+  return divideTermByFactor(sideExpr, factor);
+}
+
+function foldReciprocalIntoTail(baseExpr: MJ, reciprocal: MJ): MJ {
+  const denom = reciprocalDenominator(reciprocal);
+  if (!denom) return normalizeMul([baseExpr, reciprocal]);
+  if (
+    Array.isArray(baseExpr) &&
+    (baseExpr[0] === "InvisibleOperator" || baseExpr[0] === "Multiply")
+  ) {
+    const factors = baseExpr.slice(1) as MJ[];
+    if (factors.length === 0) return ["Divide", 1, denom] as MJNode;
+    const nextFactors = [...factors];
+    const tail = nextFactors[nextFactors.length - 1] as MJ;
+    nextFactors[nextFactors.length - 1] = ["Divide", tail, denom] as MJNode;
+    return normalizeMul(nextFactors);
+  }
+  return ["Divide", baseExpr, denom] as MJNode;
+}
+
 function childUnderAncestor(
   tree: ExpressionTree,
   ancestorId: string,
@@ -345,9 +417,9 @@ export function applyMoveMultiplicative(
   // that fraction term (common for edge-drops in multiplicative mode).
   if (targetSlot != null && tree.nodesById[hoverNodeId]?.op === "Add") {
     const divideAncestor = (() => {
-      let cur: string | null = movedId;
+      let cur: string | null = movedId ?? null;
       while (cur) {
-        const p = tree.parentById[cur];
+        const p: string | null = tree.parentById[cur] ?? null;
         if (!p) return null;
         if (tree.nodesById[p]?.op === "Divide") return p;
         cur = p;
@@ -394,7 +466,7 @@ export function applyMoveMultiplicative(
     const hoverParentId = tree.parentById[hoverNodeId];
     const hoverInSameMul =
       !!parentMulId &&
-      isMulOp(parentMulOp) &&
+      isMulOp(parentMulOp ?? undefined) &&
       (hoverNodeId === parentMulId || hoverParentId === parentMulId);
     if (hoverInSameMul) {
       const mulKids = tree.childrenById[parentMulId!] ?? [];
@@ -534,7 +606,7 @@ export function applyMoveMultiplicative(
       delimiterId &&
       delimiterOp === "Delimiter" &&
       outerMulId &&
-      isMulOp(outerMulOp) &&
+      isMulOp(outerMulOp ?? undefined) &&
       hoverInOuterMul
     ) {
       const fromMulPath = tree.pathById[fromParentId];
@@ -824,7 +896,7 @@ export function applyMoveMultiplicative(
     // If this fraction sits inside a product and has an adjacent sibling factor,
     // fold denominator pull-out directly onto that sibling (f -> f/e) so the
     // drag intent is visible and stable in UI output.
-    if (parentMulId && isMulOp(parentMulOp)) {
+    if (parentMulId && isMulOp(parentMulOp ?? undefined)) {
       const parentPath = tree.pathById[parentMulId];
       const kids = tree.childrenById[parentMulId] ?? [];
       const divideIndex = kids.indexOf(divideId);
@@ -1084,7 +1156,7 @@ export function applyMoveMultiplicative(
     destHoverNode?.op === "InvisibleOperator" ||
     destHoverNode?.op === "Multiply";
 
-  // Remove the moved factor from its origin.
+  // Remove/divide out the moved factor from its origin side.
   let nextRoot: MJ = tree.rootJson;
   const movedParentId = tree.parentById[movedId];
   const movedParentOp = movedParentId
@@ -1092,7 +1164,13 @@ export function applyMoveMultiplicative(
     : null;
   const movedParentPath = movedParentId ? tree.pathById[movedParentId] : null;
 
-  if (
+  if (!movedWasDivisor) {
+    const fromRootPath = tree.pathById[sideInfoFrom.sideRootId];
+    if (!fromRootPath) return null;
+    const fromExpr = getAtPath(nextRoot, fromRootPath) as MJ;
+    const updatedFrom = divideSideByFactor(fromExpr, movedExpr);
+    nextRoot = setAtPath(nextRoot, fromRootPath, updatedFrom);
+  } else if (
     movedParentId &&
     movedParentPath &&
     (movedParentOp === "InvisibleOperator" || movedParentOp === "Multiply")
@@ -1109,7 +1187,6 @@ export function applyMoveMultiplicative(
     const normalized = normalizeMul(remaining);
     nextRoot = setAtPath(nextRoot, movedParentPath, normalized);
   } else {
-    // Fallback: replace with 1 if not under a multiplicative container.
     nextRoot = setAtPath(nextRoot, movedPath, 1);
   }
 
@@ -1137,6 +1214,47 @@ export function applyMoveMultiplicative(
     const nextDest = normalizeMul(nextFactors);
     nextRoot = setAtPath(nextRoot, destPath, nextDest);
     return ExpressionTree.create(nextRoot);
+  }
+
+  if (!isHoveringSideRoot && targetSlot != null) {
+    const hoverParentId = tree.parentById[hoverNodeId];
+    const hoverParentOp = hoverParentId ? tree.nodesById[hoverParentId]?.op : null;
+    const hoverParentPath = hoverParentId ? tree.pathById[hoverParentId] : null;
+    const hoverPath = tree.pathById[hoverNodeId];
+    const isDestFactorHover =
+      !!hoverParentId &&
+      !!hoverParentPath &&
+      !!hoverPath &&
+      (hoverParentOp === "InvisibleOperator" || hoverParentOp === "Multiply") &&
+      hoverPath.length > destRootPath.length &&
+      hoverPath.slice(0, destRootPath.length).every((v, i) => v === destRootPath[i]);
+
+    if (isDestFactorHover) {
+      const parentExpr = getAtPath(nextRoot, hoverParentPath) as MJ;
+      if (!Array.isArray(parentExpr)) return null;
+      const [parentOpExpr, ...factors] = parentExpr;
+      if (parentOpExpr !== "InvisibleOperator" && parentOpExpr !== "Multiply") return null;
+
+      const siblings = tree.childrenById[hoverParentId] ?? [];
+      const hoverIndex = siblings.indexOf(hoverNodeId);
+      if (hoverIndex < 0) return null;
+
+      const nextFactors = [...factors] as MJ[];
+      if (!movedWasDivisor && targetSlot === 1) {
+        const hoveredFactor = nextFactors[hoverIndex] as MJ;
+        nextFactors[hoverIndex] = ["Divide", hoveredFactor, movedExpr] as MJNode;
+      } else {
+        const insertion: MJ = movedWasDivisor
+          ? movedExpr
+          : (["Divide", 1, movedExpr] as MJNode);
+        const slot = targetSlot === 0 ? hoverIndex : hoverIndex + 1;
+        nextFactors.splice(slot, 0, insertion);
+      }
+
+      const nextParent = normalizeMul(nextFactors);
+      nextRoot = setAtPath(nextRoot, hoverParentPath, nextParent);
+      return ExpressionTree.create(nextRoot);
+    }
   }
 
   // Handle side root drops: whole division vs edge insertion
@@ -1181,7 +1299,7 @@ export function applyMoveMultiplicative(
         Array.isArray(destExpr) && destExpr[0] === "Add"
           ? (["Delimiter", destExpr] as MJNode)
           : destExpr;
-      updatedDest = normalizeMul([wrappedDest, reciprocal]);
+      updatedDest = foldReciprocalIntoTail(wrappedDest, reciprocal);
     }
     nextRoot = setAtPath(nextRoot, destRootPath, updatedDest);
   } else {

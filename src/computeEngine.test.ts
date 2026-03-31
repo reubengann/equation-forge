@@ -290,6 +290,26 @@ describe("computeEngine custom dictionary", () => {
     ]);
   });
 
+  it("flattens nested multiplicative trees to an associative canonical shape", () => {
+    const mj = normalizeMathJson([
+      "Negate",
+      [
+        "InvisibleOperator",
+        ["InvisibleOperator", ["List", ["Add", "a", "b"]], ["Differential", "P"]],
+        ["Divide", 1, ["Differential", "T"]],
+      ],
+    ] as any);
+    expect(mj).toEqual([
+      "Negate",
+      [
+        "InvisibleOperator",
+        ["List", ["Add", "a", "b"]],
+        ["Differential", "P"],
+        ["Divide", 1, ["Differential", "T"]],
+      ],
+    ]);
+  });
+
   it("serializes ddot correctly", () => {
     const latex = box(["OverDot", "q", 2]).toLatex().replace(/\\\\/g, "\\");
     expect(latex).toBe("\\ddot{q}");
