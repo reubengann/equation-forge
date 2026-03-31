@@ -18,6 +18,7 @@ type MathDisplayPanelProps = {
   onKeyDown: (e: KeyboardEvent) => void;
   renderHeader: ReactNode;
   isDragging: boolean;
+  marqueeRect: { left: number; top: number; width: number; height: number } | null;
   MathDiv: any;
 };
 
@@ -42,6 +43,7 @@ export function MathDisplayPanel({
   onKeyDown,
   renderHeader,
   isDragging,
+  marqueeRect,
   MathDiv,
 }: MathDisplayPanelProps) {
   return (
@@ -54,6 +56,7 @@ export function MathDisplayPanel({
         borderRadius: 10,
         cursor: isDragging ? "default" : "crosshair",
         userSelect: "none",
+        position: "relative",
       }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -111,6 +114,21 @@ export function MathDisplayPanel({
           />
         </div>
       </div>
+      {marqueeRect ? (
+        <div
+          style={{
+            position: "absolute",
+            left: marqueeRect.left,
+            top: marqueeRect.top,
+            width: marqueeRect.width,
+            height: marqueeRect.height,
+            border: "1px dashed var(--dp-accent)",
+            background: "rgba(64, 144, 255, 0.16)",
+            pointerEvents: "none",
+            zIndex: 10000,
+          }}
+        />
+      ) : null}
     </div>
   );
 }

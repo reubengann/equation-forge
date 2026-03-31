@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { pickInsertSlot, unionRects, type RectLTRB } from "./rectMath";
+import {
+  pickInsertSlot,
+  rectFromPoints,
+  rectsOverlap,
+  unionRects,
+  type RectLTRB,
+} from "./rectMath";
 describe("pickInsertSlot (insertion slots)", () => {
   it("returns no slot when x is too far left of the first item", () => {
     const rects = [
@@ -127,5 +133,45 @@ describe("unionRects", () => {
     unionRects(rects);
 
     expect(rects).toEqual(copy);
+  });
+});
+
+describe("rectFromPoints", () => {
+  it("normalizes corners regardless of drag direction", () => {
+    expect(rectFromPoints({ x: 20, y: 30 }, { x: 10, y: 5 })).toEqual({
+      left: 10,
+      right: 20,
+      top: 5,
+      bottom: 30,
+    });
+  });
+});
+
+describe("rectsOverlap", () => {
+  it("returns true for overlapping rectangles", () => {
+    expect(
+      rectsOverlap(
+        { left: 0, top: 0, right: 10, bottom: 10 },
+        { left: 8, top: 8, right: 20, bottom: 20 }
+      )
+    ).toBe(true);
+  });
+
+  it("treats edge-touching rectangles as overlapping", () => {
+    expect(
+      rectsOverlap(
+        { left: 0, top: 0, right: 10, bottom: 10 },
+        { left: 10, top: 2, right: 15, bottom: 6 }
+      )
+    ).toBe(true);
+  });
+
+  it("returns false for separated rectangles", () => {
+    expect(
+      rectsOverlap(
+        { left: 0, top: 0, right: 10, bottom: 10 },
+        { left: 11, top: 0, right: 20, bottom: 10 }
+      )
+    ).toBe(false);
   });
 });

@@ -7,6 +7,27 @@ export type RectLTRB = {
   bottom: number;
 };
 
+export function rectFromPoints(
+  a: { x: number; y: number },
+  b: { x: number; y: number }
+): RectLTRB {
+  return {
+    left: Math.min(a.x, b.x),
+    right: Math.max(a.x, b.x),
+    top: Math.min(a.y, b.y),
+    bottom: Math.max(a.y, b.y),
+  };
+}
+
+export function rectsOverlap(a: RectLTRB, b: RectLTRB): boolean {
+  return !(
+    a.right < b.left ||
+    a.left > b.right ||
+    a.bottom < b.top ||
+    a.top > b.bottom
+  );
+}
+
 export function getReorderContainerForSelection(
   tree: ExpressionTree,
   selectedId: string

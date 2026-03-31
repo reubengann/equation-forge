@@ -40,3 +40,19 @@ export function snapshotRectsForTree(
   }
   return out;
 }
+
+export function snapshotSelectableRectsForTree(
+  measureEl: HTMLElement | null,
+  tree: ExpressionTree | null
+): Record<string, RectLTRB> {
+  const all = snapshotRectsForTree(measureEl, tree);
+  if (!tree) return {};
+  const out: Record<string, RectLTRB> = {};
+  for (const nodeId of Object.keys(all)) {
+    const op = tree.nodesById[nodeId]?.op;
+    if (!op) continue;
+    if (op === "Add" || op === "Equal" || op === "InvisibleOperator") continue;
+    out[nodeId] = all[nodeId];
+  }
+  return out;
+}

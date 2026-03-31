@@ -37,6 +37,7 @@ import type {
   MoveTraceSample,
 } from "../../domain/move/moveDebugFixture";
 import { hitTestNodeIdInMathliveShadow } from "../../infra/mathlive/mathliveShadow";
+import { snapshotSelectableRectsForTree } from "../../infra/mathlive/rectProvider";
 import {
   installShadowStyle,
   setHighlightedText,
@@ -47,6 +48,7 @@ import {
   LatexInputWithToggle,
   type InputMode,
 } from "./LatexInputWithToggle";
+import { rectFromPoints, rectsOverlap, type RectLTRB } from "../../rectMath";
 
 export type ExpressionPadDebugState = {
   latexText: string;
@@ -137,6 +139,14 @@ type MoveApplyAttempt = {
   succeeded: boolean;
 };
 
+type MarqueeState = {
+  pointerId: number;
+  origin: { x: number; y: number };
+  current: { x: number; y: number };
+  candidateRects: Record<string, RectLTRB>;
+  selectedIds: string[];
+};
+
 MathfieldElement.fontsDirectory = "/fonts";
 // Ensure all MathLive fields pick up our custom macros (e.g., \differentialD).
 (MathfieldElement as any).defaultOptions = {
@@ -175,6 +185,7 @@ export function ExpressionPad({
   const substituteFieldRef = useRef<any>(null);
   const substituteTextFieldRef = useRef<HTMLTextAreaElement | null>(null);
   const insertOverlayRef = useRef<HTMLDivElement | null>(null);
+  const MARQUEE_SELECT_THRESHOLD_PX = 4;
 
   const [latexDraft, setLatexDraft] = useState<string>(
     initialLatex ?? ""
@@ -323,6 +334,7 @@ export function ExpressionPad({
   const [selectionChildLatex, setSelectionChildLatex] = useState<string>("");
   const [selectionNote, setSelectionNote] = useState<string>("");
   const [copyFeedback, setCopyFeedback] = useState<"idle" | "done">("idle");
+  const [marquee, setMarquee] = useState<MarqueeState | null>(null);
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
   const activeMoveCaptureRef = useRef<ActiveMoveCapture | null>(null);
   const lastMoveCaptureRef = useRef<MoveCaptureFixture | null>(null);
@@ -757,6 +769,59 @@ export function ExpressionPad({
     commitJson(mj, { latex });
   }
 
+  function normalizeMarqueeSelectionIds(
+    rawIds: string[],
+    candidateRects: Record<string, RectLTRB>
+  ): string[] {
+    if (!tree || rawIds.length === 0) return [];
+
+    const deduped = new Set<string>();
+    for (const id of rawIds) {
+      const normalized = mathPadFacade.normalizeSelection(tree, id);
+      const info = tree.nodesById[normalized];
+      if (!info) continue;
+      if (info.op === "Add" || info.op === "Equal" || info.op === "InvisibleOperator") {
+        continue;
+      }
+      deduped.add(normalized);
+    }
+
+    const ids = Array.from(deduped);
+    const idSet = new Set(ids);
+    const leafMost = ids.filter((id) => {
+      let p = tree.parentById[id];
+      while (p) {
+        if (idSet.has(p)) return true;
+        p = tree.parentById[p];
+      }
+      return false;
+    });
+    const survivors = leafMost.length > 0 ? leafMost : ids;
+
+    return survivors.sort((a, b) => {
+      const ra = candidateRects[a];
+      const rb = candidateRects[b];
+      if (!ra && !rb) return a.localeCompare(b);
+      if (!ra) return 1;
+      if (!rb) return -1;
+      if (ra.left !== rb.left) return ra.left - rb.left;
+      if (ra.top !== rb.top) return ra.top - rb.top;
+      return a.localeCompare(b);
+    });
+  }
+
+  function computeMarqueeSelectionIds(
+    origin: { x: number; y: number },
+    current: { x: number; y: number },
+    candidateRects: Record<string, RectLTRB>
+  ): string[] {
+    const marqueeRect = rectFromPoints(origin, current);
+    const raw = Object.entries(candidateRects)
+      .filter(([, rect]) => rectsOverlap(marqueeRect, rect))
+      .map(([id]) => id);
+    return normalizeMarqueeSelectionIds(raw, candidateRects);
+  }
+
   function onDisplayPointerDown(e: React.PointerEvent) {
     if (mode !== "render") return;
     const displayEl = displayRef.current;
@@ -780,8 +845,15 @@ export function ExpressionPad({
     const clickedId = mathPadFacade.chooseBestAllowedSelectedNode(ids, tree);
 
     if (!clickedId) {
-      clearSelection();
-      applySelectionHighlight(null, tree, displayRef.current);
+      const candidateRects = snapshotSelectableRectsForTree(displayEl, tree);
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      setMarquee({
+        pointerId: e.pointerId,
+        origin: { x: e.clientX, y: e.clientY },
+        current: { x: e.clientX, y: e.clientY },
+        candidateRects,
+        selectedIds: [],
+      });
       return;
     }
 
@@ -979,6 +1051,21 @@ export function ExpressionPad({
   }
 
   function onDisplayPointerMove(e: React.PointerEvent) {
+    if (marquee && e.pointerId === marquee.pointerId) {
+      const current = { x: e.clientX, y: e.clientY };
+      const selectedIds = computeMarqueeSelectionIds(
+        marquee.origin,
+        current,
+        marquee.candidateRects
+      );
+      setMarquee((prev) =>
+        prev && prev.pointerId === e.pointerId
+          ? { ...prev, current, selectedIds }
+          : prev
+      );
+      return;
+    }
+
     const result = handleDragMove(e);
     setMovePlanText(
       result.planDescription || "No move intent (planMove returned null)"
@@ -1003,6 +1090,54 @@ export function ExpressionPad({
   }
 
   function onDisplayPointerUp(e: React.PointerEvent) {
+    if (marquee && e.pointerId === marquee.pointerId) {
+      if (!tree) {
+        setMarquee(null);
+        return;
+      }
+      const current = { x: e.clientX, y: e.clientY };
+      const dragDistance = Math.hypot(
+        current.x - marquee.origin.x,
+        current.y - marquee.origin.y
+      );
+      const selectedIds = computeMarqueeSelectionIds(
+        marquee.origin,
+        current,
+        marquee.candidateRects
+      );
+
+      if (dragDistance < MARQUEE_SELECT_THRESHOLD_PX) {
+        clearSelection();
+        applySelectionHighlight(null, tree, displayRef.current);
+        updateSelectionDetails(getResetSelectionDetails("Cleared selection"));
+      } else {
+        let next: ExprSelection | null = null;
+        if (selectedIds.length === 1) {
+          next = { kind: "node", nodeId: selectedIds[0] };
+        } else if (selectedIds.length >= 2) {
+          next = { kind: "multi", nodeIds: selectedIds };
+        }
+
+        setSelection(next);
+        applySelectionHighlight(next, tree, displayRef.current);
+        if (next?.kind === "node") {
+          updateSelectionDetails(getSelectionDetailsForNode(tree, next.nodeId));
+        } else if (next?.kind === "multi") {
+          updateSelectionDetails(
+            getSelectionDetailsForMulti(tree, next, "Rubber-band selection")
+          );
+        } else {
+          updateSelectionDetails(getResetSelectionDetails("Rubber-band selection"));
+        }
+      }
+
+      if ((e.currentTarget as HTMLElement).hasPointerCapture?.(e.pointerId)) {
+        (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+      }
+      setMarquee(null);
+      return;
+    }
+
     const moved = handleDragUp(e);
     if (!moved && tree) {
       // Failed move -> keep current selection/highlight
@@ -1096,6 +1231,17 @@ export function ExpressionPad({
   }
 
   const canApply = !!tree && mathPadFacade.isFlippableEquation(tree.rootJson);
+  const marqueeRect = useMemo(() => {
+    if (!marquee || !renderBoxRef.current) return null;
+    const local = renderBoxRef.current.getBoundingClientRect();
+    const rect = rectFromPoints(marquee.origin, marquee.current);
+    return {
+      left: rect.left - local.left,
+      top: rect.top - local.top,
+      width: Math.max(0, rect.right - rect.left),
+      height: Math.max(0, rect.bottom - rect.top),
+    };
+  }, [marquee]);
   const canExpand = !!tree && !!expandTargetId;
   const canCancel = useMemo(() => mathPadFacade.canCancel(tree, selection), [tree, selection]);
   const canToggleDelimiterStyle = useMemo(
@@ -1334,6 +1480,7 @@ export function ExpressionPad({
             onPointerMove={onDisplayPointerMove}
             onPointerUp={onDisplayPointerUp}
             onKeyDown={onKeyDown}
+            marqueeRect={marqueeRect}
             renderHeader={
               <MoveModeToolbar
                 ref={toolbarRef}
