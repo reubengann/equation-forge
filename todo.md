@@ -139,7 +139,36 @@
     Selecting the RHS and trying to cancel or evaluate should result in 0. If only `c_{v} 0` are chosen, it's cancelable, but ends
     up being `-0` instead of just 0. If the entire RHS is selected, the cancel button is disabled. Evaluate never does anything.
 
-37. `\frac{\partial{u}}{\partial{T}}\right)_{v}`
+37. `c_{v} = \frac{\mathrm{d}{u}}{\mathrm{d}{T}}`
+    Drag dT multiplicatively to the LHS to the right of `c_{v}`. The result is `\frac{c_{v}}{\mathrm{d}{T}} = \frac{\frac{\mathrm{d}{u}}{\mathrm{d}{T}}}{\mathrm{d}{T}}` instead of `c_{v} \mathrm{d}{T} = \mathrm{d}{u}`
+
+38. `u - u_{0} = c_{v} \int_{T_{0}}^{T} \,\mathrm{d}{T}`
+    Evaluate the integral. The result is `u - u_{0} = c_{v} T - T_{0}` instead of `u - u_{0} = c_{v} \left(T - T_{0}\right)`
+
+39. `c_{P} - c_{v} = -\left[-v\right] \left(\frac{\partial{P}}{\partial{T}}\right)_{v}`
+    Select `\left[-v\right]` and unforce parentheses. The result is `c_{P} - c_{v} = --v \left(\frac{\partial{P}}{\partial{T}}\right)_{v}`
+
+40. `a = b c`
+    Replace `b` with `\gamma`. The result is `a = \mathrm{EulerGamma} c` instead of `a = \gamma c`.
+
+41. `\frac{\mathrm{d}{P_{s}}}{\mathrm{d}{v_{s}}} = \gamma \left(\frac{\partial{P}}{\partial{v}}\right)_{T}`
+    Replace `\left(\frac{\partial{P}}{\partial{v}}\right)_{T}` with `-\frac{P}{v}`. The result is
+    `\frac{\mathrm{d}{P_{s}}}{\mathrm{d}{v_{s}}} = \gamma -\frac{P}{v}`, which is not correct.
+
+42. `\frac{\mathrm{d}{P_{s}}}{\mathrm{d}{v_{s}}} = -\gamma \frac{P}{v}`
+    I'm still having the issue that if I rubber-band select the whole RHS, then single click to drag (e.g. the gamma) it immediately deselects the multiselection and selects the item I click.
+
+43. `\frac{\mathrm{d}{P_{s}}}{\mathrm{d}{v_{s}}} = -\gamma \frac{P}{v}`
+    Additively move the entire RHS to the left hand side. It produces:
+    Uncaught Error: Move result failed round-trip tree invariant.
+    latex: \frac{\mathrm{d}{P*{s}}}{\mathrm{d}{v*{s}}} + \gamma \frac{P}{v} = 0
+    current: ["Equal",["Add",["FractionDerivative",["Differential",["Subscript","P","s"]],["Differential",["Subscript","v","s"]]],["InvisibleOperator","gamma",["Divide","P","v"]]],0]
+    reparsed: ["Equal",["Add",["Divide",["InvisibleOperator","d_upright",["Subscript","P","s"]],["InvisibleOperator","d_upright",["Subscript","v","s"]]],["InvisibleOperator","EulerGamma",["Divide","P","v"]]],0]
+
+44. `\frac{\frac{\mathrm{d}{P_{s}}}{\mathrm{d}{v_{s}}} \mathrm{d}{v_{s}}}{P} + \frac{\gamma}{v} \mathrm{d}{v_{s}} = 0`
+    I should be able to cancel or simplify `\frac{\mathrm{d}{P_{s}}}{\mathrm{d}{v_{s}}} \mathrm{d}{v_{s}}` to `\mathrm{d}{P_{s}}`
+
+45. `\frac{\partial{u}}{\partial{T}}\right)_{v}`
     In a partial derivative, the inside part of the parentheses is selectable, but actually this whole thing including the parentheses should be atomic.
 
-38. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu
+46. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu

@@ -36,6 +36,12 @@ type SubstituteSpanArgs = {
   replacement: MJ;
 };
 
+function normalizeSubstituteReplacement(expr: MJ): MJ {
+  if (expr === "EulerGamma") return "gamma";
+  if (!Array.isArray(expr)) return expr;
+  return [expr[0], ...expr.slice(1).map((c) => normalizeSubstituteReplacement(c as MJ))] as MJ;
+}
+
 function replacementForPath(root: MJ, path: number[], replacement: MJ): MJ {
   if (path.length === 0) return replacement;
   if (Array.isArray(replacement) && replacement[0] === "Delimiter") return replacement;
@@ -46,7 +52,7 @@ function replacementForPath(root: MJ, path: number[], replacement: MJ): MJ {
     Array.isArray(parent) &&
     (parent[0] === "InvisibleOperator" || parent[0] === "Multiply") &&
     Array.isArray(replacement) &&
-    replacement[0] === "Add"
+    (replacement[0] === "Add" || replacement[0] === "Negate")
   ) {
     return ["Delimiter", replacement] as MJ;
   }
@@ -76,11 +82,12 @@ export function substitute({
   replacement,
   scope,
 }: SubstituteArgs): ExpressionTree | null {
+  const normalizedReplacement = normalizeSubstituteReplacement(replacement);
   const path = tree.pathById[targetId];
   if (path === undefined) return null;
 
   if (scope === "single") {
-    const wrappedReplacement = replacementForPath(tree.rootJson, path, replacement);
+    const wrappedReplacement = replacementForPath(tree.rootJson, path, normalizedReplacement);
     const nextRoot = setAtPath(tree.rootJson, path, wrappedReplacement) as MJ;
     return ExpressionTree.create(nextRoot);
   }
@@ -103,7 +110,7 @@ export function substitute({
 
   let nextRoot = tree.rootJson;
   for (const p of paths) {
-    const wrappedReplacement = replacementForPath(nextRoot, p, replacement);
+    const wrappedReplacement = replacementForPath(nextRoot, p, normalizedReplacement);
     nextRoot = setAtPath(nextRoot, p, wrappedReplacement) as MJ;
   }
 
@@ -172,7 +179,11 @@ export function substituteSpan({
   const kids = parentExpr.slice(1) as MJ[];
   if (start < 0 || end < 0 || start > end || end >= kids.length) return null;
 
-  const replacementTerm = replacementForPath(tree.rootJson, [...parentPath, start + 1], replacement);
+  const replacementTerm = replacementForPath(
+    tree.rootJson,
+    [...parentPath, start + 1],
+    replacement
+  );
   const nextKids = [...kids.slice(0, start), replacementTerm, ...kids.slice(end + 1)];
   const nextParent = normalizeByParentOp(parentOp, nextKids);
   const nextRoot = setAtPath(tree.rootJson, parentPath, nextParent) as MJ;

@@ -30,7 +30,19 @@ export function useSelection(tree: ExpressionTree | null, moveMode: MoveMode) {
 
   const selectionContainsId = useCallback(
     (sel: ExprSelection, id: string, tree: ExpressionTree): boolean => {
-      if (sel.kind === "multi") return sel.nodeIds.includes(id);
+      if (sel.kind === "multi") {
+        if (sel.nodeIds.includes(id)) return true;
+        // Treat descendants of selected multi roots as part of the selection so
+        // pointer-down can defer collapse until click completes.
+        return sel.nodeIds.some((rootId) => {
+          let cur: string | null | undefined = id;
+          while (cur) {
+            if (cur === rootId) return true;
+            cur = tree.parentById[cur] ?? null;
+          }
+          return false;
+        });
+      }
       if (sel.kind === "node") return sel.nodeId === id;
       const idx = tree.childIndexById[id];
       return (

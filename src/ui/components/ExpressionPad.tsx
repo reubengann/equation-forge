@@ -925,6 +925,28 @@ export function ExpressionPad({
       modKey,
       selection
     );
+    const isAncestorOrSelf = (ancestorId: string, nodeId: string): boolean => {
+      let cur: string | null = nodeId;
+      while (cur) {
+        if (cur === ancestorId) return true;
+        cur = tree.parentById[cur] ?? null;
+      }
+      return false;
+    };
+    const clickedWithinExistingMultiSelection =
+      !!tree &&
+      selection?.kind === "multi" &&
+      selection.nodeIds.some(
+        (selectedId) =>
+          isAncestorOrSelf(selectedId, clickedId) ||
+          isAncestorOrSelf(clickedId, selectedId)
+      );
+    const effectiveDragIds =
+      !e.shiftKey && !modKey && clickedWithinExistingMultiSelection
+        ? selection.nodeIds
+        : clickResult.dragIds;
+    const effectiveReuseExisting =
+      clickResult.reuseExistingSelection || clickedWithinExistingMultiSelection;
 
     // Ensure this pad receives keyboard events (Delete/Backspace) after click.
     (e.currentTarget as HTMLElement).focus?.();
@@ -951,14 +973,15 @@ export function ExpressionPad({
 
     // Start drag
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    startDrag(e.pointerId, clickResult.dragIds, { x: e.clientX, y: e.clientY });
+    startDrag(e.pointerId, effectiveDragIds, { x: e.clientX, y: e.clientY });
     setDragSlot("");
 
     const shouldDeferClickSelectionCommit =
       !e.shiftKey &&
       !modKey &&
-      clickResult.reuseExistingSelection &&
-      clickResult.newSelection?.kind === "node";
+      (selection?.kind === "multi" ||
+        (effectiveReuseExisting &&
+          clickResult.newSelection?.kind === "node"));
     if (shouldDeferClickSelectionCommit) {
       pendingClickSelectionRef.current = {
         pointerId: e.pointerId,

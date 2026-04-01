@@ -346,6 +346,18 @@ function isUnderDenominatorOfSideRoot(
   return false;
 }
 
+function isUnderDenominatorOfFractionSideRoot(
+  tree: ExpressionTree,
+  sideRootId: string,
+  nodeId: string,
+): boolean {
+  const op = tree.nodesById[sideRootId]?.op;
+  if (op !== "FractionDerivative" && op !== "FractionPartialDerivative") return false;
+  const denominatorId = tree.childrenById[sideRootId]?.[1];
+  if (!denominatorId) return false;
+  return isAncestorOrSelf(tree, denominatorId, nodeId);
+}
+
 /**
  * Minimal multiplicative move executor to support cross-equal root division.
  * Future steps will expand to full multiplicative semantics.
@@ -1164,7 +1176,7 @@ export function applyMoveMultiplicative(
     tree,
     sideInfoFrom.sideRootId,
     movedId,
-  );
+  ) || isUnderDenominatorOfFractionSideRoot(tree, sideInfoFrom.sideRootId, movedId);
 
   const destHoverNode = tree.nodesById[hover];
   const isMultiplicativeContainer =
@@ -1357,6 +1369,18 @@ export function applyMoveMultiplicative(
       ) {
         nextRoot = setAtPath(nextRoot, fromRootPath, numerator[1] as MJ);
       }
+    }
+
+    // FractionDerivative/FractionPartialDerivative use the same [num, den]
+    // shape and should collapse when denominator becomes 1 after pull-out.
+    const fromRootOp = tree.nodesById[sideInfoFrom.sideRootId]?.op;
+    if (
+      Array.isArray(node) &&
+      (fromRootOp === "FractionDerivative" ||
+        fromRootOp === "FractionPartialDerivative") &&
+      isOneTerm(node[2] as MJ)
+    ) {
+      nextRoot = setAtPath(nextRoot, fromRootPath, node[1] as MJ);
     }
   }
 

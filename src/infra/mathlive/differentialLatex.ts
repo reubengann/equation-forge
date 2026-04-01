@@ -5,13 +5,103 @@
  * so callers never see non-standard tokens.
  */
 
+function isSimpleOperand(value: string): boolean {
+  return /^[A-Za-z]$/.test(value) || /^\\[A-Za-z]+$/.test(value);
+}
+
+function formatMathLiveDifferentialOperand(value: string): string {
+  return isSimpleOperand(value) ? value : `{${value}}`;
+}
+
+function replaceCanonicalDifferentialGroups(input: string): string {
+  const marker = String.raw`\mathrm{d}`;
+  let out = "";
+  let i = 0;
+  while (i < input.length) {
+    const start = input.indexOf(marker, i);
+    if (start < 0) {
+      out += input.slice(i);
+      break;
+    }
+    out += input.slice(i, start);
+    let j = start + marker.length;
+    while (j < input.length && /\s/.test(input[j])) j += 1;
+    if (j >= input.length || input[j] !== "{") {
+      out += marker;
+      i = start + marker.length;
+      continue;
+    }
+
+    let depth = 0;
+    let k = j;
+    for (; k < input.length; k += 1) {
+      if (input[k] === "{") depth += 1;
+      else if (input[k] === "}") {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    if (k >= input.length || depth !== 0) {
+      out += marker;
+      i = start + marker.length;
+      continue;
+    }
+    const operand = input.slice(j + 1, k);
+    out += String.raw`\differentialD ${formatMathLiveDifferentialOperand(operand)}`;
+    i = k + 1;
+  }
+  return out;
+}
+
+function replaceMathLiveDifferentialGroups(input: string): string {
+  const marker = String.raw`\differentialD`;
+  let out = "";
+  let i = 0;
+  while (i < input.length) {
+    const start = input.indexOf(marker, i);
+    if (start < 0) {
+      out += input.slice(i);
+      break;
+    }
+    out += input.slice(i, start);
+    let j = start + marker.length;
+    while (j < input.length && /\s/.test(input[j])) j += 1;
+    if (j >= input.length || input[j] !== "{") {
+      out += marker;
+      i = start + marker.length;
+      continue;
+    }
+
+    let depth = 0;
+    let k = j;
+    for (; k < input.length; k += 1) {
+      if (input[k] === "{") depth += 1;
+      else if (input[k] === "}") {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    if (k >= input.length || depth !== 0) {
+      out += marker;
+      i = start + marker.length;
+      continue;
+    }
+    const operand = input.slice(j + 1, k);
+    out += String.raw`\mathrm{d}{${operand}}`;
+    i = k + 1;
+  }
+  return out;
+}
+
 // Canonicalize a few common variants of \mathrm{d} into MathLive's \differentialD
 export function toMathLiveLatex(displayLatex: string): string {
   if (!displayLatex) return displayLatex ?? "";
-  let s = displayLatex;
+  let s = replaceCanonicalDifferentialGroups(displayLatex);
 
   // \mathrm{d}{x}  -> \differentialD x
-  s = s.replace(/\\mathrm\{d\}\s*\{([^{}]+)\}/g, (_m, v) => String.raw`\differentialD ${v}`);
+  s = s.replace(/\\mathrm\{d\}\s*\{([^{}]+)\}/g, (_m, v) =>
+    String.raw`\differentialD ${formatMathLiveDifferentialOperand(v)}`
+  );
 
   // \mathrm{d}x -> \differentialD x
   s = s.replace(/\\mathrm\{d\}\s*([A-Za-z])/g, (_m, v) => String.raw`\differentialD ${v}`);
@@ -28,7 +118,7 @@ export function toMathLiveLatex(displayLatex: string): string {
 // Convert MathLive-emitted LaTeX into our canonical display form.
 export function fromMathLiveLatex(mathLiveLatex: string): string {
   if (!mathLiveLatex) return mathLiveLatex ?? "";
-  let s = mathLiveLatex;
+  let s = replaceMathLiveDifferentialGroups(mathLiveLatex);
 
   // Normalize MathLive internals first.
   s = s.replace(/\\?d_upright/g, String.raw`\mathrm{d}`);

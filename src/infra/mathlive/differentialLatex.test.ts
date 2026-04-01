@@ -15,6 +15,9 @@ describe("differentialLatex helpers", () => {
     expect(toMathLiveLatex(String.raw`\mathrm{d}\theta`)).toBe(
       String.raw`\differentialD {\theta}`
     );
+    expect(toMathLiveLatex(String.raw`\frac{\mathrm{d}{P_{s}}}{\mathrm{d}{x}}`)).toBe(
+      String.raw`\frac{\differentialD {P_{s}}}{\differentialD x}`
+    );
   });
 
   it("converts MathLive form back to canonical display", () => {
@@ -26,6 +29,9 @@ describe("differentialLatex helpers", () => {
         String.raw`\dfrac{\differentialD f}{\differentialD x} + \differentialD {\theta}`
       )
     ).toBe(String.raw`\dfrac{\mathrm{d}{f}}{\mathrm{d}{x}} + \mathrm{d}{\theta}`);
+    expect(fromMathLiveLatex(String.raw`\frac{\differentialD {P_{s}}}{\differentialD x}`)).toBe(
+      String.raw`\frac{\mathrm{d}{P_{s}}}{\mathrm{d}{x}}`
+    );
   });
 
   it("scrubs MathLive internal aliases", () => {

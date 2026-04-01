@@ -63,5 +63,21 @@ describe("forceDelimiter", () => {
       String.raw`a = \left(b c\right) e + \left[g h + i\right] f`
     );
   });
+
+  it("unforcing [-v] under an outer negate normalizes --v to v (issue 39)", () => {
+    const tree = treefromLatex(
+      String.raw`c_{P} - c_{v} = -\left[-v\right] \left(\frac{\partial{P}}{\partial{T}}\right)_{v}`
+    );
+    const listId = findNodeId(tree, (n) => n.op === "List" && n.latex.includes("-v"));
+    const result = forceDelimiter(tree, {
+      kind: "node",
+      nodeId: listId,
+    });
+
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe(
+      String.raw`c_{P} - c_{v} = v \left(\frac{\partial{P}}{\partial{T}}\right)_{v}`
+    );
+  });
 });
 

@@ -527,6 +527,11 @@ describe("ExpressionTree", () => {
     expect(t.latexPlain).toBe(String.raw`\rho + \Gamma`);
   });
 
+  it("renders EulerGamma symbol alias as \\gamma", () => {
+    const t = ExpressionTree.create(["Add", "EulerGamma", "x"]);
+    expect(t.latexPlain).toBe(String.raw`\gamma + x`);
+  });
+
   it("renders calligraphic symbol tokens as \\mathcal", () => {
     const t = ExpressionTree.create([
       "Add",

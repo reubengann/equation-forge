@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { evaluateRaw, parse } from "../../computeEngine";
-import { ExpressionTree } from "../../ExpressionTree";
+import { ExpressionTree, type MJ } from "../../ExpressionTree";
 import type { ExprSelection } from "../../selectionSemantics";
 import { canEvaluateSelection, evaluateSelection } from "./evaluateSelection";
 
@@ -322,6 +322,45 @@ describe("evaluateSelection", () => {
     expect(next).not.toBeNull();
     expect(normalizeLatex(next!.latexPlain)).toBe(
       normalizeLatex(String.raw`\left(\frac{\partial{u}}{\partial{v}}\right)_{T} = 0`)
+    );
+  });
+
+  it("keeps evaluated integral grouped when multiplied by a factor (issue 38)", () => {
+    const latex = String.raw`u - u_{0} = c_{v} \int_{T_{0}}^{T} \,\mathrm{d}{T}`;
+    const tree = buildTree(latex);
+    const integralId = findNodeIdByLatex(tree, String.raw`\int_{T_{0}}^{T} \,\mathrm{d}{T}`);
+
+    const next = evaluateSelection(tree, { kind: "node", nodeId: integralId });
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe(
+      normalizeLatex(String.raw`u - u_{0} = c_{v} \left(T - T_{0}\right)`)
+    );
+  });
+
+  it("cancels (dP_s/dv_s) dv_s to dP_s when evaluating selected product (issue 44)", () => {
+    const latex = String.raw`\frac{\frac{\mathrm{d}{P_{s}}}{\mathrm{d}{v_{s}}} \mathrm{d}{v_{s}}}{P} + \frac{\gamma}{v} \mathrm{d}{v_{s}} = 0`;
+    const tree = buildTree(latex);
+    const termNode = Object.values(tree.nodesById).find((n) => {
+      if (!n) return false;
+      if (n.op !== "InvisibleOperator" && n.op !== "Multiply") return false;
+      const mj = n.json;
+      if (!Array.isArray(mj) || mj.length < 3) return false;
+      const kids = mj.slice(1) as MJ[];
+      const hasDerivativeFraction = kids.some(
+        (k) =>
+          Array.isArray(k) &&
+          (k[0] === "Divide" || k[0] === "FractionDerivative" || k[0] === "FractionPartialDerivative")
+      );
+      const hasDv = kids.some((k) => JSON.stringify(k).includes(String.raw`"v"`));
+      return hasDerivativeFraction && hasDv;
+    });
+    const termId = termNode?.id;
+    expect(termId).toBeTruthy();
+
+    const next = evaluateSelection(tree, { kind: "node", nodeId: termId! });
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toContain(
+      normalizeLatex(String.raw`\frac{\mathrm{d}{P_{s}}}{P}`)
     );
   });
 });

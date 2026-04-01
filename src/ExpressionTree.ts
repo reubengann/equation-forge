@@ -29,6 +29,8 @@ const GREEK_LATEX: Record<string, string> = {
   alpha: String.raw`\alpha`,
   beta: String.raw`\beta`,
   gamma: String.raw`\gamma`,
+  // CE sometimes emits EulerGamma for \gamma.
+  EulerGamma: String.raw`\gamma`,
   delta: String.raw`\delta`,
   epsilon: String.raw`\epsilon`,
   zeta: String.raw`\zeta`,

@@ -191,3 +191,48 @@ test("rubber-band prefers grouped term over inner children", async ({
   ).toBe(true);
   expect(values.length).toBeGreaterThanOrEqual(2);
 });
+
+test("pointer-down on descendant of rubber-band multi-selection does not collapse until mouseup (issue 42)", async ({
+  page,
+}) => {
+  const equation = String.raw`\frac{\mathrm{d}{P_{s}}}{\mathrm{d}{v_{s}}} = -\gamma \frac{P}{v}`;
+  const tree = buildTree(equation);
+  const pId = Object.values(tree.nodesById).find((n) => n?.latex === "P")?.id;
+  const vId = Object.values(tree.nodesById).find((n) => n?.latex === "v")?.id;
+  expect(pId).toBeTruthy();
+  expect(vId).toBeTruthy();
+
+  await setEquation(page, equation);
+  await waitForMathRender(page, [pId!, vId!]);
+  const rects = await getNodeRects(page, [pId!, vId!]);
+
+  const start = {
+    x: rects[pId!].rect.left - 6,
+    y: Math.min(rects[pId!].rect.top, rects[vId!].rect.top) - 8,
+  };
+  const end = {
+    x: rects[vId!].rect.right + 8,
+    y: Math.max(rects[pId!].rect.bottom, rects[vId!].rect.bottom) + 8,
+  };
+
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 14 });
+  await page.mouse.up();
+
+  const beforeIds = await getSelectedNodeIds(page);
+  expect(beforeIds.length).toBeGreaterThanOrEqual(2);
+
+  const holdPoint = rects[pId!].center;
+  await page.mouse.move(holdPoint.x, holdPoint.y);
+  await page.mouse.down();
+
+  await expect
+    .poll(async () => {
+      const ids = await getSelectedNodeIds(page);
+      return ids.length;
+    })
+    .toBeGreaterThanOrEqual(2);
+
+  await page.mouse.up();
+});

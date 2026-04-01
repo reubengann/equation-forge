@@ -391,6 +391,24 @@ describe("applyMoveMultiplicative executor", () => {
     );
   });
 
+  it("moves denominator dT from derivative fraction to LHS multiplicatively (issue 37)", () => {
+    const next = runMove({
+      latex: String.raw`c_{v} = \frac{\mathrm{d}{u}}{\mathrm{d}{T}}`,
+      select: (tree) => [findNodeByLatex(tree, String.raw`\mathrm{d}{T}`)],
+      hover: (tree) => {
+        const lhsId = tree.childrenById[tree.rootId!]?.[0];
+        if (!lhsId) throw new Error("Missing LHS");
+        return lhsId;
+      },
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`c_{v} \mathrm{d}{T} = \mathrm{d}{u}`
+    );
+  });
+
   it("pulls c_V from numerator when divide numerator is single-term Add wrapper", () => {
     const root: MJ = [
       "Equal",

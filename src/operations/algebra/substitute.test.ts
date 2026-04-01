@@ -108,4 +108,44 @@ describe("substitute", () => {
       String.raw`\left(z + b\right) - \left(d\right) = e`
     );
   });
+
+  it("maps EulerGamma replacement symbol to gamma for substitution (issue 40)", () => {
+    const tree = treefromLatex(String.raw`a = b c`);
+    const targetId = findNodeByLatex(tree, String.raw`b`);
+    const replacement = makeMJfromLatex(String.raw`\gamma`);
+
+    const result = substitute({
+      tree,
+      targetId,
+      replacement,
+      scope: "single",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.latexPlain.replace(/\s+/g, " ").trim()).toBe(String.raw`a = \gamma c`);
+  });
+
+  it("wraps negative replacement in product context to preserve multiplication (issue 41)", () => {
+    const tree = treefromLatex(
+      String.raw`\frac{\mathrm{d}{P_{s}}}{\mathrm{d}{v_{s}}} = \gamma \left(\frac{\partial{P}}{\partial{v}}\right)_{T}`
+    );
+    const targetId = findNodeByLatex(
+      tree,
+      String.raw`\left(\frac{\partial{P}}{\partial{v}}\right)_{T}`
+    );
+    const replacement = makeMJfromLatex(String.raw`-\frac{P}{v}`);
+
+    const result = substitute({
+      tree,
+      targetId,
+      replacement,
+      scope: "single",
+    });
+
+    expect(result).not.toBeNull();
+    const normalized = result!.latexPlain.replace(/\s+/g, " ").trim();
+    expect(normalized).toContain(String.raw`\left(-\frac{P}{v}\right)`);
+    expect(normalized).not.toContain(String.raw`\mathrm{EulerGamma} -\frac{P}{v}`);
+    expect(normalized).not.toContain(String.raw`\gamma -\frac{P}{v}`);
+  });
 });

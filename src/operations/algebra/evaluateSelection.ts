@@ -30,6 +30,12 @@ function containsSyntheticDelimiterSymbol(expr: MJ): boolean {
   return expr.some((child) => containsSyntheticDelimiterSymbol(child as MJ));
 }
 
+function containsDifferentialAlias(expr: MJ): boolean {
+  if (typeof expr === "string") return expr === "d_upright";
+  if (!Array.isArray(expr)) return false;
+  return expr.some((child) => containsDifferentialAlias(child as MJ));
+}
+
 function sanitizeSymbolPart(part: string): string {
   return part.replace(/[^A-Za-z0-9]/g, "_");
 }
@@ -218,9 +224,11 @@ function evaluateExpression(expr: MJ): MJ | null {
       const fromCe = normalizeCanonicalCalculus(fromComputeEngine(cand.json));
       if (containsErrorNode(fromCe)) continue;
       if (containsSyntheticDelimiterSymbol(fromCe)) continue;
+      if (containsDifferentialAlias(fromCe)) continue;
 
       const normalized = normalizeMathJson(fromCe) ?? fromCe;
       if (containsSyntheticDelimiterSymbol(normalized)) continue;
+      if (containsDifferentialAlias(normalized)) continue;
       if (!deepEqualMJ(normalized, expr)) {
         return normalized;
       }
@@ -240,6 +248,11 @@ function evaluateExpression(expr: MJ): MJ | null {
     const normalizedZeroProduct = normalizeMathJson(zeroProductSimplified) ?? zeroProductSimplified;
     if (!deepEqualMJ(normalizedZeroProduct, expr)) {
       return normalizedZeroProduct;
+    }
+
+    const differentialCanceled = simplifyDifferentialFractionProducts(expr);
+    if (!deepEqualMJ(differentialCanceled, expr)) {
+      return differentialCanceled;
     }
 
     return null;
@@ -314,6 +327,87 @@ function simplifyZeroProducts(expr: MJ): MJ {
   return [op, ...kids] as MJ;
 }
 
+function canonicalizeDifferentialForm(expr: MJ): MJ {
+  if (expr === "d_upright" || expr === "DifferentialD") return "DifferentialD";
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((c) => canonicalizeDifferentialForm(c as MJ));
+
+  if ((op === "InvisibleOperator" || op === "Multiply") && kids.length === 2) {
+    const diffIdx = kids.findIndex((k) => k === "DifferentialD");
+    if (diffIdx >= 0) {
+      const other = kids[diffIdx === 0 ? 1 : 0] as MJ;
+      return ["Differential", other] as MJ;
+    }
+  }
+  if (
+    op === "Subscript" &&
+    kids.length >= 2 &&
+    Array.isArray(kids[0]) &&
+    (kids[0] as MJ[])[0] === "Differential"
+  ) {
+    const inner = (kids[0] as MJ[])[1] as MJ;
+    return ["Differential", ["Subscript", inner, kids[1] as MJ] as MJ] as MJ;
+  }
+  return [op, ...kids] as MJ;
+}
+
+function factorsEquivalent(a: MJ, b: MJ): boolean {
+  const unwrap = (x: MJ): MJ =>
+    Array.isArray(x) && (x[0] === "Delimiter" || x[0] === "List") && x.length >= 2
+      ? (x[1] as MJ)
+      : x;
+  return deepEqualMJ(canonicalizeDifferentialForm(unwrap(a)), canonicalizeDifferentialForm(unwrap(b)));
+}
+
+function simplifyDifferentialFractionProducts(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((c) => simplifyDifferentialFractionProducts(c as MJ));
+
+  if ((op === "InvisibleOperator" || op === "Multiply") && kids.length >= 2) {
+    const factors = [...kids] as MJ[];
+    for (let i = 0; i < factors.length; i += 1) {
+      const f = factors[i];
+      if (
+        !Array.isArray(f) ||
+        (f[0] !== "Divide" &&
+          f[0] !== "FractionDerivative" &&
+          f[0] !== "FractionPartialDerivative") ||
+        f.length < 3
+      ) {
+        continue;
+      }
+      const numerator = canonicalizeDifferentialForm(f[1] as MJ);
+      const denominator = f[2] as MJ;
+      const j = factors.findIndex((candidate, idx) => idx !== i && factorsEquivalent(candidate, denominator));
+      if (j >= 0) {
+        if (j > i) {
+          factors[i] = numerator;
+          factors.splice(j, 1);
+        } else {
+          factors[j] = numerator;
+          factors.splice(i, 1);
+        }
+        return rebuildGrouped("InvisibleOperator", factors);
+      }
+
+      // Also support denominator represented as split factors, e.g. d_upright v_s.
+      for (let k = 0; k < factors.length - 1; k += 1) {
+        if (k === i || k + 1 === i) continue;
+        const pairExpr = ["InvisibleOperator", factors[k], factors[k + 1]] as MJ;
+        if (!factorsEquivalent(pairExpr, denominator)) continue;
+
+        factors[i] = numerator;
+        factors.splice(k, 2);
+        return rebuildGrouped("InvisibleOperator", factors);
+      }
+    }
+  }
+
+  return [op, ...kids] as MJ;
+}
+
 function isZeroEquivalent(expr: MJ): boolean {
   const simplified = normalizeMathJson(simplifyZeroProducts(expr)) ?? simplifyZeroProducts(expr);
   if (simplified === 0 || simplified === "0") return true;
@@ -355,7 +449,14 @@ export function evaluateSelection(
       const nextRoot = setAtPath(tree.rootJson, path, 0) as MJ;
       return ExpressionTree.create(nextRoot);
     }
-    const nextRoot = setAtPath(tree.rootJson, path, evaluated) as MJ;
+    const parentId = tree.parentById[sel.nodeId];
+    const parentOp = parentId ? tree.nodesById[parentId]?.op : null;
+    const needsGrouping =
+      Array.isArray(evaluated) &&
+      evaluated[0] === "Add" &&
+      (parentOp === "InvisibleOperator" || parentOp === "Multiply");
+    const replacement = needsGrouping ? (["Delimiter", evaluated] as MJ) : evaluated;
+    const nextRoot = setAtPath(tree.rootJson, path, replacement) as MJ;
     return ExpressionTree.create(nextRoot);
   }
 
