@@ -114,12 +114,18 @@
     If I alt+click them, I cannot expand them.
 
 29. `\mathrm{d}'{q} = \left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right] \mathrm{d}{v}`
-    And rubber band selection doesn't allow for selection of the bracketed term at all. It actually goes into the children only.
+    Rubber band selection doesn't allow for selection of the bracketed term at all. It actually goes into the children only.
 
-30. `\frac{\partial{u}}{\partial{T}}\right)_{v}`
+30. Feature: add a button to the editing window along with the current quick items (such as adding partial derivative)
+    to automatically add \left( \right) and put the cursor after the (
+
+31. `a = b c e + f \left[g h + i\right]`
+    Cannot move f multiplicatively to the right side of the bracketed sum (i.e. `a = b c e + \left[g h + i\right] f`)
+
+32. `\frac{\partial{u}}{\partial{T}}\right)_{v}`
     In a partial derivative, the inside part of the parentheses is selectable, but actually this whole thing including the parentheses should be atomic.
 
-31. Feature: `\left(a + b - c d e\right) = f`, we should have a way to either add or remove the parentheses
+33. Feature: `\left(a + b - c d e\right) = f`, we should have a way to either add or remove the parentheses
     surrounding the left-hand sum, since it's optional. Maybe a button.
 
-32. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu
+34. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu

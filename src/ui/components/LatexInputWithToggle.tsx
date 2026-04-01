@@ -69,6 +69,10 @@ export function LatexInputWithToggle({
   const indefiniteIntegralText = "\\int  \\, \\mathrm{d}{x}";
   const indefiniteIntegralTextCaretOffset = indefiniteIntegralText.indexOf("  ") + 2;
 
+  const parenthesesMathLive = "\\left(\\placeholder{}\\right)";
+  const parenthesesText = "\\left(\\right)";
+  const parenthesesTextCaretOffset = parenthesesText.indexOf("(") + 1;
+
   function insertMathLive(latexSnippet: string) {
     const field = mathFieldRef?.current as any;
     if (!field) return;
@@ -150,6 +154,14 @@ export function LatexInputWithToggle({
       insertMathLive(partialMathLive);
     } else {
       insertText({ text: partialText, caretOffset: partialTextCaretOffset });
+    }
+  }
+
+  function handleInsertParentheses() {
+    if (inputMode === "mathlive") {
+      insertMathLive(parenthesesMathLive);
+    } else {
+      insertText({ text: parenthesesText, caretOffset: parenthesesTextCaretOffset });
     }
   }
 
@@ -269,6 +281,23 @@ export function LatexInputWithToggle({
             data-testid="snippet-partial-derivative"
           >
             ∂/∂
+          </button>
+          <button
+            type="button"
+            onClick={handleInsertParentheses}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 6,
+              border: "1px solid var(--dp-border, #666)",
+              background: "var(--dp-surface, #111)",
+              color: "inherit",
+              cursor: "pointer",
+            }}
+            title="Insert parentheses"
+            aria-label="Insert parentheses"
+            data-testid="snippet-parentheses"
+          >
+            ( )
           </button>
         </div>
       </div>
