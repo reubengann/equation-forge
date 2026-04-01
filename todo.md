@@ -171,4 +171,4 @@
 45. `\frac{\partial{u}}{\partial{T}}\right)_{v}`
     In a partial derivative, the inside part of the parentheses is selectable, but actually this whole thing including the parentheses should be atomic.
 
-46. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu
+46. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2.

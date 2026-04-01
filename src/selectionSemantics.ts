@@ -9,14 +9,23 @@ export function normalizeSelection(
     const p = tree.parentById[cur];
     if (!p) return cur;
     const op = tree.nodesById[p]?.op;
+    const curOp = tree.nodesById[cur]?.op;
+    const bubbleDerivativeDelimiter =
+      (op === "Delimiter" || op === "List") &&
+      (curOp === "FractionPartialDerivative" || curOp === "FractionDerivative");
     if (
       op === "Negate" ||
       op === "Subscript" ||
       op === "Differential" ||
       op === "InexactDifferential" ||
+      op === "Partial" ||
+      op === "PartialDerivative" ||
       op === "OverVector" ||
       op === "Vector" ||
-      op === "OverDot"
+      op === "OverDot" ||
+      op === "FractionPartialDerivative" ||
+      op === "FractionDerivative" ||
+      bubbleDerivativeDelimiter
     ) {
       cur = p;
       continue;

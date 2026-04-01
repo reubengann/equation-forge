@@ -8,7 +8,7 @@ import {
   getDescendantNodeIds,
   promoteSelection,
 } from "./selectionSemantics";
-import { findNodeId } from "./testHelpers";
+import { findNodeId, makeMJfromLatex } from "./testHelpers";
 
 describe("selectionSemantics.bubbleThroughUnary", () => {
   it("bubbles from a leaf under Negate up to the Negate node", () => {
@@ -333,5 +333,15 @@ describe("selectionSemantics.bubbleThroughUnary", () => {
 
     const norm = normalizeSelection(tree, vId);
     expect(norm).toBe(subId);
+  });
+
+  it("normalizeSelection treats subscripted parenthesized partial derivative as atomic (issue 45)", () => {
+    const tree = ExpressionTree.create(
+      makeMJfromLatex(String.raw`\left(\frac{\partial{u}}{\partial{T}}\right)_{v}`)
+    );
+
+    const uId = findNodeId(tree, (n: any) => n.latex === "u");
+    const norm = normalizeSelection(tree, uId);
+    expect(tree.nodesById[norm]?.op).toBe("Subscript");
   });
 });
