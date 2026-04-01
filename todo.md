@@ -122,10 +122,14 @@
 31. `a = b c e + f \left[g h + i\right]`
     Cannot move f multiplicatively to the right side of the bracketed sum (i.e. `a = b c e + \left[g h + i\right] f`)
 
-32. `\frac{\partial{u}}{\partial{T}}\right)_{v}`
+32. `a = b c e + \left[g h + i\right] f`
+    Feature: I should be able to select a sub-expression like b c and wrap it in parentheses (i.e. `a = (b c) e + \left[g h + i\right] f`). Also I should be able to forcibly remove redundant parentheses. e.g. `a = (b c) e + \left[g h + i\right] f` Select the parenthese around b c and remove them. The same button to do both would be preferable, like force/unforce parentheses.
+
+33. Feature: With a any selection, be able to copy just that selection to the clipboard instead of the whole equation (new button). So in
+    `a = (b + c) e f` I can select (b + c) e and click the "copy selection" button to copy (b + c) e to the clip board (or \left(b + \right) e
+    if that's what it is)
+
+34. `\frac{\partial{u}}{\partial{T}}\right)_{v}`
     In a partial derivative, the inside part of the parentheses is selectable, but actually this whole thing including the parentheses should be atomic.
 
-33. Feature: `\left(a + b - c d e\right) = f`, we should have a way to either add or remove the parentheses
-    surrounding the left-hand sum, since it's optional. Maybe a button.
-
-34. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu
+35. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu

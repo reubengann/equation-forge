@@ -1,7 +1,8 @@
-import type { ExpressionTree } from "../ExpressionTree";
+import { ExpressionTree, type MJ } from "../ExpressionTree";
 import type { ExprSelection } from "../selectionSemantics";
 import { getDescendantNodeIds } from "../selectionSemantics";
 import { setHighlightedText } from "../infra/mathlive/derivationPadHighlight";
+import { getAtPath } from "../movePath";
 
 export function expandAtomicSelectionNodeIds(
   tree: ExpressionTree,
@@ -155,4 +156,67 @@ export function getResetSelectionDetails(note?: string): SelectionDetails {
     childLatex: "",
     note: note ?? "",
   };
+}
+
+export function getLatexForSelectionCopy(
+  tree: ExpressionTree | null,
+  selection: ExprSelection | null
+): string {
+  if (!tree || !selection) return "";
+  if (selection.kind === "node") {
+    return tree.nodesById[selection.nodeId]?.latex ?? "";
+  }
+
+  if (selection.kind === "span") {
+    const parentPath = tree.pathById[selection.parentId];
+    if (parentPath === undefined) return "";
+    const parentExpr = getAtPath(tree.rootJson, parentPath) as MJ;
+    if (!Array.isArray(parentExpr)) return "";
+    const kids = parentExpr.slice(1) as MJ[];
+    const chosen = kids.slice(selection.start, selection.end + 1);
+    if (chosen.length === 0) return "";
+    const selectedExpr =
+      chosen.length === 1 ? chosen[0] : ([selection.op, ...chosen] as MJ);
+    return ExpressionTree.create(selectedExpr).latexPlain;
+  }
+
+  const ids = Array.from(new Set(selection.nodeIds));
+  if (ids.length === 0) return "";
+  const firstParent = tree.parentById[ids[0]];
+  if (firstParent && ids.every((id) => tree.parentById[id] === firstParent)) {
+    const parentOpRaw = tree.nodesById[firstParent]?.op;
+    const op: "Add" | "InvisibleOperator" | null =
+      parentOpRaw === "Add"
+        ? "Add"
+        : parentOpRaw === "InvisibleOperator" || parentOpRaw === "Multiply"
+        ? "InvisibleOperator"
+        : null;
+    if (op) {
+      const parentPath = tree.pathById[firstParent];
+      if (parentPath !== undefined) {
+        const parentExpr = getAtPath(tree.rootJson, parentPath) as MJ;
+        if (Array.isArray(parentExpr)) {
+          const kids = parentExpr.slice(1) as MJ[];
+          const indices = ids
+            .map((id) => tree.childIndexById[id])
+            .filter((idx): idx is number => idx !== undefined)
+            .sort((a, b) => a - b);
+          const contiguous =
+            indices.length === ids.length &&
+            indices.every((v, i) => i === 0 || v === indices[i - 1] + 1);
+          if (contiguous && indices.length > 0) {
+            const chosen = kids.slice(indices[0], indices[indices.length - 1] + 1);
+            const selectedExpr =
+              chosen.length === 1 ? chosen[0] : ([op, ...chosen] as MJ);
+            return ExpressionTree.create(selectedExpr).latexPlain;
+          }
+        }
+      }
+    }
+  }
+
+  return ids
+    .map((id) => tree.nodesById[id]?.latex ?? "")
+    .filter((s) => s.length > 0)
+    .join(" ");
 }

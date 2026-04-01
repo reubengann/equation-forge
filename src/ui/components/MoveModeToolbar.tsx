@@ -15,6 +15,8 @@ type MoveModeToolbarProps = {
   canExpand: boolean;
   onCancelTerm: () => void;
   canCancelTerm: boolean;
+  onForceDelimiter: () => void;
+  canForceDelimiter: boolean;
   onToggleDelimiterStyle: () => void;
   canToggleDelimiterStyle: boolean;
   onEvaluate: () => void;
@@ -27,6 +29,9 @@ type MoveModeToolbarProps = {
   canSubstitute: boolean;
   onCopyLatex: () => void;
   canCopyLatex: boolean;
+  onCopySelection: () => void;
+  canCopySelection: boolean;
+  copySelectionFeedback?: "idle" | "done";
   copyFeedback?: "idle" | "done";
   onEdit: () => void;
 };
@@ -78,6 +83,8 @@ export const MoveModeToolbar = forwardRef<
     canExpand,
     onCancelTerm,
     canCancelTerm,
+    onForceDelimiter,
+    canForceDelimiter,
     onToggleDelimiterStyle,
     canToggleDelimiterStyle,
     onEvaluate,
@@ -90,12 +97,16 @@ export const MoveModeToolbar = forwardRef<
     canSubstitute,
     onCopyLatex,
     canCopyLatex,
+    onCopySelection,
+    canCopySelection,
+    copySelectionFeedback = "idle",
     copyFeedback = "idle",
     onEdit,
   },
   ref
 ) {
   const isCopyComplete = copyFeedback === "done";
+  const isCopySelectionComplete = copySelectionFeedback === "done";
 
   return (
     <div style={toolbarStyle} ref={ref}>
@@ -194,7 +205,18 @@ export const MoveModeToolbar = forwardRef<
         testId="cancel-term-button"
       />
       <IconButton
-        label="Toggle delimiters ( ) and [ ]"
+        label="Force/Unforce parentheses"
+        icon={
+          <span style={materialSymbolStyle} aria-hidden>
+            data_object
+          </span>
+        }
+        onClick={onForceDelimiter}
+        disabled={!canForceDelimiter}
+        testId="force-delimiter-button"
+      />
+      <IconButton
+        label="Toggle delimiter style ( ) and [ ]"
         icon={
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path
@@ -251,6 +273,18 @@ export const MoveModeToolbar = forwardRef<
         disabled={!canCopyLatex}
         testId="copy-latex-button"
         tone={isCopyComplete ? "success" : "default"}
+      />
+      <IconButton
+        label={isCopySelectionComplete ? "Selection copied!" : "Copy selection"}
+        icon={
+          <span style={materialSymbolStyle} aria-hidden>
+            {isCopySelectionComplete ? "check" : "content_copy"}
+          </span>
+        }
+        onClick={onCopySelection}
+        disabled={!canCopySelection}
+        testId="copy-selection-button"
+        tone={isCopySelectionComplete ? "success" : "default"}
       />
       <IconButton
         label="Edit"

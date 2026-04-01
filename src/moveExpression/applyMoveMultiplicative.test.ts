@@ -322,6 +322,40 @@ describe("applyMoveMultiplicative executor", () => {
     );
   });
 
+  it("reorders factor to the right of bracketed list term (issue 31)", () => {
+    const next = runMove({
+      latex: String.raw`a = b c e + f \left[g h + i\right]`,
+      select: (tree) => [findNodeByLatex(tree, "f")],
+      hover: (tree) => {
+        const listId = findNodeId(tree, (n) => n.op === "List");
+        return listId;
+      },
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`a = b c e + \left[g h + i\right] f`
+    );
+  });
+
+  it("reorders dv to the right of bracketed term when hovering inside the bracket subtree", () => {
+    const next = runMove({
+      latex: String.raw`a = b c \mathrm{d}{P} + \mathrm{d}{v} \left[f g + h\right]`,
+      select: (tree) => [findNodeByLatex(tree, String.raw`\mathrm{d}{v}`)],
+      hover: (tree) => {
+        // Hover an inner node (f) rather than the bracket container itself.
+        return findNodeByLatex(tree, "f");
+      },
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`a = b c \mathrm{d}{P} + \left[f g + h\right] \mathrm{d}{v}`
+    );
+  });
+
   it("pulls d{v}_P outside thermodynamics fraction numerator", () => {
     const next = runMove({
       latex: String.raw`c_{P} = c_{V} + \frac{\left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right] \mathrm{d}{v}_{P}}{\mathrm{d}{T}_{P}}`,

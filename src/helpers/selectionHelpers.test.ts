@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { findNodeId, treefromLatex } from "../testHelpers";
-import { expandAtomicSelectionNodeIds } from "./selectionHelpers";
+import { expandAtomicSelectionNodeIds, getLatexForSelectionCopy } from "./selectionHelpers";
 
 describe("expandAtomicSelectionNodeIds", () => {
   it("keeps DeltaOfQuantity as a single atomic node", () => {
@@ -19,5 +19,32 @@ describe("expandAtomicSelectionNodeIds", () => {
     const xId = findNodeId(tree, (n) => n.op === "Symbol" && n.latex === "x");
     const expanded = expandAtomicSelectionNodeIds(tree, [xId]);
     expect(expanded).toEqual([xId]);
+  });
+});
+
+describe("getLatexForSelectionCopy", () => {
+  it("returns grouped latex for contiguous multi-selection", () => {
+    const tree = treefromLatex(String.raw`a = b c e + \left[g h + i\right] f`);
+    const bId = findNodeId(tree, (n) => n.latex === "b");
+    const cId = findNodeId(tree, (n) => n.latex === "c");
+    const latex = getLatexForSelectionCopy(tree, {
+      kind: "multi",
+      nodeIds: [bId, cId],
+    });
+    expect(latex).toBe(String.raw`b c`);
+  });
+
+  it("returns span expression latex", () => {
+    const tree = treefromLatex(String.raw`a = b + c + d`);
+    const addId = tree.childrenById[tree.rootId]?.[1];
+    expect(addId).toBeTruthy();
+    const latex = getLatexForSelectionCopy(tree, {
+      kind: "span",
+      parentId: addId!,
+      op: "Add",
+      start: 1,
+      end: 2,
+    });
+    expect(latex).toBe(String.raw`c + d`);
   });
 });

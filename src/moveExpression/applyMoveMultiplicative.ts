@@ -532,7 +532,14 @@ export function applyMoveMultiplicative(
     const hoverParentId = tree.parentById[hoverNodeId];
     if (hoverParentId && isMulOp(tree.nodesById[hoverParentId]?.op)) {
       targetMulId = hoverParentId;
+    } else if (isAncestorOrSelf(tree, fromParentId, hoverNodeId)) {
+      // Hover can be deep inside a grouped sibling (e.g. inside a List/Delimiter);
+      // still treat this as reordering within the source multiplicative container.
+      targetMulId = fromParentId;
     }
+  }
+  if (targetMulId && targetMulId !== fromParentId && isAncestorOrSelf(tree, fromParentId, targetMulId)) {
+    targetMulId = fromParentId;
   }
 
   if (
@@ -569,7 +576,15 @@ export function applyMoveMultiplicative(
       .sort((a, b) => a - b);
     if (movedIndices.length === 0) return null;
 
-    const slot = Math.max(0, Math.min(factors.length, targetSlot));
+    const hoverFactorId = childUnderAncestor(tree, fromParentId, hoverNodeId) ?? hoverNodeId;
+    const hoverIndex = siblings.indexOf(hoverFactorId);
+    const slotFromHover =
+      (targetSlot === 0 || targetSlot === 1) &&
+      hoverIndex >= 0 &&
+      hoverNodeId !== fromParentId
+        ? hoverIndex + (targetSlot === 1 ? 1 : 0)
+        : targetSlot;
+    const slot = Math.max(0, Math.min(factors.length, slotFromHover));
     const movedIndexSet = new Set<number>(movedIndices);
     const movedCountBeforeSlot = movedIndices.filter((i) => i < slot).length;
     const insertionIndex = Math.max(0, slot - movedCountBeforeSlot);

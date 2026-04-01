@@ -11,6 +11,8 @@ import {
   evaluateSelection,
   expandSubexpression,
   factorSelection,
+  forceDelimiter,
+  canForceDelimiter,
   flipEquation,
   isFlippableEquation,
   substitute,
@@ -47,6 +49,7 @@ export type MathAction =
   | { type: "expand"; targetId?: string }
   | { type: "factor" }
   | { type: "cancel" }
+  | { type: "forceDelimiter" }
   | { type: "toggleDelimiterStyle" }
   | { type: "evaluate" }
   | { type: "applyToBothSides"; operationLatex: string }
@@ -275,6 +278,12 @@ function applyAction(input: ApplyActionInput): ApplyActionResult {
     return { ok: true, tree: next };
   }
 
+  if (action.type === "forceDelimiter") {
+    const next = forceDelimiter(tree, selection);
+    if (!next) return { ok: false, reason: "No node selected." };
+    return { ok: true, tree: next };
+  }
+
   if (action.type === "toggleDelimiterStyle") {
     const next = toggleDelimiterStyle(tree, selection);
     if (!next) return { ok: false, reason: "No delimiter selected." };
@@ -400,6 +409,13 @@ export const mathPadFacade = {
     selection: ExprSelection | null
   ): boolean {
     return canToggleDelimiterStyle(tree, selection);
+  },
+
+  canForceDelimiter(
+    tree: ExpressionTree | null,
+    selection: ExprSelection | null
+  ): boolean {
+    return canForceDelimiter(tree, selection);
   },
 
   canEvaluate(

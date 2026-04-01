@@ -25,6 +25,7 @@ import {
   getSelectionDetailsForSpan,
   getResetSelectionDetails,
   getSelectionDetailsForMulti,
+  getLatexForSelectionCopy,
   type SelectionDetails,
 } from "../../helpers/selectionHelpers";
 import { MathDisplayPanel } from "./MathDisplayPanel";
@@ -341,8 +342,10 @@ export function ExpressionPad({
   const [selectionChildLatex, setSelectionChildLatex] = useState<string>("");
   const [selectionNote, setSelectionNote] = useState<string>("");
   const [copyFeedback, setCopyFeedback] = useState<"idle" | "done">("idle");
+  const [copySelectionFeedback, setCopySelectionFeedback] = useState<"idle" | "done">("idle");
   const [marquee, setMarquee] = useState<MarqueeState | null>(null);
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
+  const copySelectionFeedbackTimeoutRef = useRef<number | null>(null);
   const pendingClickSelectionRef = useRef<PendingClickSelection | null>(null);
   const activeMoveCaptureRef = useRef<ActiveMoveCapture | null>(null);
   const lastMoveCaptureRef = useRef<MoveCaptureFixture | null>(null);
@@ -579,6 +582,17 @@ export function ExpressionPad({
       tree,
       selection,
       action: { type: "toggleDelimiterStyle" },
+    });
+    if (!result.ok) return;
+    commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
+  }, [tree, selection, commitJson]);
+
+  const onForceDelimiter = useCallback(() => {
+    if (!tree || !selection) return;
+    const result = mathPadFacade.applyAction({
+      tree,
+      selection,
+      action: { type: "forceDelimiter" },
     });
     if (!result.ok) return;
     commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
@@ -1278,6 +1292,10 @@ export function ExpressionPad({
     () => mathPadFacade.canToggleDelimiterStyle(tree, selection),
     [tree, selection]
   );
+  const canForceDelimiter = useMemo(
+    () => mathPadFacade.canForceDelimiter(tree, selection),
+    [tree, selection]
+  );
   const canEvaluate = useMemo(
     () => mathPadFacade.canEvaluate(tree, selection),
     [tree, selection]
@@ -1355,6 +1373,9 @@ export function ExpressionPad({
       if (copyFeedbackTimeoutRef.current !== null) {
         window.clearTimeout(copyFeedbackTimeoutRef.current);
       }
+      if (copySelectionFeedbackTimeoutRef.current !== null) {
+        window.clearTimeout(copySelectionFeedbackTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -1365,6 +1386,17 @@ export function ExpressionPad({
     }
     copyFeedbackTimeoutRef.current = window.setTimeout(
       () => setCopyFeedback("idle"),
+      900
+    );
+  }
+
+  function markCopySelectionSuccess() {
+    setCopySelectionFeedback("done");
+    if (copySelectionFeedbackTimeoutRef.current !== null) {
+      window.clearTimeout(copySelectionFeedbackTimeoutRef.current);
+    }
+    copySelectionFeedbackTimeoutRef.current = window.setTimeout(
+      () => setCopySelectionFeedback("idle"),
       900
     );
   }
@@ -1427,6 +1459,43 @@ export function ExpressionPad({
     if (copied) {
       markCopySuccess();
     }
+  }
+
+  const selectionLatexForCopy = useMemo(
+    () => getLatexForSelectionCopy(tree, selection),
+    [tree, selection]
+  );
+  const canCopySelection = !!selectionLatexForCopy.trim();
+
+  async function onCopySelection() {
+    if (!canCopySelection) return;
+    const text = selectionLatexForCopy;
+    let copied = false;
+    try {
+      if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      }
+    } catch {
+      // Ignore and try fallback path.
+    }
+    if (!copied) {
+      try {
+        if (typeof document === "undefined") return;
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+        copied = true;
+      } catch {
+        // Best effort only.
+      }
+    }
+    if (copied) markCopySelectionSuccess();
   }
 
   const debugState: ExpressionPadDebugState = {
@@ -1528,6 +1597,8 @@ export function ExpressionPad({
                 canFactor={canFactor}
                 onCancelTerm={onCancelTerm}
                 canCancelTerm={canCancel}
+                onForceDelimiter={onForceDelimiter}
+                canForceDelimiter={canForceDelimiter}
                 onToggleDelimiterStyle={onToggleDelimiterStyle}
                 canToggleDelimiterStyle={canToggleDelimiterStyle}
                 onEvaluate={onEvaluate}
@@ -1538,7 +1609,10 @@ export function ExpressionPad({
                 canSubstitute={canSubstitute}
                 onCopyLatex={onCopyLatex}
                 canCopyLatex={canCopyLatex}
+                onCopySelection={onCopySelection}
+                canCopySelection={canCopySelection}
                 copyFeedback={copyFeedback}
+                copySelectionFeedback={copySelectionFeedback}
                 onEdit={onEdit}
               />
             }
