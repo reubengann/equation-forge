@@ -70,6 +70,30 @@ describe("expandSubexpression", () => {
     );
   });
 
+  it("supports expand for equivalent alt multi-selection on RHS factors (issue 28)", () => {
+    const tree = treefromLatex(
+      String.raw`\mathrm{d}'{q}=\left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T}+P\right]\mathrm{d}{v}`
+    );
+    const rhsId = (tree.childrenById[tree.rootId] ?? [])[1];
+    expect(rhsId).toBeTruthy();
+    const rhsFactors = tree.childrenById[rhsId!] ?? [];
+    expect(rhsFactors.length).toBe(2);
+
+    const selection = { kind: "multi", nodeIds: rhsFactors } as const;
+    expect(mathPadFacade.canExpand(tree, selection)).toBe(true);
+
+    const applied = mathPadFacade.applyAction({
+      tree,
+      selection,
+      action: { type: "expand" },
+    });
+    expect(applied.ok).toBe(true);
+    if (!applied.ok) return;
+    expect(normalizeSpaces(applied.tree.latexPlain)).toBe(
+      String.raw`\mathrm{d}'{q} = \left(\frac{\partial{u}}{\partial{v}}\right)_{T} \mathrm{d}{v} + P \mathrm{d}{v}`
+    );
+  });
+
   it("expands selected bracket under negation (issue 19)", () => {
     const tree = treefromLatex(
       String.raw`c_{V}\frac{\mathrm{d}{T}}{\mathrm{d}{v}}=-\left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T}+P\right]`

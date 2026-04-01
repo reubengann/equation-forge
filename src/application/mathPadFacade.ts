@@ -139,7 +139,16 @@ function getExpandTargetId(
   selection: ExprSelection | null
 ): string | null {
   if (!selection) return null;
-  if (selection.kind === "multi") return null;
+  if (selection.kind === "multi") {
+    const span = multiSelectionAsSpan(tree, selection);
+    if (!span) return null;
+    const kids = tree.childrenById[span.parentId] ?? [];
+    const coversAll =
+      kids.length > 0 &&
+      span.start === 0 &&
+      span.end === kids.length - 1;
+    return coversAll ? span.parentId : null;
+  }
   if (selection.kind === "node") return selection.nodeId;
 
   const kids = tree.childrenById[selection.parentId] ?? [];

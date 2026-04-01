@@ -797,12 +797,10 @@ export function ExpressionPad({
     const ids = Array.from(deduped);
     const idSet = new Set(ids);
     const survivors = ids.filter((id) => {
-      const stack = [...(tree.childrenById[id] ?? [])];
-      while (stack.length) {
-        const cur = stack.pop()!;
-        if (idSet.has(cur)) return false;
-        const kids = tree.childrenById[cur] ?? [];
-        for (const k of kids) stack.push(k);
+      let p = tree.parentById[id];
+      while (p) {
+        if (idSet.has(p)) return false;
+        p = tree.parentById[p];
       }
       return true;
     });

@@ -211,6 +211,32 @@ describe("computeEngine custom dictionary", () => {
     );
   });
 
+  it("does not parse spaced d e as a differential (issue 27)", () => {
+    const mj = parse(String.raw`a = b c + d e - e f`);
+    expect(mj).not.toBeNull();
+    const tree = ExpressionTree.create(mj!);
+    const latex = tree.latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toBe(String.raw`a = b c + d e - e f`);
+    expect(latex.includes(String.raw`\mathrm{d}{e}`)).toBe(false);
+  });
+
+  it("parses tight de as a differential while spaced d e stays multiplicative", () => {
+    const tight = parse(String.raw`a = b c + de - e f`);
+    const spaced = parse(String.raw`a = b c + d e - e f`);
+    expect(tight).not.toBeNull();
+    expect(spaced).not.toBeNull();
+
+    const tightLatex = ExpressionTree.create(tight!).latexPlain
+      .replace(/\s+/g, " ")
+      .trim();
+    const spacedLatex = ExpressionTree.create(spaced!).latexPlain
+      .replace(/\s+/g, " ")
+      .trim();
+
+    expect(tightLatex).toContain(String.raw`\mathrm{d}{e}`);
+    expect(spacedLatex).toBe(String.raw`a = b c + d e - e f`);
+  });
+
   it("normalizes \\mathrm{d}'q into InexactDifferential", () => {
     const mj = parse(String.raw`\mathrm{d}'q = \mathrm{d}u + P \, \mathrm{d}v`);
     expect(mj).not.toBeNull();

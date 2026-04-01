@@ -73,16 +73,33 @@ function promotePartialFracToDfrac(latex: string): string {
   return latex.replace(/\\frac(?=\s*\{\s*\\partial\b)/g, "\\dfrac");
 }
 
+function promoteTightPlainDifferentials(latex: string): string {
+  // Spacing rule:
+  // - `dX` (no space) is interpreted as a differential token.
+  // - `d X` (space) stays as multiplicative product.
+  //
+  // We rewrite tight forms before CE parsing because CE tokenization loses the
+  // spacing distinction and normalizes both forms to InvisibleOperator("d","X").
+  const tightDifferential =
+    /(^|[^\\A-Za-z0-9_'])d((?:[A-Za-z](?:_\{[^}]+\}|_[A-Za-z0-9]+)?)|(?:\\[A-Za-z]+))(?![A-Za-z0-9_])/g;
+  return latex.replace(tightDifferential, (_m, prefix: string, operand: string) => {
+    return `${prefix}\\differentialD{${operand}}`;
+  });
+}
+
 export function parse(latex: string): MJ | null {
   const prefilled = injectImplicitOneInIntegrals(latex);
   const withPartialFractionsPromoted = promotePartialFracToDfrac(prefilled);
+  const withTightDifferentials = promoteTightPlainDifferentials(
+    withPartialFractionsPromoted
+  );
 
   // Special-case bare differential integrals before general parsing.
-  const special = parseIntegralWithDifferentialOnly(withPartialFractionsPromoted);
+  const special = parseIntegralWithDifferentialOnly(withTightDifferentials);
   if (special) return special;
 
   const prepared = normalizeVectorMacros(
-    toMathLiveLatex(withPartialFractionsPromoted)
+    toMathLiveLatex(withTightDifferentials)
   );
   const mj = (ce.parse(prepared, { canonical: false })?.json as MJ) ?? null;
   return normalizeMathJson(mj);
@@ -338,19 +355,33 @@ function normalizePlainDifferentials(mj: MJ | null): MJ | null {
     const followsExplicitSpacing =
       Array.isArray(prev) && prev[0] === "HorizontalSpacing";
     const followsFactor = isFactorLike(prev as MJ | null);
-    const allowedContext = startsTerm || followsExplicitSpacing || followsFactor;
+    // Plain "d x" with a literal space should remain multiplicative.
+    // Tight forms (dX) are promoted earlier in parse() via \differentialD.
+    const allowedContextForPlainD = followsExplicitSpacing || followsFactor;
+    const allowedContextForPrimeD =
+      startsTerm || followsExplicitSpacing || followsFactor;
 
     if (curIsPrimeDifferentialNode) {
       out.push(["InexactDifferential", (cur[1] as MJ[])[1]] as MJ);
       continue;
     }
 
-    if ((curIsPlainD || curIsPrimeD) && canCombine && allowedContext) {
-      if (curIsPrimeD) {
-        out.push(["InexactDifferential", next] as MJ);
-      } else {
-        out.push(["Differential", next] as MJ);
-      }
+    if (
+      curIsPrimeD &&
+      canCombine &&
+      allowedContextForPrimeD
+    ) {
+      out.push(["InexactDifferential", next] as MJ);
+      i += 1;
+      continue;
+    }
+
+    if (
+      curIsPlainD &&
+      canCombine &&
+      allowedContextForPlainD
+    ) {
+      out.push(["Differential", next] as MJ);
       i += 1;
       continue;
     }

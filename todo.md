@@ -110,12 +110,16 @@
     Here de should not be parsed as a differential, but currently it is.
 
 28. `\mathrm{d}'{q} = \left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right] \mathrm{d}{v}`
-    If I selected the bracketed expression and hit expand, I get an error that "Error is not a known type of array"
+    If I shift+click the terms on the RHS, I can expand (the button is allowed, and the operation works)
+    If I alt+click them, I cannot expand them.
 
-29. `\frac{\partial{u}}{\partial{T}}\right)_{v}`
+29. `\mathrm{d}'{q} = \left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right] \mathrm{d}{v}`
+    And rubber band selection doesn't allow for selection of the bracketed term at all. It actually goes into the children only.
+
+30. `\frac{\partial{u}}{\partial{T}}\right)_{v}`
     In a partial derivative, the inside part of the parentheses is selectable, but actually this whole thing including the parentheses should be atomic.
 
-30. Feature: `\left(a + b - c d e\right) = f`, we should have a way to either add or remove the parentheses
+31. Feature: `\left(a + b - c d e\right) = f`, we should have a way to either add or remove the parentheses
     surrounding the left-hand sum, since it's optional. Maybe a button.
 
-31. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu
+32. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu

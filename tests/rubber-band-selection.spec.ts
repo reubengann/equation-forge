@@ -147,7 +147,7 @@ test("pointer-down on selected item does not collapse selection until click comp
     .toEqual(["b"]);
 });
 
-test("rubber-band keeps product siblings when one branch has nested hits", async ({
+test("rubber-band prefers grouped term over inner children", async ({
   page,
 }) => {
   const equation = String.raw`a b + \left[c - e\right] f = 0`;
@@ -175,10 +175,19 @@ test("rubber-band keeps product siblings when one branch has nested hits", async
   await page.mouse.move(end.x, end.y, { steps: 12 });
   await page.mouse.up();
 
+  let values: string[] = [];
   await expect
     .poll(async () => {
       const ids = await getSelectedNodeIds(page);
-      return ids.map((id) => tree.nodesById[id]?.latex ?? "").filter(Boolean);
+      values = ids.map((id) => tree.nodesById[id]?.latex ?? "").filter(Boolean);
+      return values.length;
     })
-    .toEqual(expect.arrayContaining(["c", "f"]));
+    .toBeGreaterThanOrEqual(2);
+  expect(values).toContain("f");
+  expect(
+    values.some(
+      (v) => v === String.raw`\left[c - e\right]` || v === String.raw`\left[c-e\right]`
+    )
+  ).toBe(true);
+  expect(values.length).toBeGreaterThanOrEqual(2);
 });
