@@ -22,6 +22,14 @@ function containsErrorNode(expr: MJ): boolean {
   return expr.slice(1).some((child) => containsErrorNode(child as MJ));
 }
 
+function containsSyntheticDelimiterSymbol(expr: MJ): boolean {
+  if (typeof expr === "string") {
+    return expr.includes("Delimiter_") || expr.includes("List_");
+  }
+  if (!Array.isArray(expr)) return false;
+  return expr.some((child) => containsSyntheticDelimiterSymbol(child as MJ));
+}
+
 function sanitizeSymbolPart(part: string): string {
   return part.replace(/[^A-Za-z0-9]/g, "_");
 }
@@ -47,6 +55,10 @@ function decodeSubscriptSymbol(value: MJ): MJ {
 
 function toComputeEngine(expr: MJ): MJ {
   if (!Array.isArray(expr)) return expr;
+  // Delimiter/List are display-grouping wrappers in this app; evaluate on the inner expression.
+  if ((expr[0] === "Delimiter" || expr[0] === "List") && expr.length >= 2) {
+    return toComputeEngine(expr[1] as MJ);
+  }
   if (expr[0] === "Subscript") {
     return encodeSubscriptSymbol(expr[1] as MJ, expr[2] as MJ);
   }
@@ -205,8 +217,10 @@ function evaluateExpression(expr: MJ): MJ | null {
     for (const cand of candidates) {
       const fromCe = normalizeCanonicalCalculus(fromComputeEngine(cand.json));
       if (containsErrorNode(fromCe)) continue;
+      if (containsSyntheticDelimiterSymbol(fromCe)) continue;
 
       const normalized = normalizeMathJson(fromCe) ?? fromCe;
+      if (containsSyntheticDelimiterSymbol(normalized)) continue;
       if (!deepEqualMJ(normalized, expr)) {
         return normalized;
       }
@@ -215,6 +229,17 @@ function evaluateExpression(expr: MJ): MJ | null {
     const multiplied = multiplyNumericFactors(expr);
     if (multiplied && !deepEqualMJ(multiplied, expr)) {
       return multiplied;
+    }
+
+    const reciprocalSimplified = simplifyReciprocalDivides(expr);
+    if (!deepEqualMJ(reciprocalSimplified, expr)) {
+      return reciprocalSimplified;
+    }
+
+    const zeroProductSimplified = simplifyZeroProducts(expr);
+    const normalizedZeroProduct = normalizeMathJson(zeroProductSimplified) ?? zeroProductSimplified;
+    if (!deepEqualMJ(normalizedZeroProduct, expr)) {
+      return normalizedZeroProduct;
     }
 
     return null;
@@ -247,6 +272,58 @@ function multiplyNumericFactors(expr: MJ): MJ | null {
   return rebuildGrouped("InvisibleOperator", rebuilt);
 }
 
+function isOneLike(expr: MJ): boolean {
+  return expr === 1 || expr === "1";
+}
+
+function simplifyReciprocalDivides(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((c) => simplifyReciprocalDivides(c as MJ));
+  if (op === "Divide" && kids.length >= 2) {
+    const numerator = kids[0] as MJ;
+    const denominator = kids[1] as MJ;
+    if (
+      Array.isArray(denominator) &&
+      denominator[0] === "Divide" &&
+      denominator.length >= 3 &&
+      isOneLike(denominator[1] as MJ)
+    ) {
+      return rebuildGrouped("InvisibleOperator", [
+        numerator,
+        denominator[2] as MJ,
+      ]);
+    }
+  }
+  return [op, ...kids] as MJ;
+}
+
+function simplifyZeroProducts(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((c) => simplifyZeroProducts(c as MJ));
+
+  if (op === "InvisibleOperator") {
+    if (kids.some((k) => k === 0 || k === "0")) return 0;
+  }
+
+  if (op === "Negate" && kids.length >= 1 && (kids[0] === 0 || kids[0] === "0")) {
+    return 0;
+  }
+
+  return [op, ...kids] as MJ;
+}
+
+function isZeroEquivalent(expr: MJ): boolean {
+  const simplified = normalizeMathJson(simplifyZeroProducts(expr)) ?? simplifyZeroProducts(expr);
+  if (simplified === 0 || simplified === "0") return true;
+  if (Array.isArray(simplified) && simplified[0] === "Negate") {
+    const inner = simplified[1] as MJ;
+    if (inner === 0 || inner === "0") return true;
+  }
+  return false;
+}
+
 export function canEvaluateSelection(
   tree: ExpressionTree | null,
   sel: ExprSelection | null
@@ -272,7 +349,12 @@ export function evaluateSelection(
     if (!path) return null;
     const target = getAtPath(tree.rootJson, path) as MJ;
     const evaluated = evaluateExpression(target);
-    if (!evaluated) return null;
+    if (!evaluated) {
+      if (!isZeroEquivalent(target)) return null;
+      if (target === 0 || target === "0") return null;
+      const nextRoot = setAtPath(tree.rootJson, path, 0) as MJ;
+      return ExpressionTree.create(nextRoot);
+    }
     const nextRoot = setAtPath(tree.rootJson, path, evaluated) as MJ;
     return ExpressionTree.create(nextRoot);
   }

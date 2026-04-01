@@ -129,7 +129,17 @@
     `a = (b + c) e f` I can select (b + c) e and click the "copy selection" button to copy (b + c) e to the clip board (or \left(b + \right) e
     if that's what it is)
 
-34. `\frac{\partial{u}}{\partial{T}}\right)_{v}`
+34. `dx`
+    This renders as \mathrm{d}x (which is good). But when I copy the expression to the clipboard, I get `dx`, not `\mathrm{d}x`.
+
+35. `\left(\frac{\partial{u}}{\partial{v}}\right)_{T} = \frac{-c_{v}}{\frac{1}{\left(\frac{\partial{T}}{\partial{v}}\right)_{u}}}`
+    If I select the RHS and use the evaluate command, I get `\left(\frac{\partial{u}}{\partial{v}}\right)_{T} = -Delimiter_FractionPartialDerivative_Partial_T_Partial_v_{u} c_{v}`, which is obviously bad.
+
+36. `\left(\frac{\partial{u}}{\partial{v}}\right)_{T} = -c_{v} 0`
+    Selecting the RHS and trying to cancel or evaluate should result in 0. If only `c_{v} 0` are chosen, it's cancelable, but ends
+    up being `-0` instead of just 0. If the entire RHS is selected, the cancel button is disabled. Evaluate never does anything.
+
+37. `\frac{\partial{u}}{\partial{T}}\right)_{v}`
     In a partial derivative, the inside part of the parentheses is selectable, but actually this whole thing including the parentheses should be atomic.
 
-35. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu
+38. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2. Maybe via right-click menu

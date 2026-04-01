@@ -299,6 +299,31 @@ describe("evaluateSelection", () => {
 
     spy.mockRestore();
   });
+
+  it("evaluates reciprocal nested partial-derivative denominator without mangled Delimiter token (issue 35)", () => {
+    const latex = String.raw`\left(\frac{\partial{u}}{\partial{v}}\right)_{T} = \frac{-c_{v}}{\frac{1}{\left(\frac{\partial{T}}{\partial{v}}\right)_{u}}}`;
+    const tree = buildTree(latex);
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(rhsId).toBeTruthy();
+
+    const next = evaluateSelection(tree, { kind: "node", nodeId: rhsId! });
+    expect(next).not.toBeNull();
+    const out = normalizeLatex(next!.latexPlain);
+    expect(out).not.toContain("Delimiter_FractionPartialDerivative");
+  });
+
+  it("evaluates whole RHS -c_v 0 to 0 (issue 36)", () => {
+    const latex = String.raw`\left(\frac{\partial{u}}{\partial{v}}\right)_{T} = -c_{v} 0`;
+    const tree = buildTree(latex);
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(rhsId).toBeTruthy();
+
+    const next = evaluateSelection(tree, { kind: "node", nodeId: rhsId! });
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe(
+      normalizeLatex(String.raw`\left(\frac{\partial{u}}{\partial{v}}\right)_{T} = 0`)
+    );
+  });
 });
 
 describe("canEvaluateSelection", () => {

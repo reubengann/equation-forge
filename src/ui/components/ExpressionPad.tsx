@@ -1363,9 +1363,10 @@ export function ExpressionPad({
   }, [otherPadSnapshots, substituteTargetId, tree]);
 
   const latexForCopy =
-    latexText && latexText !== "Type an equation, click Add / Update."
+    tree?.latexPlain ??
+    (latexText && latexText !== "Type an equation, click Add / Update."
       ? latexText
-      : latexDraft;
+      : latexDraft);
   const canCopyLatex = !!latexForCopy?.trim();
 
   useEffect(() => {

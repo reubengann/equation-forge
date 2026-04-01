@@ -226,4 +226,48 @@ describe("cancelTerm", () => {
     const result = cancelTerm(tree, select(aId));
     expect(result).toBeNull();
   });
+
+  it("allows cancel on whole RHS when it is zero-equivalent and normalizes to 0 (issue 36)", () => {
+    const tree = treefromLatex(
+      String.raw`\left(\frac{\partial{u}}{\partial{v}}\right)_{T} = -c_{v} 0`
+    );
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(rhsId).toBeTruthy();
+
+    const selection: ExprSelection = { kind: "node", nodeId: rhsId! };
+    expect(canCancelTerm(tree, selection)).toBe(true);
+    const result = cancelTerm(tree, selection);
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe(
+      String.raw`\left(\frac{\partial{u}}{\partial{v}}\right)_{T} = 0`
+    );
+  });
+
+  it("collapses selected c_v 0 factors to canonical 0 (not -0) (issue 36)", () => {
+    const tree = treefromLatex(
+      String.raw`\left(\frac{\partial{u}}{\partial{v}}\right)_{T} = -c_{v} 0`
+    );
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(rhsId).toBeTruthy();
+    const productId = findNodeId(
+      tree,
+      (n) => n.op === "InvisibleOperator" && rhsId != null && isDescendant(tree, n.id, rhsId)
+    );
+    const cvId = findNodeId(
+      tree,
+      (n) => n.latex === String.raw`c_{v}` && isDescendant(tree, n.id, productId)
+    );
+    const zeroId = findNodeId(
+      tree,
+      (n) => n.latex === "0" && tree.parentById[n.id] === productId
+    );
+    const selection: ExprSelection = { kind: "multi", nodeIds: [cvId, zeroId] };
+    expect(canCancelTerm(tree, selection)).toBe(true);
+
+    const result = cancelTerm(tree, selection);
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe(
+      String.raw`\left(\frac{\partial{u}}{\partial{v}}\right)_{T} = 0`
+    );
+  });
 });

@@ -63,6 +63,16 @@ function isOneEquivalent(expr: MJ): boolean {
   return simp === 1 || simp === "1";
 }
 
+function stripNegatedZero(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((c) => stripNegatedZero(c as MJ));
+  if (op === "Negate" && kids.length >= 1 && (kids[0] === 0 || kids[0] === "0")) {
+    return 0;
+  }
+  return [op, ...kids] as MJ;
+}
+
 function normalizeAdd(terms: MJ[]): MJ {
   if (terms.length === 0) return 0;
   if (terms.length === 1) return terms[0];
@@ -549,6 +559,14 @@ export function cancelTerm(
   const parentPath = tree.pathById[parentId];
   if (!parentPath) return null;
 
+  // If a whole equation side simplifies to zero (e.g. -c_v 0), canonicalize that side to 0.
+  if (parentOp === "Equal" && isZeroEquivalent(selInfo.json)) {
+    const sidePath = tree.pathById[selId];
+    if (!sidePath) return null;
+    const nextRoot = setAtPath(tree.rootJson, sidePath, 0);
+    return ExpressionTree.create(nextRoot);
+  }
+
   // 1) Sum term removal
   if (parentOp === "Add") {
     if (!isZeroEquivalent(selInfo.json)) return null;
@@ -566,7 +584,14 @@ export function cancelTerm(
   if (parentOp === "InvisibleOperator") {
     if (isZeroEquivalent(selInfo.json)) {
       const parentParentId = tree.parentById[parentId];
-      const nextRoot = setAtPath(tree.rootJson, parentPath, 0);
+      let nextRoot = setAtPath(tree.rootJson, parentPath, 0);
+
+      if (parentParentId && tree.nodesById[parentParentId]?.op === "Negate") {
+        const negPath = tree.pathById[parentParentId];
+        if (negPath) {
+          nextRoot = setAtPath(nextRoot, negPath, 0);
+        }
+      }
 
       // If this product sits as a term inside a sum, remove the now-zero term.
       if (parentParentId && tree.nodesById[parentParentId]?.op === "Add") {
@@ -581,10 +606,10 @@ export function cancelTerm(
         const remaining = (addExpr as MJNode).slice(1).filter((_, i) => i !== idx);
         const nextAdd = buildAddFromTerms(remaining);
         const cleanedRoot = setAtPath(nextRoot, addPath, nextAdd);
-        return ExpressionTree.create(cleanedRoot);
+        return ExpressionTree.create(stripNegatedZero(cleanedRoot));
       }
 
-      return ExpressionTree.create(nextRoot);
+      return ExpressionTree.create(stripNegatedZero(nextRoot));
     }
 
     if (!isOneEquivalent(selInfo.json)) return null;
