@@ -10,6 +10,11 @@ function isDifferentialOfEqnOperation(operationLatex: string): boolean {
   );
 }
 
+function isIntegralOfEqnOperation(operationLatex: string): boolean {
+  const compact = operationLatex.replace(/\s+/g, "");
+  return /^\\int(?:\\left\(|\()eqn(?:\\right\)|\))$/.test(compact);
+}
+
 function isEqualNode(mj: MJ): mj is MJNode {
   return Array.isArray(mj) && mj[0] === "Equal" && mj.length === 3;
 }
@@ -53,6 +58,7 @@ function shouldGroupPowerBase(base: MJ): boolean {
   const op = base[0];
   return (
     op === "Add" ||
+    op === "Power" ||
     op === "InvisibleOperator" ||
     op === "Multiply" ||
     op === "Divide" ||
@@ -178,6 +184,15 @@ export function applyOperationToBothSides(
     const [, lhs, rhs] = equation;
     const newLhs = ["Differential", wrapDifferentialOperand(lhs as MJ)] as MJ;
     const newRhs = ["Differential", wrapDifferentialOperand(rhs as MJ)] as MJ;
+    return ["Equal", newLhs, newRhs];
+  }
+
+  // Treat \int(eqn) as an integral over the whole side while keeping
+  // the variable unresolved until the user provides/derives one later.
+  if (isIntegralOfEqnOperation(operationLatex)) {
+    const [, lhs, rhs] = equation;
+    const newLhs = ["Integrate", deepClone(lhs as MJ), ["Tuple", "Nothing"]] as MJ;
+    const newRhs = ["Integrate", deepClone(rhs as MJ), ["Tuple", "Nothing"]] as MJ;
     return ["Equal", newLhs, newRhs];
   }
 

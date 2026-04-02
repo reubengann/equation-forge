@@ -279,13 +279,13 @@ describe("computeEngine custom dictionary", () => {
     expect(latex).toContain(String.raw`\frac{\partial{u}}{\partial{v}}`);
   });
 
-  it("fixes blank integrals and fills tuple defaults", () => {
+  it("fixes blank integrals while preserving unresolved tuple placeholders", () => {
     const mj = normalizeMathJson([
       "Integrate",
       "unexpected-command",
       ["Tuple", "Nothing", undefined, undefined],
     ] as any);
-    expect(mj).toEqual(["Integrate", 1, ["Tuple", "x", 0, 0]]);
+    expect(mj).toEqual(["Integrate", 1, ["Tuple", "Nothing", "Nothing", "Nothing"]]);
   });
 
   it("collapses single-term Add wrappers", () => {

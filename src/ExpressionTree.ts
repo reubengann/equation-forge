@@ -586,12 +586,19 @@ export class ExpressionTree {
   }
 
   private emitOverDot(node: MJNode, id: string, path: number[], op: string) {
-    const inner = this.emit(node[1], id, [...path, 1]);
+    const rawInner = node[1] as MJ;
+    let targetInner = rawInner;
+    let count = typeof node[2] === "number" ? Number(node[2]) : 1;
+    if (Array.isArray(rawInner) && rawInner[0] === "OverDot") {
+      targetInner = (rawInner[1] ?? rawInner[1]) as MJ;
+      const nestedCount = typeof rawInner[2] === "number" ? Number(rawInner[2]) : 1;
+      count += nestedCount;
+    }
+    const inner = this.emit(targetInner, id, [...path, 1]);
 
     this.childrenById[id] = [inner.id];
     this.childIndexById[inner.id] = 0;
 
-    const count = typeof node[2] === "number" ? Number(node[2]) : 1;
     const cmd = count >= 2 ? String.raw`\ddot` : String.raw`\dot`;
 
     const plain = String.raw`${cmd}{${inner.latexPlain}}`;
@@ -636,6 +643,25 @@ export class ExpressionTree {
   }
 
   private emitSubscript(node: MJNode, id: string, path: number[], op: string) {
+    if (
+      typeof node[1] === "string" &&
+      /^[A-Z]$/.test(node[1]) &&
+      (node[2] === "calligraphic" || node[2] === "script")
+    ) {
+      const base = this.emit(node[1], id, [...path, 1]);
+      const sub = this.emit(node[2] as MJ, id, [...path, 2]);
+      this.childrenById[id] = [base.id, sub.id];
+      this.childIndexById[base.id] = 0;
+      this.childIndexById[sub.id] = 1;
+
+      const plain =
+        node[2] === "script"
+          ? String.raw`\mathscr{${node[1]}}`
+          : String.raw`\mathcal{${node[1]}}`;
+      this.nodesById[id] = { id, op, latex: plain, json: node };
+      return { id, latexPlain: plain, latexTagged: this.wrap(id, plain) };
+    }
+
     // Shape: ["Subscript", base, sub]
     const base = this.emit(node[1], id, [...path, 1]);
     const sub = this.emit(node[2], id, [...path, 2]);
@@ -816,9 +842,19 @@ export class ExpressionTree {
     const dVarTagged = sym ? sym.latexTagged : "";
     const integrandPlain = integrandIsOne ? "" : `${integrand.latexPlain} `;
     const integrandTagged = integrandIsOne ? "" : `${integrand.latexTagged} `;
+    const hasResolvedDifferential =
+      dVarPlain !== "" &&
+      dVarPlain !== "Nothing" &&
+      dVarPlain !== String.raw`\mathrm{Nothing}`;
+    const differentialPlain = hasResolvedDifferential
+      ? String.raw`\,\mathrm{d}{${dVarPlain}}`
+      : "";
+    const differentialTagged = hasResolvedDifferential
+      ? String.raw`\,\mathrm{d}{${dVarTagged}}`
+      : "";
 
-    const plain = String.raw`\int${boundsPlain} ${integrandPlain}\,\mathrm{d}{${dVarPlain}}`;
-    const taggedInner = String.raw`\int${boundsPlain} ${integrandTagged}\,\mathrm{d}{${dVarTagged}}`;
+    const plain = String.raw`\int${boundsPlain} ${integrandPlain}${differentialPlain}`;
+    const taggedInner = String.raw`\int${boundsPlain} ${integrandTagged}${differentialTagged}`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return {

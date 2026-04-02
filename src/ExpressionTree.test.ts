@@ -283,6 +283,18 @@ describe("ExpressionTree", () => {
     );
   });
 
+  it("hides unresolved integral placeholders in rendered latex", () => {
+    const t = ExpressionTree.create([
+      "Integrate",
+      ["Add", "u", ["InvisibleOperator", "P", "v"]],
+      ["Tuple", "Nothing"],
+    ]);
+
+    const latex = t.latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toBe(String.raw`\int u + P v`.replace(/\s+/g, " ").trim());
+    expect(latex).not.toContain(String.raw`\mathrm{d}{Nothing}`);
+  });
+
   it("renders integral with implicit integrand (blank)", () => {
     const t = treefromLatex(
       String.raw`v_{0}^{2} = 2 g \sin\left(\theta\right) \int_{0}^{x_{0}} \,\mathrm{d}{x}`,

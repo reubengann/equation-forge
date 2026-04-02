@@ -204,6 +204,9 @@
 
 55. If I enter `dU = d'Q - d'W` I get a result that `\mathrm{d}{U} = \mathrm{d}'{Q} - d' W` instead of `\mathrm{d}{U} = \mathrm{d}'{Q} - \mathrm{d}'{W}`
 
-56. `\mathrm{d}'{Q} = \mathrm{d}'{W}`
-    Apply to both sides \int(eqn). The result is `\int \left(\mathrm{d}'{Q}\right) \,\mathrm{d}{\mathrm{Nothing}} = \int \left(\mathrm{d}'{W}\right) \,\mathrm{d}{\mathrm{Nothing}}`. One would think the result would just be
+56. If we start with `\mathrm{d}'{Q} = \mathrm{d}'{W}` and apply to both sides \int(eqn). The result is `\int \left(\mathrm{d}'{Q}\right) \,\mathrm{d}{\mathrm{Nothing}} = \int \left(\mathrm{d}'{W}\right) \,\mathrm{d}{\mathrm{Nothing}}`. One would think the result would just be
     `\int \mathrm{d}'{Q} = \int \mathrm{d}'{W}`
+    This might be hard. If the mathjson requires an integration variable, then we would have to go in and find it, and it's not always that
+    simple. For instance, suppose that we integrate only once on the argument `dx dy`. Which one would it pick?
+
+57. We need to upgrade to CortexJs newest, but there are significant API changes.

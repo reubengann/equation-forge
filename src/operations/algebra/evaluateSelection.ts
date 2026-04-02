@@ -229,6 +229,11 @@ function evaluateExpression(expr: MJ): MJ | null {
       const normalized = normalizeMathJson(fromCe) ?? fromCe;
       if (containsSyntheticDelimiterSymbol(normalized)) continue;
       if (containsDifferentialAlias(normalized)) continue;
+      try {
+        ExpressionTree.create(normalized);
+      } catch {
+        continue;
+      }
       if (!deepEqualMJ(normalized, expr)) {
         return normalized;
       }

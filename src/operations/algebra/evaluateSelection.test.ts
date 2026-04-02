@@ -337,6 +337,23 @@ describe("evaluateSelection", () => {
     );
   });
 
+  it("evaluates 1/V definite integral multiplied by constants", () => {
+    const latex = String.raw`Q = n R T \int_{a}^{b} \frac{1}{V} \,\mathrm{d}{V}`;
+    const tree = buildTree(latex);
+    const integralId = findNodeIdByLatex(
+      tree,
+      String.raw`\int_{a}^{b} \frac{1}{V} \,\mathrm{d}{V}`
+    );
+    const next = evaluateSelection(tree, { kind: "node", nodeId: integralId });
+
+    expect(next).not.toBeNull();
+    const out = normalizeLatex(next!.latexPlain);
+    expect(out).not.toContain(String.raw`\int`);
+    expect(out).toContain(
+      String.raw`\ln\left(\left|b\right|\right) - \ln\left(\left|a\right|\right)`
+    );
+  });
+
   it("cancels (dP_s/dv_s) dv_s to dP_s when evaluating selected product (issue 44)", () => {
     const latex = String.raw`\frac{\frac{\mathrm{d}{P_{s}}}{\mathrm{d}{v_{s}}} \mathrm{d}{v_{s}}}{P} + \frac{\gamma}{v} \mathrm{d}{v_{s}} = 0`;
     const tree = buildTree(latex);

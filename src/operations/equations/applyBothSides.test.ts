@@ -119,6 +119,36 @@ describe("applyOperationToBothSides", () => {
     );
   });
 
+  it("treats \\int(eqn) as unresolved Integrate over whole sides", () => {
+    const eqn = makeMJfromLatex("h = u + P v");
+    const result = applyOperationToBothSides(eqn, String.raw`\int(eqn)`);
+    const lhs = (result as any)[1] as MJ;
+    const rhs = (result as any)[2] as MJ;
+
+    expect(Array.isArray(lhs) && (lhs as any[])[0] === "Integrate").toBe(true);
+    expect(Array.isArray(rhs) && (rhs as any[])[0] === "Integrate").toBe(true);
+    expect((lhs as any[])[2]).toEqual(["Tuple", "Nothing"]);
+    expect((rhs as any[])[2]).toEqual(["Tuple", "Nothing"]);
+
+    const latex = ExpressionTree.create(result).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toContain(String.raw`\int h`);
+    expect(latex).not.toContain(String.raw`\mathrm{d}{Nothing}`);
+  });
+
+  it("keeps ambiguous differential products unresolved under \\int(eqn)", () => {
+    const eqn = makeMJfromLatex("A = dx dy");
+    const result = applyOperationToBothSides(eqn, String.raw`\int(eqn)`);
+    const rhs = (result as any)[2] as MJ;
+
+    expect(Array.isArray(rhs)).toBe(true);
+    expect((rhs as any[])[0]).toBe("Integrate");
+    expect((rhs as any[])[2]).toEqual(["Tuple", "Nothing"]);
+
+    const latex = ExpressionTree.create(result).latexPlain;
+    expect(latex).toContain(String.raw`\int`);
+    expect(latex).not.toContain(String.raw`\mathrm{d}{Nothing}`);
+  });
+
   it("parses vec notation into a Vector node", () => {
     const mj = makeMJfromLatex("\\vec{e}");
     expect(mj).toEqual(["Vector", "e"]);

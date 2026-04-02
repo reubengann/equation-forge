@@ -6,8 +6,6 @@ import {
 import type { MJ } from "./ExpressionTree";
 import { toMathLiveLatex } from "./infra/mathlive/differentialLatex";
 
-const ce = new ComputeEngine();
-
 function normalizeVectorMacros(latex: string): string {
   // MathLive macros render \vec as \mathbf{...}; the CE interprets this as a
   // 1x1 Matrix, which our renderer does not support. Rewrite those bold macros
@@ -37,11 +35,41 @@ function parseIntegralWithDifferentialOnly(latex: string): MJ | null {
   const upperLatex = strip(m[2]?.trim() ?? "");
   const operandLatex = strip((m[3] || m[4] || m[5] || "").trim());
 
-  const lower = (ce.parse(lowerLatex, { canonical: false })?.json as MJ) ?? 0;
-  const upper = (ce.parse(upperLatex, { canonical: false })?.json as MJ) ?? 0;
-  const operand =
-    (ce.parse(operandLatex, { canonical: false })?.json as MJ) ??
-    (operandLatex || "Nothing");
+  const normalizeFragment = (expr: MJ | null): MJ | null => {
+    if (expr === null || expr === undefined) return expr;
+    if (typeof expr === "string") {
+      const m = /^([A-Za-z]+)_([A-Za-z0-9]+)$/.exec(expr);
+      if (!m) return expr;
+      const sub = /^\d+$/.test(m[2]) ? Number(m[2]) : m[2];
+      return ["Subscript", m[1], sub] as MJ;
+    }
+    if (!Array.isArray(expr)) return expr;
+    const op = expr[0];
+    const kids = expr.slice(1).map((child) => normalizeFragment(child as MJ)) as MJ[];
+    if (
+      (op === "InvisibleOperator" || op === "Multiply") &&
+      kids.length === 2 &&
+      Array.isArray(kids[0]) &&
+      (kids[0] as MJ[])[0] === "Power" &&
+      ((kids[0] as MJ[])[2] as MJ) === "t"
+    ) {
+      return ["Power", ["OverDot", (kids[0] as MJ[])[1] as MJ, 1], kids[1] as MJ] as MJ;
+    }
+    return [op, ...kids] as MJ;
+  };
+
+  const parseFragment = (fragment: string): MJ | null => {
+    if (!fragment) return null;
+    const parsed =
+      parse(fragment) ??
+      ((ce.parse(fragment, { canonical: false })?.json as MJ) ??
+        null);
+    return normalizeFragment(parsed);
+  };
+
+  const lower = parseFragment(lowerLatex) ?? 0;
+  const upper = parseFragment(upperLatex) ?? 0;
+  const operand = parseFragment(operandLatex) ?? (operandLatex || "Nothing");
 
   // Integrand defaults to 1 when only a differential is provided.
   return normalizeMathJson([
@@ -110,14 +138,26 @@ export function normalizeMathJson(mj: MJ | null): MJ | null {
     normalizeAssociativeAdd(
       collapseSingletonAdd(
         fixBlankIntegrals(
-          normalizeDotProducts(
-            normalizePrimeDifferentials(
-              rewriteNegateToFrontOfProduct(
-                normalizeDeltaOfQuantity(
-                  normalizeDifferentialOperands(
-                    normalizePrimeDifferentials(
-                      normalizePlainDifferentials(
-                      normalizePartialDerivativeForms(normalizeProducts(normalizeVectors(mj)))
+          normalizeTimeDerivatives(
+            normalizeSubscriptLikeSymbols(
+              normalizeSequenceEquationTail(
+                normalizeSymbolHeadApplication(
+                  normalizeLegacyExpNodes(
+                    normalizeDotProducts(
+                      normalizePrimeDifferentials(
+                        rewriteNegateToFrontOfProduct(
+                          normalizeDeltaOfQuantity(
+                            normalizeDifferentialOperands(
+                              normalizePrimeDifferentials(
+                                normalizePlainDifferentials(
+                                  normalizePartialDerivativeForms(
+                                    normalizeProducts(normalizeVectors(mj))
+                                  )
+                                )
+                              )
+                            )
+                          )
+                        )
                       )
                     )
                   )
@@ -129,6 +169,147 @@ export function normalizeMathJson(mj: MJ | null): MJ | null {
       )
     )
   );
+}
+
+function normalizeSubscriptLikeSymbols(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (typeof mj === "string") {
+    const m = /^([A-Za-z]+)_([A-Za-z0-9]+)$/.exec(mj);
+    if (!m) return mj;
+    const sub = /^\d+$/.test(m[2]) ? Number(m[2]) : m[2];
+    return ["Subscript", m[1], sub] as MJ;
+  }
+  if (!Array.isArray(mj)) return mj;
+  const op = mj[0];
+  const kids = mj.slice(1).map((child) => normalizeSubscriptLikeSymbols(child as MJ));
+  return [op, ...kids] as MJ;
+}
+
+function normalizeTimeDerivatives(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+  const op = mj[0];
+  const kids = mj.slice(1).map((child) => normalizeTimeDerivatives(child as MJ)) as MJ[];
+  if (op === "D" && kids.length >= 2 && kids[1] === "t") {
+    const inner = kids[0] as MJ;
+    if (Array.isArray(inner) && inner[0] === "OverDot" && inner.length >= 2) {
+      const existingCount =
+        typeof inner[2] === "number" ? Number(inner[2]) : 1;
+      return ["OverDot", inner[1] as MJ, existingCount + 1] as MJ;
+    }
+    if (
+      Array.isArray(inner) &&
+      inner[0] === "D" &&
+      inner.length >= 3 &&
+      (inner[2] as MJ) === "t"
+    ) {
+      return ["OverDot", inner[1] as MJ, 2] as MJ;
+    }
+    return ["OverDot", inner, 1] as MJ;
+  }
+  if (
+    (op === "InvisibleOperator" || op === "Multiply") &&
+    kids.length >= 3 &&
+    kids[0] === "D" &&
+    Array.isArray(kids[1]) &&
+    (kids[1] as MJ[])[0] === "D" &&
+    (kids[1] as MJ[]).length >= 3 &&
+    (kids[1] as MJ[])[2] === "t" &&
+    kids[2] === "t"
+  ) {
+    return ["OverDot", (kids[1] as MJ[])[1] as MJ, 2] as MJ;
+  }
+  if (
+    (op === "InvisibleOperator" || op === "Multiply") &&
+    kids.length >= 3 &&
+    kids[0] === "D" &&
+    kids[2] === "t"
+  ) {
+    return ["OverDot", kids[1] as MJ, 1] as MJ;
+  }
+  return [op, ...kids] as MJ;
+}
+
+function normalizeSymbolHeadApplication(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+  const op = String(mj[0]);
+  const kids = mj
+    .slice(1)
+    .map((child) => normalizeSymbolHeadApplication(child as MJ)) as MJ[];
+  if (
+    op === "Power" &&
+    kids.length >= 2 &&
+    Array.isArray(kids[0]) &&
+    /^[A-Za-z]$/.test(String((kids[0] as MJ[])[0])) &&
+    (kids[0] as MJ[]).length >= 2
+  ) {
+    const baseApply = kids[0] as MJ[];
+    return [
+      "InvisibleOperator",
+      baseApply[0] as MJ,
+      ["Power", baseApply[1] as MJ, kids[1] as MJ] as MJ,
+    ] as MJ;
+  }
+  if (
+    op === "Power" &&
+    kids.length >= 2 &&
+    Array.isArray(kids[0]) &&
+    (kids[0] as MJ[])[0] === "InvisibleOperator" &&
+    (kids[0] as MJ[]).length === 3 &&
+    typeof (kids[0] as MJ[])[1] === "string" &&
+    /^[A-Za-z]$/.test((kids[0] as MJ[])[1] as string)
+  ) {
+    const mulBase = kids[0] as MJ[];
+    return [
+      "InvisibleOperator",
+      mulBase[1] as MJ,
+      ["Power", mulBase[2] as MJ, kids[1] as MJ] as MJ,
+    ] as MJ;
+  }
+  if (op === "D") {
+    return [op, ...kids] as MJ;
+  }
+  if (/^[A-Za-z]$/.test(op) && kids.length >= 1) {
+    return ["InvisibleOperator", op, ...kids] as MJ;
+  }
+  return [op, ...kids] as MJ;
+}
+
+function normalizeSequenceEquationTail(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+  const op = mj[0];
+  const kids = mj
+    .slice(1)
+    .map((child) => normalizeSequenceEquationTail(child as MJ)) as MJ[];
+  if (
+    op === "Sequence" &&
+    kids.length >= 2 &&
+    Array.isArray(kids[0]) &&
+    (kids[0] as MJ[])[0] === "Equal" &&
+    (kids[0] as MJ[]).length >= 3
+  ) {
+    const eq = kids[0] as MJ[];
+    const rhsFactors: MJ[] = [eq[2] as MJ, ...(kids.slice(1) as MJ[])];
+    const rhs =
+      rhsFactors.length === 1
+        ? rhsFactors[0]
+        : (["InvisibleOperator", ...rhsFactors] as MJ);
+    return ["Equal", eq[1] as MJ, rhs] as MJ;
+  }
+  return [op, ...kids] as MJ;
+}
+
+function normalizeLegacyExpNodes(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+  const op = mj[0];
+  const kids = mj.slice(1).map((child) => normalizeLegacyExpNodes(child as MJ)) as MJ[];
+  if (op === "Exp" && kids.length >= 1) {
+    return ["InvisibleOperator", "Exp", kids[0] as MJ] as MJ;
+  }
+  return [op, ...kids] as MJ;
 }
 
 function normalizePrimeDifferentials(mj: MJ | null): MJ | null {
@@ -165,6 +346,11 @@ function normalizePrimeDifferentials(mj: MJ | null): MJ | null {
     }
     if (isPrimeDToken(cur) && next !== undefined) {
       out.push(["InexactDifferential", next] as MJ);
+      i += 1;
+      continue;
+    }
+    if (next !== undefined && isPrimeDToken(next)) {
+      out.push(["InexactDifferential", cur] as MJ);
       i += 1;
       continue;
     }
@@ -513,6 +699,24 @@ function normalizeVectors(mj: MJ | null): MJ | null {
   if (!Array.isArray(mj)) return mj;
   const op = mj[0];
   const kids = mj.slice(1).map((child) => normalizeVectors(child as MJ));
+  if (
+    op === "Matrix" &&
+    kids.length === 1 &&
+    Array.isArray(kids[0]) &&
+    (kids[0] as MJ[])[0] === "List"
+  ) {
+    const rows = (kids[0] as MJ[]).slice(1) as MJ[];
+    if (
+      rows.length === 1 &&
+      Array.isArray(rows[0]) &&
+      (rows[0] as MJ[])[0] === "List"
+    ) {
+      const cols = (rows[0] as MJ[]).slice(1) as MJ[];
+      if (cols.length === 1) {
+        return ["Vector", cols[0] as MJ] as MJ;
+      }
+    }
+  }
   const newOp = op === "OverVector" ? ("Vector" as const) : op;
   return [newOp, ...kids] as MJ;
 }
@@ -618,20 +822,24 @@ function fixBlankIntegrals(mj: MJ | null): MJ | null {
     const tuple = kids[1];
     if (Array.isArray(tuple) && tuple[0] === "Tuple") {
       const upperCandidate = findSubscriptX(mj);
-      const varVal =
-        tuple[1] !== "Nothing" && tuple[1] !== undefined
-          ? (tuple[1] as MJ)
-          : ("x" as MJ);
-      const lowerVal =
-        tuple[2] !== "Nothing" && tuple[2] !== undefined
-          ? (tuple[2] as MJ)
-          : 0;
-      const upperVal =
-        tuple[3] !== "Nothing" && tuple[3] !== undefined
-          ? (tuple[3] as MJ)
-          : upperCandidate ?? 0;
+      const normalizedTuple: MJ[] = [
+        "Tuple",
+        tuple[1] !== undefined ? (tuple[1] as MJ) : ("Nothing" as MJ),
+      ];
+      if (tuple.length >= 3) {
+        normalizedTuple.push(
+          tuple[2] !== undefined ? (tuple[2] as MJ) : ("Nothing" as MJ)
+        );
+      }
+      if (tuple.length >= 4) {
+        normalizedTuple.push(
+          tuple[3] !== undefined
+            ? (tuple[3] as MJ)
+            : ((upperCandidate ?? "Nothing") as MJ)
+        );
+      }
 
-      kids[1] = ["Tuple", varVal, lowerVal, upperVal] as MJ;
+      kids[1] = normalizedTuple as MJ;
     }
     return ["Integrate", ...kids] as MJ;
   }
@@ -1011,12 +1219,12 @@ const deltaOfQuantityEntry: LatexDictionaryEntry = {
   },
 };
 
-// Remove any built-in Vector entry so we can supply our own shape.
+const ce = new ComputeEngine();
+
 const baseDictionary = ComputeEngine.getLatexDictionary("all").filter(
   (entry) =>
     entry.name !== "Vector" &&
     entry.name !== "DifferentialD" &&
-    // Remove the built-in centered dot-as-multiply entry so we can override it.
     (entry as any).latexTrigger !== "\\cdot"
 );
 
