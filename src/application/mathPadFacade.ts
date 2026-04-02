@@ -5,9 +5,11 @@ import type { Slot } from "../moveExpression/types";
 import {
   applyOperationToBothSides,
   cancelTerm,
+  canDeclareFunction as canDeclareFunctionSelection,
   canCancelTerm,
   canEvaluateSelection,
   canFactorSelection,
+  declareFunction,
   evaluateSelection,
   expandSubexpression,
   factorSelection,
@@ -47,6 +49,7 @@ export type SelectionSpec =
 export type MathAction =
   | { type: "flip" }
   | { type: "expand"; targetId?: string }
+  | { type: "declareFunction" }
   | { type: "factor" }
   | { type: "cancel" }
   | { type: "forceDelimiter" }
@@ -264,6 +267,12 @@ function applyAction(input: ApplyActionInput): ApplyActionResult {
     return { ok: true, tree: next };
   }
 
+  if (action.type === "declareFunction") {
+    const next = declareFunction(tree, selection);
+    if (!next) return { ok: false, reason: "Selection is not a function declaration candidate." };
+    return { ok: true, tree: next };
+  }
+
   if (action.type === "factor") {
     if (!selection) return { ok: false, reason: "No selection for factor." };
     const next = factorSelection(tree, selection);
@@ -381,6 +390,13 @@ export const mathPadFacade = {
     const targetId = getExpandTargetId(tree, selection);
     if (!targetId) return false;
     return expandSubexpression(tree, targetId) !== null;
+  },
+
+  canDeclareFunction(
+    tree: ExpressionTree | null,
+    selection: ExprSelection | null
+  ): boolean {
+    return canDeclareFunctionSelection(tree, selection);
   },
 
   canSubstitute(

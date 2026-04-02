@@ -222,6 +222,37 @@ function commonFactorFromAdd(expr: MJ): MJ | null {
   return factored;
 }
 
+function commonDenominatorFromAdd(expr: MJ): MJ | null {
+  if (!Array.isArray(expr) || expr[0] !== "Add" || expr.length < 3) return null;
+  const terms = expr.slice(1) as MJ[];
+
+  let sharedDenominator: MJ | null = null;
+  const signedNumerators: MJ[] = [];
+
+  for (const term of terms) {
+    const { sign, core } = unwrapNegate(term);
+    if (!Array.isArray(core) || core[0] !== "Divide" || core.length < 3) return null;
+    const numerator = core[1] as MJ;
+    const denominator = unwrapDelimiter(core[2] as MJ);
+
+    if (sharedDenominator == null) {
+      sharedDenominator = denominator;
+    } else if (!deepEqualMJ(sharedDenominator, denominator)) {
+      return null;
+    }
+
+    signedNumerators.push(
+      sign === -1 ? (["Negate", numerator] as MJNode) : numerator
+    );
+  }
+
+  if (!sharedDenominator) return null;
+  const numeratorAdd = buildAddFromTerms(signedNumerators);
+  const factored = ["Divide", numeratorAdd, sharedDenominator] as MJ;
+  if (deepEqualMJ(factored, expr)) return null;
+  return factored;
+}
+
 function factorExpression(expr: MJ): MJ | null {
   const ceReady = toComputeEngine(expr);
   const ceBox = box(ceReady) as any;
@@ -237,6 +268,10 @@ function factorExpression(expr: MJ): MJ | null {
     const normalized = normalizeMathJson(cand) ?? cand;
     if (!deepEqualMJ(normalized, expr)) return normalized;
   }
+
+  // Deterministic fallback: common denominator from Add
+  const denomFactored = commonDenominatorFromAdd(expr);
+  if (denomFactored && !deepEqualMJ(denomFactored, expr)) return denomFactored;
 
   // Deterministic fallback: common factor from Add
   const fallback = commonFactorFromAdd(expr);
@@ -311,6 +346,17 @@ function computeFactoredRoot(tree: ExpressionTree, sel: ExprSelection): MJ | nul
     const path = tree.pathById[sel.nodeId];
     if (!path) return null;
     const target = getAtPath(tree.rootJson, path) as MJ;
+    if (
+      Array.isArray(target) &&
+      (target[0] === "Delimiter" || target[0] === "List") &&
+      target.length >= 2
+    ) {
+      const inner = target[1] as MJ;
+      const factoredInner = factorExpression(inner);
+      if (!factoredInner || deepEqualMJ(factoredInner, inner)) return null;
+      const wrapped = [target[0], factoredInner] as MJ;
+      return setAtPath(tree.rootJson, path, wrapped) as MJ;
+    }
     const factored = factorExpression(target);
     if (!factored) return null;
     if (deepEqualMJ(factored, target)) return null;

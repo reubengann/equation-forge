@@ -48,6 +48,26 @@ function replacementForPath(root: MJ, path: number[], replacement: MJ): MJ {
 
   const parentPath = path.slice(0, -1);
   const parent = getAtPath(root, parentPath) as MJ;
+  const childIndex = path[path.length - 1];
+  const replacementOp = Array.isArray(replacement) ? String(replacement[0]) : "";
+
+  // Preserve power-base precedence: x -> (a/b) in x^n must become (a/b)^n.
+  if (
+    Array.isArray(parent) &&
+    parent[0] === "Power" &&
+    childIndex === 1 &&
+    Array.isArray(replacement) &&
+    (replacementOp === "Add" ||
+      replacementOp === "Negate" ||
+      replacementOp === "InvisibleOperator" ||
+      replacementOp === "Multiply" ||
+      replacementOp === "Divide" ||
+      replacementOp === "FractionDerivative" ||
+      replacementOp === "FractionPartialDerivative")
+  ) {
+    return ["Delimiter", replacement] as MJ;
+  }
+
   if (
     Array.isArray(parent) &&
     (parent[0] === "InvisibleOperator" || parent[0] === "Multiply") &&

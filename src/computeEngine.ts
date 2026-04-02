@@ -111,11 +111,15 @@ export function normalizeMathJson(mj: MJ | null): MJ | null {
       collapseSingletonAdd(
         fixBlankIntegrals(
           normalizeDotProducts(
-            rewriteNegateToFrontOfProduct(
-              normalizeDeltaOfQuantity(
-                normalizeDifferentialOperands(
-                  normalizePlainDifferentials(
-                    normalizePartialDerivativeForms(normalizeProducts(normalizeVectors(mj)))
+            normalizePrimeDifferentials(
+              rewriteNegateToFrontOfProduct(
+                normalizeDeltaOfQuantity(
+                  normalizeDifferentialOperands(
+                    normalizePrimeDifferentials(
+                      normalizePlainDifferentials(
+                      normalizePartialDerivativeForms(normalizeProducts(normalizeVectors(mj)))
+                      )
+                    )
                   )
                 )
               )
@@ -125,6 +129,50 @@ export function normalizeMathJson(mj: MJ | null): MJ | null {
       )
     )
   );
+}
+
+function normalizePrimeDifferentials(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+  const op = mj[0];
+  const kids = mj.slice(1).map((child) => normalizePrimeDifferentials(child as MJ)) as MJ[];
+
+  if (op !== "InvisibleOperator" && op !== "Multiply") {
+    return [op, ...kids] as MJ;
+  }
+
+  const out: MJ[] = [];
+  const isPrimeDToken = (expr: MJ): boolean =>
+    Array.isArray(expr) &&
+    expr[0] === "Prime" &&
+    (((expr as MJ[])[1] as MJ) === "d" || ((expr as MJ[])[1] as MJ) === "DifferentialD");
+
+  const isPrimeDifferentialNode = (expr: MJ): expr is MJ =>
+    Array.isArray(expr) &&
+    expr[0] === "Prime" &&
+    Array.isArray(expr[1]) &&
+    (expr[1] as MJ[])[0] === "Differential" &&
+    (expr[1] as MJ[])[1] !== undefined;
+
+  for (let i = 0; i < kids.length; i += 1) {
+    const cur = kids[i] as MJ;
+    const next = kids[i + 1] as MJ | undefined;
+
+    if (isPrimeDifferentialNode(cur)) {
+      const primeNode = cur as MJ[];
+      out.push(["InexactDifferential", (primeNode[1] as MJ[])[1] as MJ] as MJ);
+      continue;
+    }
+    if (isPrimeDToken(cur) && next !== undefined) {
+      out.push(["InexactDifferential", next] as MJ);
+      i += 1;
+      continue;
+    }
+    out.push(cur);
+  }
+
+  if (out.length === 1) return out[0] as MJ;
+  return ["InvisibleOperator", ...out] as MJ;
 }
 
 function collapseSingletonAdd(mj: MJ | null): MJ | null {
@@ -351,16 +399,12 @@ function normalizePlainDifferentials(mj: MJ | null): MJ | null {
       cur[1][0] === "Differential" &&
       cur[1][1] !== undefined;
     const canCombine = next !== undefined;
-    const startsTerm = i === 0;
     const followsExplicitSpacing =
       Array.isArray(prev) && prev[0] === "HorizontalSpacing";
     const followsFactor = isFactorLike(prev as MJ | null);
     // Plain "d x" with a literal space should remain multiplicative.
     // Tight forms (dX) are promoted earlier in parse() via \differentialD.
     const allowedContextForPlainD = followsExplicitSpacing || followsFactor;
-    const allowedContextForPrimeD =
-      startsTerm || followsExplicitSpacing || followsFactor;
-
     if (curIsPrimeDifferentialNode) {
       out.push(["InexactDifferential", (cur[1] as MJ[])[1]] as MJ);
       continue;
@@ -368,8 +412,7 @@ function normalizePlainDifferentials(mj: MJ | null): MJ | null {
 
     if (
       curIsPrimeD &&
-      canCombine &&
-      allowedContextForPrimeD
+      canCombine
     ) {
       out.push(["InexactDifferential", next] as MJ);
       i += 1;

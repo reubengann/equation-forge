@@ -148,4 +148,22 @@ describe("substitute", () => {
     expect(normalized).not.toContain(String.raw`\mathrm{EulerGamma} -\frac{P}{v}`);
     expect(normalized).not.toContain(String.raw`\gamma -\frac{P}{v}`);
   });
+
+  it("wraps fraction replacement when substituted into power base (issue 46)", () => {
+    const tree = treefromLatex(String.raw`P v^{\gamma} = K`);
+    const targetId = findNodeByLatex(tree, String.raw`v`);
+    const replacement = makeMJfromLatex(String.raw`\frac{R T}{P}`);
+
+    const result = substitute({
+      tree,
+      targetId,
+      replacement,
+      scope: "single",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`P \left(\frac{R T}{P}\right)^{\gamma} = K`
+    );
+  });
 });

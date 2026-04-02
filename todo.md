@@ -171,4 +171,39 @@
 45. `\frac{\partial{u}}{\partial{T}}\right)_{v}`
     In a partial derivative, the inside part of the parentheses is selectable, but actually this whole thing including the parentheses should be atomic.
 
-46. Feature: Find a way to represent functions. (a(t))^2 should not expand to a^2 t^2.
+46. `P v^{\gamma} = K`
+    Replace v with `\frac{R T}{P}`. Result is `P \frac{R T}{P}^{\gamma} = K`, which is not right.
+
+47. `P \left(\frac{R T}{P}\right)^{\gamma} = K`
+    Select `\left(\frac{R T}{P}\right)^{\gamma}` and expand. Result is `P \frac{R T}{P}^{\gamma} = K`, which is wrong.
+
+48. `P \left(\frac{R T}{P}\right)^{\gamma} = K`
+    Apply to both sides `eqn^{\frac{1}{\gamma}}`
+    The result is `P \left(\frac{R T}{P}\right)^{\gamma}^{\frac{1}{\gamma}} = K^{\frac{1}{\gamma}}` which is not correct.
+    P is being neglected.
+
+49. `\frac{R T P^{\frac{1}{\gamma}}}{P} = K^{\frac{1}{\gamma}}`
+    Multiplicatively move `R` to the RHS. Expected is `\frac{T P^{\frac{1}{\gamma}}}{P} = \frac{K^{\frac{1}{\gamma}}}{R}`.
+    But what we actually get is `\frac{\frac{R T P^{\frac{1}{\gamma}}}{P}}{R} = \frac{K^{\frac{1}{\gamma}}}{R}`
+
+50. `P v^{\gamma} = K`
+    Dragging `v^{\gamma}` works as expected, but if only v is selected, it results in `\frac{P v^{\gamma}}{v} = \frac{K}{v}`. That probably should either not be allowed or it should do the same thing as if gamma were selected.
+
+51. `w = \int_{v_{1}}^{v_{2}} \frac{K}{v^{\gamma}} \,\mathrm{d}{v}`
+    Drag K out of the integral. The result is `w = K \int_{v_{1}}^{v_{2}} \,\mathrm{d}{v}` which is wrong.
+
+52. `w = K \left(\frac{v_{2}^{-\gamma + 1}}{-\gamma + 1} - \frac{v_{1}^{-\gamma + 1}}{-\gamma + 1}\right)`
+    If I choose the Delimeter node (the whole thing in parentheses), factor is disallowed, but it should be able
+    to factor `1 - \gamma`.
+
+53. `w = K \left(\frac{v_{2}^{-\gamma + 1} - v_{1}^{-\gamma + 1}}{-\gamma + 1}\right)`
+    I can't move `-\gamma + 1` out of the parentheses below `K` multiplicatively.
+
+54. `P = \frac{K}{v^{\gamma - 1} v}`
+    If I move `v` to the LHS, both terms of `v` go. I.e. the result is `P v^{\gamma - 1} v = K`. But it should just be `\frac{P}{v} = \frac{K}{v^{\gamma-1}}`
+
+55. If I enter `dU = d'Q - d'W` I get a result that `\mathrm{d}{U} = \mathrm{d}'{Q} - d' W` instead of `\mathrm{d}{U} = \mathrm{d}'{Q} - \mathrm{d}'{W}`
+
+56. `\mathrm{d}'{Q} = \mathrm{d}'{W}`
+    Apply to both sides \int(eqn). The result is `\int \left(\mathrm{d}'{Q}\right) \,\mathrm{d}{\mathrm{Nothing}} = \int \left(\mathrm{d}'{W}\right) \,\mathrm{d}{\mathrm{Nothing}}`. One would think the result would just be
+    `\int \mathrm{d}'{Q} = \int \mathrm{d}'{W}`

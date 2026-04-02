@@ -409,6 +409,159 @@ describe("applyMoveMultiplicative executor", () => {
     );
   });
 
+  it("moves numerator factor out of fractional side root across '=' (issue 49)", () => {
+    const next = runMove({
+      latex: String.raw`\frac{R T P^{\frac{1}{\gamma}}}{P} = K^{\frac{1}{\gamma}}`,
+      select: (tree) => [findNodeByLatex(tree, String.raw`R`)],
+      hover: (tree) => {
+        const rhsId = tree.childrenById[tree.rootId!]?.[1];
+        if (!rhsId) throw new Error("Missing RHS");
+        return rhsId;
+      },
+      targetSlot: null,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\frac{T P^{\frac{1}{\gamma}}}{P} = \frac{K^{\frac{1}{\gamma}}}{R}`
+    );
+  });
+
+  it("moves R across '=' when R is inside fraction factor within product (issue 49 follow-up)", () => {
+    const next = runMove({
+      latex: String.raw`\frac{R T}{v} v^{\gamma} = K`,
+      select: (tree) => [findNodeByLatex(tree, String.raw`R`)],
+      hover: (tree) => {
+        const rhsId = tree.childrenById[tree.rootId!]?.[1];
+        if (!rhsId) throw new Error("Missing RHS");
+        return rhsId;
+      },
+      targetSlot: null,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\frac{T}{v} v^{\gamma} = \frac{K}{R}`
+    );
+  });
+
+  it("treats selecting v as selecting v^gamma for cross-equal move (issue 50)", () => {
+    const next = runMove({
+      latex: String.raw`P v^{\gamma} = K`,
+      select: (tree) => [findNodeByLatex(tree, String.raw`v`)],
+      hover: (tree) => {
+        const rhsId = tree.childrenById[tree.rootId!]?.[1];
+        if (!rhsId) throw new Error("Missing RHS");
+        return rhsId;
+      },
+      targetSlot: null,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`P = \frac{K}{v^{\gamma}}`
+    );
+  });
+
+  it("pulls K out of integral while preserving 1/v^gamma integrand (issue 51)", () => {
+    const next = runMove({
+      latex: String.raw`w = \int_{v_{1}}^{v_{2}} \frac{K}{v^{\gamma}} \,\mathrm{d}{v}`,
+      select: (tree) => [findNodeByLatex(tree, String.raw`K`)],
+      hover: (tree) => findNodeId(tree, (n) => n.op === "Integrate"),
+      targetSlot: 0,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`w = K \int_{v_{1}}^{v_{2}} \frac{1}{v^{\gamma}} \,\mathrm{d}{v}`
+    );
+  });
+
+  it("pulls denominator -gamma+1 out of inner fraction delimiter product (issue 53)", () => {
+    const next = runMove({
+      latex: String.raw`w = K \left(\frac{v_{2}^{-\gamma + 1} - v_{1}^{-\gamma + 1}}{-\gamma + 1}\right)`,
+      select: (tree) => [
+        findNodeId(
+          tree,
+          (n) =>
+            n.op === "Add" &&
+            n.latex.includes(String.raw`\gamma`) &&
+            tree.parentById[n.id] != null &&
+            tree.nodesById[tree.parentById[n.id]]?.op === "Divide" &&
+            tree.childIndexById[n.id] === 1
+        ),
+      ],
+      hover: (tree) =>
+        findNodeId(
+          tree,
+          (n) =>
+            n.op === "Delimiter" &&
+            n.latex.includes(String.raw`v_{2}^{-\gamma + 1}`) &&
+            n.latex.includes(String.raw`v_{1}^{-\gamma + 1}`)
+        ),
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`w = K \left(v_{2}^{-\gamma + 1} - v_{1}^{-\gamma + 1}\right) \frac{1}{-\gamma + 1}`
+    );
+  });
+
+  it("moving denominator term across '=' keeps grouping and removes /1 artifact (issue 53 follow-up)", () => {
+    const next = runMove({
+      latex: String.raw`w = K \left(\frac{v_{2}^{-\gamma + 1} - v_{1}^{-\gamma + 1}}{-\gamma + 1}\right)`,
+      select: (tree) => [
+        findNodeId(
+          tree,
+          (n) =>
+            n.op === "Add" &&
+            n.latex.includes(String.raw`\gamma`) &&
+            tree.parentById[n.id] != null &&
+            tree.nodesById[tree.parentById[n.id]]?.op === "Divide" &&
+            tree.childIndexById[n.id] === 1
+        ),
+      ],
+      hover: (tree) => {
+        const lhsId = tree.childrenById[tree.rootId!]?.[0];
+        if (!lhsId) throw new Error("Missing LHS");
+        return lhsId;
+      },
+      targetSlot: null,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`w \left(-\gamma + 1\right) = K \left(v_{2}^{-\gamma + 1} - v_{1}^{-\gamma + 1}\right)`
+    );
+  });
+
+  it("moves only selected denominator v across '=' without moving v^(gamma-1) (issue 54)", () => {
+    const next = runMove({
+      latex: String.raw`P = \frac{K}{v^{\gamma - 1} v}`,
+      select: (tree) => [
+        findNodeId(
+          tree,
+          (n) =>
+            n.latex === "v" &&
+            tree.parentById[n.id] != null &&
+            tree.nodesById[tree.parentById[n.id]]?.op === "InvisibleOperator"
+        ),
+      ],
+      hover: (tree) => {
+        const lhsId = tree.childrenById[tree.rootId!]?.[0];
+        if (!lhsId) throw new Error("Missing LHS");
+        return lhsId;
+      },
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\frac{P}{v} = \frac{K}{v^{\gamma - 1}}`
+    );
+  });
+
   it("pulls c_V from numerator when divide numerator is single-term Add wrapper", () => {
     const root: MJ = [
       "Equal",

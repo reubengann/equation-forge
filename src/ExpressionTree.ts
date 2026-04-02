@@ -122,6 +122,14 @@ export class ExpressionTree {
     return String.raw`\htmlData{node-id="${id}"}{${contentLatex}}`;
   }
 
+  private wrapData(attr: string, value: string, contentLatex: string) {
+    return String.raw`\htmlData{${attr}="${value}"}{${contentLatex}}`;
+  }
+
+  private wrapFunctionArg(contentLatex: string) {
+    return this.wrapData("fn-arg", "1", contentLatex);
+  }
+
   private newId(): string {
     return `n${this._nextId++}`;
   }
@@ -832,7 +840,9 @@ export class ExpressionTree {
     args.forEach((arg, i) => (this.childIndexById[arg.id] = i + 1));
 
     const argsPlain = args.map((a) => a.latexPlain).join(", ");
-    const argsTagged = args.map((a) => a.latexTagged).join(", ");
+    const argsTagged = args
+      .map((a) => this.wrapFunctionArg(a.latexTagged))
+      .join(", ");
 
     const plain = `${fn.latexPlain}\\left(${argsPlain}\\right)`;
     const taggedInner = `${fn.latexTagged}\\left(${argsTagged}\\right)`;

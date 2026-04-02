@@ -70,6 +70,16 @@ function unwrapDelimiter(expr: MJ): MJ {
   return expr;
 }
 
+function wrapForMultiplicativeInsertion(expr: MJ): MJ {
+  if (
+    Array.isArray(expr) &&
+    (expr[0] === "Add" || expr[0] === "Negate")
+  ) {
+    return ["Delimiter", expr] as MJNode;
+  }
+  return expr;
+}
+
 function deepEqualMJ(a: MJ, b: MJ): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {
     if (a.length !== b.length) return false;
@@ -95,11 +105,50 @@ function divideTermByFactor(term: MJ, factor: MJ): MJ {
     (bareTerm[0] === "InvisibleOperator" || bareTerm[0] === "Multiply")
   ) {
     const factors = (bareTerm.slice(1) as MJ[]).map(unwrapDelimiter);
+    const originalFactors = bareTerm.slice(1) as MJ[];
     const idx = factors.findIndex((f) => deepEqualMJ(f, bareFactor));
     if (idx >= 0) {
-      const originalFactors = bareTerm.slice(1) as MJ[];
       const remaining = originalFactors.filter((_, i) => i !== idx);
       return normalizeMul(remaining);
+    }
+
+    // Try canceling through one nested factor (e.g. Divide(...), Power(...), etc)
+    // before falling back to wrapping the whole term in Divide(term, factor).
+    for (let i = 0; i < originalFactors.length; i += 1) {
+      const curFactor = originalFactors[i] as MJ;
+      const reduced = divideTermByFactor(curFactor, bareFactor);
+      const fallbackForFactor = ["Divide", curFactor, bareFactor] as MJNode;
+      if (!deepEqualMJ(reduced, fallbackForFactor)) {
+        const nextFactors = [...originalFactors];
+        nextFactors[i] = reduced;
+        return normalizeMul(nextFactors);
+      }
+    }
+  }
+
+  if (Array.isArray(bareTerm) && bareTerm[0] === "Divide" && bareTerm.length >= 3) {
+    const numerator = unwrapDelimiter(bareTerm[1] as MJ);
+    const denominator = unwrapDelimiter(bareTerm[2] as MJ);
+
+    if (deepEqualMJ(numerator, bareFactor)) {
+      return isOneTerm(denominator) ? 1 : (["Divide", 1, denominator] as MJNode);
+    }
+
+    if (
+      Array.isArray(numerator) &&
+      (numerator[0] === "InvisibleOperator" || numerator[0] === "Multiply")
+    ) {
+      const numFactors = (numerator.slice(1) as MJ[]).map(unwrapDelimiter);
+      const idx = numFactors.findIndex((f) => deepEqualMJ(f, bareFactor));
+      if (idx >= 0) {
+        const originalNumFactors = numerator.slice(1) as MJ[];
+        const nextNumerator = normalizeMul(
+          originalNumFactors.filter((_, i) => i !== idx)
+        );
+        return isOneTerm(denominator)
+          ? nextNumerator
+          : (["Divide", nextNumerator, denominator] as MJNode);
+      }
     }
   }
 
@@ -367,8 +416,33 @@ export function applyMoveMultiplicative(
 ): ExpressionTree | null {
   const { tree, selectedIds, hoverId, targetSlot } = args;
   if (selectedIds.length < 1) return null;
+  const normalizeSelectedForMove = (id: string): string => {
+    let normalized = normalizeSelection(tree, id);
+    const powerParent = tree.parentById[normalized];
+    if (
+      powerParent &&
+      tree.nodesById[powerParent]?.op === "Power" &&
+      tree.childrenById[powerParent]?.[0] === normalized
+    ) {
+      // Moving the base of a power should move the atomic power factor.
+      normalized = powerParent;
+    }
+    const normalizedOp = tree.nodesById[normalized]?.op;
+    if (
+      normalizedOp === "FractionDerivative" ||
+      normalizedOp === "FractionPartialDerivative"
+    ) {
+      const denominatorId = tree.childrenById[normalized]?.[1];
+      if (denominatorId && isAncestorOrSelf(tree, denominatorId, id)) {
+        // Preserve denominator-level move intent (issue 37) even though
+        // generic selection normalization may bubble to the whole fraction.
+        return id;
+      }
+    }
+    return normalized;
+  };
   const normalizedSelectedIds = Array.from(
-    new Set(selectedIds.map((id) => normalizeSelection(tree, id))),
+    new Set(selectedIds.map((id) => normalizeSelectedForMove(id))),
   );
   if (normalizedSelectedIds.length < 1) return null;
 
@@ -738,8 +812,14 @@ export function applyMoveMultiplicative(
 
           updatedIntegrand = getAtPath(nextRoot, integrandPath) as MJ;
         } else {
-          // Container is the integrand root and not a multiplicative op: removing the single term leaves 1.
-          updatedIntegrand = 1;
+          // Container is the integrand root and not a multiplicative op.
+          // Remove the moved factor from the integrand when it appears
+          // multiplicatively (e.g., K/v^gamma -> 1/v^gamma).
+          const currentIntegrand = getAtPath(nextRoot, integrandPath) as MJ;
+          const reducedIntegrand = divideTermByFactor(currentIntegrand, movedExpr);
+          const fallback = ["Divide", currentIntegrand, movedExpr] as MJNode;
+          if (deepEqualMJ(reducedIntegrand, fallback)) return null;
+          updatedIntegrand = reducedIntegrand;
           nextRoot = setAtPath(nextRoot, integrandPath, updatedIntegrand);
         }
 
@@ -987,6 +1067,36 @@ export function applyMoveMultiplicative(
     const innerId = delimKids[0];
     if (!isAncestorOrSelf(tree, innerId, movedId)) return null;
 
+    // Pull a factor out of an inner fraction inside the delimiter.
+    const divideAncestorWithinDelimiter = (() => {
+      let cur: string | null = movedId;
+      while (cur && cur !== delimiterId) {
+        const parentId = tree.parentById[cur] ?? null;
+        if (!parentId || parentId === delimiterId) return null;
+        if (tree.nodesById[parentId]?.op === "Divide") return parentId;
+        cur = parentId;
+      }
+      return null;
+    })();
+    if (divideAncestorWithinDelimiter) {
+      const delimiterPath = tree.pathById[delimiterId];
+      const dividePath = tree.pathById[divideAncestorWithinDelimiter];
+      if (!delimiterPath || !dividePath) return null;
+
+      const extraction = extractFromDivide(tree, divideAncestorWithinDelimiter, movedId);
+      if (!extraction) return null;
+      const { extractedExpr, updatedDivide } = extraction;
+
+      let nextRoot = setAtPath(tree.rootJson, dividePath, updatedDivide);
+      const updatedDelimiterExpr = getAtPath(nextRoot, delimiterPath) as MJ;
+      const nextExpr =
+        targetSlot === 0
+          ? normalizeMul([extractedExpr, updatedDelimiterExpr])
+          : normalizeMul([updatedDelimiterExpr, extractedExpr]);
+      nextRoot = setAtPath(nextRoot, delimiterPath, nextExpr);
+      return ExpressionTree.create(nextRoot);
+    }
+
     // Find multiplicative container inside the delimiter that owns movedId.
     let mulId: string | null = tree.parentById[movedId] ?? null;
     while (
@@ -1171,12 +1281,30 @@ export function applyMoveMultiplicative(
   const destRootId = sideInfoTo.sideRootId;
   const destRootPath = tree.pathById[destRootId];
   if (!destRootPath) return null;
+  const movedParentId = tree.parentById[movedId];
+  const movedParentOp = movedParentId
+    ? tree.nodesById[movedParentId]?.op
+    : null;
+  const movedParentPath = movedParentId ? tree.pathById[movedParentId] : null;
 
   const movedWasDivisor = isUnderDenominatorOfSideRoot(
     tree,
     sideInfoFrom.sideRootId,
     movedId,
   ) || isUnderDenominatorOfFractionSideRoot(tree, sideInfoFrom.sideRootId, movedId);
+  const movedFromDenominatorProductSubset =
+    movedWasDivisor &&
+    movedParentId != null &&
+    movedParentOp != null &&
+    (movedParentOp === "InvisibleOperator" || movedParentOp === "Multiply") &&
+    (() => {
+      const parentOfMovedParent = tree.parentById[movedParentId];
+      if (!parentOfMovedParent) return false;
+      if (tree.nodesById[parentOfMovedParent]?.op !== "Divide") return false;
+      if (tree.childIndexById[movedParentId] !== 1) return false;
+      const siblings = tree.childrenById[movedParentId] ?? [];
+      return siblings.length > 1 && movedIdsInFromParent.length < siblings.length;
+    })();
 
   const destHoverNode = tree.nodesById[hover];
   const isMultiplicativeContainer =
@@ -1185,11 +1313,6 @@ export function applyMoveMultiplicative(
 
   // Remove/divide out the moved factor from its origin side.
   let nextRoot: MJ = tree.rootJson;
-  const movedParentId = tree.parentById[movedId];
-  const movedParentOp = movedParentId
-    ? tree.nodesById[movedParentId]?.op
-    : null;
-  const movedParentPath = movedParentId ? tree.pathById[movedParentId] : null;
 
   if (!movedWasDivisor) {
     const fromRootPath = tree.pathById[sideInfoFrom.sideRootId];
@@ -1197,6 +1320,14 @@ export function applyMoveMultiplicative(
     const fromExpr = getAtPath(nextRoot, fromRootPath) as MJ;
     const updatedFrom = divideSideByFactor(fromExpr, movedExpr);
     nextRoot = setAtPath(nextRoot, fromRootPath, updatedFrom);
+  } else if (
+    movedParentId &&
+    movedParentPath &&
+    movedParentOp === "Divide"
+  ) {
+    const extraction = extractFromDivide(tree, movedParentId, movedId);
+    if (!extraction) return null;
+    nextRoot = setAtPath(nextRoot, movedParentPath, extraction.updatedDivide);
   } else if (
     movedParentId &&
     movedParentPath &&
@@ -1267,9 +1398,17 @@ export function applyMoveMultiplicative(
       if (hoverIndex < 0) return null;
 
       const nextFactors = [...factors] as MJ[];
-      if (!movedWasDivisor && targetSlot === 1) {
+      if (targetSlot === 1) {
         const hoveredFactor = nextFactors[hoverIndex] as MJ;
-        nextFactors[hoverIndex] = ["Divide", hoveredFactor, movedExpr] as MJNode;
+        if (!movedWasDivisor) {
+          nextFactors[hoverIndex] = ["Divide", hoveredFactor, movedExpr] as MJNode;
+        } else {
+          nextFactors[hoverIndex] = [
+            "Divide",
+            hoveredFactor,
+            wrapForMultiplicativeInsertion(movedExpr),
+          ] as MJNode;
+        }
       } else {
         const insertion: MJ = movedWasDivisor
           ? movedExpr
@@ -1292,8 +1431,13 @@ export function applyMoveMultiplicative(
     if (targetSlot === null) {
       // Whole division: divide the entire expression
       if (movedWasDivisor && destExpr) {
-        // denom moved across → multiply dest by moved
-        updatedDest = normalizeMul([destExpr, movedExpr]);
+        if (movedFromDenominatorProductSubset) {
+          // Moving one factor out of a denominator product keeps denominator intent.
+          updatedDest = ["Divide", destExpr, wrapForMultiplicativeInsertion(movedExpr)] as MJNode;
+        } else {
+          // denom moved across → multiply dest by moved
+          updatedDest = normalizeMul([destExpr, wrapForMultiplicativeInsertion(movedExpr)]);
+        }
       } else {
         updatedDest = ["Divide", destExpr, movedExpr] as MJNode;
         // Normalize Divide(expr, 1) to expr
@@ -1308,7 +1452,9 @@ export function applyMoveMultiplicative(
     } else if (targetSlot === 0) {
       // Left edge: multiply by reciprocal before
       const reciprocal: MJ = movedWasDivisor
-        ? movedExpr
+        ? movedFromDenominatorProductSubset
+          ? (["Divide", 1, wrapForMultiplicativeInsertion(movedExpr)] as MJNode)
+          : wrapForMultiplicativeInsertion(movedExpr)
         : (["Divide", 1, movedExpr] as MJNode);
       // Wrap destExpr in delimiter if it's an Add to preserve grouping
       const wrappedDest =
@@ -1319,7 +1465,9 @@ export function applyMoveMultiplicative(
     } else {
       // Right edge (targetSlot === 1): multiply by reciprocal after
       const reciprocal: MJ = movedWasDivisor
-        ? movedExpr
+        ? movedFromDenominatorProductSubset
+          ? (["Divide", 1, wrapForMultiplicativeInsertion(movedExpr)] as MJNode)
+          : wrapForMultiplicativeInsertion(movedExpr)
         : (["Divide", 1, movedExpr] as MJNode);
       // Wrap destExpr in delimiter if it's an Add to preserve grouping
       const wrappedDest =
@@ -1334,8 +1482,12 @@ export function applyMoveMultiplicative(
     const destExpr = getAtPath(nextRoot, destRootPath) as MJ;
     let updatedDest: MJ;
     if (movedWasDivisor && destExpr) {
-      // denom moved across → multiply dest by moved
-      updatedDest = normalizeMul([destExpr, movedExpr]);
+      if (movedFromDenominatorProductSubset) {
+        updatedDest = ["Divide", destExpr, wrapForMultiplicativeInsertion(movedExpr)] as MJNode;
+      } else {
+        // denom moved across → multiply dest by moved
+        updatedDest = normalizeMul([destExpr, wrapForMultiplicativeInsertion(movedExpr)]);
+      }
     } else {
       updatedDest = ["Divide", destExpr, movedExpr] as MJNode;
       // Normalize Divide(expr, 1) to expr

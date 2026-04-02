@@ -126,4 +126,25 @@ describe("factorSelection", () => {
       String.raw`\mathrm{d}'{q} = \left(\frac{\partial{h}}{\partial{T}}\right)_{P} \mathrm{d}{T} + \mathrm{d}{P} \left(\left(\frac{\partial{h}}{\partial{P}}\right)_{T} - v\right)`
     );
   });
+
+  it("allows factoring when selecting an enclosing delimiter node (issue 52)", () => {
+    const tree = treefromLatex(
+      String.raw`w = K \left(\frac{v_{2}^{-\gamma + 1}}{-\gamma + 1} - \frac{v_{1}^{-\gamma + 1}}{-\gamma + 1}\right)`
+    );
+    const delimiterId = findNodeId(
+      tree,
+      (n) =>
+        n.op === "Delimiter" &&
+        n.latex.includes(String.raw`v_{2}^{-\gamma + 1}`) &&
+        n.latex.includes(String.raw`v_{1}^{-\gamma + 1}`)
+    );
+
+    expect(canFactorSelection(tree, { kind: "node", nodeId: delimiterId })).toBe(true);
+
+    const result = factorSelection(tree, { kind: "node", nodeId: delimiterId });
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toContain(
+      String.raw`\frac{v_{2}^{-\gamma + 1} - v_{1}^{-\gamma + 1}}{-\gamma + 1}`
+    );
+  });
 });

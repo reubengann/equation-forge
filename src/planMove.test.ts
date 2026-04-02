@@ -188,6 +188,45 @@ describe("planMove", () => {
     expect(target).toEqual({ hoverId: divideId, targetSlot: 1 });
   });
 
+  it("plans pull-out from fraction inside delimiter when hovering sibling factor (issue 53)", () => {
+    const tree = treefromLatex(
+      String.raw`w = K \left(\frac{v_{2}^{-\gamma + 1} - v_{1}^{-\gamma + 1}}{-\gamma + 1}\right)`
+    );
+    const denomId = findNodeId(
+      tree,
+      (n) =>
+        n.op === "Add" &&
+        n.latex.includes(String.raw`\gamma`) &&
+        tree.parentById[n.id] != null &&
+        tree.nodesById[tree.parentById[n.id]]?.op === "Divide" &&
+        tree.childIndexById[n.id] === 1
+    );
+    const kId = findNodeByLatex(tree, "K");
+    const delimiterId = findNodeId(
+      tree,
+      (n) =>
+        n.op === "Delimiter" &&
+        n.latex.includes(String.raw`v_{2}^{-\gamma + 1}`) &&
+        n.latex.includes(String.raw`v_{1}^{-\gamma + 1}`)
+    );
+
+    const plan = planMove({
+      tree,
+      selectedIds: [denomId],
+      hoverId: kId,
+      pointer: { x: 30, y: 110 },
+      rectFor: rectProvider({
+        [kId]: { left: 10, right: 25, top: 100, bottom: 120 },
+        [delimiterId]: { left: 40, right: 140, top: 100, bottom: 120 },
+      }),
+      mode: "multiplicative",
+    });
+
+    expect(plan).not.toBeNull();
+    const target = planToApplyMoveTarget(plan);
+    expect(target?.hoverId).toBe(delimiterId);
+  });
+
   it("returns null if the index does not change", () => {
     const tree = treefromLatex("a + b");
 

@@ -247,6 +247,17 @@ describe("computeEngine custom dictionary", () => {
     );
   });
 
+  it("normalizes tight d' terms on both addends (issue 55)", () => {
+    const mj = parse(String.raw`dU = d'Q - d'W`);
+    expect(mj).not.toBeNull();
+    const asJson = JSON.stringify(mj);
+    expect(asJson.match(/"InexactDifferential"/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    const tree = ExpressionTree.create(mj!);
+    expect(tree.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\mathrm{d}{U} = \mathrm{d}'{Q} - \mathrm{d}'{W}`
+    );
+  });
+
   it("keeps partial derivatives in fraction form inside subscripted coefficients", () => {
     const mj = parse(
       String.raw`du = \left(\dfrac{\partial u}{\partial T}\right)_v \, dT + \left(\dfrac{\partial u}{\partial v}\right)_T \, dv`

@@ -94,6 +94,34 @@ describe("expandSubexpression", () => {
     );
   });
 
+  it("expands grouped fraction power to factor-wise powers (issue 47)", () => {
+    const tree = treefromLatex(String.raw`P \left(\frac{R T}{P}\right)^{\gamma} = K`);
+    const powerId = findNodeId(
+      tree,
+      (n) => n.op === "Power" && n.latex.includes(String.raw`\frac{R T}{P}`)
+    );
+
+    const result = expandSubexpression(tree, powerId);
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe(
+      String.raw`P \frac{R^{\gamma} T^{\gamma}}{P^{\gamma}} = K`
+    );
+  });
+
+  it("selecting only the base of a power expands the whole power (issue 47)", () => {
+    const tree = treefromLatex(String.raw`P \left(\frac{R T}{P}\right)^{\gamma} = K`);
+    const baseId = findNodeId(
+      tree,
+      (n) => n.op === "Delimiter" && n.latex.includes(String.raw`\frac{R T}{P}`)
+    );
+
+    const result = expandSubexpression(tree, baseId);
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe(
+      String.raw`P \frac{R^{\gamma} T^{\gamma}}{P^{\gamma}} = K`
+    );
+  });
+
   it("expands selected bracket under negation (issue 19)", () => {
     const tree = treefromLatex(
       String.raw`c_{V}\frac{\mathrm{d}{T}}{\mathrm{d}{v}}=-\left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T}+P\right]`

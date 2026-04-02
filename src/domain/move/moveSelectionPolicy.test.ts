@@ -121,6 +121,26 @@ describe("moveSelectionPolicy", () => {
     expect(result).toEqual([aId]);
   });
 
+  it("does not promote a denominator factor to whole denominator product (issue 54)", () => {
+    const tree = treefromLatex(String.raw`P = \frac{K}{v^{\gamma - 1} v}`);
+    const vId = findNodeId(
+      tree,
+      (n) =>
+        n.latex === "v" &&
+        tree.parentById[n.id] != null &&
+        tree.nodesById[tree.parentById[n.id]]?.op === "InvisibleOperator"
+    );
+
+    const result = normalizeSelectedIdsForMove({
+      tree,
+      selectedIds: [vId],
+      mode: "multiplicative",
+      hoverId: tree.childrenById[tree.rootId!]?.[0] ?? null,
+    });
+
+    expect(result).toEqual([vId]);
+  });
+
   it("normalizes drag handle through wrappers (Negate/Subscript/Vector)", () => {
     const tree = treefromLatex(String.raw`-\vec{a}_{1}`);
     const aId = findNodeByLatex(tree, "a");

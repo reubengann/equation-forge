@@ -13,6 +13,8 @@ type MoveModeToolbarProps = {
   canFlip: boolean;
   onExpand: () => void;
   canExpand: boolean;
+  onDeclareFunction: () => void;
+  canDeclareFunction: boolean;
   onCancelTerm: () => void;
   canCancelTerm: boolean;
   onForceDelimiter: () => void;
@@ -81,6 +83,8 @@ export const MoveModeToolbar = forwardRef<
     canFlip,
     onExpand,
     canExpand,
+    onDeclareFunction,
+    canDeclareFunction,
     onCancelTerm,
     canCancelTerm,
     onForceDelimiter,
@@ -192,6 +196,17 @@ export const MoveModeToolbar = forwardRef<
         onClick={onFactor}
         disabled={!canFactor}
         testId="factor-button"
+      />
+      <IconButton
+        label="Declare function call"
+        icon={
+          <span style={materialSymbolStyle} aria-hidden>
+            functions
+          </span>
+        }
+        onClick={onDeclareFunction}
+        disabled={!canDeclareFunction}
+        testId="declare-function-button"
       />
       <IconButton
         label="Cancel term"

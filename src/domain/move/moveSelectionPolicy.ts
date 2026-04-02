@@ -193,8 +193,9 @@ function collapseMultiplicativeSelection(args: {
         !parentHasVector &&
         (productParentOp === "Equal" || inDenominator)
       ) {
-        // Keep whole denominator together when under a Divide.
-        if (inDenominator) return [parentId];
+        // Keep factor-level intent in denominator products so users can move
+        // just one denominator factor across '=' (issue 54).
+        if (inDenominator) return ids;
         // For direct Equal child, allow factor-only cross-equal moves.
         if (crossEqualHover && productParentOp === "Equal") return ids;
         return [parentId];

@@ -48,6 +48,38 @@ function containsOp(mj: MJ, opName: string): boolean {
   return false;
 }
 
+function shouldGroupPowerBase(base: MJ): boolean {
+  if (!Array.isArray(base)) return false;
+  const op = base[0];
+  return (
+    op === "Add" ||
+    op === "InvisibleOperator" ||
+    op === "Multiply" ||
+    op === "Divide" ||
+    op === "Negate" ||
+    op === "DotProduct"
+  );
+}
+
+function normalizePowerBaseGrouping(mj: MJ): MJ {
+  if (!Array.isArray(mj)) return mj;
+  const op = mj[0];
+  const kids = mj.slice(1).map((child) => normalizePowerBaseGrouping(child as MJ)) as MJ[];
+
+  if (op === "Power" && kids.length >= 2) {
+    const base = kids[0] as MJ;
+    const exponent = kids[1] as MJ;
+    if (Array.isArray(base) && base[0] === "Delimiter") {
+      return ["Power", base, exponent] as MJ;
+    }
+    if (shouldGroupPowerBase(base)) {
+      return ["Power", ["Delimiter", base] as MJ, exponent] as MJ;
+    }
+  }
+
+  return [op, ...kids] as MJ;
+}
+
 function replaceSymbol(mj: MJ, symbolName: string, replacement: MJ): MJ {
   if (typeof mj === "string") {
     return mj === symbolName ? deepClone(replacement) : mj;
@@ -168,7 +200,8 @@ export function applyOperationToBothSides(
 
   const applyToSide = (side: MJ): MJ => {
     const substituted = replaceSymbol(template, "eqn", side);
-    let parsed = normalizeMathJson(substituted);
+    const groupedSubstituted = normalizePowerBaseGrouping(substituted);
+    let parsed = normalizeMathJson(groupedSubstituted);
     if (shouldDistributeByExplicitMultiply && parsed) {
       parsed = normalizeMathJson(distributeTopLevelMulOverAdd(parsed));
     }

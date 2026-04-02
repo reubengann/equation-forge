@@ -138,6 +138,14 @@ describe("applyOperationToBothSides", () => {
     expect(tree.latexPlain).toContain(String.raw`\vec{e} \cdot`);
   });
 
+  it("keeps full-side grouping when applying fractional power to multiplicative lhs (issue 48)", () => {
+    const eqn = makeMJfromLatex(String.raw`P \left(\frac{R T}{P}\right)^{\gamma} = K`);
+    const result = applyOperationToBothSides(eqn, String.raw`eqn^{\frac{1}{\gamma}}`);
+    expect(ExpressionTree.create(result).latexPlain).toBe(
+      String.raw`\left(P \left(\frac{R T}{P}\right)^{\gamma}\right)^{\frac{1}{\gamma}} = K^{\frac{1}{\gamma}}`
+    );
+  });
+
   it("keeps additive grouping when dotting a vector sum", () => {
     const eqn = makeMJfromLatex(
       String.raw`\vec{F}_{g} + \vec{N} = m \ddot{\vec{r}}`

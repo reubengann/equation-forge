@@ -26,6 +26,7 @@ export function installShadowStyle(mathDivEl: HTMLElement) {
   }
 
   /* But still allow clicks on our tagged nodes (and their descendants) */
+  [data-fn-arg]:not(.dp-selected) { color: var(--dp-muted, #9aa0a6); }
   .dp-selected { color: #ff9800;}
   .dp-faded { opacity: 0.25; }
   .dp-dragging { color: #7c4dff; font-weight: 600; }

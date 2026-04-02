@@ -565,6 +565,17 @@ export function ExpressionPad({
     commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
   }, [tree, selection, commitJson]);
 
+  const onDeclareFunction = useCallback(() => {
+    if (!tree || !selection) return;
+    const result = mathPadFacade.applyAction({
+      tree,
+      selection,
+      action: { type: "declareFunction" },
+    });
+    if (!result.ok) return;
+    commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
+  }, [tree, selection, commitJson]);
+
   const onCancelTerm = useCallback(() => {
     if (!tree || !selection) return;
     const result = mathPadFacade.applyAction({
@@ -1324,6 +1335,10 @@ export function ExpressionPad({
     [tree, selection]
   );
   const canFactor = useMemo(() => mathPadFacade.canFactor(tree, selection), [tree, selection]);
+  const canDeclareFunction = useMemo(
+    () => mathPadFacade.canDeclareFunction(tree, selection),
+    [tree, selection]
+  );
   const selectedNodeLatex = useMemo(() => {
     if (!canSubstitute || !tree || !selection) return "";
     if (selection.kind === "node") {
@@ -1619,6 +1634,8 @@ export function ExpressionPad({
                 canExpand={canExpand}
                 onFactor={onFactor}
                 canFactor={canFactor}
+                onDeclareFunction={onDeclareFunction}
+                canDeclareFunction={canDeclareFunction}
                 onCancelTerm={onCancelTerm}
                 canCancelTerm={canCancel}
                 onForceDelimiter={onForceDelimiter}

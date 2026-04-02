@@ -948,6 +948,40 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
   // Use semantic intent derived from pointer geometry, not raw hoverId shape,
   // so symbol factors and wrapped differential factors behave consistently.
   if (mode === "multiplicative" && tree.nodesById[movedParentId]?.op === "Divide") {
+    const enclosingDelimiterId = tree.parentById[movedParentId];
+    const enclosingDelimiterOp = enclosingDelimiterId
+      ? tree.nodesById[enclosingDelimiterId]?.op
+      : null;
+    const outerMulId = enclosingDelimiterId
+      ? tree.parentById[enclosingDelimiterId]
+      : null;
+    const outerMulOp = outerMulId ? tree.nodesById[outerMulId]?.op : null;
+    const hoverInOuterMul =
+      !!outerMulId &&
+      (hoverId === outerMulId || tree.parentById[hoverId] === outerMulId);
+    if (
+      enclosingDelimiterId &&
+      enclosingDelimiterOp === "Delimiter" &&
+      outerMulId &&
+      isMulOp(outerMulOp) &&
+      hoverInOuterMul
+    ) {
+      const delimiterRect = rectFor(enclosingDelimiterId);
+      const insertIndex: 0 | 1 = delimiterRect
+        ? pointer.x < midX(delimiterRect)
+          ? 0
+          : 1
+        : 1;
+      return {
+        kind: "PullOutOfFraction",
+        divideId: movedParentId,
+        movedId,
+        insertIndex,
+        strategy: "ontoFactor",
+        targetHoverId: enclosingDelimiterId,
+      };
+    }
+
     const intent = resolveFractionPullOutIntent({
       tree,
       divideId: movedParentId,

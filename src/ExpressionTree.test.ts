@@ -507,6 +507,12 @@ describe("ExpressionTree", () => {
     expect(t.latexPlain).toBe(String.raw`\exp\left(x\right)`);
   });
 
+  it("renders Apply with muted argument styling in tagged latex", () => {
+    const t = ExpressionTree.create(["Apply", "a", "t"]);
+    expect(t.latexPlain).toBe(String.raw`a\left(t\right)`);
+    expect(t.latexTagged).toContain(`fn-arg="1"`);
+  });
+
   it("renders Abs with vertical bars", () => {
     const t = ExpressionTree.create(["Abs", ["Add", "a", "b"]]);
     expect(t.latexPlain).toBe(String.raw`\left|a + b\right|`);
