@@ -109,6 +109,33 @@ describe("applyMove", () => {
     expect(next!.latexPlain).toContain(String.raw`e = g + h + f`);
   });
 
+  it("moves nested negated product term across '=' from direct term hover (issue 70 dump)", () => {
+    const tree = treefromLatex(
+      String.raw`\frac{c_{P}}{R} \ln\left(T\right) - \frac{c_{P}}{R} \ln\left(T_{0}\right) - \ln\left(P + b\right) = -\ln\left(P_{0} + b\right)`
+    );
+    const movedId = findNodeId(
+      tree,
+      (n) =>
+        n.op === "Negate" &&
+        n.latex.includes(String.raw`\frac{c_{P}}{R}`) &&
+        n.latex.includes(String.raw`\ln\left(T_{0}\right)`)
+    );
+    const rhsRootId = tree.childrenById[tree.rootId]?.[1];
+    if (!rhsRootId) throw new Error("Missing RHS root");
+
+    const next = applyMove({
+      tree,
+      selectedIds: [movedId],
+      hoverId: rhsRootId,
+      targetSlot: 0,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\frac{c_{P}}{R} \ln\left(T\right) - \ln\left(P + b\right) = \frac{c_{P}}{R} \ln\left(T_{0}\right) - \ln\left(P_{0} + b\right)`
+    );
+  });
+
   it("removes zero when moving a term from LHS to RHS", () => {
     const tree = treefromLatex(String.raw`a + b = 0`);
 
@@ -426,7 +453,7 @@ describe("stepUp", () => {
     }
   });
 
-  it("is a null when payload is already Expr or null", () => {
+  it("carries existing Expr payload upward and preserves null payload", () => {
     const tree = treefromLatex("a + b");
 
     const stateExpr: State = {
@@ -435,7 +462,7 @@ describe("stepUp", () => {
     };
 
     const out1 = stepUp(tree, stateExpr, "n1");
-    expect(out1).toBeNull();
+    expect(out1).toEqual(stateExpr);
 
     const stateNull: State = {
       root: tree.rootJson,

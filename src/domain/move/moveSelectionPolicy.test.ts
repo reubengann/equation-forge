@@ -76,6 +76,41 @@ describe("moveSelectionPolicy", () => {
     expect(result).toEqual([productId]);
   });
 
+  it("promotes additive factor in mixed fraction product when hovering across '=' (issue 70)", () => {
+    const tree = treefromLatex(
+      String.raw`\frac{c_{P}}{R} \ln\left(T\right) - \frac{c_{P}}{R} \ln\left(T_{0}\right) - \ln\left(P + b\right) = -\ln\left(P_{0} + b\right)`
+    );
+    const lnT0Id = findNodeByLatex(tree, String.raw`\ln\left(T_{0}\right)`);
+    const productId = tree.parentById[lnT0Id];
+    const rhsId = tree.childrenById[tree.rootId!]?.[1] ?? null;
+
+    const result = normalizeSelectedIdsForMove({
+      tree,
+      selectedIds: [lnT0Id],
+      mode: "additive",
+      hoverId: rhsId,
+    });
+
+    expect(result).toEqual([productId]);
+  });
+
+  it("promotes nested fraction numerator symbol to additive term across '=' (issue 70)", () => {
+    const tree = treefromLatex(
+      String.raw`\frac{c_{P}}{R} \ln\left(T\right) - \frac{c_{P}}{R} \ln\left(T_{0}\right) - \ln\left(P + b\right) = -\ln\left(P_{0} + b\right)`
+    );
+    const cId = findNodeByLatex(tree, String.raw`c_{P}`);
+    const rhsId = tree.childrenById[tree.rootId!]?.[1] ?? null;
+    const result = normalizeSelectedIdsForMove({
+      tree,
+      selectedIds: [cId],
+      mode: "additive",
+      hoverId: rhsId,
+    });
+    expect(result.length).toBe(1);
+    expect(tree.nodesById[result[0]]?.op).toBe("InvisibleOperator");
+    expect(tree.nodesById[result[0]]?.latex).toContain(String.raw`\ln\left(T\right)`);
+  });
+
   it("keeps explicit multi-factor selection in multiplicative mode", () => {
     const tree = treefromLatex("a b c");
     const aId = findNodeByLatex(tree, "a");

@@ -130,7 +130,9 @@ export function parse(latex: string): MJ | null {
     toMathLiveLatex(withTightDifferentials)
   );
   const mj = (ce.parse(prepared, { canonical: false })?.json as MJ) ?? null;
-  return normalizeMathJson(mj);
+  // Some rewrites (e.g. subscript rebinding after derivative-shape lowering)
+  // become available only after an initial normalization pass.
+  return normalizeMathJson(normalizeMathJson(mj));
 }
 
 export function normalizeMathJson(mj: MJ | null): MJ | null {
@@ -151,8 +153,10 @@ export function normalizeMathJson(mj: MJ | null): MJ | null {
                             normalizeDifferentialOperands(
                               normalizePrimeDifferentials(
                                 normalizePlainDifferentials(
+                                  normalizeTrailingDerivativeSubscriptBinding(
                                   normalizePartialDerivativeForms(
                                     normalizeProducts(normalizeVectors(mj))
+                                  )
                                   )
                                 )
                               )
@@ -171,6 +175,47 @@ export function normalizeMathJson(mj: MJ | null): MJ | null {
       )
     )
   );
+}
+
+function normalizeTrailingDerivativeSubscriptBinding(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+
+  const op = mj[0];
+  const kids = mj
+    .slice(1)
+    .map((child) => normalizeTrailingDerivativeSubscriptBinding(child as MJ)) as MJ[];
+
+  if (op !== "Subscript" || kids.length < 2) {
+    return [op, ...kids] as MJ;
+  }
+
+  const base = kids[0] as MJ;
+  const sub = kids[1] as MJ;
+  if (
+    !Array.isArray(base) ||
+    (base[0] !== "InvisibleOperator" && base[0] !== "Multiply") ||
+    base.length < 3
+  ) {
+    return [op, ...kids] as MJ;
+  }
+
+  const factors = base.slice(1) as MJ[];
+  const trailing = factors[factors.length - 1] as MJ;
+  const isTrailingDerivative =
+    Array.isArray(trailing) &&
+    (trailing[0] === "FractionPartialDerivative" ||
+      trailing[0] === "FractionDerivative");
+  if (!isTrailingDerivative) {
+    return [op, ...kids] as MJ;
+  }
+
+  const reboundTarget =
+    Array.isArray(trailing) && (trailing[0] === "Delimiter" || trailing[0] === "List")
+      ? trailing
+      : (["Delimiter", trailing] as MJ);
+  const rebound = ["Subscript", reboundTarget, sub] as MJ;
+  return ["InvisibleOperator", ...(factors.slice(0, -1) as MJ[]), rebound] as MJ;
 }
 
 function peelNegation(expr: MJ): { expr: MJ; isNegated: boolean } {

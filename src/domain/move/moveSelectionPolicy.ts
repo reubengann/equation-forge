@@ -158,6 +158,14 @@ function collapseMultiplicativeSelection(args: {
     const id = ids[0];
     const parentId = tree.parentById[id];
     const parentOp = parentId ? tree.nodesById[parentId]?.op : null;
+    const fromSide = findEqualSideRoot(tree, id);
+    const hoverSide =
+      hoverId != null ? findEqualSideRoot(tree, hoverId) : null;
+    const crossEqualHover =
+      fromSide &&
+      hoverSide &&
+      fromSide.equalId === hoverSide.equalId &&
+      fromSide.sideSlot !== hoverSide.sideSlot;
 
     if (
       mode === "multiplicative" &&
@@ -180,15 +188,6 @@ function collapseMultiplicativeSelection(args: {
 
       // If hover is across '=', do NOT promote the factor to the whole product
       // (we only want to move the chosen factor across).
-      const fromSide = findEqualSideRoot(tree, parentId);
-      const hoverSide =
-        hoverId != null ? findEqualSideRoot(tree, hoverId) : null;
-      const crossEqualHover =
-        fromSide &&
-        hoverSide &&
-        fromSide.equalId === hoverSide.equalId &&
-        fromSide.sideSlot !== hoverSide.sideSlot;
-
       if (
         !parentHasVector &&
         (productParentOp === "Equal" || inDenominator)
@@ -214,8 +213,9 @@ function collapseMultiplicativeSelection(args: {
       (kidId) => tree.nodesById[kidId]?.op === "Divide"
     );
     // Keep factor-level selection inside mixed product/fraction terms so users can
-    // drag a factor into a fraction numerator/denominator.
-    if (hasFractionChild) return ids;
+    // drag a factor into a fraction numerator/denominator, unless we're clearly
+    // moving additively across '=' (issue 70).
+    if (hasFractionChild && !crossEqualHover) return ids;
 
     let ancestor: string | null | undefined = tree.parentById[parentId];
     while (ancestor) {
@@ -232,6 +232,19 @@ function collapseMultiplicativeSelection(args: {
       }
       break;
     }
+    }
+    // Cross-equal additive drag from a nested node (e.g., inside a fraction term):
+    // promote to the nearest additive term under the side Add.
+    if (mode === "additive" && !disableEqualPromotion && crossEqualHover) {
+      let cur: string | null = id;
+      while (cur) {
+        const p = tree.parentById[cur];
+        if (!p) break;
+        if (tree.nodesById[p]?.op === "Add") {
+          return [cur];
+        }
+        cur = p;
+      }
     }
     return ids;
   }

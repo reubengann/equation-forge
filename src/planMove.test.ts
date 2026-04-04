@@ -188,6 +188,70 @@ describe("planMove", () => {
     expect(target).toEqual({ hoverId: fId, targetSlot: 1 });
   });
 
+  it("plans multiplicative reorder when hovering ancestor add whitespace (issue 68)", () => {
+    const tree = treefromLatex(String.raw`h = T \left(R + a\right) + u_{0}`);
+    const tId = findNodeByLatex(tree, String.raw`T`);
+    const rhsAddId = tree.childrenById[tree.rootId]?.[1];
+    if (!rhsAddId) throw new Error("Missing RHS Add");
+
+    const mulId = tree.parentById[tId];
+    if (!mulId) throw new Error("Missing multiplicative parent for T");
+    const mulKids = tree.childrenById[mulId] ?? [];
+    const groupedAddId = mulKids.find((id) => tree.nodesById[id]?.op === "Add");
+    if (!groupedAddId) throw new Error("Missing grouped add factor");
+
+    const plan = planMove({
+      tree,
+      selectedIds: [tId],
+      // Simulate hovering container whitespace where UI reports ancestor Add.
+      hoverId: rhsAddId,
+      pointer: { x: 130, y: 110 },
+      rectFor: rectProvider({
+        [rhsAddId]: { left: 40, right: 220, top: 100, bottom: 120 },
+        [mulId]: { left: 40, right: 160, top: 100, bottom: 120 },
+        [tId]: { left: 45, right: 60, top: 100, bottom: 120 },
+        [groupedAddId]: { left: 70, right: 150, top: 100, bottom: 120 },
+      }),
+      mode: "multiplicative",
+    });
+
+    expect(plan).toEqual({
+      kind: "ReorderAdd",
+      addId: mulId,
+      movedId: tId,
+      fromIndex: 0,
+      toIndex: 1,
+    });
+  });
+
+  it("plans pull-out target for numerator factor in side-root fraction (issue 69)", () => {
+    const tree = treefromLatex(
+      String.raw`\frac{c_{P} \mathrm{d}{T}}{T} = \frac{R}{P + b} \mathrm{d}{P}`
+    );
+    const cId = findNodeByLatex(tree, String.raw`c_{P}`);
+    const lhsId = tree.childrenById[tree.rootId]?.[0];
+    if (!lhsId) throw new Error("Missing LHS");
+
+    const plan = planMove({
+      tree,
+      selectedIds: [cId],
+      hoverId: lhsId,
+      pointer: { x: 120, y: 110 },
+      rectFor: rectProvider({
+        [lhsId]: { left: 10, right: 110, top: 100, bottom: 120 },
+      }),
+      mode: "multiplicative",
+    });
+
+    expect(plan).toEqual({
+      kind: "PullOutOfFraction",
+      divideId: lhsId,
+      movedId: cId,
+      insertIndex: 1,
+      strategy: "adjacentGap",
+    });
+  });
+
   it("plans pull-out from fraction inside delimiter when hovering sibling factor (issue 53)", () => {
     const tree = treefromLatex(
       String.raw`w = K \left(\frac{v_{2}^{-\gamma + 1} - v_{1}^{-\gamma + 1}}{-\gamma + 1}\right)`

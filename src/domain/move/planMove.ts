@@ -947,8 +947,18 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
   // Multiplicative: pull a factor out of a fraction term inside a product.
   // Use semantic intent derived from pointer geometry, not raw hoverId shape,
   // so symbol factors and wrapped differential factors behave consistently.
-  if (mode === "multiplicative" && tree.nodesById[movedParentId]?.op === "Divide") {
-    const enclosingDelimiterId = tree.parentById[movedParentId];
+  if (mode === "multiplicative") {
+    const divideId =
+      tree.nodesById[movedParentId]?.op === "Divide"
+        ? movedParentId
+        : isMulOp(tree.nodesById[movedParentId]?.op) &&
+            tree.nodesById[tree.parentById[movedParentId] ?? ""]?.op === "Divide"
+          ? (tree.parentById[movedParentId] as string)
+          : null;
+    if (!divideId) {
+      // continue
+    } else {
+    const enclosingDelimiterId = tree.parentById[divideId];
     const enclosingDelimiterOp = enclosingDelimiterId
       ? tree.nodesById[enclosingDelimiterId]?.op
       : null;
@@ -974,7 +984,7 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
         : 1;
       return {
         kind: "PullOutOfFraction",
-        divideId: movedParentId,
+        divideId,
         movedId,
         insertIndex,
         strategy: "ontoFactor",
@@ -984,7 +994,7 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
 
     const intent = resolveFractionPullOutIntent({
       tree,
-      divideId: movedParentId,
+      divideId,
       hoverId,
       pointer,
       rectFor,
@@ -992,7 +1002,7 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
     if (intent) {
       return {
         kind: "PullOutOfFraction",
-        divideId: movedParentId,
+        divideId,
         movedId,
         insertIndex: intent.insertIndex,
         strategy: intent.strategy,
@@ -1001,6 +1011,28 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
             ? intent.targetHoverId
             : undefined,
       };
+    }
+      // Side-root fraction pull-out: support dropping on the side body/whitespace
+      // when the moved factor is inside the fraction numerator/denominator.
+      if (
+        hoverId === divideId ||
+        isAncestorOrSelf(tree, hoverId, divideId) ||
+        isAncestorOrSelf(tree, divideId, hoverId)
+      ) {
+        const divideRect = rectFor(divideId);
+        const insertIndex: 0 | 1 = divideRect
+          ? pointer.x < midX(divideRect)
+            ? 0
+            : 1
+          : 1;
+        return {
+          kind: "PullOutOfFraction",
+          divideId,
+          movedId,
+          insertIndex,
+          strategy: "adjacentGap",
+        };
+      }
     }
   }
 
@@ -1018,7 +1050,14 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
 
   const target = resolveHoverTarget({
     tree,
-    hoverId,
+    hoverId:
+      mode === "multiplicative" &&
+      movedParentId != null &&
+      isMulOp(tree.nodesById[movedParentId]?.op) &&
+      tree.nodesById[tree.parentById[movedParentId] ?? ""]?.op !== "Divide" &&
+      isAncestorOrSelf(tree, hoverId, movedParentId)
+        ? movedParentId
+        : hoverId,
     pointer,
     rectFor,
     // In multiplicative mode, we still want to detect Add side-roots so that

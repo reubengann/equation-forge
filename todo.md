@@ -254,3 +254,19 @@
 66. `-\left(\frac{\partial{h}}{\partial{P}}\right)_{T} = c_{P} \left(\frac{\partial{T}}{\partial{P}}\right)_{h}`
     Multiply by `-1` on both sides.
     One would hope the result would be `\left(\frac{\partial{h}}{\partial{P}}\right)_{T} = -c_{P} \left(\frac{\partial{T}}{\partial{P}}\right)_{h}`, but instead it's `--1 \left(\frac{\partial{h}}{\partial{P}}\right)_{T} = -1 c_{P} \left(\frac{\partial{T}}{\partial{P}}\right)_{h}`
+
+67. `P \left(\frac{\partial{v}}{\partial{T}}\right)_{P}`
+    When this parses, the parentheses are missing in the render for some reason.
+
+68. `h = T \left(R + a\right) + u_{0}`
+    I cannot drag T to the RHS of the parentheses to get `h = \left(R + a\right) T + u_{0}`. There is no drop target there.
+
+69. `\frac{c_{P} \mathrm{d}{T}}{T} = \frac{R}{P + b} \mathrm{d}{P}`
+    The fraction on the LHS cannot be split up. I want `c_{P} \frac{\mathrm{d}{T}}{T}` but there's no drag target in multiply mode.
+
+70. `\frac{c_{P}}{R} \ln\left(T\right) - \frac{c_{P}}{R} \ln\left(T_{0}\right) - \ln\left(P + b\right) = -\ln\left(P_{0} + b\right)`
+    For some reason I cannot move `\frac{c_{P}}{R} \ln\left(T_{0}\right)` additively to the RHS.
+
+71. We need fraction tools. Such as
+    - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`)
+    - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)

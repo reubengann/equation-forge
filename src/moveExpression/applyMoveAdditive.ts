@@ -614,9 +614,11 @@ export function stepUp(
   }
 
   // -------------------------
-  // 3) Default: no-op for other ops (for now)
+  // 3) Default: carry payload upward through unrelated ancestors.
+  // This is required for cross-equal additive moves when the selected term
+  // sits inside nested additive/multiplicative structure (issue 70 dump replay).
   // -------------------------
-  return null;
+  return state;
 }
 
 function asAddChildren(expr: MJ): MJ[] {

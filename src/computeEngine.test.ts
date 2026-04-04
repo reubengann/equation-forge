@@ -279,6 +279,13 @@ describe("computeEngine custom dictionary", () => {
     expect(latex).toContain(String.raw`\frac{\partial{u}}{\partial{v}}`);
   });
 
+  it("keeps parentheses when multiplying by a subscripted partial derivative (issue 67)", () => {
+    const mj = parse(String.raw`P \left(\frac{\partial{v}}{\partial{T}}\right)_P`);
+    expect(mj).not.toBeNull();
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toBe(String.raw`P \left(\frac{\partial{v}}{\partial{T}}\right)_{P}`);
+  });
+
   it("fixes blank integrals while preserving unresolved tuple placeholders", () => {
     const mj = normalizeMathJson([
       "Integrate",
