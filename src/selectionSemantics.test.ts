@@ -344,4 +344,19 @@ describe("selectionSemantics.bubbleThroughUnary", () => {
     const norm = normalizeSelection(tree, uId);
     expect(tree.nodesById[norm]?.op).toBe("Subscript");
   });
+
+  it("normalizeSelection allows selecting dT inside FractionDerivative (issue 58)", () => {
+    const tree = ExpressionTree.create(
+      makeMJfromLatex(String.raw`c_{v} \frac{\mathrm{d}{T}}{\mathrm{d}{v}} = -\frac{R T}{v}`)
+    );
+
+    const dTId = findNodeId(tree, (n: any) => n.latex === String.raw`\mathrm{d}{T}`);
+    expect(tree.nodesById[dTId]?.op).toBe("Differential");
+    const parentId = tree.parentById[dTId];
+    expect(parentId).toBeTruthy();
+    expect(tree.nodesById[parentId!]?.op).toBe("FractionDerivative");
+
+    const norm = normalizeSelection(tree, dTId);
+    expect(norm).toBe(dTId);
+  });
 });

@@ -112,7 +112,11 @@ describe("expandSubexpression", () => {
     const tree = treefromLatex(String.raw`P \left(\frac{R T}{P}\right)^{\gamma} = K`);
     const baseId = findNodeId(
       tree,
-      (n) => n.op === "Delimiter" && n.latex.includes(String.raw`\frac{R T}{P}`)
+      (n) =>
+        n.op === "Divide" &&
+        tree.parentById[n.id] != null &&
+        tree.nodesById[tree.parentById[n.id]]?.op === "Power" &&
+        n.latex.includes(String.raw`\frac{R T}{P}`)
     );
 
     const result = expandSubexpression(tree, baseId);

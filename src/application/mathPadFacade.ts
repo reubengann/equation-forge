@@ -8,9 +8,11 @@ import {
   canDeclareFunction as canDeclareFunctionSelection,
   canCancelTerm,
   canEvaluateSelection,
+  canSimplifySelection,
   canFactorSelection,
   declareFunction,
   evaluateSelection,
+  simplifySelection,
   expandSubexpression,
   factorSelection,
   forceDelimiter,
@@ -55,6 +57,7 @@ export type MathAction =
   | { type: "forceDelimiter" }
   | { type: "toggleDelimiterStyle" }
   | { type: "evaluate" }
+  | { type: "simplify" }
   | { type: "applyToBothSides"; operationLatex: string }
   | {
       type: "substitute";
@@ -307,6 +310,14 @@ function applyAction(input: ApplyActionInput): ApplyActionResult {
     return { ok: true, tree: next };
   }
 
+  if (action.type === "simplify") {
+    if (!selection) return { ok: false, reason: "No selection for simplify." };
+    const evalSelection = toEvaluationSelection(tree, selection);
+    const next = simplifySelection(tree, evalSelection);
+    if (!next) return { ok: false, reason: "Simplify action produced no change." };
+    return { ok: true, tree: next };
+  }
+
   if (action.type === "applyToBothSides") {
     try {
       const result = applyOperationToBothSides(tree.rootJson, action.operationLatex);
@@ -439,6 +450,13 @@ export const mathPadFacade = {
     selection: ExprSelection | null
   ): boolean {
     return canEvaluateSelection(tree, selection);
+  },
+
+  canSimplify(
+    tree: ExpressionTree | null,
+    selection: ExprSelection | null
+  ): boolean {
+    return canSimplifySelection(tree, selection);
   },
 
   canFactor(tree: ExpressionTree | null, selection: ExprSelection | null): boolean {

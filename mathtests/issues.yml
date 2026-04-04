@@ -87,7 +87,7 @@ scenarios:
     name: Issue 1 pull out from numerator
     tags: [issue, move, fraction, simple, multiplicative]
     initial:
-      latex: "a = \\frac{b d}{c}"
+      latex: "a = \\frac{b q}{c}"
     steps:
       - name: drag b outside fraction on left
         select:
@@ -100,7 +100,7 @@ scenarios:
           targetSlot: 0
           mode: multiplicative
         expect:
-          latex: "a = b \\frac{d}{c}"
+          latex: "a = b \\frac{q}{c}"
   - version: 1
     name: Delta t reorder stays atomic
     tags: [issue, move, fraction, multiplicative, delta_t]
@@ -212,7 +212,7 @@ scenarios:
           targetSlot: null
           mode: multiplicative
         expect:
-          latex: "a \\left(b\\right) = \\frac{e}{c d}"
+          latex: "\\frac{a \\left(b c d\\right)}{c d} = \\frac{e}{c d}"
   - version: 1
     name: Issue 5 - substitute x_2 under factor 2
     tags: [issue, substitute, precedence]
@@ -453,7 +453,7 @@ scenarios:
       - name: move d v_P to right of fraction term
         select:
           kind: node
-          latex: "\\mathrm{d}{v}_{P}"
+          latex: "\\mathrm{d}{v_{P}}"
         action:
           type: move
           hover:
@@ -461,7 +461,7 @@ scenarios:
           targetSlot: 1
           mode: multiplicative
         expect:
-          latex: "c_{P} = c_{V} + \\frac{\\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right]}{\\mathrm{d}{T}_{P}} \\mathrm{d}{v}_{P}"
+          latex: "c_{P} = c_{V} + \\frac{\\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right]}{\\mathrm{d}{T_{P}}} \\mathrm{d}{v_{P}}"
   - version: 1
     name: Issue 16d - pull denominator d T_P outside thermodynamics fraction
     tags: [issue, move, multiplicative, fraction, differential]
@@ -471,7 +471,7 @@ scenarios:
       - name: move denominator d T_P to right of fraction term
         select:
           kind: node
-          latex: "\\mathrm{d}{T}_{P}"
+          latex: "\\mathrm{d}{T_{P}}"
         action:
           type: move
           hover:
@@ -479,7 +479,7 @@ scenarios:
           targetSlot: 1
           mode: multiplicative
         expect:
-          latex: "c_{P} = c_{V} + \\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right] \\mathrm{d}{v}_{P} \\frac{1}{\\mathrm{d}{T}_{P}}"
+          latex: "c_{P} = c_{V} + \\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right] \\mathrm{d}{v_{P}} \\frac{1}{\\mathrm{d}{T_{P}}}"
   - version: 1
     name: Issue 16e - pull denominator directly onto sibling factor
     tags: [issue, move, multiplicative, fraction]
@@ -506,14 +506,14 @@ scenarios:
       - name: drag d T_P onto d v_P
         select:
           kind: node
-          latex: "\\mathrm{d}{T}_{P}"
+          latex: "\\mathrm{d}{T_{P}}"
         action:
           type: moveReplay
           mode: multiplicative
           fixture: "captured/issue16f-dtp-onto-dvp.json"
           expectPlanKind: "PullOutOfFraction"
         expect:
-          latex: "c_{P} = c_{V} + \\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right] \\frac{\\mathrm{d}{v}_{P}}{\\mathrm{d}{T}_{P}}"
+          latex: "c_{P} = c_{V} + \\left[\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right] \\frac{\\mathrm{d}{v_{P}}}{\\mathrm{d}{T_{P}}}"
   - version: 1
     name: Issue 17 - cancel zero factor inside a sum
     tags: [issue, cancel, zero, multiplicative]

@@ -1334,6 +1334,10 @@ export function ExpressionPad({
     () => mathPadFacade.canEvaluate(tree, selection),
     [tree, selection]
   );
+  const canSimplify = useMemo(
+    () => mathPadFacade.canSimplify(tree, selection),
+    [tree, selection]
+  );
   const canFactor = useMemo(() => mathPadFacade.canFactor(tree, selection), [tree, selection]);
   const canDeclareFunction = useMemo(
     () => mathPadFacade.canDeclareFunction(tree, selection),
@@ -1460,6 +1464,17 @@ export function ExpressionPad({
       tree,
       selection,
       action: { type: "evaluate" },
+    });
+    if (!result.ok) return;
+    commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
+  }, [tree, selection, commitJson]);
+
+  const onSimplify = useCallback(() => {
+    if (!tree || !selection) return;
+    const result = mathPadFacade.applyAction({
+      tree,
+      selection,
+      action: { type: "simplify" },
     });
     if (!result.ok) return;
     commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
@@ -1644,6 +1659,8 @@ export function ExpressionPad({
                 canToggleDelimiterStyle={canToggleDelimiterStyle}
                 onEvaluate={onEvaluate}
                 canEvaluate={canEvaluate}
+                onSimplify={onSimplify}
+                canSimplify={canSimplify}
                 onOpenApply={openApplyModal}
                 canApply={canApply}
                 onOpenSubstitute={openSubstituteModal}

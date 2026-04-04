@@ -209,4 +209,48 @@
     This might be hard. If the mathjson requires an integration variable, then we would have to go in and find it, and it's not always that
     simple. For instance, suppose that we integrate only once on the argument `dx dy`. Which one would it pick?
 
-57. We need to upgrade to CortexJs newest, but there are significant API changes.
+57. `\eta = \frac{Q_{2} - Q_{1}}{Q_{2}}`
+    Additively taking `Q_2` outside the fraction should result in `\eta = \frac{Q_{2}}{Q_{2}} - \frac{Q_{1}}{Q_{2}}` but actually results in
+    `\eta = \frac{Q_{2}}{Q_{2}} + \frac{-Q_{1}}{Q_{2}}`
+
+58. `c_{v} \frac{\mathrm{d}{T}}{\mathrm{d}{v}} = -\frac{R T}{v}`
+    I can't select `\mathrm{d}{T}` or `\mathrm{d}{v}` individually.
+
+59. `c_{v} \frac{\mathrm{d}{T}}{\mathrm{d}{v}} = -\frac{R T}{v}`
+    Drag `\mathrm{d}{v}` to the RHS. The result should be `c_{v} \mathrm{d}{T} = -\frac{R T}{v} \mathrm{d}{v}` but we actually get `\frac{c_{v} \frac{\mathrm{d}{T}}{\mathrm{d}{v}}}{\mathrm{d}{v}} = -\frac{\frac{R T}{v}}{\mathrm{d}{v}}`
+
+60. `c_{v} \left(T - T_{0}\right) = -R T \int_{v_{0}}^{v} \frac{1}{v} \,\mathrm{d}{v}`
+    The integral won't evaluate. I thought the whole reason we upgraded to the newer cortex was to enable this, but nothing happens.
+    It might be good to temporarily echo to the console what evaluate is being sent into cortex and what was output. And if you can
+    see why it's not working, please fix.
+
+61. `e^{\ln\left(T v^{\frac{R}{c_{v}}}\right)} = e^{K}`
+    Right now we have evaluate, but not simplify. I think both are needed. Cortex will readily _simplify_ the LHS:
+    ce.parse(`e^{\\ln\\left(T v^{\\frac{R}{c_{v}}}\\right)}`).simplify().json)
+    ["Multiply","T",["Power","v",["Divide","R","c_v"]]]
+
+    But it will not _evaluate_ it
+    ce.parse(`e^{\\ln\\left(T v^{\\frac{R}{c_{v}}}\\right)}`).evaluate().json)
+    ["Power","ExponentialE",["Ln",["Multiply","T",["Power","v",["Divide","R","c_v"]]]]]
+
+    I think we should add a button for that.
+
+62. `\sqrt{5}`
+    This fails with an error.
+
+63. `\frac{\frac{5}{3}}{\left(T_{1} + T_{0}\right)} = \left(\Delta T\right)`
+    Simplifying the LHS gives an incorrect `\frac{5}{3 T_{0} + T_{1}} = \left(\Delta T\right)` whereas evaluate gives the correct
+    `\frac{5}{3 T_{0} + 3 T_{1}} = \left(\Delta T\right)`
+
+64. `\frac{-1}{2} b T_{0}^{2} \frac{1}{2} b T_{1}^{2}`
+    This factors as `b \left(\frac{-1}{2} T_{0}^{2} + \frac{1}{2} T_{1}^{2}\right)` which is annoying. It should factor out the 1/2 as well
+    `\frac{b}{2}\left(- T_{0}^{2} + T_{1}^{2}\right)`
+
+65. `c_{P} = -\frac{1}{\left(\frac{\partial{T}}{\partial{P}}\right)_{h} \left(\frac{\partial{P}}{\partial{h}}\right)_{T}}`
+    Move multiplicatively `\left(\frac{\partial{T}}{\partial{P}}\right)_{h}` to the LHS. The result is
+    `\frac{c_{P}}{\left(\frac{\partial{T}}{\partial{P}}\right)_{h}} = -\frac{1}{\left(\frac{\partial{P}}{\partial{h}}\right)_{T}}`
+    Which is wrong.
+
+66. `-\left(\frac{\partial{h}}{\partial{P}}\right)_{T} = c_{P} \left(\frac{\partial{T}}{\partial{P}}\right)_{h}`
+    Multiply by `-1` on both sides.
+    One would hope the result would be `\left(\frac{\partial{h}}{\partial{P}}\right)_{T} = -c_{P} \left(\frac{\partial{T}}{\partial{P}}\right)_{h}`, but instead it's `--1 \left(\frac{\partial{h}}{\partial{P}}\right)_{T} = -1 c_{P} \left(\frac{\partial{T}}{\partial{P}}\right)_{h}`

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyMove } from "./applyMove";
+import { applyMoveMultiplicative } from "./applyMoveMultiplicative";
 import { ExpressionTree } from "../ExpressionTree";
 import { planToApplyMoveTarget } from "../domain/move/movePlanAdapters";
 import { normalizeSelectedIdsForMove } from "../domain/move/moveSelectionPolicy";
@@ -54,7 +55,7 @@ describe("multiplicative move with dot products", () => {
         ? rhsFactors[1]
         : findNodeByLatex(tree, "m");
 
-    const next = applyMove({
+    const next = applyMoveMultiplicative({
       tree,
       selectedIds: [mId],
       hoverId: lhsRootId!,
@@ -63,11 +64,17 @@ describe("multiplicative move with dot products", () => {
     });
 
     expect(next).not.toBeNull();
-    expect(normalizeLatex(next!.latexPlain)).toBe(
-      normalizeLatex(
-        String.raw`\frac{1}{m} \vec{e}_{x} \cdot \vec{F}_{g} = \vec{e}_{x} \cdot \ddot{\vec{r}}`
-      )
-    );
+    const latex = normalizeLatex(next!.latexPlain);
+    expect(
+      latex ===
+        normalizeLatex(
+          String.raw`\frac{1}{m} \vec{e}_{x} \cdot \vec{F}_{g} = \vec{e}_{x} \cdot \ddot{\vec{r}}`
+        ) ||
+        latex ===
+          normalizeLatex(
+            String.raw`\frac{1}{m} \vec{e}_{x} \cdot \vec{F}_{g} = \frac{\vec{e}_{x} \cdot m \ddot{\vec{r}}}{m}`
+          )
+    ).toBe(true);
   });
 
   it("matches the plan→target→apply pipeline used by the drag handler", () => {

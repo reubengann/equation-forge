@@ -22,6 +22,8 @@ const FUNCTION_OPS = new Set([
   "Log",
   "Ln",
   "Abs",
+  "Sqrt",
+  "D",
 ]);
 
 const GREEK_LATEX: Record<string, string> = {
@@ -330,6 +332,7 @@ export class ExpressionTree {
       const asString = String(x);
       if (x === "DifferentialD") return String.raw`\mathrm{d}`;
       if (x === "PartialD") return String.raw`\partial`;
+      if (x === "ExponentialE") return "e";
       const calligraphicLatex = calligraphicSymbolToLatex(asString);
       if (calligraphicLatex) return calligraphicLatex;
       return asString;
@@ -432,6 +435,8 @@ export class ExpressionTree {
         Log: String.raw`\log`,
         Ln: String.raw`\ln`,
         Abs: String.raw`\left|`,
+        Sqrt: String.raw`\sqrt`,
+        D: "D",
       };
       const fnLatex = nameMap[funcNameRaw] ?? funcNameRaw;
       const argsPlain = args.map((a) => a.latexPlain).join(", ");
@@ -441,12 +446,16 @@ export class ExpressionTree {
       const plain =
         funcNameRaw === "Abs"
           ? String.raw`${fnLatex}${argsPlain}\right|`
+          : funcNameRaw === "Sqrt" && args.length === 1
+            ? String.raw`${fnLatex}{${argsPlain}}`
           : singleIsDelimiter
             ? `${fnLatex}${argsPlain}`
             : `${fnLatex}\\left(${argsPlain}\\right)`;
       const taggedInner =
         funcNameRaw === "Abs"
           ? String.raw`${fnLatex}${argsTagged}\right|`
+          : funcNameRaw === "Sqrt" && args.length === 1
+            ? String.raw`${fnLatex}{${argsTagged}}`
           : singleIsDelimiter
             ? `${fnLatex}${argsTagged}`
             : `${fnLatex}\\left(${argsTagged}\\right)`;
@@ -457,8 +466,18 @@ export class ExpressionTree {
 
     // Thin space for implicit multiplication
     const sep = String.raw`\,`;
-    const plain = children.map((c) => c.latexPlain).join(" ");
-    const taggedInner = children.map((c) => c.latexTagged).join(sep);
+    const wrappedChildren = children.map((child) => {
+      const childOp = this.nodesById[child.id]?.op;
+      const needsParens = childOp === "Add" || childOp === "Equal";
+      if (!needsParens) return child;
+      return {
+        ...child,
+        latexPlain: String.raw`\left(${child.latexPlain}\right)`,
+        latexTagged: String.raw`\left(${child.latexTagged}\right)`,
+      };
+    });
+    const plain = wrappedChildren.map((c) => c.latexPlain).join(" ");
+    const taggedInner = wrappedChildren.map((c) => c.latexTagged).join(sep);
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
@@ -919,6 +938,8 @@ export class ExpressionTree {
       Log: String.raw`\log`,
       Ln: String.raw`\ln`,
       Abs: String.raw`\left|`,
+      Sqrt: String.raw`\sqrt`,
+      D: "D",
     };
 
     const fnLatex = nameMap[op] ?? op;
@@ -932,12 +953,16 @@ export class ExpressionTree {
     const plain =
       op === "Abs"
         ? String.raw`${fnLatex}${argsPlain}\right|`
+        : op === "Sqrt" && args.length === 1
+          ? String.raw`${fnLatex}{${argsPlain}}`
         : singleIsDelimiter
           ? `${fnLatex}${argsPlain}`
           : `${fnLatex}\\left(${argsPlain}\\right)`;
     const taggedInner =
       op === "Abs"
         ? String.raw`${fnLatex}${argsTagged}\right|`
+        : op === "Sqrt" && args.length === 1
+          ? String.raw`${fnLatex}{${argsTagged}}`
         : singleIsDelimiter
           ? `${fnLatex}${argsTagged}`
           : `${fnLatex}\\left(${argsTagged}\\right)`;
@@ -945,6 +970,7 @@ export class ExpressionTree {
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
   }
+
 
   private emitDifferential(
     node: MJNode,

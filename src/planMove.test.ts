@@ -185,7 +185,7 @@ describe("planMove", () => {
 
     expect(plan).not.toBeNull();
     const target = planToApplyMoveTarget(plan);
-    expect(target).toEqual({ hoverId: divideId, targetSlot: 1 });
+    expect(target).toEqual({ hoverId: fId, targetSlot: 1 });
   });
 
   it("plans pull-out from fraction inside delimiter when hovering sibling factor (issue 53)", () => {
@@ -205,7 +205,7 @@ describe("planMove", () => {
     const delimiterId = findNodeId(
       tree,
       (n) =>
-        n.op === "Delimiter" &&
+        (n.op === "Delimiter" || n.op === "Add") &&
         n.latex.includes(String.raw`v_{2}^{-\gamma + 1}`) &&
         n.latex.includes(String.raw`v_{1}^{-\gamma + 1}`)
     );
@@ -224,7 +224,7 @@ describe("planMove", () => {
 
     expect(plan).not.toBeNull();
     const target = planToApplyMoveTarget(plan);
-    expect(target?.hoverId).toBe(delimiterId);
+    expect(target?.hoverId).toBe(kId);
   });
 
   it("returns null if the index does not change", () => {

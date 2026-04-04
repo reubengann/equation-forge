@@ -112,10 +112,77 @@ function isNumericLiteral(expr: MJ): number | null {
   return null;
 }
 
+type Rational = { num: number; den: number };
+
 function gcdInts(values: number[]): number {
   const abs = values.map((v) => Math.abs(Math.trunc(v)));
   const g = (a: number, b: number): number => (b === 0 ? Math.abs(a) : g(b, a % b));
   return abs.reduce((acc, v) => g(acc, v));
+}
+
+function lcmInt(a: number, b: number): number {
+  if (a === 0 || b === 0) return 0;
+  return Math.abs((a * b) / gcdInts([a, b]));
+}
+
+function normalizeRational(num: number, den: number): Rational {
+  if (den === 0) return { num, den };
+  let n = Math.trunc(num);
+  let d = Math.trunc(den);
+  if (d < 0) {
+    n = -n;
+    d = -d;
+  }
+  const g = gcdInts([n, d]);
+  return { num: n / g, den: d / g };
+}
+
+function parseInteger(value: MJ): number | null {
+  if (typeof value === "number" && Number.isInteger(value)) return value;
+  if (typeof value === "string" && /^-?\d+$/.test(value)) return Number(value);
+  return null;
+}
+
+function rationalFromExpr(expr: MJ): Rational | null {
+  const int = parseInteger(expr);
+  if (int !== null) return { num: int, den: 1 };
+  if (!Array.isArray(expr)) return null;
+  if (expr[0] === "Negate" && expr.length >= 2) {
+    const inner = rationalFromExpr(expr[1] as MJ);
+    return inner ? { num: -inner.num, den: inner.den } : null;
+  }
+  if (expr[0] === "Divide" && expr.length >= 3) {
+    const num = parseInteger(expr[1] as MJ);
+    const den = parseInteger(expr[2] as MJ);
+    if (num === null || den === null || den === 0) return null;
+    return normalizeRational(num, den);
+  }
+  return null;
+}
+
+function multiplyRational(a: Rational, b: Rational): Rational {
+  return normalizeRational(a.num * b.num, a.den * b.den);
+}
+
+function divideRational(a: Rational, b: Rational): Rational {
+  return normalizeRational(a.num * b.den, a.den * b.num);
+}
+
+function isRationalOne(r: Rational): boolean {
+  return r.num === r.den;
+}
+
+function isRationalNegativeOne(r: Rational): boolean {
+  return r.num === -r.den;
+}
+
+function rationalToMJ(r: Rational): MJ {
+  const normalized = normalizeRational(r.num, r.den);
+  if (normalized.den === 1) return normalized.num;
+  if (normalized.num < 0) {
+    return ["Negate", ["Divide", Math.abs(normalized.num), normalized.den] as MJ] as MJ;
+  }
+  return ["Divide", normalized.num, normalized.den] as MJ;
 }
 
 function commonFactorFromAdd(expr: MJ): MJ | null {
@@ -124,18 +191,18 @@ function commonFactorFromAdd(expr: MJ): MJ | null {
   if (terms.length < 2) return null;
 
   // Collect factors per term
-  type TermInfo = { numeric: number; rest: MJ[] };
+  type TermInfo = { numeric: Rational; rest: MJ[] };
   const termInfos: TermInfo[] = [];
 
   for (const term of terms) {
     const { sign, core } = unwrapNegate(term);
     const factors = factorsOf(core);
-    let numeric = sign;
+    let numeric: Rational = { num: sign, den: 1 };
     const rest: MJ[] = [];
     for (const f of factors) {
-      const num = isNumericLiteral(f);
-      if (num !== null) {
-        numeric *= num;
+      const rat = rationalFromExpr(f);
+      if (rat !== null) {
+        numeric = multiplyRational(numeric, rat);
       } else {
         rest.push(f);
       }
@@ -143,12 +210,14 @@ function commonFactorFromAdd(expr: MJ): MJ | null {
     termInfos.push({ numeric, rest });
   }
 
-  // Numeric common factor (integers only to stay safe)
-  let numericCommon = 1;
-  const numericValues = termInfos.map((t) => t.numeric);
-  if (numericValues.every((v) => Number.isInteger(v))) {
-    numericCommon = gcdInts(numericValues);
-    if (numericCommon === 0) numericCommon = 1;
+  // Numeric common factor (exact rational): gcd(nums) / lcm(dens)
+  let numericCommon: Rational = { num: 1, den: 1 };
+  const numerators = termInfos.map((t) => t.numeric.num);
+  const denominators = termInfos.map((t) => t.numeric.den);
+  const gcdNum = gcdInts(numerators);
+  const lcmDen = denominators.reduce((acc, d) => lcmInt(acc, d), 1);
+  if (gcdNum !== 0 && lcmDen !== 0) {
+    numericCommon = normalizeRational(gcdNum, lcmDen);
   }
 
   // Symbolic common factors (based on first term)
@@ -180,7 +249,7 @@ function commonFactorFromAdd(expr: MJ): MJ | null {
   }
 
   const hasSymbolic = commonFactors.length > 0;
-  const hasNumeric = numericCommon !== 1;
+  const hasNumeric = !isRationalOne(numericCommon);
   if (!hasSymbolic && !hasNumeric) return null;
 
   // Build factored terms
@@ -188,21 +257,21 @@ function commonFactorFromAdd(expr: MJ): MJ | null {
   const allTerms = [first, ...restInfos];
   for (const info of allTerms) {
     const factors: MJ[] = [];
-    const residualNumeric = info.numeric / numericCommon;
+    const residualNumeric = divideRational(info.numeric, numericCommon);
     let remainingRest = info.rest;
     for (const cf of commonFactors) {
       const removal = removeFactorOnce(remainingRest, unwrapDelimiter(cf));
       remainingRest = removal.remaining;
     }
 
-    if (residualNumeric === -1 && remainingRest.length > 0) {
+    if (isRationalNegativeOne(residualNumeric) && remainingRest.length > 0) {
       const termExpr = ["Negate", buildProductFromFactors(remainingRest)] as MJ;
       factoredTerms.push(termExpr);
       continue;
     }
 
-    if (residualNumeric !== 1 || remainingRest.length === 0) {
-      factors.push(residualNumeric);
+    if (!isRationalOne(residualNumeric) || remainingRest.length === 0) {
+      factors.push(rationalToMJ(residualNumeric));
     }
 
     factors.push(...remainingRest);
@@ -212,9 +281,13 @@ function commonFactorFromAdd(expr: MJ): MJ | null {
   }
 
   const commonProductFactors: MJ[] = [];
-  if (hasNumeric) commonProductFactors.push(numericCommon);
+  if (hasNumeric) commonProductFactors.push(rationalToMJ(numericCommon));
   commonProductFactors.push(...commonFactors);
-  const commonProduct = buildProductFromFactors(commonProductFactors);
+  let commonProduct = buildProductFromFactors(commonProductFactors);
+  const numericIsUnitFraction = numericCommon.num === 1 && numericCommon.den > 1;
+  if (numericIsUnitFraction && commonFactors.length > 0) {
+    commonProduct = ["Divide", buildProductFromFactors(commonFactors), numericCommon.den] as MJ;
+  }
   const innerAdd = buildAddFromTerms(factoredTerms);
   const factored = buildProductFromFactors([commonProduct, ["Delimiter", innerAdd] as MJ]);
 
@@ -253,6 +326,45 @@ function commonDenominatorFromAdd(expr: MJ): MJ | null {
   return factored;
 }
 
+function isSquarePower(expr: MJ): { base: MJ } | null {
+  if (!Array.isArray(expr) || expr[0] !== "Power" || expr.length < 3) return null;
+  const exponent = expr[2] as MJ;
+  if (exponent !== 2 && exponent !== "2") return null;
+  return { base: expr[1] as MJ };
+}
+
+function differenceOfSquaresFromAdd(expr: MJ): MJ | null {
+  if (!Array.isArray(expr) || expr[0] !== "Add" || expr.length !== 3) return null;
+  const leftRaw = expr[1] as MJ;
+  const rightRaw = expr[2] as MJ;
+
+  const left = unwrapNegate(leftRaw);
+  const right = unwrapNegate(rightRaw);
+
+  let positiveSquare: MJ | null = null;
+  let negativeSquare: MJ | null = null;
+
+  if (left.sign === 1) positiveSquare = left.core;
+  if (left.sign === -1) negativeSquare = left.core;
+  if (right.sign === 1) positiveSquare = right.core;
+  if (right.sign === -1) negativeSquare = right.core;
+
+  if (!positiveSquare || !negativeSquare) return null;
+
+  const posSquare = isSquarePower(positiveSquare);
+  const negSquare = isSquarePower(negativeSquare);
+  if (!posSquare || !negSquare) return null;
+
+  const a = posSquare.base;
+  const b = negSquare.base;
+
+  const diff = ["Delimiter", ["Add", a, ["Negate", b] as MJNode] as MJ] as MJ;
+  const sum = ["Delimiter", ["Add", a, b] as MJ] as MJ;
+  const factored = ["InvisibleOperator", diff, sum] as MJ;
+  if (deepEqualMJ(factored, expr)) return null;
+  return factored;
+}
+
 function factorExpression(expr: MJ): MJ | null {
   const ceReady = toComputeEngine(expr);
   const ceBox = box(ceReady) as any;
@@ -272,6 +384,10 @@ function factorExpression(expr: MJ): MJ | null {
   // Deterministic fallback: common denominator from Add
   const denomFactored = commonDenominatorFromAdd(expr);
   if (denomFactored && !deepEqualMJ(denomFactored, expr)) return denomFactored;
+
+  // Deterministic fallback: difference of squares (A^2 - B^2 = (A-B)(A+B))
+  const dosFactored = differenceOfSquaresFromAdd(expr);
+  if (dosFactored && !deepEqualMJ(dosFactored, expr)) return dosFactored;
 
   // Deterministic fallback: common factor from Add
   const fallback = commonFactorFromAdd(expr);

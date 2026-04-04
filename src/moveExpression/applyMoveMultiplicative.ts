@@ -400,11 +400,19 @@ function isUnderDenominatorOfFractionSideRoot(
   sideRootId: string,
   nodeId: string,
 ): boolean {
-  const op = tree.nodesById[sideRootId]?.op;
-  if (op !== "FractionDerivative" && op !== "FractionPartialDerivative") return false;
-  const denominatorId = tree.childrenById[sideRootId]?.[1];
-  if (!denominatorId) return false;
-  return isAncestorOrSelf(tree, denominatorId, nodeId);
+  let cur: string | null = nodeId;
+  while (cur) {
+    const parentId: string | null = tree.parentById[cur] ?? null;
+    if (!parentId) return false;
+    const op = tree.nodesById[parentId]?.op;
+    if (op === "FractionDerivative") {
+      const idx = tree.childIndexById[cur];
+      if (idx === 1) return true;
+    }
+    if (parentId === sideRootId) break;
+    cur = parentId;
+  }
+  return false;
 }
 
 /**
@@ -428,10 +436,7 @@ export function applyMoveMultiplicative(
       normalized = powerParent;
     }
     const normalizedOp = tree.nodesById[normalized]?.op;
-    if (
-      normalizedOp === "FractionDerivative" ||
-      normalizedOp === "FractionPartialDerivative"
-    ) {
+    if (normalizedOp === "FractionDerivative") {
       const denominatorId = tree.childrenById[normalized]?.[1];
       if (denominatorId && isAncestorOrSelf(tree, denominatorId, id)) {
         // Preserve denominator-level move intent (issue 37) even though
@@ -1303,7 +1308,16 @@ export function applyMoveMultiplicative(
       if (tree.nodesById[parentOfMovedParent]?.op !== "Divide") return false;
       if (tree.childIndexById[movedParentId] !== 1) return false;
       const siblings = tree.childrenById[movedParentId] ?? [];
-      return siblings.length > 1 && movedIdsInFromParent.length < siblings.length;
+      if (!(siblings.length > 1 && movedIdsInFromParent.length < siblings.length)) {
+        return false;
+      }
+      // When the divide numerator is 1 (e.g., -1/(A B)), moving one denominator
+      // factor across '=' should multiply the destination side by that factor.
+      const divideChildren = tree.childrenById[parentOfMovedParent] ?? [];
+      const numeratorId = divideChildren[0];
+      const numeratorPath = numeratorId ? tree.pathById[numeratorId] : null;
+      const numeratorExpr = numeratorPath ? (getAtPath(tree.rootJson, numeratorPath) as MJ) : null;
+      return !(numeratorExpr != null && isOneTerm(numeratorExpr));
     })();
 
   const destHoverNode = tree.nodesById[hover];
@@ -1328,6 +1342,19 @@ export function applyMoveMultiplicative(
     const extraction = extractFromDivide(tree, movedParentId, movedId);
     if (!extraction) return null;
     nextRoot = setAtPath(nextRoot, movedParentPath, extraction.updatedDivide);
+  } else if (
+    movedParentId &&
+    movedParentPath &&
+    movedParentOp === "FractionDerivative"
+  ) {
+    const kids = tree.childrenById[movedParentId] ?? [];
+    if (kids.length !== 2) return null;
+    const [numId, denId] = kids;
+    if (!isAncestorOrSelf(tree, denId, movedId)) return null;
+    const numPath = tree.pathById[numId];
+    if (!numPath) return null;
+    const numExpr = getAtPath(nextRoot, numPath) as MJ;
+    nextRoot = setAtPath(nextRoot, movedParentPath, numExpr);
   } else if (
     movedParentId &&
     movedParentPath &&
@@ -1431,13 +1458,8 @@ export function applyMoveMultiplicative(
     if (targetSlot === null) {
       // Whole division: divide the entire expression
       if (movedWasDivisor && destExpr) {
-        if (movedFromDenominatorProductSubset) {
-          // Moving one factor out of a denominator product keeps denominator intent.
-          updatedDest = ["Divide", destExpr, wrapForMultiplicativeInsertion(movedExpr)] as MJNode;
-        } else {
-          // denom moved across → multiply dest by moved
-          updatedDest = normalizeMul([destExpr, wrapForMultiplicativeInsertion(movedExpr)]);
-        }
+        // Denominator factors moved across "=" multiply the destination side.
+        updatedDest = normalizeMul([destExpr, wrapForMultiplicativeInsertion(movedExpr)]);
       } else {
         updatedDest = ["Divide", destExpr, movedExpr] as MJNode;
         // Normalize Divide(expr, 1) to expr
@@ -1482,12 +1504,8 @@ export function applyMoveMultiplicative(
     const destExpr = getAtPath(nextRoot, destRootPath) as MJ;
     let updatedDest: MJ;
     if (movedWasDivisor && destExpr) {
-      if (movedFromDenominatorProductSubset) {
-        updatedDest = ["Divide", destExpr, wrapForMultiplicativeInsertion(movedExpr)] as MJNode;
-      } else {
-        // denom moved across → multiply dest by moved
-        updatedDest = normalizeMul([destExpr, wrapForMultiplicativeInsertion(movedExpr)]);
-      }
+      // Denominator factors moved across "=" multiply the destination side.
+      updatedDest = normalizeMul([destExpr, wrapForMultiplicativeInsertion(movedExpr)]);
     } else {
       updatedDest = ["Divide", destExpr, movedExpr] as MJNode;
       // Normalize Divide(expr, 1) to expr
@@ -1523,13 +1541,11 @@ export function applyMoveMultiplicative(
       }
     }
 
-    // FractionDerivative/FractionPartialDerivative use the same [num, den]
-    // shape and should collapse when denominator becomes 1 after pull-out.
+    // FractionDerivative should collapse when denominator becomes 1 after pull-out.
     const fromRootOp = tree.nodesById[sideInfoFrom.sideRootId]?.op;
     if (
       Array.isArray(node) &&
-      (fromRootOp === "FractionDerivative" ||
-        fromRootOp === "FractionPartialDerivative") &&
+      fromRootOp === "FractionDerivative" &&
       isOneTerm(node[2] as MJ)
     ) {
       nextRoot = setAtPath(nextRoot, fromRootPath, node[1] as MJ);

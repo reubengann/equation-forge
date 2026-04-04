@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { evaluateRaw, parse } from "../../computeEngine";
 import { ExpressionTree, type MJ } from "../../ExpressionTree";
 import type { ExprSelection } from "../../selectionSemantics";
-import { canEvaluateSelection, evaluateSelection } from "./evaluateSelection";
+import { canEvaluateSelection, evaluateSelection, simplifySelection } from "./evaluateSelection";
 
 function buildTree(latex: string): ExpressionTree {
   const mj = parse(latex);
@@ -352,6 +352,93 @@ describe("evaluateSelection", () => {
     expect(out).toContain(
       String.raw`\ln\left(\left|b\right|\right) - \ln\left(\left|a\right|\right)`
     );
+  });
+
+  it("evaluates thermodynamics 1/v integral with subscript lower bound (issue 60)", () => {
+    const latex = String.raw`c_{v} \left(T - T_{0}\right) = -R T \int_{v_{0}}^{v} \frac{1}{v} \,\mathrm{d}{v}`;
+    const tree = buildTree(latex);
+    const integralNode = Object.values(tree.nodesById).find((n) => n.op === "Integrate");
+    expect(integralNode).toBeTruthy();
+
+    const next = evaluateSelection(tree, { kind: "node", nodeId: integralNode!.id });
+    expect(next).not.toBeNull();
+    const out = normalizeLatex(next!.latexPlain);
+    expect(out).not.toContain(String.raw`\int`);
+    expect(out).toContain(String.raw`\ln`);
+    expect(out).toContain(String.raw`v_{0}`);
+    expect(out).toContain(String.raw`\left|v\right|`);
+  });
+
+  it("evaluates integral with differential embedded in integrand and tuple variable Nothing", () => {
+    const latex = String.raw`\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}`;
+    const tree = buildTree(latex);
+    const integralNode = Object.values(tree.nodesById).find((n) => n.op === "Integrate");
+    expect(integralNode).toBeTruthy();
+
+    const next = evaluateSelection(tree, { kind: "node", nodeId: integralNode!.id });
+    expect(next).not.toBeNull();
+    const out = normalizeLatex(next!.latexPlain);
+    expect(out).not.toContain(String.raw`\int`);
+    expect(out).toContain(String.raw`\ln`);
+    expect(out).toContain(String.raw`T_{0}`);
+    expect(out).toContain(String.raw`\left|T\right|`);
+  });
+
+  it("evaluates negated definite integral by antiderivative substitution", () => {
+    const latex = String.raw`-\int_{v_{0}}^{v} \frac{R}{v} \,\mathrm{d}{v}`;
+    const tree = buildTree(latex);
+    const integralNode = Object.values(tree.nodesById).find(
+      (n) => n.op === "Negate"
+    );
+    expect(integralNode).toBeTruthy();
+
+    const next = evaluateSelection(tree, { kind: "node", nodeId: integralNode!.id });
+    expect(next).not.toBeNull();
+    const out = normalizeLatex(next!.latexPlain);
+    expect(out).not.toContain(String.raw`\int`);
+    expect(out).toContain(String.raw`R`);
+    expect(out).toContain(String.raw`\ln`);
+    expect(out).toContain(String.raw`v_{0}`);
+  });
+
+  it("simplifies exponential of ln when Euler constant is explicit (issue 61)", () => {
+    const tree = buildTreeFromMJ([
+      "Power",
+      "ExponentialE",
+      ["Ln", ["InvisibleOperator", "T", ["Power", "v", ["Divide", "R", "c_v"]]]],
+    ]);
+
+    const next = simplifySelection(tree, { kind: "node", nodeId: tree.rootId });
+    expect(next).not.toBeNull();
+    const out = normalizeLatex(next!.latexPlain);
+    expect(out).not.toContain(String.raw`\ln`);
+    expect(out).toContain(String.raw`T`);
+    expect(out).toContain(String.raw`v^{\frac{R}{c_{v}}}`);
+  });
+
+  it("simplifies e^ln(...) from parsed LaTeX by treating power-base e as Euler constant", () => {
+    const tree = buildTree(String.raw`e^{\ln\left(Tv^{\frac{R}{c_{v}}}\right)}`);
+    const next = simplifySelection(tree, { kind: "node", nodeId: tree.rootId });
+
+    expect(next).not.toBeNull();
+    const out = normalizeLatex(next!.latexPlain);
+    expect(out).not.toContain(String.raw`\ln`);
+    expect(out).toContain(String.raw`T`);
+    expect(out).toContain(String.raw`v^{\frac{R}{c_{v}}}`);
+  });
+
+  it("simplify preserves denominator scaling for nested fractions (issue 63)", () => {
+    const tree = buildTree(
+      String.raw`\frac{\frac{5}{3}}{\left(T_{1} + T_{0}\right)} = \left(\Delta T\right)`
+    );
+    const lhsId = tree.childrenById[tree.rootId]?.[0];
+    expect(lhsId).toBeTruthy();
+
+    const next = simplifySelection(tree, { kind: "node", nodeId: lhsId! });
+    expect(next).not.toBeNull();
+    const out = normalizeLatex(next!.latexPlain);
+    expect(out).toContain(String.raw`\frac{5}{3 \left(T_{0} + T_{1}\right)}`);
+    expect(out).not.toContain(String.raw`\frac{5}{3 T_{0} + T_{1}}`);
   });
 
   it("cancels (dP_s/dv_s) dv_s to dP_s when evaluating selected product (issue 44)", () => {

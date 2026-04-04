@@ -12,7 +12,7 @@ export function normalizeSelection(
     const curOp = tree.nodesById[cur]?.op;
     const bubbleDerivativeDelimiter =
       (op === "Delimiter" || op === "List") &&
-      (curOp === "FractionPartialDerivative" || curOp === "FractionDerivative");
+      curOp === "FractionPartialDerivative";
     if (
       op === "Negate" ||
       op === "Subscript" ||
@@ -24,7 +24,6 @@ export function normalizeSelection(
       op === "Vector" ||
       op === "OverDot" ||
       op === "FractionPartialDerivative" ||
-      op === "FractionDerivative" ||
       bubbleDerivativeDelimiter
     ) {
       cur = p;

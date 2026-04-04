@@ -195,11 +195,30 @@ describe("ExpressionTree", () => {
     expect(t.latexTagged).not.toContain(`\\exponentialE`);
   });
 
+  it('renders "ExponentialE" as italic e', () => {
+    const mj: MJ = ["Power", "ExponentialE", "x"];
+    const t = ExpressionTree.create(mj);
+    expect(t.latexTagged).toContain(String.raw`{e}^{`);
+    expect(t.latexTagged).not.toContain("ExponentialE");
+  });
+
   it("Renders Divide as a fraction", () => {
     const t = ExpressionTree.create(["Divide", ["Add", "a", "b"], 2]);
     expect(t.latexTagged).toBe(
       String.raw`\htmlData{node-id="n1"}{\frac{\htmlData{node-id="n2"}{\htmlData{node-id="n3"}{a} + \htmlData{node-id="n4"}{b}}}{\htmlData{node-id="n5"}{2}}}`,
     );
+  });
+
+  it("renders square root function", () => {
+    const t = ExpressionTree.create(["Sqrt", 5]);
+    expect(t.latexTagged).toBe(
+      String.raw`\htmlData{node-id="n1"}{\sqrt{\htmlData{node-id="n2"}{5}}}`
+    );
+  });
+
+  it("wraps additive factors in implicit products", () => {
+    const t = ExpressionTree.create(["InvisibleOperator", 3, ["Add", "a", "b"]]);
+    expect(t.latexPlain).toBe(String.raw`3 \left(a + b\right)`);
   });
 
   it("parses derivative fraction into FractionDerivative", () => {

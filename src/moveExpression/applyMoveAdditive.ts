@@ -1,4 +1,5 @@
 import { ExpressionTree, type MJ, type MJNode } from "../ExpressionTree";
+import { normalizeMathJson } from "../computeEngine";
 import { getAtPath, routeBetween, setAtPath } from "../movePath";
 import { normalizeSelection } from "../selectionSemantics";
 import type { Slot } from "./types";
@@ -308,7 +309,8 @@ export function applyMoveAdditive(args: {
       normalizeSum(nextDestTerms)
     );
 
-    return ExpressionTree.create(rootAfterInsert);
+    const normalizedRoot = normalizeMathJson(rootAfterInsert) ?? rootAfterInsert;
+    return ExpressionTree.create(normalizedRoot);
   }
 
   const fromIdRaw = effectiveSelectedIds[0];
@@ -414,7 +416,8 @@ export function applyMoveAdditive(args: {
     state = dropped.state;
 
     if (state.payload !== null) return null;
-    return ExpressionTree.create(state.root);
+    const normalizedRoot = normalizeMathJson(state.root) ?? state.root;
+    return ExpressionTree.create(normalizedRoot);
   }
 
   // 4) walk DOWN (edge-aware)
@@ -442,7 +445,8 @@ export function applyMoveAdditive(args: {
     state = dropped.state;
 
     if (state.payload !== null) return null;
-    return ExpressionTree.create(state.root);
+    const normalizedRoot = normalizeMathJson(state.root) ?? state.root;
+    return ExpressionTree.create(normalizedRoot);
   }
 }
 

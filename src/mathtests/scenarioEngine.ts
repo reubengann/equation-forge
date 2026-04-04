@@ -344,6 +344,7 @@ function parseActionFromStep(
   if (type === "cancel") return { type: "cancel" };
   if (type === "toggleDelimiterStyle") return { type: "toggleDelimiterStyle" };
   if (type === "evaluate") return { type: "evaluate" };
+  if (type === "simplify") return { type: "simplify" };
 
   if (type === "apply" || type === "applyToBothSides") {
     return {

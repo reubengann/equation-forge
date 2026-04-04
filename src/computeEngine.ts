@@ -109,7 +109,7 @@ function promoteTightPlainDifferentials(latex: string): string {
   // We rewrite tight forms before CE parsing because CE tokenization loses the
   // spacing distinction and normalizes both forms to InvisibleOperator("d","X").
   const tightDifferential =
-    /(^|[^\\A-Za-z0-9_'])d((?:[A-Za-z](?:_\{[^}]+\}|_[A-Za-z0-9]+)?)|(?:\\[A-Za-z]+))(?![A-Za-z0-9_])/g;
+    /(^|[^\\A-Za-z0-9_'])d([A-Za-z](?:_\{[^}]+\}|_[A-Za-z0-9]+)?)(?![A-Za-z0-9_])/g;
   return latex.replace(tightDifferential, (_m, prefix: string, operand: string) => {
     return `${prefix}\\differentialD{${operand}}`;
   });
@@ -146,6 +146,7 @@ export function normalizeMathJson(mj: MJ | null): MJ | null {
                     normalizeDotProducts(
                       normalizePrimeDifferentials(
                         rewriteNegateToFrontOfProduct(
+                          normalizeDivideSigns(
                           normalizeDeltaOfQuantity(
                             normalizeDifferentialOperands(
                               normalizePrimeDifferentials(
@@ -156,6 +157,7 @@ export function normalizeMathJson(mj: MJ | null): MJ | null {
                                 )
                               )
                             )
+                          )
                           )
                         )
                       )
@@ -169,6 +171,35 @@ export function normalizeMathJson(mj: MJ | null): MJ | null {
       )
     )
   );
+}
+
+function peelNegation(expr: MJ): { expr: MJ; isNegated: boolean } {
+  let current: MJ = expr;
+  while (Array.isArray(current) && current[0] === "Add" && current.length === 2) {
+    current = current[1] as MJ;
+  }
+  if (Array.isArray(current) && current[0] === "Negate" && current.length >= 2) {
+    return { expr: current[1] as MJ, isNegated: true };
+  }
+  return { expr: current, isNegated: false };
+}
+
+function normalizeDivideSigns(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+  const op = mj[0];
+  const kids = mj.slice(1).map((child) => normalizeDivideSigns(child as MJ)) as MJ[];
+
+  if (op === "Divide" && kids.length >= 2) {
+    const num = peelNegation(kids[0] as MJ);
+    const den = peelNegation(kids[1] as MJ);
+    const divide = ["Divide", num.expr, den.expr] as MJ;
+    return num.isNegated !== den.isNegated
+      ? (["Negate", divide] as MJ)
+      : divide;
+  }
+
+  return [op, ...kids] as MJ;
 }
 
 function normalizeSubscriptLikeSymbols(mj: MJ | null): MJ | null {
@@ -587,10 +618,11 @@ function normalizePlainDifferentials(mj: MJ | null): MJ | null {
     const canCombine = next !== undefined;
     const followsExplicitSpacing =
       Array.isArray(prev) && prev[0] === "HorizontalSpacing";
-    const followsFactor = isFactorLike(prev as MJ | null);
     // Plain "d x" with a literal space should remain multiplicative.
     // Tight forms (dX) are promoted earlier in parse() via \differentialD.
-    const allowedContextForPlainD = followsExplicitSpacing || followsFactor;
+    // Do not infer a differential after an existing factor, otherwise
+    // products like "c d e" get misread as c * d(e).
+    const allowedContextForPlainD = followsExplicitSpacing;
     if (curIsPrimeDifferentialNode) {
       out.push(["InexactDifferential", (cur[1] as MJ[])[1]] as MJ);
       continue;
@@ -866,6 +898,17 @@ function collectSymbolsForScope(
   }
 }
 
+const CE_BUILTIN_CONSTANT_SYMBOLS = new Set<string>([
+  "ExponentialE",
+  "Pi",
+  "ImaginaryUnit",
+  "ComplexInfinity",
+  "NotANumber",
+  "EulerGamma",
+  "CatalanConstant",
+  "GoldenRatio",
+]);
+
 export function withRealScope<T>(expr: MJ, run: (ce: ComputeEngine) => T): T {
   const symbols = new Set<string>();
   collectSymbolsForScope(expr, symbols);
@@ -875,6 +918,10 @@ export function withRealScope<T>(expr: MJ, run: (ce: ComputeEngine) => T): T {
     for (const sym of symbols) {
       // Skip strings that look numeric to avoid redeclaring literals.
       if (/^-?\d+(?:\.\d+)?$/.test(sym)) continue;
+      // Synthetic subscript placeholders are transport tokens, not symbols.
+      if (sym.startsWith("__pd_sub__")) continue;
+      // Preserve CE built-in mathematical constants.
+      if (CE_BUILTIN_CONSTANT_SYMBOLS.has(sym)) continue;
       ce.declare(sym, "real");
     }
     return run(ce);
@@ -1220,6 +1267,16 @@ const deltaOfQuantityEntry: LatexDictionaryEntry = {
 };
 
 const ce = new ComputeEngine();
+
+declare global {
+  interface Window {
+    __ce?: ComputeEngine;
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.__ce = ce;
+}
 
 const baseDictionary = ComputeEngine.getLatexDictionary("all").filter(
   (entry) =>

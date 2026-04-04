@@ -313,6 +313,27 @@ describe("applyMove", () => {
     );
   });
 
+  it("renders subtraction when moving a positive numerator term out of a fraction", () => {
+    const tree = treefromLatex(String.raw`\eta = \frac{Q_{2} - Q_{1}}{Q_{2}}`);
+    const divideId = findNodeId(tree, (n) => n.op === "Divide");
+    const numeratorId = tree.childrenById[divideId]?.[0];
+    expect(numeratorId).toBeTruthy();
+    const q2InNumeratorId = tree.childrenById[numeratorId!]?.[0];
+    expect(q2InNumeratorId).toBeTruthy();
+
+    const result = applyMove({
+      tree,
+      selectedIds: [q2InNumeratorId!],
+      hoverId: divideId,
+      targetSlot: 0,
+    });
+
+    expect(result).not.toBeNull();
+    const latex = result!.latexPlain;
+    expect(latex).toContain(String.raw`\frac{Q_{2}}{Q_{2}} - \frac{Q_{1}}{Q_{2}}`);
+    expect(latex).not.toContain(String.raw`\frac{Q_{2}}{Q_{2}} + \frac{-Q_{1}}{Q_{2}}`);
+  });
+
   it("moves selected c d e term into left additive group", () => {
     const tree = treefromLatex(String.raw`\left(a + b\right) - \left(c d e\right) = f`);
     const cId = findNodeByLatex(tree, "c");

@@ -23,6 +23,8 @@ type MoveModeToolbarProps = {
   canToggleDelimiterStyle: boolean;
   onEvaluate: () => void;
   canEvaluate: boolean;
+  onSimplify: () => void;
+  canSimplify: boolean;
   onFactor: () => void;
   canFactor: boolean;
   onOpenApply: () => void;
@@ -93,6 +95,8 @@ export const MoveModeToolbar = forwardRef<
     canToggleDelimiterStyle,
     onEvaluate,
     canEvaluate,
+    onSimplify,
+    canSimplify,
     onFactor,
     canFactor,
     onOpenApply,
@@ -254,6 +258,17 @@ export const MoveModeToolbar = forwardRef<
         onClick={onEvaluate}
         disabled={!canEvaluate}
         testId="evaluate-button"
+      />
+      <IconButton
+        label="Simplify"
+        icon={
+          <span style={materialSymbolStyle} aria-hidden>
+            auto_fix_high
+          </span>
+        }
+        onClick={onSimplify}
+        disabled={!canSimplify}
+        testId="simplify-button"
       />
       <IconButton
         label="Apply to both sides"

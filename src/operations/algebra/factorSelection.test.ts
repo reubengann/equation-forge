@@ -131,20 +131,40 @@ describe("factorSelection", () => {
     const tree = treefromLatex(
       String.raw`w = K \left(\frac{v_{2}^{-\gamma + 1}}{-\gamma + 1} - \frac{v_{1}^{-\gamma + 1}}{-\gamma + 1}\right)`
     );
-    const delimiterId = findNodeId(
+    const targetId = findNodeId(
       tree,
       (n) =>
-        n.op === "Delimiter" &&
+        (n.op === "Delimiter" || n.op === "Add") &&
         n.latex.includes(String.raw`v_{2}^{-\gamma + 1}`) &&
         n.latex.includes(String.raw`v_{1}^{-\gamma + 1}`)
     );
 
-    expect(canFactorSelection(tree, { kind: "node", nodeId: delimiterId })).toBe(true);
+    expect(canFactorSelection(tree, { kind: "node", nodeId: targetId })).toBe(true);
 
-    const result = factorSelection(tree, { kind: "node", nodeId: delimiterId });
+    const result = factorSelection(tree, { kind: "node", nodeId: targetId });
     expect(result).not.toBeNull();
     expect(normalizeSpaces(result!.latexPlain)).toContain(
       String.raw`\frac{v_{2}^{-\gamma + 1} - v_{1}^{-\gamma + 1}}{-\gamma + 1}`
+    );
+  });
+
+  it("factors a difference of squares into conjugates", () => {
+    const tree = treefromLatex(String.raw`-T_{0}^{2} + T_{1}^{2}`);
+    const result = factorSelection(tree, { kind: "node", nodeId: tree.rootId });
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe(
+      String.raw`\left(T_{1} - T_{0}\right) \left(T_{1} + T_{0}\right)`
+    );
+  });
+
+  it("factors out both symbolic and rational numeric prefactors (issue 64)", () => {
+    const tree = treefromLatex(
+      String.raw`-\frac{1}{2} b T_{0}^{2} + \frac{1}{2} b T_{1}^{2}`
+    );
+    const result = factorSelection(tree, { kind: "node", nodeId: tree.rootId });
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe(
+      String.raw`\frac{b}{2} \left(-T_{0}^{2} + T_{1}^{2}\right)`
     );
   });
 });

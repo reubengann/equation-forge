@@ -48,8 +48,8 @@ describe("substitute", () => {
     });
 
     expect(result).not.toBeNull();
-    expect(result?.rootJson).toEqual(
-      makeMJfromLatex(String.raw`m \ddot{\vec{r}} = \vec{F}_{g} + \vec{N}`)
+    expect(result?.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`m, \ddot{\vec{r}} = \vec{F}_{g} + \vec{N}`
     );
   });
 

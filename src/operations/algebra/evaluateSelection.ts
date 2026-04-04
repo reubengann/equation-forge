@@ -16,6 +16,15 @@ function deepEqualMJ(a: MJ, b: MJ): boolean {
   return a === b;
 }
 
+function isEvalDebugEnabled(): boolean {
+  return true;
+}
+
+function debugEval(label: string, payload: MJ): void {
+  if (!isEvalDebugEnabled()) return;
+  console.debug(`[evaluateSelection] ${label}:`, JSON.stringify(payload));
+}
+
 function containsErrorNode(expr: MJ): boolean {
   if (!Array.isArray(expr)) return false;
   if (expr[0] === "Error") return true;
@@ -64,6 +73,9 @@ function toComputeEngine(expr: MJ): MJ {
   // Delimiter/List are display-grouping wrappers in this app; evaluate on the inner expression.
   if ((expr[0] === "Delimiter" || expr[0] === "List") && expr.length >= 2) {
     return toComputeEngine(expr[1] as MJ);
+  }
+  if (expr[0] === "Power" && expr.length >= 3 && expr[1] === "e") {
+    return ["Power", "ExponentialE", toComputeEngine(expr[2] as MJ)] as MJ;
   }
   if (expr[0] === "Subscript") {
     return encodeSubscriptSymbol(expr[1] as MJ, expr[2] as MJ);
@@ -211,14 +223,127 @@ function normalizeCanonicalCalculus(expr: MJ): MJ {
   return [op, ...kids] as MJ;
 }
 
-function evaluateExpression(expr: MJ): MJ | null {
+type EvalMode = "evaluate" | "simplify";
+
+function evaluateSingleDefiniteIntegralByAntiderivative(
+  ceExpr: MJ,
+  ce: { box: (expr: MJ) => any }
+): MJ | null {
+  if (!Array.isArray(ceExpr) || ceExpr[0] !== "Integrate" || ceExpr.length < 3) return null;
+  const integrand = ceExpr[1] as MJ;
+  const rawBounds = ceExpr[2] as MJ;
+  if (!Array.isArray(rawBounds) || rawBounds[0] !== "Tuple" || rawBounds.length < 4) {
+    return null;
+  }
+
+  let variable = rawBounds[1] as MJ;
+  const lower = rawBounds[2] as MJ;
+  const upper = rawBounds[3] as MJ;
+
+  // Infer variable when parser encodes differential in integrand.
+  let normalizedIntegrand = integrand;
+  if (variable === "Nothing" && Array.isArray(integrand)) {
+    if (
+      integrand[0] === "Divide" &&
+      integrand.length >= 3 &&
+      Array.isArray(integrand[1]) &&
+      (integrand[1] as MJ[])[0] === "Differential"
+    ) {
+      const diffOperand = ((integrand[1] as MJ[])[1] ?? "Nothing") as MJ;
+      const denominator = integrand[2] as MJ;
+      if (
+        typeof diffOperand === "string" &&
+        typeof denominator === "string" &&
+        diffOperand === denominator
+      ) {
+        variable = diffOperand;
+        normalizedIntegrand = ["Divide", 1, denominator] as MJ;
+      }
+    } else if (
+      integrand[0] === "Differential" &&
+      integrand.length >= 2 &&
+      typeof integrand[1] === "string"
+    ) {
+      variable = integrand[1] as MJ;
+      normalizedIntegrand = 1;
+    }
+  }
+
+  if (
+    variable === "Nothing" ||
+    lower === "Nothing" ||
+    upper === "Nothing" ||
+    typeof variable !== "string"
+  ) {
+    return null;
+  }
+
+  const antiDerivative = ce
+    .box(["Integrate", normalizedIntegrand, variable] as MJ)
+    ?.evaluate?.();
+  if (antiDerivative?.json === undefined) return null;
+
+  const antiBox = ce.box(antiDerivative.json as MJ);
+  if (typeof antiBox?.subs !== "function") return null;
+
+  const upperEval = antiBox.subs({ [variable]: upper });
+  const lowerEval = antiBox.subs({ [variable]: lower });
+  if (upperEval?.json === undefined || lowerEval?.json === undefined) return null;
+
+  const diffBox = ce.box(["Subtract", upperEval.json as MJ, lowerEval.json as MJ] as MJ);
+  const reduced = diffBox?.simplify?.() ?? diffBox?.evaluate?.();
+  if (reduced?.json === undefined) return null;
+
+  return reduced.json as MJ;
+}
+
+function rewriteDefiniteIntegralsByAntiderivative(
+  ceExpr: MJ,
+  ce: { box: (expr: MJ) => any }
+): { rewritten: MJ; changed: boolean } {
+  const replacement = evaluateSingleDefiniteIntegralByAntiderivative(ceExpr, ce);
+  if (replacement !== null) return { rewritten: replacement, changed: true };
+  if (!Array.isArray(ceExpr)) return { rewritten: ceExpr, changed: false };
+
+  let changed = false;
+  const kids = (ceExpr.slice(1) as MJ[]).map((child) => {
+    const out = rewriteDefiniteIntegralsByAntiderivative(child, ce);
+    if (out.changed) changed = true;
+    return out.rewritten;
+  });
+  return { rewritten: [ceExpr[0], ...kids] as MJ, changed };
+}
+
+function evaluateExpression(expr: MJ, mode: EvalMode): MJ | null {
   const ceReady = toComputeEngine(expr);
+  debugEval("input", expr);
+  debugEval("ce-ready", ceReady);
   return withRealScope(ceReady, (ce) => {
-    const candidates = [
-      ce.box(ceReady)?.evaluate?.(),
-      ce.box(ceReady)?.simplify?.(),
-      ce.box(ceReady)?.N?.(),
-    ].filter(Boolean) as { json: MJ }[];
+    const boxed = ce.box(ceReady);
+    const candidates: { json: MJ }[] = [];
+    const tryCandidate = (
+      label: "evaluate" | "simplify" | "N",
+      fn: (() => { json: unknown } | undefined) | undefined
+    ) => {
+      if (!fn) return;
+      try {
+        const value = fn();
+        if (value && value.json !== undefined) {
+          candidates.push({ json: value.json as MJ });
+          debugEval(`ce-${label}-out`, value.json as MJ);
+        }
+      } catch {
+        // Keep evaluate robust: CE may throw for some symbolic integrals.
+      }
+    };
+    if (mode === "simplify") {
+      tryCandidate("simplify", boxed?.simplify?.bind(boxed));
+      tryCandidate("evaluate", boxed?.evaluate?.bind(boxed));
+    } else {
+      tryCandidate("evaluate", boxed?.evaluate?.bind(boxed));
+      tryCandidate("simplify", boxed?.simplify?.bind(boxed));
+    }
+    tryCandidate("N", boxed?.N?.bind(boxed));
 
     for (const cand of candidates) {
       const fromCe = normalizeCanonicalCalculus(fromComputeEngine(cand.json));
@@ -235,28 +360,53 @@ function evaluateExpression(expr: MJ): MJ | null {
         continue;
       }
       if (!deepEqualMJ(normalized, expr)) {
+        debugEval("result", normalized);
         return normalized;
       }
     }
 
+    try {
+      const viaAntiderivative = rewriteDefiniteIntegralsByAntiderivative(ceReady, ce);
+      if (viaAntiderivative.changed) {
+        debugEval("fallback-antiderivative-rewritten-ce", viaAntiderivative.rewritten);
+        const fromCe = normalizeCanonicalCalculus(fromComputeEngine(viaAntiderivative.rewritten));
+        const normalizedFromCe = normalizeMathJson(fromCe) ?? fromCe;
+        if (
+          !containsErrorNode(normalizedFromCe) &&
+          !containsSyntheticDelimiterSymbol(normalizedFromCe) &&
+          !containsDifferentialAlias(normalizedFromCe) &&
+          !deepEqualMJ(normalizedFromCe, expr)
+        ) {
+          debugEval("fallback-antiderivative-result", normalizedFromCe);
+          return normalizedFromCe;
+        }
+      }
+    } catch {
+      debugEval("fallback-antiderivative-error", ceReady);
+    }
+
     const multiplied = multiplyNumericFactors(expr);
     if (multiplied && !deepEqualMJ(multiplied, expr)) {
+      debugEval("result", multiplied);
       return multiplied;
     }
 
     const reciprocalSimplified = simplifyReciprocalDivides(expr);
     if (!deepEqualMJ(reciprocalSimplified, expr)) {
+      debugEval("result", reciprocalSimplified);
       return reciprocalSimplified;
     }
 
     const zeroProductSimplified = simplifyZeroProducts(expr);
     const normalizedZeroProduct = normalizeMathJson(zeroProductSimplified) ?? zeroProductSimplified;
     if (!deepEqualMJ(normalizedZeroProduct, expr)) {
+      debugEval("result", normalizedZeroProduct);
       return normalizedZeroProduct;
     }
 
     const differentialCanceled = simplifyDifferentialFractionProducts(expr);
     if (!deepEqualMJ(differentialCanceled, expr)) {
+      debugEval("result", differentialCanceled);
       return differentialCanceled;
     }
 
@@ -437,9 +587,17 @@ export function canEvaluateSelection(
   return true;
 }
 
-export function evaluateSelection(
+export function canSimplifySelection(
+  tree: ExpressionTree | null,
+  sel: ExprSelection | null
+): boolean {
+  return canEvaluateSelection(tree, sel);
+}
+
+function applyEvalLikeSelection(
   tree: ExpressionTree,
-  sel: ExprSelection
+  sel: ExprSelection,
+  mode: EvalMode
 ): ExpressionTree | null {
   if (sel.kind === "multi") return null;
 
@@ -447,7 +605,7 @@ export function evaluateSelection(
     const path = tree.pathById[sel.nodeId];
     if (!path) return null;
     const target = getAtPath(tree.rootJson, path) as MJ;
-    const evaluated = evaluateExpression(target);
+    const evaluated = evaluateExpression(target, mode);
     if (!evaluated) {
       if (!isZeroEquivalent(target)) return null;
       if (target === 0 || target === "0") return null;
@@ -483,7 +641,7 @@ export function evaluateSelection(
   const segmentKids = kids.slice(start, end + 1);
   const segmentExpr = rebuildGrouped(op, segmentKids);
 
-  const evaluatedSegment = evaluateExpression(segmentExpr);
+  const evaluatedSegment = evaluateExpression(segmentExpr, mode);
   if (!evaluatedSegment) return null;
 
   const nextKids = [
@@ -495,4 +653,18 @@ export function evaluateSelection(
   const rebuiltParent = rebuildGrouped(op, nextKids);
   const nextRoot = setAtPath(tree.rootJson, parentPath, rebuiltParent) as MJ;
   return ExpressionTree.create(nextRoot);
+}
+
+export function evaluateSelection(
+  tree: ExpressionTree,
+  sel: ExprSelection
+): ExpressionTree | null {
+  return applyEvalLikeSelection(tree, sel, "evaluate");
+}
+
+export function simplifySelection(
+  tree: ExpressionTree,
+  sel: ExprSelection
+): ExpressionTree | null {
+  return applyEvalLikeSelection(tree, sel, "simplify");
 }

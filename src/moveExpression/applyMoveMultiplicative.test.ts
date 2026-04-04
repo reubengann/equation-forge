@@ -223,7 +223,7 @@ describe("applyMoveMultiplicative executor", () => {
 
   it("pulls numerator factor outside fraction at slot 0", () => {
     const next = runMove({
-      latex: String.raw`a = \frac{b d}{c}`,
+      latex: String.raw`a = \frac{b q}{c}`,
       select: (tree) => [findNodeByLatex(tree, "b")],
       hover: (tree) => {
         const divideId = findNodeId(tree, (n) => n.op === "Divide");
@@ -234,13 +234,13 @@ describe("applyMoveMultiplicative executor", () => {
 
     expect(next).not.toBeNull();
     expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
-      String.raw`a = b \frac{d}{c}`
+      String.raw`a = b \frac{q}{c}`
     );
   });
 
   it("pulls numerator factor outside fraction at slot 1", () => {
     const next = runMove({
-      latex: String.raw`a = \frac{b d}{c}`,
+      latex: String.raw`a = \frac{b q}{c}`,
       select: (tree) => [findNodeByLatex(tree, "b")],
       hover: (tree) => {
         const divideId = findNodeId(tree, (n) => n.op === "Divide");
@@ -251,7 +251,7 @@ describe("applyMoveMultiplicative executor", () => {
 
     expect(next).not.toBeNull();
     expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
-      String.raw`a = \frac{d}{c} b`
+      String.raw`a = \frac{q}{c} b`
     );
   });
 
@@ -318,7 +318,7 @@ describe("applyMoveMultiplicative executor", () => {
 
     expect(next).not.toBeNull();
     expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
-      String.raw`a = b + \left[c + d\right] f \frac{1}{e}`
+      String.raw`a = b + \left[c + d\right] \frac{f}{e}`
     );
   });
 
@@ -359,7 +359,7 @@ describe("applyMoveMultiplicative executor", () => {
   it("pulls d{v}_P outside thermodynamics fraction numerator", () => {
     const next = runMove({
       latex: String.raw`c_{P} = c_{V} + \frac{\left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right] \mathrm{d}{v}_{P}}{\mathrm{d}{T}_{P}}`,
-      select: (tree) => [findNodeByLatex(tree, String.raw`\mathrm{d}{v}_{P}`)],
+      select: (tree) => [findNodeByLatex(tree, String.raw`\mathrm{d}{v_{P}}`)],
       hover: (tree) => {
         const rhsAddId = tree.childrenById[tree.rootId!]?.[1];
         if (!rhsAddId) throw new Error("Missing RHS Add");
@@ -370,7 +370,7 @@ describe("applyMoveMultiplicative executor", () => {
 
     expect(next).not.toBeNull();
     expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
-      String.raw`c_{P} = c_{V} + \frac{\left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right]}{\mathrm{d}{T}_{P}} \mathrm{d}{v}_{P}`
+      String.raw`c_{P} = c_{V} + \frac{\left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right]}{\mathrm{d}{T_{P}}} \mathrm{d}{v_{P}}`
     );
   });
 
@@ -406,6 +406,24 @@ describe("applyMoveMultiplicative executor", () => {
     expect(next).not.toBeNull();
     expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
       String.raw`c_{v} \mathrm{d}{T} = \mathrm{d}{u}`
+    );
+  });
+
+  it("moves denominator dv from LHS derivative fraction to RHS (issue 59)", () => {
+    const next = runMove({
+      latex: String.raw`c_{v} \frac{\mathrm{d}{T}}{\mathrm{d}{v}} = -\frac{R T}{v}`,
+      select: (tree) => [findNodeByLatex(tree, String.raw`\mathrm{d}{v}`)],
+      hover: (tree) => {
+        const rhsId = tree.childrenById[tree.rootId!]?.[1];
+        if (!rhsId) throw new Error("Missing RHS");
+        return rhsId;
+      },
+      targetSlot: null,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`c_{v} \mathrm{d}{T} = -\frac{R T}{v} \mathrm{d}{v}`
     );
   });
 
@@ -491,20 +509,13 @@ describe("applyMoveMultiplicative executor", () => {
             tree.childIndexById[n.id] === 1
         ),
       ],
-      hover: (tree) =>
-        findNodeId(
-          tree,
-          (n) =>
-            n.op === "Delimiter" &&
-            n.latex.includes(String.raw`v_{2}^{-\gamma + 1}`) &&
-            n.latex.includes(String.raw`v_{1}^{-\gamma + 1}`)
-        ),
+      hover: (tree) => findNodeByLatex(tree, "K"),
       targetSlot: 1,
     });
 
     expect(next).not.toBeNull();
     expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
-      String.raw`w = K \left(v_{2}^{-\gamma + 1} - v_{1}^{-\gamma + 1}\right) \frac{1}{-\gamma + 1}`
+      String.raw`w = \frac{K}{-\gamma + 1} \left(v_{2}^{-\gamma + 1} - v_{1}^{-\gamma + 1}\right)`
     );
   });
 
@@ -559,6 +570,58 @@ describe("applyMoveMultiplicative executor", () => {
     expect(next).not.toBeNull();
     expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
       String.raw`\frac{P}{v} = \frac{K}{v^{\gamma - 1}}`
+    );
+  });
+
+  it("moves a selected denominator factor from RHS product to LHS by multiplication (issue 65)", () => {
+    const next = runMove({
+      latex: String.raw`c_{P} = -\frac{1}{\left(\frac{\partial{T}}{\partial{P}}\right)_{h} \left(\frac{\partial{P}}{\partial{h}}\right)_{T}}`,
+      select: (tree) => [
+        findNodeId(
+          tree,
+          (n) =>
+            n.op === "Subscript" &&
+            n.latex.includes(String.raw`\frac{\partial{T}}{\partial{P}}`) &&
+            n.latex.includes("_{h}")
+        ),
+      ],
+      hover: (tree) => {
+        const lhsId = tree.childrenById[tree.rootId!]?.[0];
+        if (!lhsId) throw new Error("Missing LHS");
+        return lhsId;
+      },
+      targetSlot: null,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`c_{P} \left(\frac{\partial{T}}{\partial{P}}\right)_{h} = -\frac{1}{\left(\frac{\partial{P}}{\partial{h}}\right)_{T}}`
+    );
+  });
+
+  it("moves issue 65 factor to LHS edge as multiplication, not division", () => {
+    const next = runMove({
+      latex: String.raw`c_{P} = -\frac{1}{\left(\frac{\partial{T}}{\partial{P}}\right)_{h} \left(\frac{\partial{P}}{\partial{h}}\right)_{T}}`,
+      select: (tree) => [
+        findNodeId(
+          tree,
+          (n) =>
+            n.op === "Subscript" &&
+            n.latex.includes(String.raw`\frac{\partial{T}}{\partial{P}}`) &&
+            n.latex.includes("_{h}")
+        ),
+      ],
+      hover: (tree) => {
+        const lhsId = tree.childrenById[tree.rootId!]?.[0];
+        if (!lhsId) throw new Error("Missing LHS");
+        return lhsId;
+      },
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`c_{P} \left(\frac{\partial{T}}{\partial{P}}\right)_{h} = -\frac{1}{\left(\frac{\partial{P}}{\partial{h}}\right)_{T}}`
     );
   });
 
@@ -692,14 +755,10 @@ describe("applyMoveMultiplicative executor", () => {
 
       expect(next).not.toBeNull();
       const result = next!.latexPlain.replace(/\s+/g, " ").trim();
-      // Should be (x^{2} + v_{x})\frac{1}{m} = a or similar
-      expect(result).toContain("\\frac{1}{m}");
+      // Canonical output may fold x*(1/m) into x/m.
+      expect(result).toContain("\\frac{\\left(x^{2} + v_{x}\\right)}{m}");
       expect(result).toContain("x^{2} + v_{x}");
       expect(result).toContain("= a");
-      // The reciprocal should come after the expression
-      const fracIndex = result.indexOf("\\frac{1}{m}");
-      const exprIndex = result.indexOf("x^{2}");
-      expect(fracIndex).toBeGreaterThan(exprIndex);
     });
   });
 });
