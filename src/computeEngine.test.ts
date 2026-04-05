@@ -286,6 +286,13 @@ describe("computeEngine custom dictionary", () => {
     expect(latex).toBe(String.raw`P \left(\frac{\partial{v}}{\partial{T}}\right)_{P}`);
   });
 
+  it("keeps greek mu as a greek symbol with numeric subscript (issue 71)", () => {
+    const mj = parse(String.raw`\mu_0`);
+    expect(mj).toEqual(["Subscript", "mu", 0]);
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toBe(String.raw`\mu_{0}`);
+  });
+
   it("fixes blank integrals while preserving unresolved tuple placeholders", () => {
     const mj = normalizeMathJson([
       "Integrate",

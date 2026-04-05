@@ -251,9 +251,23 @@ function normalizeSubscriptLikeSymbols(mj: MJ | null): MJ | null {
   if (mj === null || mj === undefined) return mj;
   if (typeof mj === "string") {
     const m = /^([A-Za-z]+)_([A-Za-z0-9]+)$/.exec(mj);
-    if (!m) return mj;
-    const sub = /^\d+$/.test(m[2]) ? Number(m[2]) : m[2];
-    return ["Subscript", m[1], sub] as MJ;
+    if (m) {
+      const sub = /^\d+$/.test(m[2]) ? Number(m[2]) : m[2];
+      return ["Subscript", m[1], sub] as MJ;
+    }
+    // CE may compact some greek-with-numeric-subscript forms, e.g. \mu_0 -> "mu0".
+    const compactGreekWithNumericSubscript =
+      /^(alpha|beta|gamma|EulerGamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|omicron|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega|Gamma|Delta|Theta|Lambda|Xi|Pi|Sigma|Upsilon|Phi|Psi|Omega)(\d+)$/.exec(
+        mj
+      );
+    if (compactGreekWithNumericSubscript) {
+      return [
+        "Subscript",
+        compactGreekWithNumericSubscript[1],
+        Number(compactGreekWithNumericSubscript[2]),
+      ] as MJ;
+    }
+    return mj;
   }
   if (!Array.isArray(mj)) return mj;
   const op = mj[0];

@@ -269,10 +269,36 @@
 
 ---- undone ----
 
-71. We need fraction tools. Such as
+71. `d'W = - \mu_0 V \mathscr{H} d\mathscr{H} - \mu_0 V \mathscr{H} d\mathscr{M}`
+    When rendered, `\mu` is converted to just `mu` and is no longer recognized as a greek letter. Not observed on other greek letters.
+
+72. We need fraction tools. Such as
     - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`)
     - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)
 
-72. Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc.
+73. Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it.
 
-73. Upgrade cortexjs to newest version.
+74. Upgrade cortexjs to newest version.
+
+75. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs.
+
+76. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
+
+77. `c_{v} \frac{\mathrm{d}{P}}{\mathrm{d}{v}} = -c_{P} \frac{-\frac{\left(\frac{\partial{T}}{\partial{P}}\right)_{v}}{\left(\frac{\partial{v}}{\partial{P}}\right)_{T}}}{\left(\frac{\partial{T}}{\partial{P}}\right)_{v}}`
+    Simplifying the RHS fraction gives `c_{v} \frac{\mathrm{d}{P}}{\mathrm{d}{v}} = -c_{P} -\frac{\frac{\left(\frac{\partial{T}}{\partial{P}}\right)_{v}}{\left(\frac{\partial{v}}{\partial{P}}\right)_{T}}}{\left(\frac{\partial{T}}{\partial{P}}\right)_{v}}`
+    which is both incorrect and unhelpful.
+78. `c_{v} \frac{\mathrm{d}{P}}{\mathrm{d}{v}} = -\left(-c_{P} \frac{1}{\left(\frac{\partial{v}}{\partial{P}}\right)_{T}}\right)`
+    The RHS won't simplify to cancel the minus signs, even though this eqn will: `a = -b \left(-c\right)`
+
+79. `\frac{19 R T_{1}}{2} - P_{2} v_{1} + W_{\mathrm{ab}} + Q_{\mathrm{ab}} - Q_{\mathrm{ab}} - W_{\mathrm{ab}} - \frac{17 R T_{1}}{2} + P_{1} v_{1} = 0`
+    Can't cancel the like terms `Q_{\mathrm{ab}} - Q_{\mathrm{ab}}`
+80. `c_{v}  \mathrm{d}{T} + \frac{a}{v^{2}}  \mathrm{d}{v} + P  \mathrm{d}{v} = 0`
+    Can't select the second two terms `\frac{a}{v^{2}} \mathrm{d}{v} + P \mathrm{d}{v}` with rubber band and move them across the equals sign additively.
+    Also using the copy selection command copies `\frac{a}{v^{2}} \mathrm{d}{v} P \mathrm{d}{v}` omitting the plus sign.
+
+81. `c_{P} \left(\frac{\partial{T}}{\partial{P}}\right)_{s} = v - \left(\frac{\partial{h}}{\partial{P}}\right)_{T}`
+    When `-\left(\frac{\partial{h}}{\partial{P}}\right)_{T}` is selected and the replace dialog entered, even if there is an equation with that
+    as the LHS, it isn't recognized as a valid match (maybe because of the negation?).
+
+82. `c_{P} \left(\frac{\partial{T}}{\partial{P}}\right)_{s} = -v + v - \frac{a}{v^{2}} \left(\frac{\partial{v}}{\partial{P}}\right)_{T} - P \left(\frac{\partial{v}}{\partial{P}}\right)_{T}`
+    Neither simplify, evaluate, or cancel can be used to get rid of `-v + v`.
