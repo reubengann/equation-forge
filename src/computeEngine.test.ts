@@ -293,6 +293,13 @@ describe("computeEngine custom dictionary", () => {
     expect(latex).toBe(String.raw`\mu_{0}`);
   });
 
+  it("preserves parentheses around fractional power bases (issue 72)", () => {
+    const mj = parse(String.raw`P\left(\frac{1}{2}\right)^2`);
+    expect(mj).not.toBeNull();
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toBe(String.raw`P \left(\frac{1}{2}\right)^{2}`);
+  });
+
   it("fixes blank integrals while preserving unresolved tuple placeholders", () => {
     const mj = normalizeMathJson([
       "Integrate",

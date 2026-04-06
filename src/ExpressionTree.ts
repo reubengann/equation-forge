@@ -580,7 +580,14 @@ export class ExpressionTree {
     this.childIndexById[base.id] = 0;
     this.childIndexById[exp.id] = 1;
 
-    const baseNeedsParen = this.nodesById[base.id]?.op === "Add";
+    const baseOp = this.nodesById[base.id]?.op;
+    const baseNeedsParen =
+      baseOp === "Add" ||
+      baseOp === "Equal" ||
+      baseOp === "Divide" ||
+      baseOp === "FractionDerivative" ||
+      baseOp === "FractionPartialDerivative" ||
+      baseOp === "Negate";
     const wrap = (s: string) =>
       baseNeedsParen ? String.raw`\left(${s}\right)` : s;
 
