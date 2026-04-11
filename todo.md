@@ -354,3 +354,7 @@
 
 101.  `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -\int_{V_{0}}^{V} \frac{1}{3 V} \,\mathrm{d}{V}`
       Drag the 3 out of the integral. Gives `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -3 \int_{V_{0}}^{V} \frac{1}{V} \,\mathrm{d}{V}` which is wrong.
+
+102. `P \left(v - b\right) = R T`
+	The parentheses are not selectable. Why?
+	
