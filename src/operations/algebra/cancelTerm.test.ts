@@ -178,6 +178,44 @@ describe("cancelTerm", () => {
     expect(normalizeSpaces(result!.latexPlain)).toBe("a = c");
   });
 
+  it("cancels opposite-sign like terms within the same additive side (issue 78)", () => {
+    const tree = treefromLatex(
+      String.raw`\frac{19 R T_{1}}{2} - P_{2} v_{1} + W_{\mathrm{ab}} + Q_{\mathrm{ab}} - Q_{\mathrm{ab}} - W_{\mathrm{ab}} - \frac{17 R T_{1}}{2} + P_{1} v_{1} = 0`
+    );
+    const equalKids = tree.childrenById[tree.rootId] ?? [];
+    const lhsId = equalKids[0];
+    expect(lhsId).toBeTruthy();
+
+    const plusQ = findNodeId(tree, (n) => {
+      if (!lhsId) return false;
+      return (
+        n.latex === String.raw`Q_{\mathrm{ab}}` &&
+        tree.parentById[n.id] === lhsId
+      );
+    });
+    const minusQ = findNodeId(tree, (n) => {
+      if (!lhsId) return false;
+      return (
+        n.op === "Negate" &&
+        n.latex.includes(String.raw`Q_{\mathrm{ab}}`) &&
+        tree.parentById[n.id] === lhsId
+      );
+    });
+    expect(plusQ).toBeTruthy();
+    expect(minusQ).toBeTruthy();
+
+    const sel: ExprSelection = {
+      kind: "multi",
+      nodeIds: [plusQ, minusQ].filter(Boolean) as string[],
+    };
+    expect(canCancelTerm(tree, sel)).toBe(true);
+    const result = cancelTerm(tree, sel);
+    expect(result).not.toBeNull();
+    const out = normalizeSpaces(result!.latexPlain);
+    expect(out).not.toContain(String.raw`Q_{\mathrm{ab}} + -Q_{\mathrm{ab}}`);
+    expect(out).not.toContain(String.raw`+ Q_{\mathrm{ab}} - Q_{\mathrm{ab}}`);
+  });
+
   it("cancels matching multiplicative factors across an equals sign", () => {
     const tree = treefromLatex(String.raw`m a = m b`);
     const equalKids = tree.childrenById[tree.rootId] ?? [];

@@ -199,6 +199,35 @@ function findEqualSideRoot(
   return null;
 }
 
+function isUnderDenominatorOfSideRoot(
+  tree: ExpressionTree,
+  sideRootId: string,
+  nodeId: string,
+): boolean {
+  let cur: string | null = nodeId;
+  while (cur) {
+    const parentId: string | null = tree.parentById[cur] ?? null;
+    if (!parentId) return false;
+    const parentOp = tree.nodesById[parentId]?.op;
+    if (parentOp === "Divide" || parentOp === "FractionDerivative") {
+      const idx = tree.childIndexById[cur];
+      if (idx === 1) return true;
+    }
+    if (parentId === sideRootId) break;
+    cur = parentId;
+  }
+  return false;
+}
+
+function shouldBlockCrossEqualDenominatorMoveFromAddSide(
+  tree: ExpressionTree,
+  movedId: string,
+  fromSideRootId: string,
+): boolean {
+  if (tree.nodesById[fromSideRootId]?.op !== "Add") return false;
+  return isUnderDenominatorOfSideRoot(tree, fromSideRootId, movedId);
+}
+
 function normalizeCrossEqualDropForFractionRoot(args: {
   tree: ExpressionTree;
   drop:
@@ -286,6 +315,9 @@ function normalizeCrossEqualDropForSideFactor(args: {
       insertIndex: 0 | 1;
     } {
   const { tree, sideRootId, hoverId, drop, pointer, rectFor } = args;
+  // Multiplicative cross-equal operations must apply to an entire side.
+  // If destination is additive, do not retarget to a single term/factor.
+  if (tree.nodesById[sideRootId]?.op === "Add") return drop;
   const sideRootPath = tree.pathById[sideRootId];
   if (!sideRootPath) return drop;
 
@@ -729,6 +761,15 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
       fromSide.equalId === toSide.equalId &&
       fromSide.sideSlot !== toSide.sideSlot
     ) {
+      if (
+        shouldBlockCrossEqualDenominatorMoveFromAddSide(
+          tree,
+          movedId,
+          fromSide.sideRootId,
+        )
+      ) {
+        return null;
+      }
       if (movedIsVector) return null;
       const drop = determineMultiplicativeDropKind({
         sideRootId: toSide.sideRootId,
@@ -1078,6 +1119,15 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
       fromSide.equalId === toSide.equalId &&
       fromSide.sideSlot !== toSide.sideSlot
     ) {
+      if (
+        shouldBlockCrossEqualDenominatorMoveFromAddSide(
+          tree,
+          movedId,
+          fromSide.sideRootId,
+        )
+      ) {
+        return null;
+      }
       if (movedIsVector) return null;
       const drop = determineMultiplicativeDropKind({
         sideRootId: toSide.sideRootId,

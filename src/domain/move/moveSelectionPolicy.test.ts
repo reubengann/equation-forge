@@ -141,6 +141,31 @@ describe("moveSelectionPolicy", () => {
     expect(result).toEqual([productId]);
   });
 
+  it("promotes descendant multi-selection to contiguous Add terms in additive mode (issue 79)", () => {
+    const tree = treefromLatex(
+      String.raw`c_{v}\mathrm{d}{T} + \frac{a}{v^{2}}\mathrm{d}{v} + P\mathrm{d}{v} = 0`
+    );
+    const dvFromFraction = findNodeId(
+      tree,
+      (n) =>
+        n.latex === String.raw`\mathrm{d}{v}` &&
+        tree.nodesById[tree.parentById[n.id] ?? ""]?.op === "InvisibleOperator"
+    );
+    const pId = findNodeByLatex(tree, "P");
+    const lhsAddId = tree.childrenById[tree.rootId!]?.[0];
+    expect(lhsAddId).toBeTruthy();
+
+    const result = normalizeSelectedIdsForMove({
+      tree,
+      selectedIds: [dvFromFraction, pId],
+      mode: "additive",
+      hoverId: tree.childrenById[tree.rootId!]?.[1] ?? null,
+    });
+
+    const addKids = tree.childrenById[lhsAddId!] ?? [];
+    expect(result).toEqual([addKids[1], addKids[2]]);
+  });
+
   it("keeps original factor when hovering within same product in multiplicative mode", () => {
     const tree = treefromLatex("a b = c");
     const aId = findNodeByLatex(tree, "a");

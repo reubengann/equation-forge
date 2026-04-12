@@ -87,7 +87,7 @@ function injectImplicitOneInIntegrals(latex: string): string {
   // \int \,\mathrm{d}{x}
   // Allow optional \, between bounds and differential.
   const re =
-    /\\int\s*(?:_({[^}]*}|[^\s^]+))?\s*(?:\^({[^}]*}|[^\s^]+))?\s*(?:\\,|\s)*\\mathrm\{d\}\s*\{?([^{}]+)\}?/g;
+    /\\int\s*(?:_({[^}]*}|[^\s^]+))?\s*(?:\^({[^}]*}|[^\s^]+))?\s*(?:\\,|\s)*\\mathrm\{d\}(?!')\s*\{?([^{}]+)\}?/g;
   return latex.replace(re, (_m, lower, upper, v) => {
     const lowerPart = lower ? `_${lower}` : "";
     const upperPart = upper ? `^${upper}` : "";
@@ -250,7 +250,9 @@ function normalizeDivideSigns(mj: MJ | null): MJ | null {
 function normalizeSubscriptLikeSymbols(mj: MJ | null): MJ | null {
   if (mj === null || mj === undefined) return mj;
   if (typeof mj === "string") {
-    const m = /^([A-Za-z]+)_([A-Za-z0-9]+)$/.exec(mj);
+    // Preserve style tokens such as H_script / H_calligraphic as atomic symbols.
+    if (/^[A-Z]_(calligraphic|script)$/.test(mj)) return mj;
+    const m = /^([A-Za-z]+)_([A-Za-z0-9_]+)$/.exec(mj);
     if (m) {
       const sub = /^\d+$/.test(m[2]) ? Number(m[2]) : m[2];
       return ["Subscript", m[1], sub] as MJ;
@@ -480,8 +482,7 @@ function normalizeDifferentialOperands(mj: MJ | null): MJ | null {
     .map((child) => normalizeDifferentialOperands(child as MJ)) as MJ[];
 
   if ((op === "Differential" || op === "InexactDifferential") && kids.length >= 1) {
-    const operand = unwrapSingleDelimiter(kids[0] as MJ);
-    return [op, operand] as MJ;
+    return [op, kids[0] as MJ] as MJ;
   }
   return [op, ...kids] as MJ;
 }
@@ -648,6 +649,18 @@ function normalizePlainDifferentials(mj: MJ | null): MJ | null {
   }
 
   const out: MJ[] = [];
+  const isUppercaseDifferentialOperand = (expr: MJ | null | undefined): boolean => {
+    if (expr == null) return false;
+    if (typeof expr === "string") return /^[A-Z]$/.test(expr);
+    if (
+      Array.isArray(expr) &&
+      expr[0] === "Subscript" &&
+      typeof expr[1] === "string"
+    ) {
+      return /^[A-Z]$/.test(expr[1] as string);
+    }
+    return false;
+  };
   const isFactorLike = (expr: MJ | null): boolean => {
     if (expr == null) return false;
     if (!Array.isArray(expr)) return true;
@@ -681,7 +694,8 @@ function normalizePlainDifferentials(mj: MJ | null): MJ | null {
     // Tight forms (dX) are promoted earlier in parse() via \differentialD.
     // Do not infer a differential after an existing factor, otherwise
     // products like "c d e" get misread as c * d(e).
-    const allowedContextForPlainD = followsExplicitSpacing;
+    const allowedContextForPlainD =
+      followsExplicitSpacing || isUppercaseDifferentialOperand(next as MJ);
     if (curIsPrimeDifferentialNode) {
       out.push(["InexactDifferential", (cur[1] as MJ[])[1]] as MJ);
       continue;
@@ -716,6 +730,12 @@ function normalizePlainDifferentials(mj: MJ | null): MJ | null {
 const inexactDifferentialEntry: LatexDictionaryEntry = {
   name: "InexactDifferential",
   kind: "expression",
+  latexTrigger: "\\inexactDifferentialD",
+  parse: (parser) => {
+    const arg = parser.parseGroup() ?? parser.parseToken();
+    if (!arg) return ["InexactDifferential", "Nothing"];
+    return ["InexactDifferential", arg];
+  },
   serialize: (serializer, expr) => {
     if (!Array.isArray(expr)) return String.raw`\mathrm{d}'`;
     const operand = (expr[1] ?? null) as Expression | null;

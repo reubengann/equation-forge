@@ -177,7 +177,26 @@ export function applyMoveAdditive(args: {
     const sliceIds = kids.slice(start, end + 1);
     if (sliceIds.some((id) => normIds.indexOf(id) === -1)) return null;
 
-    // Only support dropping into an Add target for now; if hoverId is not Add, climb to nearest Add ancestor.
+    const srcEqualId = tree.parentById[parentId];
+    const srcEqualOp = srcEqualId ? tree.nodesById[srcEqualId]?.op : null;
+    const isSrcEqual = srcEqualOp === "Equal";
+    const srcSideRoot =
+      isSrcEqual && srcEqualId
+        ? equalSideChild(tree, srcEqualId, parentId)
+        : null;
+    const destSideRootFromHover =
+      isSrcEqual && srcEqualId
+        ? equalSideChild(tree, srcEqualId, hoverId)
+        : null;
+    const crossEqualFromHover =
+      isSrcEqual &&
+      srcSideRoot != null &&
+      destSideRootFromHover != null &&
+      srcSideRoot !== destSideRootFromHover;
+
+    // Prefer dropping into an Add target; if none exists but this is a
+    // cross-equal drop onto the destination side-root, treat that root as an
+    // implicit additive container.
     let targetAddId: string | null = hoverId;
     while (
       targetAddId &&
@@ -186,21 +205,19 @@ export function applyMoveAdditive(args: {
     ) {
       targetAddId = tree.parentById[targetAddId] ?? null;
     }
-    if (!targetAddId || tree.nodesById[targetAddId]?.op !== "Add") return null;
+    if (!targetAddId) {
+      if (crossEqualFromHover) {
+        targetAddId = hoverId;
+      } else {
+        return null;
+      }
+    }
 
     const destPath = tree.pathById[targetAddId];
     const srcPath = tree.pathById[parentId];
     if (!destPath || !srcPath) return null;
 
-    const srcEqualId = tree.parentById[parentId];
-    const srcEqualOp = srcEqualId ? tree.nodesById[srcEqualId]?.op : null;
-    const isSrcEqual = srcEqualOp === "Equal";
-
     const destEqualId = isSrcEqual ? srcEqualId : null;
-    const srcSideRoot =
-      isSrcEqual && srcEqualId
-        ? equalSideChild(tree, srcEqualId, parentId)
-        : null;
     const destSideRoot =
       isSrcEqual && destEqualId
         ? equalSideChild(tree, destEqualId, hoverId)

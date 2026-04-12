@@ -47,4 +47,22 @@ describe("getLatexForSelectionCopy", () => {
     });
     expect(latex).toBe(String.raw`c + d`);
   });
+
+  it("returns additive grouped latex for descendant multi-selection under same Add", () => {
+    const tree = treefromLatex(
+      String.raw`c_{v}\mathrm{d}{T} + \frac{a}{v^{2}}\mathrm{d}{v} + P\mathrm{d}{v} = 0`
+    );
+    const dvFromFraction = findNodeId(
+      tree,
+      (n) =>
+        n.latex === String.raw`\mathrm{d}{v}` &&
+        tree.nodesById[tree.parentById[n.id] ?? ""]?.op === "InvisibleOperator"
+    );
+    const pId = findNodeId(tree, (n) => n.latex === "P");
+    const latex = getLatexForSelectionCopy(tree, {
+      kind: "multi",
+      nodeIds: [dvFromFraction, pId],
+    });
+    expect(latex).toBe(String.raw`\frac{a}{v^{2}} \mathrm{d}{v} + P \mathrm{d}{v}`);
+  });
 });

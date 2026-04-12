@@ -300,6 +300,46 @@ describe("computeEngine custom dictionary", () => {
     expect(latex).toBe(String.raw`P \left(\frac{1}{2}\right)^{2}`);
   });
 
+  it("parses equality of differential-only and inexact-differential-only integrals (issue 72)", () => {
+    const mj = parse(String.raw`\int \mathrm{d}{U} = \int \mathrm{d}'{Q}`);
+    expect(mj).toEqual([
+      "Equal",
+      ["Integrate", 1, "U"],
+      ["Integrate", ["InexactDifferential", "Q"], "Nothing"],
+    ]);
+    expect(() => ExpressionTree.create(mj!)).not.toThrow();
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toBe(String.raw`\int \,\mathrm{d}{U} = \int \mathrm{d}'{Q}`);
+  });
+
+  it("preserves grouped differential operands with visible parentheses (issue 73)", () => {
+    const mj = parse(
+      String.raw`\mathrm{d}{\left(P V\right)} = \mathrm{d}{\left(n R T\right)}`
+    );
+    expect(mj).not.toBeNull();
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toBe(
+      String.raw`\mathrm{d}{\left(P V\right)} = \mathrm{d}{\left(n R T\right)}`
+    );
+  });
+
+  it("promotes spaced plain d before uppercase symbols to Differential (issue 73)", () => {
+    const mj = parse(String.raw`V d P = \mathrm{d}{\left(n R T\right)}`);
+    expect(mj).not.toBeNull();
+    expect(JSON.stringify(mj)).toContain('"Differential"');
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toBe(
+      String.raw`V \mathrm{d}{P} = \mathrm{d}{\left(n R T\right)}`
+    );
+  });
+
+  it("renders script symbols inside subscripts (issue 74)", () => {
+    const mj = parse(String.raw`C_{\mathscr{H}}`);
+    expect(mj).toEqual(["Subscript", "C", "H_script"]);
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toBe(String.raw`C_{\mathscr{H}}`);
+  });
+
   it("fixes blank integrals while preserving unresolved tuple placeholders", () => {
     const mj = normalizeMathJson([
       "Integrate",

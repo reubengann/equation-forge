@@ -102,6 +102,32 @@ describe("applyMoveMultiplicative executor", () => {
     );
   });
 
+  it("returns null for denominator-factor cross-equal move from additive side (issue 75)", () => {
+    const next = runMove({
+      latex: String.raw`\frac{\mathrm{d}{M}}{C_{C}} = \frac{d \mathscr{H}}{T} - \frac{\mathscr{H}}{T^{2}} \mathrm{d}{T}`,
+      select: (tree) => [findNodeByLatex(tree, "T")],
+      hover: (tree) => {
+        const lhsId = tree.childrenById[tree.rootId!]?.[0];
+        if (!lhsId) throw new Error("Missing LHS");
+        return lhsId;
+      },
+      targetSlot: 1,
+    });
+
+    expect(next).toBeNull();
+  });
+
+  it("returns null for cross-equal factor-targeting when destination side is additive (issue 76)", () => {
+    const next = runMove({
+      latex: String.raw`C_{C} \mathrm{d}{\mathscr{H}} = T \mathrm{d}{M} + M \mathrm{d}{T}`,
+      select: (tree) => [findNodeByLatex(tree, String.raw`C_{C}`)],
+      hover: (tree) => findNodeByLatex(tree, String.raw`\mathrm{d}{M}`),
+      targetSlot: 1,
+    });
+
+    expect(next).toBeNull();
+  });
+
   it("pulls a factor out of parenthesized product", () => {
     const next = runMove({
       latex: String.raw`c = \left(a b\right)`,

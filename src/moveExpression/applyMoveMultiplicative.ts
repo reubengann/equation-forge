@@ -415,6 +415,18 @@ function isUnderDenominatorOfFractionSideRoot(
   return false;
 }
 
+function shouldBlockCrossEqualDenominatorMoveFromAddSide(
+  tree: ExpressionTree,
+  movedId: string,
+  sourceSideRootId: string,
+): boolean {
+  if (tree.nodesById[sourceSideRootId]?.op !== "Add") return false;
+  const movedUnderSourceDenominator =
+    isUnderDenominatorOfSideRoot(tree, sourceSideRootId, movedId) ||
+    isUnderDenominatorOfFractionSideRoot(tree, sourceSideRootId, movedId);
+  return movedUnderSourceDenominator && movedId !== sourceSideRootId;
+}
+
 /**
  * Minimal multiplicative move executor to support cross-equal root division.
  * Future steps will expand to full multiplicative semantics.
@@ -1254,6 +1266,15 @@ export function applyMoveMultiplicative(
   const sideInfoTo = findEqualSideRoot(tree, hoverNodeId);
   if (!sideInfoFrom || !sideInfoTo) return null;
   if (sideInfoFrom.sideSlot === sideInfoTo.sideSlot) return null;
+  if (
+    shouldBlockCrossEqualDenominatorMoveFromAddSide(
+      tree,
+      movedId,
+      sideInfoFrom.sideRootId,
+    )
+  ) {
+    return null;
+  }
 
   const movedPath = tree.pathById[movedId];
   if (!movedPath) return null;
@@ -1283,6 +1304,8 @@ export function applyMoveMultiplicative(
         })()
       : (getAtPath(tree.rootJson, movedPath) as MJ);
   if (movedExpr == null) return null;
+  const destinationSideIsAdd =
+    tree.nodesById[sideInfoTo.sideRootId]?.op === "Add";
   const destRootId = sideInfoTo.sideRootId;
   const destRootPath = tree.pathById[destRootId];
   if (!destRootPath) return null;
@@ -1402,6 +1425,9 @@ export function applyMoveMultiplicative(
   }
 
   if (!isHoveringSideRoot && targetSlot != null) {
+    // Cross-equal multiplicative moves onto an additive destination side must
+    // not target a single term/factor.
+    if (destinationSideIsAdd) return null;
     const hoverParentId = tree.parentById[hoverNodeId];
     const hoverParentOp = hoverParentId ? tree.nodesById[hoverParentId]?.op : null;
     const hoverParentPath = hoverParentId ? tree.pathById[hoverParentId] : null;

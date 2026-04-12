@@ -270,6 +270,31 @@ describe("applyMove", () => {
     expect(latex).toContain(String.raw`a = d + e - \left(b + c\right)`);
   });
 
+  it("moves contiguous terms across '=' when hovering a non-Add side root (issue 79 dump)", () => {
+    const tree = treefromLatex(
+      String.raw`c_{v}\mathrm{d}{T} + \frac{a}{v^{2}}\mathrm{d}{v} + P\mathrm{d}{v} = 0`
+    );
+    const lhsAddId = tree.childrenById[tree.rootId]?.[0];
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(lhsAddId).toBeTruthy();
+    expect(rhsId).toBeTruthy();
+    const lhsTerms = tree.childrenById[lhsAddId!] ?? [];
+    expect(lhsTerms.length).toBeGreaterThanOrEqual(3);
+
+    const next = applyMove({
+      tree,
+      selectedIds: [lhsTerms[1], lhsTerms[2]],
+      hoverId: rhsId!,
+      targetSlot: 0,
+    });
+
+    expect(next).not.toBeNull();
+    const latex = next!.latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toContain(
+      String.raw`c_{v} \mathrm{d}{T} = -\left(\frac{a}{v^{2}} \mathrm{d}{v} + P \mathrm{d}{v}\right)`
+    );
+  });
+
   it("treats bare symbol in equality as implicit sum", () => {
     const tree = treefromLatex(String.raw`a=b`);
     const next = applyMove({

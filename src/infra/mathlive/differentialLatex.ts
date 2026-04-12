@@ -98,6 +98,17 @@ export function toMathLiveLatex(displayLatex: string): string {
   if (!displayLatex) return displayLatex ?? "";
   let s = replaceCanonicalDifferentialGroups(displayLatex);
 
+  // Inexact differential (d') forms route through a dedicated parser macro.
+  s = s.replace(/\\mathrm\{d\}'\s*\{([^{}]+)\}/g, (_m, v) =>
+    String.raw`\inexactDifferentialD ${formatMathLiveDifferentialOperand(v)}`
+  );
+  s = s.replace(/\\mathrm\{d\}'\s*([A-Za-z])/g, (_m, v) =>
+    String.raw`\inexactDifferentialD ${v}`
+  );
+  s = s.replace(/\\mathrm\{d\}'\s*(\\[A-Za-z]+)\b/g, (_m, v) =>
+    String.raw`\inexactDifferentialD {${v}}`
+  );
+
   // \mathrm{d}{x}  -> \differentialD x
   s = s.replace(/\\mathrm\{d\}\s*\{([^{}]+)\}/g, (_m, v) =>
     String.raw`\differentialD ${formatMathLiveDifferentialOperand(v)}`

@@ -143,6 +143,22 @@ function findEqualSideRoot(
   return null;
 }
 
+function findAddTermAncestor(
+  tree: ExpressionTree,
+  nodeId: string
+): { addId: string; termId: string } | null {
+  let cur: string | null | undefined = nodeId;
+  while (cur) {
+    const parentId = tree.parentById[cur];
+    if (!parentId) return null;
+    if (tree.nodesById[parentId]?.op === "Add") {
+      return { addId: parentId, termId: cur };
+    }
+    cur = parentId;
+  }
+  return null;
+}
+
 function collapseMultiplicativeSelection(args: {
   tree: ExpressionTree;
   ids: string[];
@@ -259,6 +275,28 @@ function collapseMultiplicativeSelection(args: {
 
   // Additive mode: collapse factors from the same product when that product is under Equal.
   if (mode === "additive") {
+    // Promote descendant-level multi-selection to contiguous Add terms.
+    const addHits = ids
+      .map((id) => findAddTermAncestor(tree, id))
+      .filter((v): v is { addId: string; termId: string } => !!v);
+    if (addHits.length >= 2) {
+      const addId = addHits[0].addId;
+      if (addHits.every((h) => h.addId === addId)) {
+        const addKids = tree.childrenById[addId] ?? [];
+        const termIds = Array.from(new Set(addHits.map((h) => h.termId)));
+        const indices = termIds
+          .map((termId) => addKids.indexOf(termId))
+          .filter((idx) => idx >= 0)
+          .sort((a, b) => a - b);
+        const contiguous =
+          indices.length === termIds.length &&
+          indices.every((idx, i) => i === 0 || idx === indices[i - 1] + 1);
+        if (contiguous && indices.length >= 2) {
+          return addKids.slice(indices[0], indices[indices.length - 1] + 1);
+        }
+      }
+    }
+
     const parents = ids.map((id) => tree.parentById[id]).filter(Boolean);
     const uniqueParents = Array.from(new Set(parents));
     if (uniqueParents.length === 1) {

@@ -441,6 +441,28 @@ describe("evaluateSelection", () => {
     expect(out).not.toContain(String.raw`\frac{5}{3 T_{0} + T_{1}}`);
   });
 
+  it("simplify cancels nested leading negatives on RHS products (issue 77)", () => {
+    const tree = buildTree(
+      String.raw`c_{v} \frac{\mathrm{d}{P}}{\mathrm{d}{v}} = -\left(-c_{P} \frac{1}{\left(\frac{\partial{v}}{\partial{P}}\right)_{T}}\right)`
+    );
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(rhsId).toBeTruthy();
+
+    const next = simplifySelection(tree, { kind: "node", nodeId: rhsId! });
+    expect(next).not.toBeNull();
+    const out = normalizeLatex(next!.latexPlain);
+    expect(out).toContain(
+      normalizeLatex(
+        String.raw`c_{v} \frac{\mathrm{d}{P}}{\mathrm{d}{v}} = c_{P} \frac{1}{\left(\frac{\partial{v}}{\partial{P}}\right)_{T}}`
+      )
+    );
+    expect(out).not.toContain(
+      normalizeLatex(
+        String.raw`= -\left(-c_{P} \frac{1}{\left(\frac{\partial{v}}{\partial{P}}\right)_{T}}\right)`
+      )
+    );
+  });
+
   it("cancels (dP_s/dv_s) dv_s to dP_s when evaluating selected product (issue 44)", () => {
     const latex = String.raw`\frac{\frac{\mathrm{d}{P_{s}}}{\mathrm{d}{v_{s}}} \mathrm{d}{v_{s}}}{P} + \frac{\gamma}{v} \mathrm{d}{v_{s}} = 0`;
     const tree = buildTree(latex);

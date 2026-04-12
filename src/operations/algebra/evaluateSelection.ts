@@ -410,6 +410,13 @@ function evaluateExpression(expr: MJ, mode: EvalMode): MJ | null {
       return differentialCanceled;
     }
 
+    const negationSimplified = simplifyNegationPairs(expr);
+    const normalizedNegation = normalizeMathJson(negationSimplified) ?? negationSimplified;
+    if (!deepEqualMJ(normalizedNegation, expr)) {
+      debugEval("result", normalizedNegation);
+      return normalizedNegation;
+    }
+
     return null;
   });
 }
@@ -557,6 +564,31 @@ function simplifyDifferentialFractionProducts(expr: MJ): MJ {
         factors.splice(k, 2);
         return rebuildGrouped("InvisibleOperator", factors);
       }
+    }
+  }
+
+  return [op, ...kids] as MJ;
+}
+
+function simplifyNegationPairs(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((c) => simplifyNegationPairs(c as MJ));
+
+  if (op === "Negate" && kids.length >= 1) {
+    const inner = kids[0] as MJ;
+    if (Array.isArray(inner) && inner[0] === "Negate" && inner.length >= 2) {
+      return inner[1] as MJ;
+    }
+    if (
+      Array.isArray(inner) &&
+      (inner[0] === "Delimiter" || inner[0] === "List") &&
+      inner.length >= 2 &&
+      Array.isArray(inner[1]) &&
+      (inner[1] as MJ[])[0] === "Negate" &&
+      (inner[1] as MJ[]).length >= 2
+    ) {
+      return (inner[1] as MJ[])[1] as MJ;
     }
   }
 

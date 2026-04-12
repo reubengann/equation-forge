@@ -1249,6 +1249,74 @@ describe("planMove multiplicative cross-equal", () => {
     expect(plan).toBeNull();
   });
 
+  it("returns null for denominator-factor cross-equal move from additive side (issue 75)", () => {
+    const tree = treefromLatex(
+      String.raw`\frac{\mathrm{d}{M}}{C_{C}} = \frac{d \mathscr{H}}{T} - \frac{\mathscr{H}}{T^{2}} \mathrm{d}{T}`
+    );
+    const equalId = tree.rootId!;
+    const lhsId = tree.childrenById[equalId][0];
+    const rhsId = tree.childrenById[equalId][1];
+    const tId = findNodeByLatex(tree, "T");
+
+    const rects: Record<string, RectLTRB> = {
+      [lhsId]: { left: 0, right: 220, top: 90, bottom: 120 },
+      [rhsId]: { left: 260, right: 560, top: 90, bottom: 120 },
+    };
+    const rectFor = (id: string) => rects[id] ?? null;
+
+    const plan = planMove({
+      tree,
+      selectedIds: [tId],
+      hoverId: lhsId,
+      pointer: { x: 120, y: 100 },
+      rectFor,
+      mode: "multiplicative",
+    });
+
+    expect(plan).toBeNull();
+  });
+
+  it("does not plan ontoSideFactor when destination side is additive (issue 76)", () => {
+    const tree = treefromLatex(
+      String.raw`C_{C} \mathrm{d}{\mathscr{H}} = T \mathrm{d}{M} + M \mathrm{d}{T}`
+    );
+    const equalId = tree.rootId!;
+    const lhsId = tree.childrenById[equalId][0];
+    const rhsId = tree.childrenById[equalId][1];
+    const cCId = findNodeByLatex(tree, String.raw`C_{C}`);
+    const dMId = findNodeByLatex(tree, String.raw`\mathrm{d}{M}`);
+
+    const rects: Record<string, RectLTRB> = {
+      [lhsId]: { left: 0, right: 220, top: 90, bottom: 120 },
+      [rhsId]: { left: 260, right: 560, top: 90, bottom: 120 },
+      [dMId]: { left: 360, right: 410, top: 90, bottom: 120 },
+    };
+    const rectFor = (id: string) => rects[id] ?? null;
+
+    const plan = planMove({
+      tree,
+      selectedIds: [cCId],
+      hoverId: dMId,
+      pointer: { x: 385, y: 100 },
+      rectFor,
+      mode: "multiplicative",
+    });
+
+    expect(plan).toEqual({
+      kind: "MoveAcrossEqual",
+      movedId: cCId,
+      equalId,
+      fromSide: 0,
+      toSide: 1,
+      drop: {
+        kind: "ontoSideRootWhole",
+        replaceId: rhsId,
+        replaceParentId: equalId,
+        replaceSlot: 1,
+      },
+    });
+  });
+
   it("allows moving scalar m across '=' to isolate vector acceleration", () => {
     const tree = treefromLatex(String.raw`\vec{F} = m \vec{a}`);
 

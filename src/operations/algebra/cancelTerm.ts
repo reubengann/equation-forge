@@ -5,6 +5,7 @@ import type { ExprSelection } from "../../selectionSemantics";
 import { getDescendantNodeIds } from "../../selectionSemantics";
 
 type CancellablePairResult =
+  | { kind: "add"; nodeId: string; nextExpr: MJ }
   | { kind: "divide"; nodeId: string; nextExpr: MJ }
   | { kind: "equal"; nodeId: string; nextExpr: MJ };
 
@@ -211,6 +212,56 @@ function findEqualAncestor(
     cursor = tree.parentById[cursor] ?? null;
   }
   return null;
+}
+
+function findAddTermAncestor(
+  tree: ExpressionTree,
+  nodeId: string
+): { addId: string; termId: string } | null {
+  let cur: string | null = nodeId;
+  while (cur) {
+    const parentId = tree.parentById[cur] ?? null;
+    if (!parentId) return null;
+    if (tree.nodesById[parentId]?.op === "Add") {
+      return { addId: parentId, termId: cur };
+    }
+    cur = parentId;
+  }
+  return null;
+}
+
+function cancelSelectedPairInAdd(
+  tree: ExpressionTree,
+  aId: string,
+  bId: string
+): CancellablePairResult | null {
+  const aAdd = findAddTermAncestor(tree, aId);
+  const bAdd = findAddTermAncestor(tree, bId);
+  if (!aAdd || !bAdd) return null;
+  if (aAdd.addId !== bAdd.addId) return null;
+  if (aAdd.termId === bAdd.termId) return null;
+
+  const addExpr = tree.nodesById[aAdd.addId]?.json;
+  if (!Array.isArray(addExpr) || addExpr[0] !== "Add") return null;
+  const addKids = tree.childrenById[aAdd.addId] ?? [];
+  const aIndex = addKids.indexOf(aAdd.termId);
+  const bIndex = addKids.indexOf(bAdd.termId);
+  if (aIndex < 0 || bIndex < 0) return null;
+
+  const aTermExpr = tree.nodesById[aAdd.termId]?.json;
+  const bTermExpr = tree.nodesById[bAdd.termId]?.json;
+  if (aTermExpr == null || bTermExpr == null) return null;
+
+  const aUnwrapped = unwrapNegate(aTermExpr);
+  const bUnwrapped = unwrapNegate(bTermExpr);
+  if (aUnwrapped.sign === bUnwrapped.sign) return null;
+  if (!deepEqualMJ(aUnwrapped.core, bUnwrapped.core)) return null;
+
+  const nextTerms = (addExpr.slice(1) as MJ[]).filter(
+    (_term, i) => i !== aIndex && i !== bIndex
+  );
+  const nextExpr = buildAddFromTerms(nextTerms);
+  return { kind: "add", nodeId: aAdd.addId, nextExpr };
 }
 
 function cancelSelectedPairInFraction(
@@ -450,6 +501,8 @@ function findCancellablePair(
   const uniqueIds = Array.from(new Set(candidateIds));
   for (let i = 0; i < uniqueIds.length; i += 1) {
     for (let j = i + 1; j < uniqueIds.length; j += 1) {
+      const resAdd = cancelSelectedPairInAdd(tree, uniqueIds[i], uniqueIds[j]);
+      if (resAdd) return resAdd;
       const resFraction = cancelSelectedPairInFraction(tree, uniqueIds[i], uniqueIds[j]);
       if (resFraction) return resFraction;
       const resEqual = cancelSelectedPairInEqual(tree, uniqueIds[i], uniqueIds[j]);

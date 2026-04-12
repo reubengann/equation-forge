@@ -872,11 +872,18 @@ export class ExpressionTree {
       dVarPlain !== "" &&
       dVarPlain !== "Nothing" &&
       dVarPlain !== String.raw`\mathrm{Nothing}`;
+    const symOp = sym ? this.nodesById[sym.id]?.op : null;
+    const symAlreadyDifferential =
+      symOp === "Differential" || symOp === "InexactDifferential";
     const differentialPlain = hasResolvedDifferential
-      ? String.raw`\,\mathrm{d}{${dVarPlain}}`
+      ? symAlreadyDifferential
+        ? String.raw`\,${dVarPlain}`
+        : String.raw`\,\mathrm{d}{${dVarPlain}}`
       : "";
     const differentialTagged = hasResolvedDifferential
-      ? String.raw`\,\mathrm{d}{${dVarTagged}}`
+      ? symAlreadyDifferential
+        ? String.raw`\,${dVarTagged}`
+        : String.raw`\,\mathrm{d}{${dVarTagged}}`
       : "";
 
     const plain = String.raw`\int${boundsPlain} ${integrandPlain}${differentialPlain}`;
