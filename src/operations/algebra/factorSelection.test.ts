@@ -193,4 +193,20 @@ describe("factorSelection", () => {
     expect(out).toContain(String.raw`\mu`);
     expect(out).toContain(String.raw`\kappa`);
   });
+
+  it("factors RHS without '+ -' inside grouped sum (issue 99)", () => {
+    const tree = treefromLatex(
+      String.raw`W = C_{P} T_{1} + C_{P} T_{2} - 2 C_{P} \sqrt{T_{1} T_{2}}`
+    );
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(rhsId).toBeTruthy();
+
+    const result = factorSelection(tree, { kind: "node", nodeId: rhsId! });
+    expect(result).not.toBeNull();
+    const out = normalizeSpaces(result!.latexPlain);
+    expect(out).not.toContain("+ -");
+    expect(out).toBe(
+      String.raw`W = C_{P} \left(T_{1} + T_{2} - 2 \sqrt{T_{1} T_{2}}\right)`
+    );
+  });
 });

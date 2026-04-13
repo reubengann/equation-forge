@@ -72,6 +72,42 @@ function buildAddFromTerms(terms: MJ[]): MJ {
   return ["Add", ...terms] as MJNode;
 }
 
+function absoluteNumericMJ(value: MJ): MJ | null {
+  if (typeof value === "number" && Number.isFinite(value) && value < 0) {
+    return Math.abs(value);
+  }
+  if (typeof value === "string" && /^-\d+(?:\.\d+)?$/.test(value)) {
+    return value.slice(1);
+  }
+  return null;
+}
+
+function normalizeNegativeAddTerm(expr: MJ): MJ {
+  const absScalar = absoluteNumericMJ(expr);
+  if (absScalar !== null) return ["Negate", absScalar] as MJ;
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  if (op !== "InvisibleOperator" && op !== "Multiply") return expr;
+
+  const factors = expr.slice(1) as MJ[];
+  if (factors.length === 0) return expr;
+  const firstAbs = absoluteNumericMJ(factors[0] as MJ);
+  if (firstAbs === null) return expr;
+
+  const rest = [firstAbs, ...factors.slice(1)] as MJ[];
+  const product = rest.length === 1 ? rest[0] : ([op, ...rest] as MJ);
+  return ["Negate", product] as MJ;
+}
+
+function normalizeNegativeTermsInAdd(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((child) => normalizeNegativeTermsInAdd(child as MJ)) as MJ[];
+  if (op !== "Add") return [op, ...kids] as MJ;
+  const terms = kids.map((term) => normalizeNegativeAddTerm(term as MJ));
+  return ["Add", ...terms] as MJ;
+}
+
 function removeFactorOnce(factors: MJ[], targetCanonical: MJ): { remaining: MJ[]; removed: boolean } {
   const remaining: MJ[] = [];
   let removed = false;
@@ -464,25 +500,33 @@ function factorExpression(expr: MJ): MJ | null {
   if (collected?.json) candidates.push(fromComputeEngine(collected.json as MJ));
 
   for (const cand of candidates) {
-    const normalized = normalizeMathJson(cand) ?? cand;
+    const normalized = normalizeNegativeTermsInAdd(normalizeMathJson(cand) ?? cand);
     if (!deepEqualMJ(normalized, expr)) return normalized;
   }
 
   // Deterministic fallback: common denominator from Add
   const denomFactored = commonDenominatorFromAdd(expr);
-  if (denomFactored && !deepEqualMJ(denomFactored, expr)) return denomFactored;
+  if (denomFactored && !deepEqualMJ(denomFactored, expr)) {
+    return normalizeNegativeTermsInAdd(denomFactored);
+  }
 
   // Deterministic fallback: difference of squares (A^2 - B^2 = (A-B)(A+B))
   const dosFactored = differenceOfSquaresFromAdd(expr);
-  if (dosFactored && !deepEqualMJ(dosFactored, expr)) return dosFactored;
+  if (dosFactored && !deepEqualMJ(dosFactored, expr)) {
+    return normalizeNegativeTermsInAdd(dosFactored);
+  }
 
   // Deterministic fallback: perfect-square trinomial
   const pstFactored = perfectSquareTrinomialFromAdd(expr);
-  if (pstFactored && !deepEqualMJ(pstFactored, expr)) return pstFactored;
+  if (pstFactored && !deepEqualMJ(pstFactored, expr)) {
+    return normalizeNegativeTermsInAdd(pstFactored);
+  }
 
   // Deterministic fallback: common factor from Add
   const fallback = commonFactorFromAdd(expr);
-  if (fallback && !deepEqualMJ(fallback, expr)) return fallback;
+  if (fallback && !deepEqualMJ(fallback, expr)) {
+    return normalizeNegativeTermsInAdd(fallback);
+  }
 
   return null;
 }

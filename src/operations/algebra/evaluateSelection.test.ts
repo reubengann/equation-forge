@@ -416,6 +416,72 @@ describe("evaluateSelection", () => {
     expect(out).toContain(String.raw`V`);
   });
 
+  it("keeps evaluated integral difference grouped under negation (issue 96)", () => {
+    const latex = String.raw`W = -\left(C_{P} \sqrt{T_{1} T_{2}} - C_{P} T_{1}\right) - \int_{T_{2}}^{\sqrt{T_{1} T_{2}}} C_{P} \,\mathrm{d}{T_{h}}`;
+    const tree = buildTree(latex);
+    const integralNode = Object.values(tree.nodesById).find((n) => {
+      if (n.op !== "Integrate") return false;
+      return n.latex.includes(String.raw`\int_{T_{2}}^{\sqrt{T_{1} T_{2}}}`);
+    });
+    expect(integralNode).toBeTruthy();
+
+    const next = evaluateSelection(tree, { kind: "node", nodeId: integralNode!.id });
+    expect(next).not.toBeNull();
+    const out = normalizeLatex(next!.latexPlain);
+    expect(out).toContain(
+      normalizeLatex(String.raw`\left(C_{P} \sqrt{T_{1} T_{2}} - C_{P} T_{2}\right)`)
+    );
+    const groupedNode = Object.values(next!.nodesById).find(
+      (n) =>
+        (n.op === "Delimiter" || n.op === "List") &&
+        normalizeLatex(n.latex).includes(
+          normalizeLatex(String.raw`C_{P} \sqrt{T_{1} T_{2}} - C_{P} T_{2}`)
+        )
+    );
+    expect(groupedNode).toBeTruthy();
+  });
+
+  it("keeps delimiter wrapper when evaluating whole negated integral term (issue 96)", () => {
+    const latex = String.raw`W = -\left(C_{P} \sqrt{T_{1} T_{2}} - C_{P} T_{1}\right) - \int_{T_{2}}^{\sqrt{T_{1} T_{2}}} C_{P} \,\mathrm{d}{T_{h}}`;
+    const tree = buildTree(latex);
+    const negatedIntegralTerm = Object.values(tree.nodesById).find(
+      (n) =>
+        n.op === "Negate" &&
+        n.latex.includes(
+          normalizeLatex(String.raw`\int_{T_{2}}^{\sqrt{T_{1} T_{2}}}`)
+        )
+    );
+    expect(negatedIntegralTerm).toBeTruthy();
+
+    const next = evaluateSelection(tree, { kind: "node", nodeId: negatedIntegralTerm!.id });
+    expect(next).not.toBeNull();
+    const negWithGroup = Object.values(next!.nodesById).find(
+      (n) =>
+        n.op === "Negate" &&
+        n.latex.includes(normalizeLatex(String.raw`C_{P} \sqrt{T_{1} T_{2}} - C_{P} T_{2}`))
+    );
+    expect(negWithGroup).toBeTruthy();
+    const negKids = negWithGroup ? next!.childrenById[negWithGroup.id] ?? [] : [];
+    expect(negKids.length).toBeGreaterThan(0);
+    const childNode = next!.nodesById[negKids[0]];
+    expect(childNode?.op === "Delimiter" || childNode?.op === "List").toBe(true);
+  });
+
+  it("simplifies RHS without '+ -' for combined negative product (issue 97)", () => {
+    const latex = String.raw`W = -\left(C_{P} \sqrt{T_{1} T_{2}} - C_{P} T_{1}\right) - \left(C_{P} \sqrt{T_{1} T_{2}} - C_{P} T_{2}\right)`;
+    const tree = buildTree(latex);
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(rhsId).toBeTruthy();
+
+    const next = simplifySelection(tree, { kind: "node", nodeId: rhsId! });
+    expect(next).not.toBeNull();
+    const out = normalizeLatex(next!.latexPlain);
+    expect(out).not.toContain("+ -");
+    expect(out).toContain(
+      normalizeLatex(String.raw`W = C_{P} T_{1} + C_{P} T_{2} - 2 C_{P} \sqrt{T_{1} T_{2}}`)
+    );
+  });
+
   it("renders simplified negative product as subtraction in Add context (issue 83 follow-up)", () => {
     const latex = String.raw`1 + 2 a \left(-\left(v - b\right)^{2}\right)`;
     const tree = buildTree(latex);

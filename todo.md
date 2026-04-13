@@ -344,33 +344,46 @@
 
 94. `-\left(T_{f} - T_{1}\right)` expands as `-T_{f} - -T_{1}` instead of `-T_{f} + T_{1}`
 
+95. This can be entered in Mathlive, but results in an error as plain text: `-\int_{T_1}^{T_{f}}\frac{\mathrm{d}{T_{c}}}{T_{c}}`.
+
+96. `W = -\int_{T_{1}}^{\sqrt{T_{1} T_{2}}} C_{P} \mathrm{d}{T_{c}}  - \int_{T_{2}}^{\sqrt{T_{1} T_{2}}} C_{P} \mathrm{d}{T_{h}} `
+    When I insert this expression, the differentials get dropped and become just T_c and T_h.
+
+97. `W = -\left(C_{P} \sqrt{T_{1} T_{2}} - C_{P} T_{1}\right) - \int_{T_{2}}^{\sqrt{T_{1} T_{2}}} C_{P} \,\mathrm{d}{T_{h}}` Evaluate the right integral. The resulting statement's parentheses cannot be selected. Editing the expression and accepting without changes makes it selectable. I suspect there is a difference between this MJ tree and the one from inserting (i.e. `W = -\left(C_{P} \sqrt{T_{1} T_{2}} - C_{P} T_{1}\right) - \left(C_{P} \sqrt{T_{1} T_{2}} - C_{P} T_{2}\right)`). Make sure there is an assert after an evaluation to check for this.
+
+98. `W = -\left(C_{P} \sqrt{T_{1} T_{2}} - C_{P} T_{1}\right) - \left(C_{P} \sqrt{T_{1} T_{2}} - C_{P} T_{2}\right)` Run simplify on the RHS. Result is `W = C_{P} T_{1} + C_{P} T_{2} + -2 C_{P} \sqrt{T_{1} T_{2}}`. Note the `+ -`.
+
 ---- undone ----
 
-95. Trying to replace the RHS with `-\int_{T_1}^{T_{f}}\frac{\mathrm{d}{T_{c}}}{T_{c}}` result in an error.
+99. `W = C_{P} T_{1} + C_{P} T_{2} - 2 C_{P} \sqrt{T_{1} T_{2}}` Factor the RHS. Result is
+    `W = C_{P} \left(T_{1} + T_{2} + -2 \sqrt{T_{1} T_{2}}\right)` Note the `+ -`.
 
-96. `\ln (a/b)` should expand to `ln a - ln b`
+100. `\left(\left(\sqrt{T_{1}}\right)^{2} + -2 \sqrt{T_{1}} \sqrt{T_{2}} + \left(\sqrt{T_{2}}\right)^{2}\right)`
+     I would think we could factor this, since it's equivalent to a^2
 
-97. `\int_{V_{0}}^{V} \frac{R}{v - b} \,\mathrm{d}{v}`
-    This can't be evaluated.
+101. `\ln (a/b)` should expand to `ln a - ln b`
 
-98. `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -\int_{V_{0}}^{V} \frac{1}{3 V} \,\mathrm{d}{V}`
-    Drag the 3 out of the integral. Gives `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -3 \int_{V_{0}}^{V} \frac{1}{V} \,\mathrm{d}{V}` which is wrong.
+102. `\int_{V_{0}}^{V} \frac{R}{v - b} \,\mathrm{d}{v}`
+     This can't be evaluated.
 
-99. `P \left(v - b\right) = R T`
-    The parentheses are not selectable. Why?
+103. `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -\int_{V_{0}}^{V} \frac{1}{3 V} \,\mathrm{d}{V}`
+     Drag the 3 out of the integral. Gives `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -3 \int_{V_{0}}^{V} \frac{1}{V} \,\mathrm{d}{V}` which is wrong.
 
-100.  We need fraction tools. Such as
-      - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`)
-      - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)
+104. `P \left(v - b\right) = R T`
+     The parentheses are not selectable. Why?
 
-101.  Feature: Need to come up with some way to perform partial derivatives.
+105. We need fraction tools. Such as
+     - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`)
+     - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)
 
-102.  Maybe start over?
+106. Feature: Need to come up with some way to perform partial derivatives.
 
-103.  Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it.
+107. Maybe start over?
 
-104.  Upgrade cortexjs to newest version.
+108. Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it.
 
-105.  Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs.
+109. Upgrade cortexjs to newest version.
 
-106.  Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
+110. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs.
+
+111. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.

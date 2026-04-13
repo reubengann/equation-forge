@@ -93,21 +93,29 @@ function injectImplicitOneInIntegrals(latex: string): string {
   // \int^{x0} \,\mathrm{d}{x}
   // \int \,\mathrm{d}{x}
   // Allow optional \, between bounds and differential.
-  const re =
-    /\\int\s*(?:_({[^}]*}|[^\s^]+))?\s*(?:\^({[^}]*}|[^\s^]+))?\s*(?:\\,|\s)*\\mathrm\{d\}(?!')\s*\{?([^{}]+)\}?/g;
-  const withExact = latex.replace(re, (_m, lower, upper, v) => {
+  const boundToken = String.raw`(?:\{(?:[^{}]|\{[^{}]*\})*\}|[A-Za-z0-9]+(?:_\{[^}]+\}|_[A-Za-z0-9]+)?)`;
+  const groupedOperand = String.raw`\{((?:[^{}]|\{[^{}]*\})+)\}`;
+  const simpleOperand = String.raw`([A-Za-z](?:_\{[^}]+\}|_[A-Za-z0-9]+)?)`;
+  const re = new RegExp(
+    String.raw`\\int\s*(?:_(${boundToken}))?\s*(?:\^(${boundToken}))?\s*(?:\\,|\s)*\\mathrm\{d\}(?!')\s*(?:${groupedOperand}|${simpleOperand})`,
+    "g"
+  );
+  const withExact = latex.replace(re, (_m, lower, upper, grouped, simple) => {
     const lowerPart = lower ? `_${lower}` : "";
     const upperPart = upper ? `^${upper}` : "";
-    return String.raw`\int${lowerPart}${upperPart} 1 \,\mathrm{d}{${v}}`;
+    const operand = grouped ?? simple;
+    return String.raw`\int${lowerPart}${upperPart} 1 \,\mathrm{d}{${operand}}`;
   });
 
   // Also handle inexact differentials: \int \mathrm{d}'{Q} and \int d'Q.
-  const inexactRe =
-    /\\int\s*(?:_({[^}]*}|[^\s^]+))?\s*(?:\^({[^}]*}|[^\s^]+))?\s*(?:\\,|\s)*(?:\\mathrm\{d\}'\s*\{?([^{}]+)\}?|d'\s*([A-Za-z](?:_\{[^}]+\}|_[A-Za-z0-9]+)?))/g;
-  return withExact.replace(inexactRe, (_m, lower, upper, grouped, tight) => {
+  const inexactRe = new RegExp(
+    String.raw`\\int\s*(?:_(${boundToken}))?\s*(?:\^(${boundToken}))?\s*(?:\\,|\s)*(?:\\mathrm\{d\}'\s*(?:${groupedOperand}|${simpleOperand})|d'\s*([A-Za-z](?:_\{[^}]+\}|_[A-Za-z0-9]+)?))`,
+    "g"
+  );
+  return withExact.replace(inexactRe, (_m, lower, upper, grouped, simple, tight) => {
     const lowerPart = lower ? `_${lower}` : "";
     const upperPart = upper ? `^${upper}` : "";
-    const v = grouped ?? tight;
+    const v = grouped ?? simple ?? tight;
     return String.raw`\int${lowerPart}${upperPart} 1 \,\mathrm{d}'{${v}}`;
   });
 }
@@ -183,10 +191,12 @@ export function normalizeMathJson(mj: MJ | null): MJ | null {
                             normalizeDifferentialOperands(
                               normalizePrimeDifferentials(
                                 normalizePlainDifferentials(
-                                  normalizeTrailingDerivativeSubscriptBinding(
-                                  normalizePartialDerivativeForms(
-                                    normalizeProducts(normalizeVectors(mj))
-                                  )
+                                  normalizeIntegralTrailingDifferentialFactor(
+                                    normalizeTrailingDerivativeSubscriptBinding(
+                                      normalizePartialDerivativeForms(
+                                        normalizeProducts(normalizeVectors(mj))
+                                      )
+                                    )
                                   )
                                 )
                               )
@@ -781,6 +791,56 @@ function normalizePlainDifferentials(mj: MJ | null): MJ | null {
 
   if (out.length === 1) return out[0];
   return ["InvisibleOperator", ...out] as MJ;
+}
+
+function normalizeIntegralTrailingDifferentialFactor(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+  const op = mj[0];
+  const kids = mj
+    .slice(1)
+    .map((child) => normalizeIntegralTrailingDifferentialFactor(child as MJ)) as MJ[];
+
+  if (op !== "InvisibleOperator" && op !== "Multiply") {
+    return [op, ...kids] as MJ;
+  }
+
+  const factors = [...kids];
+  const isDiffOperandLike = (expr: MJ): boolean =>
+    typeof expr === "string" ||
+    (Array.isArray(expr) &&
+      expr[0] === "Subscript" &&
+      (typeof expr[1] === "string" || Array.isArray(expr[1])));
+
+  const foldIntoIntegrate = (integral: MJ, operand: MJ): MJ | null => {
+    if (!Array.isArray(integral) || integral[0] !== "Integrate") return null;
+    if (integral.length < 3) return null;
+    const integrand = integral[1] as MJ;
+    const domain = integral[2] as MJ;
+
+    if (domain === "Nothing") {
+      return ["Integrate", integrand, operand] as MJ;
+    }
+    if (!Array.isArray(domain) || domain[0] !== "Tuple") return null;
+    if ((domain[1] as MJ) !== "Nothing") return null;
+
+    const updatedTuple = ["Tuple", operand, ...(domain.slice(2) as MJ[])] as MJ;
+    return ["Integrate", integrand, updatedTuple] as MJ;
+  };
+
+  for (let i = 0; i < factors.length - 1; i += 1) {
+    const integral = factors[i] as MJ;
+    const candidateOperand = factors[i + 1] as MJ;
+    if (!isDiffOperandLike(candidateOperand)) continue;
+    const folded = foldIntoIntegrate(integral, candidateOperand);
+    if (!folded) continue;
+    factors.splice(i, 2, folded);
+    i -= 1;
+  }
+
+  if (factors.length === 0) return 1;
+  if (factors.length === 1) return factors[0] as MJ;
+  return ["InvisibleOperator", ...factors] as MJ;
 }
 
 const inexactDifferentialEntry: LatexDictionaryEntry = {

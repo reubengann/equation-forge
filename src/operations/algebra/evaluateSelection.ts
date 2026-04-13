@@ -1,4 +1,4 @@
-import { normalizeMathJson, withRealScope } from "../../computeEngine";
+import { normalizeMathJson, parse, withRealScope } from "../../computeEngine";
 import { ExpressionTree, type MJ } from "../../ExpressionTree";
 import { getAtPath, setAtPath } from "../../movePath";
 import type { ExprSelection } from "../../selectionSemantics";
@@ -14,6 +14,64 @@ function deepEqualMJ(a: MJ, b: MJ): boolean {
     return true;
   }
   return a === b;
+}
+
+function normalizeRoundTripAliases(expr: MJ): MJ {
+  if (expr === "d_upright") return "DifferentialD";
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((child) => normalizeRoundTripAliases(child as MJ));
+  if (
+    op === "Subscript" &&
+    kids.length >= 2 &&
+    Array.isArray(kids[0]) &&
+    (kids[0] as MJ[])[0] === "Differential"
+  ) {
+    const diffInner = (kids[0] as MJ[])[1] as MJ;
+    return ["InvisibleOperator", "DifferentialD", ["Subscript", diffInner, kids[1] as MJ]] as MJ;
+  }
+  return [op, ...kids] as MJ;
+}
+
+function assertEvaluationRoundTripInvariant(next: ExpressionTree): void {
+  if (process.env.NODE_ENV !== "development") return;
+  if (next.latexPlain.includes("object Object")) return;
+  const reparsed = parse(next.latexPlain);
+  if (!reparsed) {
+    throw new Error(`Round-trip parse failed for evaluation result latex: ${next.latexPlain}`);
+  }
+  const canonicalizeLatex = (root: MJ): string | null => {
+    try {
+      const normalized = normalizeRoundTripAliases((normalizeMathJson(root) ?? root) as MJ);
+      const normalizedLatex = ExpressionTree.create(normalized).latexPlain;
+      const reparsedCanonical = parse(normalizedLatex);
+      if (!reparsedCanonical) return null;
+      const canonical = normalizeRoundTripAliases(
+        (normalizeMathJson(reparsedCanonical as MJ) ?? reparsedCanonical) as MJ
+      );
+      return ExpressionTree.create(canonical).latexPlain.replace(/\s+/g, " ").trim();
+    } catch {
+      return null;
+    }
+  };
+  const currentLatex = canonicalizeLatex(next.rootJson);
+  const reparsedLatex = canonicalizeLatex(reparsed as MJ);
+  if (!currentLatex || !reparsedLatex) return;
+  if (currentLatex !== reparsedLatex) {
+    throw new Error(
+      [
+        "Evaluation result failed round-trip tree invariant.",
+        `latex: ${currentLatex}`,
+        `reparsed latex: ${reparsedLatex}`,
+      ].join("\n")
+    );
+  }
+}
+
+function buildEvaluatedTree(nextRoot: MJ): ExpressionTree {
+  const next = ExpressionTree.create(nextRoot);
+  assertEvaluationRoundTripInvariant(next);
+  return next;
 }
 
 function isEvalDebugEnabled(): boolean {
@@ -685,6 +743,23 @@ function normalizeNegativeAddTerm(expr: MJ): MJ {
   return ["Negate", product] as MJ;
 }
 
+function normalizeNegativeTermsInAdd(expr: MJ): MJ {
+  if (!Array.isArray(expr) || expr[0] !== "Add") return expr;
+  const terms = (expr.slice(1) as MJ[]).map((term) => normalizeNegativeAddTerm(term));
+  if (terms.length === 0) return 0;
+  if (terms.length === 1) return terms[0] as MJ;
+  return ["Add", ...terms] as MJ;
+}
+
+function ensureNegatedAddIsDelimited(expr: MJ): MJ {
+  if (!Array.isArray(expr) || expr[0] !== "Negate" || expr.length < 2) return expr;
+  const inner = expr[1] as MJ;
+  if (Array.isArray(inner) && inner[0] === "Add") {
+    return ["Negate", ["Delimiter", inner] as MJ] as MJ;
+  }
+  return expr;
+}
+
 function numberFromMJ(expr: MJ): number | null {
   if (typeof expr === "number" && Number.isFinite(expr)) return expr;
   if (typeof expr === "string" && /^-?\d+(?:\.\d+)?$/.test(expr)) {
@@ -898,20 +973,22 @@ function applyEvalLikeSelection(
       if (!isZeroEquivalent(target)) return null;
       if (target === 0 || target === "0") return null;
       const nextRoot = setAtPath(tree.rootJson, path, 0) as MJ;
-      return ExpressionTree.create(nextRoot);
+      return buildEvaluatedTree(nextRoot);
     }
     const parentId = tree.parentById[effectiveSel.nodeId];
     const parentOp = parentId ? tree.nodesById[parentId]?.op : null;
-    const normalizedEvaluated = normalizeNegativeAddTerm(evaluated);
+    const normalizedEvaluated = ensureNegatedAddIsDelimited(
+      normalizeNegativeTermsInAdd(normalizeNegativeAddTerm(evaluated))
+    );
     const needsGrouping =
       Array.isArray(normalizedEvaluated) &&
       normalizedEvaluated[0] === "Add" &&
-      (parentOp === "InvisibleOperator" || parentOp === "Multiply");
+      (parentOp === "InvisibleOperator" || parentOp === "Multiply" || parentOp === "Negate");
     const replacement = needsGrouping
       ? (["Delimiter", normalizedEvaluated] as MJ)
       : normalizedEvaluated;
     const nextRoot = setAtPath(tree.rootJson, path, replacement) as MJ;
-    return ExpressionTree.create(nextRoot);
+    return buildEvaluatedTree(nextRoot);
   }
 
   // Span selection
@@ -942,18 +1019,19 @@ function applyEvalLikeSelection(
     op === "Add" ||
     ((op === "InvisibleOperator" || op === "Multiply") && spanParentParentOp === "Add");
   const normalizedSegment = shouldNormalizeSegmentSign
-    ? normalizeNegativeAddTerm(evaluatedSegment)
+    ? normalizeNegativeTermsInAdd(normalizeNegativeAddTerm(evaluatedSegment))
     : evaluatedSegment;
+  const groupedSegment = ensureNegatedAddIsDelimited(normalizedSegment);
 
   const nextKids = [
     ...kids.slice(0, start),
-    normalizedSegment,
+    groupedSegment,
     ...kids.slice(end + 1),
   ];
 
   const rebuiltParent = rebuildGrouped(op, nextKids);
   const nextRoot = setAtPath(tree.rootJson, parentPath, rebuiltParent) as MJ;
-  return ExpressionTree.create(nextRoot);
+  return buildEvaluatedTree(nextRoot);
 }
 
 export function evaluateSelection(

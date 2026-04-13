@@ -144,6 +144,25 @@ describe("computeEngine custom dictionary", () => {
     ]);
   });
 
+  it("parses negated bounded integral with differential fraction from plain text (issue 95)", () => {
+    const mj = parse(String.raw`-\int_{T_1}^{T_{f}}\frac{\mathrm{d}{T_{c}}}{T_{c}}`);
+    expect(mj).not.toBeNull();
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toBe(String.raw`-\int_{T_{1}}^{T_{f}} \frac{\mathrm{d}{T_{c}}}{T_{c}}`);
+  });
+
+  it("keeps differentials inside bounded integrals with symbolic sqrt bounds (issue 95)", () => {
+    const mj = parse(
+      String.raw`W=-\int_{T_{1}}^{\sqrt{T_{1} T_{2}}} C_{P} \mathrm{d}{T_{c}}-\int_{T_{2}}^{\sqrt{T_{1} T_{2}}} C_{P} \mathrm{d}{T_{h}}`
+    );
+    expect(mj).not.toBeNull();
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toContain(String.raw`\mathrm{d}{T_{c}}`);
+    expect(latex).toContain(String.raw`\mathrm{d}{T_{h}}`);
+    expect(latex).not.toContain(String.raw`C_{P} T_{c}`);
+    expect(latex).not.toContain(String.raw`C_{P} T_{h}`);
+  });
+
   it("parses primes", () => {
     const mj = parse(String.raw`x''`);
     expect(mj).toEqual(["Prime", "x", 2]);
