@@ -167,4 +167,13 @@ describe("factorSelection", () => {
       String.raw`\frac{b}{2} \left(-T_{0}^{2} + T_{1}^{2}\right)`
     );
   });
+
+  it("factors negative perfect-square trinomial as -(v-b)^2 (issue 83)", () => {
+    const tree = treefromLatex(String.raw`\left(-b^{2} + 2 b v - v^{2}\right)`);
+    const result = factorSelection(tree, { kind: "node", nodeId: tree.rootId });
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe(
+      String.raw`\left(-\left(v - b\right)^{2}\right)`
+    );
+  });
 });

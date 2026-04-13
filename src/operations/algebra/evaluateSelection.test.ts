@@ -401,6 +401,32 @@ describe("evaluateSelection", () => {
     expect(out).toContain(String.raw`v_{0}`);
   });
 
+  it("evaluates inverse-square definite integral with multiplicative symbolic upper bound (issue 81)", () => {
+    const latex = String.raw`T_{1} - T_{2} = \int_{V}^{2 V} \frac{a}{c_{v} v^{2}} \,\mathrm{d}{v}`;
+    const tree = buildTree(latex);
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(rhsId).toBeTruthy();
+
+    const next = evaluateSelection(tree, { kind: "node", nodeId: rhsId! });
+    expect(next).not.toBeNull();
+    const out = normalizeLatex(next!.latexPlain);
+    expect(out).not.toContain(String.raw`\int`);
+    expect(out).toContain(String.raw`a`);
+    expect(out).toContain(String.raw`c_{v}`);
+    expect(out).toContain(String.raw`V`);
+  });
+
+  it("renders simplified negative product as subtraction in Add context (issue 83 follow-up)", () => {
+    const latex = String.raw`1 + 2 a \left(-\left(v - b\right)^{2}\right)`;
+    const tree = buildTree(latex);
+    const termId = findNodeIdByLatex(tree, String.raw`2 a \left(-\left(v - b\right)^{2}\right)`);
+    const next = simplifySelection(tree, { kind: "node", nodeId: termId });
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe(
+      normalizeLatex(String.raw`1 - 2 a \left(-b + v\right)^{2}`)
+    );
+  });
+
   it("simplifies exponential of ln when Euler constant is explicit (issue 61)", () => {
     const tree = buildTreeFromMJ([
       "Power",

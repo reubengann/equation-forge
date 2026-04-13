@@ -365,6 +365,76 @@ function differenceOfSquaresFromAdd(expr: MJ): MJ | null {
   return factored;
 }
 
+function perfectSquareTrinomialFromAdd(expr: MJ): MJ | null {
+  if (!Array.isArray(expr) || expr[0] !== "Add" || expr.length !== 4) return null;
+  const terms = expr.slice(1) as MJ[];
+  type Parsed = { index: number; numeric: number; factors: MJ[] };
+  const parsed: Parsed[] = [];
+
+  for (let i = 0; i < terms.length; i += 1) {
+    const { sign, core } = unwrapNegate(terms[i] as MJ);
+    const factors = factorsOf(core).map(unwrapDelimiter);
+    let numeric = sign;
+    const symbolic: MJ[] = [];
+    for (const factor of factors) {
+      const n = parseInteger(factor);
+      if (n !== null) numeric *= n;
+      else symbolic.push(factor);
+    }
+    parsed.push({ index: i, numeric, factors: symbolic });
+  }
+
+  const isSquareFactor = (factor: MJ): MJ | null => {
+    if (!Array.isArray(factor) || factor[0] !== "Power" || factor.length < 3) return null;
+    const exponent = factor[2] as MJ;
+    if (exponent !== 2 && exponent !== "2") return null;
+    return factor[1] as MJ;
+  };
+
+  const squareTerms = parsed.filter((p) => {
+    if (Math.abs(p.numeric) !== 1) return false;
+    if (p.factors.length !== 1) return false;
+    return isSquareFactor(p.factors[0] as MJ) !== null;
+  });
+  if (squareTerms.length !== 2) return null;
+
+  const crossTerm = parsed.find((p) => !squareTerms.includes(p));
+  if (!crossTerm) return null;
+  if (crossTerm.factors.length !== 2 || Math.abs(crossTerm.numeric) !== 2) return null;
+
+  const baseA = isSquareFactor(squareTerms[0].factors[0] as MJ);
+  const baseB = isSquareFactor(squareTerms[1].factors[0] as MJ);
+  if (!baseA || !baseB) return null;
+
+  const crossHasA = crossTerm.factors.some((f) => deepEqualMJ(f as MJ, baseA));
+  const crossHasB = crossTerm.factors.some((f) => deepEqualMJ(f as MJ, baseB));
+  if (!crossHasA || !crossHasB) return null;
+
+  const squareSign = Math.sign(squareTerms[0].numeric);
+  if (squareSign === 0 || Math.sign(squareTerms[1].numeric) !== squareSign) return null;
+  const crossSign = Math.sign(crossTerm.numeric);
+  if (crossSign === 0) return null;
+  const innerSign = crossSign / squareSign;
+  if (innerSign !== 1 && innerSign !== -1) return null;
+
+  let leftBase = baseA;
+  let rightBase = baseB;
+  if (squareSign === -1 && innerSign === -1) {
+    // Prefer -(v-b)^2 style for -x^2+2xy-y^2.
+    leftBase = baseB;
+    rightBase = baseA;
+  }
+
+  const inner =
+    innerSign === 1
+      ? (["Add", leftBase, rightBase] as MJ)
+      : (["Add", leftBase, ["Negate", rightBase] as MJNode] as MJ);
+  const squared = ["Power", ["Delimiter", inner] as MJ, 2] as MJ;
+  const factored = squareSign === -1 ? (["Negate", squared] as MJ) : squared;
+  if (deepEqualMJ(factored, expr)) return null;
+  return factored;
+}
+
 function factorExpression(expr: MJ): MJ | null {
   const ceReady = toComputeEngine(expr);
   const ceBox = box(ceReady) as any;
@@ -388,6 +458,10 @@ function factorExpression(expr: MJ): MJ | null {
   // Deterministic fallback: difference of squares (A^2 - B^2 = (A-B)(A+B))
   const dosFactored = differenceOfSquaresFromAdd(expr);
   if (dosFactored && !deepEqualMJ(dosFactored, expr)) return dosFactored;
+
+  // Deterministic fallback: perfect-square trinomial
+  const pstFactored = perfectSquareTrinomialFromAdd(expr);
+  if (pstFactored && !deepEqualMJ(pstFactored, expr)) return pstFactored;
 
   // Deterministic fallback: common factor from Add
   const fallback = commonFactorFromAdd(expr);

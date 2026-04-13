@@ -72,7 +72,12 @@ export function MathDisplayPanel({
 
       <div
         ref={mathWrapRef}
-        style={{ position: "relative", display: "inline-block" }}
+        style={{
+          position: "relative",
+          display: "inline-block",
+          // Keep a small marquee-start lane between toolbar and expression.
+          marginTop: 8,
+        }}
       >
         <div style={{ position: "relative" }}>
           {/* MathLive expects the display macros as a stringified attribute.

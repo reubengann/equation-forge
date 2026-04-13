@@ -61,6 +61,21 @@ function simplifyProduct(expr: MJ): MJ {
   return [op, ...factors] as MJ;
 }
 
+function simplifySubscript(expr: MJ): MJ {
+  if (!isMJNode(expr) || expr[0] !== "Subscript" || expr.length < 3) return expr;
+
+  const base = simplifyMatch(expr[1] as MJ);
+  const sub = simplifyMatch(expr[2] as MJ);
+
+  // Normalize equivalent shapes:
+  //   (-(x))_T  <=>  -((x)_T)
+  if (isMJNode(base) && base[0] === "Negate" && base.length >= 2) {
+    return simplifyMatch(["Negate", ["Subscript", base[1] as MJ, sub]] as MJ);
+  }
+
+  return ["Subscript", base, sub] as MJ;
+}
+
 export function simplifyMatch(expr: MJ): MJ {
   const unwrapped = unwrapDelimiter(expr);
   if (!isMJNode(unwrapped)) return unwrapped;
@@ -70,6 +85,7 @@ export function simplifyMatch(expr: MJ): MJ {
   if (op === "Add") return simplifySum(unwrapped);
   if (op === "Multiply" || op === "InvisibleOperator")
     return simplifyProduct(unwrapped);
+  if (op === "Subscript") return simplifySubscript(unwrapped);
 
   const kids = unwrapped
     .slice(1)

@@ -91,6 +91,38 @@ export type OtherPadSnapshot = {
   snapshot: ExpressionPadSnapshot;
 };
 
+type SubstituteSuggestionMatch = {
+  rhsJson: MJ;
+  rhsLatex: string;
+};
+
+function stripOuterNegate(expr: MJ): MJ | null {
+  if (!Array.isArray(expr) || expr[0] !== "Negate" || expr.length < 2) return null;
+  return expr[1] as MJ;
+}
+
+function matchSubstituteSuggestion(lhs: MJ, rhs: MJ, selected: MJ): SubstituteSuggestionMatch | null {
+  if (lhsMatchesSelected(lhs, selected)) {
+    return { rhsJson: rhs, rhsLatex: ExpressionTree.create(rhs).latexPlain };
+  }
+
+  // Allow selecting -A to match a known relation A = B, and suggest -B.
+  const selectedWithoutNegate = stripOuterNegate(selected);
+  if (selectedWithoutNegate && lhsMatchesSelected(lhs, selectedWithoutNegate)) {
+    const negatedRhs = ["Negate", rhs] as MJ;
+    return { rhsJson: negatedRhs, rhsLatex: ExpressionTree.create(negatedRhs).latexPlain };
+  }
+
+  // Symmetric case: selected A can match -A = B and suggest -B.
+  const lhsWithoutNegate = stripOuterNegate(lhs);
+  if (lhsWithoutNegate && lhsMatchesSelected(lhsWithoutNegate, selected)) {
+    const negatedRhs = ["Negate", rhs] as MJ;
+    return { rhsJson: negatedRhs, rhsLatex: ExpressionTree.create(negatedRhs).latexPlain };
+  }
+
+  return null;
+}
+
 export type ExpressionPadProps = {
   debug?: {
     render?: (
@@ -679,8 +711,15 @@ export function ExpressionPad({
           if (!Array.isArray(root) || root[0] !== "Equal" || root.length < 3) return [];
           const lhs = root[1] as MJ;
           const rhs = root[2] as MJ;
-          if (!lhsMatchesSelected(lhs, selectedJson)) return [];
-          return [{ padIndex: sourcePadIndex, rhsLatex: ExpressionTree.create(rhs).latexPlain, rhsJson: rhs }];
+          const match = matchSubstituteSuggestion(lhs, rhs, selectedJson);
+          if (!match) return [];
+          return [
+            {
+              padIndex: sourcePadIndex,
+              rhsLatex: match.rhsLatex,
+              rhsJson: match.rhsJson,
+            },
+          ];
         })
         .find((s) => s.padIndex === padIndex);
       if (!picked) return;
@@ -813,7 +852,13 @@ export function ExpressionPad({
       const normalized = mathPadFacade.normalizeSelection(tree, id);
       const info = tree.nodesById[normalized];
       if (!info) continue;
-      if (info.op === "Add" || info.op === "Equal" || info.op === "InvisibleOperator") {
+      if (
+        info.op === "Add" ||
+        info.op === "Equal" ||
+        info.op === "InvisibleOperator" ||
+        info.op === "Delimiter" ||
+        info.op === "List"
+      ) {
         continue;
       }
       deduped.add(normalized);
@@ -1398,9 +1443,9 @@ export function ExpressionPad({
         return [];
       const lhs = root[1] as MJ;
       const rhs = root[2] as MJ;
-      if (!lhsMatchesSelected(lhs, selectedJson)) return [];
-      const rhsLatex = ExpressionTree.create(rhs).latexPlain;
-      return [{ padIndex, rhsLatex, rhsJson: rhs }];
+      const match = matchSubstituteSuggestion(lhs, rhs, selectedJson);
+      if (!match) return [];
+      return [{ padIndex, rhsLatex: match.rhsLatex, rhsJson: match.rhsJson }];
     });
   }, [otherPadSnapshots, substituteTargetId, tree]);
 

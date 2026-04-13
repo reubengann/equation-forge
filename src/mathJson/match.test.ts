@@ -37,6 +37,12 @@ describe("match helpers", () => {
     expect(deepEqualMJ(canon, expected)).toBe(true);
   });
 
+  it("matches negated subscript forms across equivalent parse shapes (issue 80)", () => {
+    const lhs = makeMJfromLatex(String.raw`\left(-\frac{\partial{h}}{\partial{P}}\right)_{T}`);
+    const sel = makeMJfromLatex(String.raw`-\left(\frac{\partial{h}}{\partial{P}}\right)_{T}`);
+    expect(lhsMatchesSelected(lhs, sel)).toBe(true);
+  });
+
   it("does not match different symbols", () => {
     const lhs = makeMJfromLatex("M");
     const sel = makeMJfromLatex("N");

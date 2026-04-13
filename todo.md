@@ -295,61 +295,56 @@
     Can't select the second two terms `\frac{a}{v^{2}} \mathrm{d}{v} + P \mathrm{d}{v}` with rubber band and move them across the equals sign additively.
     Also using the "copy selection" command copies `\frac{a}{v^{2}} \mathrm{d}{v} P \mathrm{d}{v}` omitting the plus sign.
 
----- undone ----
-
 80. `c_{P} \left(\frac{\partial{T}}{\partial{P}}\right)_{s} = v - \left(\frac{\partial{h}}{\partial{P}}\right)_{T}`
     When `-\left(\frac{\partial{h}}{\partial{P}}\right)_{T}` is selected and the replace dialog entered, even if there is an equation with that
     as the LHS, it isn't recognized as a valid match (maybe because of the negation?).
 
-81. `c_{P} \left(\frac{\partial{T}}{\partial{P}}\right)_{s} = -v + v - \frac{a}{v^{2}} \left(\frac{\partial{v}}{\partial{P}}\right)_{T} - P \left(\frac{\partial{v}}{\partial{P}}\right)_{T}`
-    Neither simplify, evaluate, or cancel can be used to get rid of `-v + v`.
-
-82. `T_{1} - T_{2} = \int_{V}^{2 V} \frac{a}{c_{v} v^{2}} \,\mathrm{d}{v}`
+81. `T_{1} - T_{2} = \int_{V}^{2 V} \frac{a}{c_{v} v^{2}} \,\mathrm{d}{v}`
     The integral cannot be evaluated.
-83. `h = c_{v} T - \frac{a}{v} + \frac{R T v^{2}}{v \left(v - b\right)} - \frac{a \left(v - b\right)}{v \left(v - b\right)} + K`
-    Can't simplify the fraction with a common factor of `(v-b)` automatically.
 
-84. `\left(\frac{\partial{h}}{\partial{P}}\right)_{T} = \frac{2 a}{v^{2}} \left(\frac{\partial{v}}{\partial{P}}\right)_{T} + R T \left(\frac{v - b}{\left(v - b\right)^{2}} - \frac{v}{\left(v - b\right)^{2}}\right) \left(\frac{\partial{v}}{\partial{P}}\right)_{T}`
-    Simplify `\frac{v - b}{\left(v - b\right)^{2}} - \frac{v}{\left(v - b\right)^{2}}`. Result is
-    `\left(\frac{\partial{h}}{\partial{P}}\right)_{T} = \frac{2 a}{v^{2}} \left(\frac{\partial{v}}{\partial{P}}\right)_{T} + R T -\frac{b}{\left(-b + v\right)^{2}} \left(\frac{\partial{v}}{\partial{P}}\right)_{T}`
-    which is wrong
-85. `\left(\frac{\partial{T}}{\partial{P}}\right)_{h} = \frac{v \left(-R T b v^{2} + 2 a b^{2} - 4 a b v + 2 a v^{2}\right)}{c_{P} \left(R T v^{3} - 2 a b^{2} + 4 a b v - 2 a v^{2}\right)}`
+82. `\left(\frac{\partial{T}}{\partial{P}}\right)_{h} = \frac{v \left(-R T b v^{2} + 2 a b^{2} - 4 a b v + 2 a v^{2}\right)}{c_{P} \left(R T v^{3} - 2 a b^{2} + 4 a b v - 2 a v^{2}\right)}`
     Can't select just `-2ab^2+4abv-2av^2` with rubber band select in denominator. Always expands to whole sum.
 
-86. `\left(-b^{2} + 2 b v - v^{2}\right)` does not factor to `-(v-b)^2`
+83. `\left(-b^{2} + 2 b v - v^{2}\right)` does not factor to `-(v-b)^2`
 
-87. When entering `\left(\frac{\partial{h}}{\partial{T}}\right)_{v} = c_{P} \left[1 - \frac{\beta \mu}{\kappa}\right]`
+84. `1 + 2 a \left(-\left(v - b\right)^{2}\right)`. If just `2 a \left(-\left(v - b\right)^{2}\right)` is
+    selected and simplified, the result is `1 + -2 a \left(-b + v\right)^{2}`, which is not desirable.
+    We should get `1 - 2 a \left(-b + v\right)^{2}`.
+
+---- undone ----
+
+84. When entering `\left(\frac{\partial{h}}{\partial{T}}\right)_{v} = c_{P} \left[1 - \frac{\beta \mu}{\kappa}\right]`
     in mathlive, it ends up as `c_{P}\left\lbrack1-\frac{\beta\mu}{\kappa}\right\rbrack`, which is an error.
 
-88. `\left(\frac{\partial{h}}{\partial{T}}\right)_{v} = -\frac{c_{P} \beta \mu}{\kappa} + c_{P}`
+85. `\left(\frac{\partial{h}}{\partial{T}}\right)_{v} = -\frac{c_{P} \beta \mu}{\kappa} + c_{P}`
     RHS won't factor `c_P`
 
-89. `nc_{v}\left(T_{fB}-T_0\right)=\frac{T_0c_{v}n}{2}` this renders as `n c_{v} \left(T_{\mathrm{fB}} - T_{0}\right) = \frac{T_{0} c_{v} n}{2}`
+86. `nc_{v}\left(T_{fB}-T_0\right)=\frac{T_0c_{v}n}{2}` this renders as `n c_{v} \left(T_{\mathrm{fB}} - T_{0}\right) = \frac{T_{0} c_{v} n}{2}`
 
-90. Feature: Need to come up with some way to perform partial derivatives.
+87. Feature: Need to come up with some way to perform partial derivatives.
 
-91. Maybe start over?
+88. Maybe start over?
 
-92. Start with `u = c_{v} T - \frac{a}{v}`. Apply `\partial/\partial v` to both sides.
+89. Start with `u = c_{v} T - \frac{a}{v}`. Apply `\partial/\partial v` to both sides.
     The resulting parentheses cannot be selected.
 
-93. `\int_{V_{0}}^{V} \frac{R}{v - b} \,\mathrm{d}{v}`
+90. `\int_{V_{0}}^{V} \frac{R}{v - b} \,\mathrm{d}{v}`
     This can't be evaluated.
 
-94. `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -\int_{V_{0}}^{V} \frac{1}{3 V} \,\mathrm{d}{V}`
+91. `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -\int_{V_{0}}^{V} \frac{1}{3 V} \,\mathrm{d}{V}`
     Drag the 3 out of the integral. Gives `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -3 \int_{V_{0}}^{V} \frac{1}{V} \,\mathrm{d}{V}` which is wrong.
 
-95. `P \left(v - b\right) = R T`
+92. `P \left(v - b\right) = R T`
     The parentheses are not selectable. Why?
 
-96. We need fraction tools. Such as
+93. We need fraction tools. Such as
     - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`)
     - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)
 
-97. Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it.
+94. Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it.
 
-98. Upgrade cortexjs to newest version.
+95. Upgrade cortexjs to newest version.
 
-99. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs.
+96. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs.
 
-100.  Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
+97. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.

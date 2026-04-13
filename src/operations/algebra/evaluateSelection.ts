@@ -417,6 +417,12 @@ function evaluateExpression(expr: MJ, mode: EvalMode): MJ | null {
       return normalizedNegation;
     }
 
+    const definitePowerIntegral = evaluateDefinitePowerIntegral(expr);
+    if (definitePowerIntegral && !deepEqualMJ(definitePowerIntegral, expr)) {
+      debugEval("result", definitePowerIntegral);
+      return definitePowerIntegral;
+    }
+
     return null;
   });
 }
@@ -595,6 +601,162 @@ function simplifyNegationPairs(expr: MJ): MJ {
   return [op, ...kids] as MJ;
 }
 
+function absoluteNumericMJ(value: MJ): MJ | null {
+  if (typeof value === "number" && Number.isFinite(value) && value < 0) {
+    return Math.abs(value);
+  }
+  if (typeof value === "string" && /^-\d+(?:\.\d+)?$/.test(value)) {
+    return value.slice(1);
+  }
+  return null;
+}
+
+function normalizeNegativeAddTerm(expr: MJ): MJ {
+  const absScalar = absoluteNumericMJ(expr);
+  if (absScalar !== null) return ["Negate", absScalar] as MJ;
+
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  if (op !== "InvisibleOperator" && op !== "Multiply") return expr;
+
+  const factors = expr.slice(1) as MJ[];
+  if (factors.length === 0) return expr;
+  const firstAbs = absoluteNumericMJ(factors[0] as MJ);
+  if (firstAbs === null) return expr;
+
+  const rest = [firstAbs, ...factors.slice(1)] as MJ[];
+  const product =
+    rest.length === 1 ? rest[0] : ([op, ...rest] as MJ);
+  return ["Negate", product] as MJ;
+}
+
+function numberFromMJ(expr: MJ): number | null {
+  if (typeof expr === "number" && Number.isFinite(expr)) return expr;
+  if (typeof expr === "string" && /^-?\d+(?:\.\d+)?$/.test(expr)) {
+    const parsed = Number(expr);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function containsSymbol(expr: MJ, symbol: string): boolean {
+  if (expr === symbol) return true;
+  if (!Array.isArray(expr)) return false;
+  if (expr[0] === "Subscript" && expr.length >= 2) {
+    // Treat subscripts like c_v as symbolic labels; dependence follows the base only.
+    return containsSymbol(expr[1] as MJ, symbol);
+  }
+  return expr.slice(1).some((child) => containsSymbol(child as MJ, symbol));
+}
+
+function rebuildProduct(parts: MJ[]): MJ {
+  if (parts.length === 0) return 1;
+  if (parts.length === 1) return parts[0] as MJ;
+  return ["InvisibleOperator", ...parts] as MJ;
+}
+
+function extractConstantTimesPower(
+  integrand: MJ,
+  variable: string
+): { constant: MJ; exponent: number } | null {
+  const factorFromPower = (factor: MJ): number | null => {
+    if (factor === variable) return 1;
+    if (Array.isArray(factor) && factor[0] === "Power" && factor.length >= 3 && factor[1] === variable) {
+      return numberFromMJ(factor[2] as MJ);
+    }
+    return null;
+  };
+
+  if (integrand === variable) return { constant: 1, exponent: 1 };
+  if (Array.isArray(integrand) && integrand[0] === "Power" && integrand[1] === variable) {
+    const n = numberFromMJ(integrand[2] as MJ);
+    if (n !== null) return { constant: 1, exponent: n };
+  }
+
+  if (
+    Array.isArray(integrand) &&
+    (integrand[0] === "InvisibleOperator" || integrand[0] === "Multiply")
+  ) {
+    const factors = integrand.slice(1) as MJ[];
+    let powerIdx = -1;
+    let exponent: number | null = null;
+    for (let i = 0; i < factors.length; i += 1) {
+      const n = factorFromPower(factors[i] as MJ);
+      if (n === null) continue;
+      if (powerIdx >= 0) return null;
+      powerIdx = i;
+      exponent = n;
+    }
+    if (powerIdx >= 0 && exponent !== null) {
+      const others = factors.filter((_, idx) => idx !== powerIdx) as MJ[];
+      if (others.some((f) => containsSymbol(f, variable))) return null;
+      return { constant: rebuildProduct(others), exponent };
+    }
+  }
+
+  if (Array.isArray(integrand) && integrand[0] === "Divide" && integrand.length >= 3) {
+    const numerator = integrand[1] as MJ;
+    const denominator = integrand[2] as MJ;
+    if (containsSymbol(numerator, variable)) return null;
+
+    const denomFactors =
+      Array.isArray(denominator) &&
+      (denominator[0] === "InvisibleOperator" || denominator[0] === "Multiply")
+        ? (denominator.slice(1) as MJ[])
+        : [denominator];
+
+    let varPowerIdx = -1;
+    let varPower: number | null = null;
+    for (let i = 0; i < denomFactors.length; i += 1) {
+      const n = factorFromPower(denomFactors[i] as MJ);
+      if (n === null) continue;
+      if (varPowerIdx >= 0) return null;
+      varPowerIdx = i;
+      varPower = n;
+    }
+    if (varPowerIdx < 0 || varPower === null) return null;
+
+    const otherDenominator = denomFactors.filter((_, idx) => idx !== varPowerIdx) as MJ[];
+    if (otherDenominator.some((f) => containsSymbol(f, variable))) return null;
+
+    const constantDen = rebuildProduct(otherDenominator);
+    const constant =
+      constantDen === 1 ? numerator : (["Divide", numerator, constantDen] as MJ);
+    return { constant, exponent: -varPower };
+  }
+
+  return null;
+}
+
+function evaluateDefinitePowerIntegral(expr: MJ): MJ | null {
+  if (!Array.isArray(expr) || expr[0] !== "Integrate" || expr.length < 3) return null;
+  const integrand = expr[1] as MJ;
+  const bounds = expr[2] as MJ;
+  if (!Array.isArray(bounds) || bounds[0] !== "Tuple" || bounds.length < 4) return null;
+
+  const variable = bounds[1] as MJ;
+  const lower = bounds[2] as MJ;
+  const upper = bounds[3] as MJ;
+  if (typeof variable !== "string" || lower === "Nothing" || upper === "Nothing") return null;
+
+  const extracted = extractConstantTimesPower(integrand, variable);
+  if (!extracted) return null;
+
+  const nPlus1 = extracted.exponent + 1;
+  if (Math.abs(nPlus1) < 1e-12) return null; // n = -1 is logarithmic
+
+  const makePow = (base: MJ): MJ => {
+    if (Math.abs(nPlus1 - 1) < 1e-12) return base;
+    return ["Power", base, nPlus1] as MJ;
+  };
+  const diff = ["Add", makePow(upper), ["Negate", makePow(lower)]] as MJ;
+  const scaled = ["InvisibleOperator", extracted.constant, diff] as MJ;
+  const result =
+    Math.abs(nPlus1 - 1) < 1e-12 ? scaled : (["Divide", scaled, nPlus1] as MJ);
+
+  return normalizeMathJson(result) ?? result;
+}
+
 function isZeroEquivalent(expr: MJ): boolean {
   const simplified = normalizeMathJson(simplifyZeroProducts(expr)) ?? simplifyZeroProducts(expr);
   if (simplified === 0 || simplified === "0") return true;
@@ -646,11 +808,14 @@ function applyEvalLikeSelection(
     }
     const parentId = tree.parentById[sel.nodeId];
     const parentOp = parentId ? tree.nodesById[parentId]?.op : null;
+    const normalizedEvaluated = normalizeNegativeAddTerm(evaluated);
     const needsGrouping =
-      Array.isArray(evaluated) &&
-      evaluated[0] === "Add" &&
+      Array.isArray(normalizedEvaluated) &&
+      normalizedEvaluated[0] === "Add" &&
       (parentOp === "InvisibleOperator" || parentOp === "Multiply");
-    const replacement = needsGrouping ? (["Delimiter", evaluated] as MJ) : evaluated;
+    const replacement = needsGrouping
+      ? (["Delimiter", normalizedEvaluated] as MJ)
+      : normalizedEvaluated;
     const nextRoot = setAtPath(tree.rootJson, path, replacement) as MJ;
     return ExpressionTree.create(nextRoot);
   }
@@ -675,10 +840,20 @@ function applyEvalLikeSelection(
 
   const evaluatedSegment = evaluateExpression(segmentExpr, mode);
   if (!evaluatedSegment) return null;
+  const spanParentParentId = tree.parentById[sel.parentId] ?? null;
+  const spanParentParentOp = spanParentParentId
+    ? tree.nodesById[spanParentParentId]?.op
+    : null;
+  const shouldNormalizeSegmentSign =
+    op === "Add" ||
+    ((op === "InvisibleOperator" || op === "Multiply") && spanParentParentOp === "Add");
+  const normalizedSegment = shouldNormalizeSegmentSign
+    ? normalizeNegativeAddTerm(evaluatedSegment)
+    : evaluatedSegment;
 
   const nextKids = [
     ...kids.slice(0, start),
-    evaluatedSegment,
+    normalizedSegment,
     ...kids.slice(end + 1),
   ];
 
