@@ -43,6 +43,23 @@ function factorsOf(expr: MJ): MJ[] {
   return [expr];
 }
 
+function factorsForCommonFactor(expr: MJ): MJ[] {
+  const unwrapped = unwrapDelimiter(expr);
+  if (Array.isArray(unwrapped) && (unwrapped[0] === "InvisibleOperator" || unwrapped[0] === "Multiply")) {
+    return (unwrapped.slice(1) as MJ[]).flatMap((child) => factorsForCommonFactor(child as MJ));
+  }
+  if (Array.isArray(unwrapped) && unwrapped[0] === "Divide" && unwrapped.length >= 3) {
+    const numerator = unwrapped[1] as MJ;
+    const denominator = unwrapped[2] as MJ;
+    // For common-factor detection, treat a/b as factors(a...) * (1/b).
+    return [
+      ...factorsForCommonFactor(numerator),
+      ["Divide", 1, denominator] as MJ,
+    ];
+  }
+  return [unwrapped];
+}
+
 function buildProductFromFactors(factors: MJ[]): MJ {
   if (factors.length === 0) return 1;
   if (factors.length === 1) return factors[0];
@@ -196,7 +213,7 @@ function commonFactorFromAdd(expr: MJ): MJ | null {
 
   for (const term of terms) {
     const { sign, core } = unwrapNegate(term);
-    const factors = factorsOf(core);
+    const factors = factorsForCommonFactor(core);
     let numeric: Rational = { num: sign, den: 1 };
     const rest: MJ[] = [];
     for (const f of factors) {

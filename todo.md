@@ -311,40 +311,40 @@
     selected and simplified, the result is `1 + -2 a \left(-b + v\right)^{2}`, which is not desirable.
     We should get `1 - 2 a \left(-b + v\right)^{2}`.
 
+85. `\left(\frac{\partial{h}}{\partial{T}}\right)_{v} = -\frac{c_{P} \beta \mu}{\kappa} + c_{P}`
+    If we select the RHS, factor is disabled, so we can't factor `c_P`.
+
+86. `nc_{v}\left(T_{fB}-T_0\right)=\frac{T_0c_{v}n}{2}` this renders as `n c_{v} \left(T_{\mathrm{fB}} - T_{0}\right) = \frac{T_{0} c_{v} n}{2}` The subscript fB should be italic, not sure why it's coming up as roman.
+
 ---- undone ----
 
-84. When entering `\left(\frac{\partial{h}}{\partial{T}}\right)_{v} = c_{P} \left[1 - \frac{\beta \mu}{\kappa}\right]`
-    in mathlive, it ends up as `c_{P}\left\lbrack1-\frac{\beta\mu}{\kappa}\right\rbrack`, which is an error.
+86. Start with `u = c_{v} T - \frac{a}{v}`. Apply `$$ \frac{\partial}{\partial v}eqn $$` to both sides.
+    The resulting parentheses cannot be selected in any way. However, if we enter this expression in anew
+    `\frac{\partial}{\partial{v}} u = \frac{\partial}{\partial{v}} \left(c_{v} T - \frac{a}{v}\right)`,
+    everything is selectable. So these are apparently not interpreted the same way. Do we not assert
+    that the expression MJ is the same when applying to both sides as the new latex?
 
-85. `\left(\frac{\partial{h}}{\partial{T}}\right)_{v} = -\frac{c_{P} \beta \mu}{\kappa} + c_{P}`
-    RHS won't factor `c_P`
-
-86. `nc_{v}\left(T_{fB}-T_0\right)=\frac{T_0c_{v}n}{2}` this renders as `n c_{v} \left(T_{\mathrm{fB}} - T_{0}\right) = \frac{T_{0} c_{v} n}{2}`
-
-87. Feature: Need to come up with some way to perform partial derivatives.
-
-88. Maybe start over?
-
-89. Start with `u = c_{v} T - \frac{a}{v}`. Apply `\partial/\partial v` to both sides.
-    The resulting parentheses cannot be selected.
-
-90. `\int_{V_{0}}^{V} \frac{R}{v - b} \,\mathrm{d}{v}`
+87. `\int_{V_{0}}^{V} \frac{R}{v - b} \,\mathrm{d}{v}`
     This can't be evaluated.
 
-91. `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -\int_{V_{0}}^{V} \frac{1}{3 V} \,\mathrm{d}{V}`
+88. `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -\int_{V_{0}}^{V} \frac{1}{3 V} \,\mathrm{d}{V}`
     Drag the 3 out of the integral. Gives `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -3 \int_{V_{0}}^{V} \frac{1}{V} \,\mathrm{d}{V}` which is wrong.
 
-92. `P \left(v - b\right) = R T`
+89. `P \left(v - b\right) = R T`
     The parentheses are not selectable. Why?
 
-93. We need fraction tools. Such as
+90. We need fraction tools. Such as
     - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`)
     - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)
 
-94. Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it.
+91. Feature: Need to come up with some way to perform partial derivatives.
 
-95. Upgrade cortexjs to newest version.
+92. Maybe start over?
 
-96. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs.
+93. Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it.
 
-97. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
+94. Upgrade cortexjs to newest version.
+
+95. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs.
+
+96. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.

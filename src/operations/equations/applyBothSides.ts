@@ -1,5 +1,5 @@
 import { normalizeMathJson, parse } from "../../computeEngine";
-import type { MJ } from "../../ExpressionTree";
+import { ExpressionTree, type MJ } from "../../ExpressionTree";
 
 type MJNode = [op: string, ...args: MJ[]];
 
@@ -15,8 +15,33 @@ function isIntegralOfEqnOperation(operationLatex: string): boolean {
   return /^\\int(?:\\left\(|\()eqn(?:\\right\)|\))$/.test(compact);
 }
 
+function parsePartialOfEqnVariable(operationLatex: string): MJ | null {
+  const compact = operationLatex.replace(/\s+/g, "");
+  const match = compact.match(
+    /^\\frac\{\\partial\}\{\\partial(?:\{([^{}]+)\}|(\\[A-Za-z]+|[A-Za-z]+))\}(?:\\left\(|\()?eqn(?:\\right\)|\))?$/
+  );
+  if (!match) return null;
+
+  const rawVar = (match[1] ?? match[2] ?? "").trim();
+  if (!rawVar) return null;
+  const parsed = parse(rawVar);
+  if (parsed == null) return null;
+  return parsed as MJ;
+}
+
 function isEqualNode(mj: MJ): mj is MJNode {
   return Array.isArray(mj) && mj[0] === "Equal" && mj.length === 3;
+}
+
+function deepEqualMJ(a: MJ, b: MJ): boolean {
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i += 1) {
+      if (!deepEqualMJ(a[i] as MJ, b[i] as MJ)) return false;
+    }
+    return true;
+  }
+  return a === b;
 }
 
 function deepClone(mj: MJ): MJ {
@@ -101,6 +126,18 @@ function replaceSymbol(mj: MJ, symbolName: string, replacement: MJ): MJ {
     replaceSymbol(child as MJ, symbolName, replacement)
   );
   return [mj[0] as string, ...replacedKids];
+}
+
+function shouldWrapForDirectParse(side: MJ): boolean {
+  if (!Array.isArray(side)) return false;
+  return (
+    side[0] === "Add" ||
+    side[0] === "InvisibleOperator" ||
+    side[0] === "Multiply" ||
+    side[0] === "Divide" ||
+    side[0] === "Negate" ||
+    side[0] === "DotProduct"
+  );
 }
 
 function normalizeMulExpr(factors: MJ[]): MJ {
@@ -194,6 +231,37 @@ export function applyOperationToBothSides(
     const newLhs = ["Integrate", deepClone(lhs as MJ), ["Tuple", "Nothing"]] as MJ;
     const newRhs = ["Integrate", deepClone(rhs as MJ), ["Tuple", "Nothing"]] as MJ;
     return ["Equal", newLhs, newRhs];
+  }
+
+  const partialVar = parsePartialOfEqnVariable(operationLatex);
+  if (partialVar != null) {
+    const [, lhs, rhs] = equation;
+    const partialOverVar = ["Divide", "PartialD", ["Partial", partialVar] as MJ] as MJ;
+    const newLhs = ["InvisibleOperator", deepClone(partialOverVar), wrapDifferentialOperand(lhs as MJ)] as MJ;
+    const newRhs = ["InvisibleOperator", deepClone(partialOverVar), wrapDifferentialOperand(rhs as MJ)] as MJ;
+    const result = ["Equal", newLhs, newRhs] as MJ;
+
+    if (process.env.NODE_ENV !== "production") {
+      const varLatex = ExpressionTree.create(partialVar).latexPlain;
+      const lhsLatexRaw = ExpressionTree.create(lhs as MJ).latexPlain;
+      const rhsLatexRaw = ExpressionTree.create(rhs as MJ).latexPlain;
+      const lhsLatex = shouldWrapForDirectParse(lhs as MJ)
+        ? String.raw`\left(${lhsLatexRaw}\right)`
+        : lhsLatexRaw;
+      const rhsLatex = shouldWrapForDirectParse(rhs as MJ)
+        ? String.raw`\left(${rhsLatexRaw}\right)`
+        : rhsLatexRaw;
+      const directLatex =
+        String.raw`\frac{\partial}{\partial{${varLatex}}} ${lhsLatex} = \frac{\partial}{\partial{${varLatex}}} ${rhsLatex}`;
+      const direct = parse(directLatex);
+      if (direct && !deepEqualMJ(direct as MJ, result)) {
+        throw new Error(
+          "Internal invariant failed: partial both-sides result diverges from direct parse."
+        );
+      }
+    }
+
+    return result;
   }
 
   const preparedLatex = operationLatex.replace(/\beqn\b/g, "\\mathrm{eqn}");

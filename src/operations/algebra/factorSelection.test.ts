@@ -176,4 +176,21 @@ describe("factorSelection", () => {
       String.raw`\left(-\left(v - b\right)^{2}\right)`
     );
   });
+
+  it("factors c_P from -c_P beta mu / kappa + c_P (issue 84)", () => {
+    const tree = treefromLatex(
+      String.raw`\left(\frac{\partial{h}}{\partial{T}}\right)_{v} = -\frac{c_{P} \beta \mu}{\kappa} + c_{P}`
+    );
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(rhsId).toBeTruthy();
+    expect(canFactorSelection(tree, { kind: "node", nodeId: rhsId! })).toBe(true);
+
+    const result = factorSelection(tree, { kind: "node", nodeId: rhsId! });
+    expect(result).not.toBeNull();
+    const out = normalizeSpaces(result!.latexPlain);
+    expect(out).toContain(String.raw`= c_{P} \left`);
+    expect(out).toContain(String.raw`\beta`);
+    expect(out).toContain(String.raw`\mu`);
+    expect(out).toContain(String.raw`\kappa`);
+  });
 });

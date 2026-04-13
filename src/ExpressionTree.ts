@@ -297,12 +297,13 @@ export class ExpressionTree {
       }
     }
 
-    // Render multi-letter identifiers upright to avoid unintended italics, e.g., f_max.
+    // Render multi-letter lowercase identifiers upright to avoid unintended italics, e.g., f_max.
+    // Keep mixed-case identifiers (e.g., fB) italic for physics-style variable names.
     // Skip if the symbol was already transformed by _leafLatex (e.g., DifferentialD -> \mathrm{d}).
     if (
       typeof node === "string" &&
       plain === node &&
-      /^[A-Za-z]{2,}$/.test(node)
+      /^[a-z]{2,}$/.test(node)
     ) {
       const upright = String.raw`\mathrm{${node}}`;
       this.nodesById[id] = { id, op: "Symbol", latex: upright, json: node };

@@ -149,6 +149,23 @@ describe("applyOperationToBothSides", () => {
     expect(latex).not.toContain(String.raw`\mathrm{d}{Nothing}`);
   });
 
+  it("treats \\frac{\\partial}{\\partial v}eqn as whole-side partial derivative (issue 86)", () => {
+    const eqn = makeMJfromLatex(String.raw`u = c_{v} T - \frac{a}{v}`);
+    const result = applyOperationToBothSides(eqn, String.raw`\frac{\partial}{\partial v}eqn`);
+    expect(ExpressionTree.create(result).latexPlain).toBe(
+      String.raw`\frac{\partial}{\partial{v}} u = \frac{\partial}{\partial{v}} \left(c_{v} T - \frac{a}{v}\right)`
+    );
+  });
+
+  it("matches direct parse shape for partial derivative both-sides operation (issue 86)", () => {
+    const eqn = makeMJfromLatex(String.raw`u = c_{v} T - \frac{a}{v}`);
+    const result = applyOperationToBothSides(eqn, String.raw`\frac{\partial}{\partial v}eqn`);
+    const direct = makeMJfromLatex(
+      String.raw`\frac{\partial}{\partial{v}} u = \frac{\partial}{\partial{v}} \left(c_{v} T - \frac{a}{v}\right)`
+    );
+    expect(result).toEqual(direct);
+  });
+
   it("parses vec notation into a Vector node", () => {
     const mj = makeMJfromLatex("\\vec{e}");
     expect(mj).toEqual(["Vector", "e"]);

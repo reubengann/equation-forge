@@ -37,6 +37,11 @@ describe("ExpressionTree", () => {
     expect(t.latexPlain).toBe(String.raw`v_{x}`);
   });
 
+  it("keeps mixed-case subscripts italic (issue 85)", () => {
+    const t = ExpressionTree.create(["Subscript", "T", "fB"]);
+    expect(t.latexPlain).toBe(String.raw`T_{fB}`);
+  });
+
   it("Can parse an equality", () => {
     const t = ExpressionTree.create(makeMJfromLatex("a = b"));
     expect(t.latexTagged).toBe(
