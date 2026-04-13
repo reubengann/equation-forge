@@ -316,35 +316,61 @@
 
 86. `nc_{v}\left(T_{fB}-T_0\right)=\frac{T_0c_{v}n}{2}` this renders as `n c_{v} \left(T_{\mathrm{fB}} - T_{0}\right) = \frac{T_{0} c_{v} n}{2}` The subscript fB should be italic, not sure why it's coming up as roman.
 
----- undone ----
-
-86. Start with `u = c_{v} T - \frac{a}{v}`. Apply `$$ \frac{\partial}{\partial v}eqn $$` to both sides.
+87. Start with `u = c_{v} T - \frac{a}{v}`. Apply `$$ \frac{\partial}{\partial v}eqn $$` to both sides.
     The resulting parentheses cannot be selected in any way. However, if we enter this expression in anew
     `\frac{\partial}{\partial{v}} u = \frac{\partial}{\partial{v}} \left(c_{v} T - \frac{a}{v}\right)`,
     everything is selectable. So these are apparently not interpreted the same way. Do we not assert
     that the expression MJ is the same when applying to both sides as the new latex?
 
-87. `\int_{V_{0}}^{V} \frac{R}{v - b} \,\mathrm{d}{v}`
+88. `\mathrm{d}{S} = \frac{\mathrm{d}'{Q}}{T}`. Select `d'Q` and hit replace. In the mathlive box, it says
+    `\inexactDifferentialD Q`.
+
+89. `\int \mathrm{d}{S}  = \int \frac{P \mathrm{d}{V}}{T} `
+    `T` cannot be moved multiplicatively outside the integral.
+
+90. `\ln\left(\left|V_{f}\right|\right) - \ln\left(\left|V_{0}\right|\right)`
+    We should add a simpify rule that combines the logarithms (i.e. `\ln(|V_f|/|V_0|)`)
+    And also `\ln a + \ln b = \ln (a b)`
+
+91. `\ln\left(\left|V_{f}\right|\right) - \ln\left(\left|V_{0}\right|\right)` Logs can be
+    simplified if selected by double clicking until the entire statement in parentheses is selected.
+    But rubber bend selection of the two log terms leaves the simplify button grayed out.
+
+92. `\frac{\mathrm{d}'{W}}{d'Q} = 1 - \frac{T_{c}}{T_{h}}` When entered, the numerator on the LHS shows as
+    `'d_upright W`
+
+93. `-T_{c} = -T_{h} \frac{\mathrm{d}{T_{c}}}{\mathrm{d}{T_{h}}}`
+    Can't move `dT_c` multiplicatively to the LHS or out of the fraction.
+
+94. `-\left(T_{f} - T_{1}\right)` expands as `-T_{f} - -T_{1}` instead of `-T_{f} + T_{1}`
+
+---- undone ----
+
+95. Trying to replace the RHS with `-\int_{T_1}^{T_{f}}\frac{\mathrm{d}{T_{c}}}{T_{c}}` result in an error.
+
+96. `\ln (a/b)` should expand to `ln a - ln b`
+
+97. `\int_{V_{0}}^{V} \frac{R}{v - b} \,\mathrm{d}{v}`
     This can't be evaluated.
 
-88. `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -\int_{V_{0}}^{V} \frac{1}{3 V} \,\mathrm{d}{V}`
+98. `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -\int_{V_{0}}^{V} \frac{1}{3 V} \,\mathrm{d}{V}`
     Drag the 3 out of the integral. Gives `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -3 \int_{V_{0}}^{V} \frac{1}{V} \,\mathrm{d}{V}` which is wrong.
 
-89. `P \left(v - b\right) = R T`
+99. `P \left(v - b\right) = R T`
     The parentheses are not selectable. Why?
 
-90. We need fraction tools. Such as
-    - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`)
-    - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)
+100.  We need fraction tools. Such as
+      - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`)
+      - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)
 
-91. Feature: Need to come up with some way to perform partial derivatives.
+101.  Feature: Need to come up with some way to perform partial derivatives.
 
-92. Maybe start over?
+102.  Maybe start over?
 
-93. Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it.
+103.  Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it.
 
-94. Upgrade cortexjs to newest version.
+104.  Upgrade cortexjs to newest version.
 
-95. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs.
+105.  Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs.
 
-96. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
+106.  Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.

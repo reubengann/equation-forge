@@ -159,4 +159,19 @@ describe("expandSubexpression", () => {
       String.raw`\mathrm{d}{u} + \mathrm{d}{P} v + P \mathrm{d}{v}`
     );
   });
+
+  it("expands negated subtraction without leaving double negatives (issue 94)", () => {
+    const tree = treefromLatex(String.raw`-\left(T_{f}-T_{1}\right)`);
+    const groupId = findNodeId(
+      tree,
+      (n) =>
+        (n.op === "Delimiter" || n.op === "List") &&
+        n.latex.includes(String.raw`T_{f} - T_{1}`)
+    );
+    expect(groupId).toBeTruthy();
+
+    const result = expandSubexpression(tree, groupId);
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe(String.raw`-T_{f} + T_{1}`);
+  });
 });

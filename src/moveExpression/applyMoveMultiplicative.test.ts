@@ -453,6 +453,38 @@ describe("applyMoveMultiplicative executor", () => {
     );
   });
 
+  it("moves numerator dT_c out of FractionDerivative within product (issue 93)", () => {
+    const next = runMove({
+      latex: String.raw`T_{c}=T_{h}\frac{\mathrm{d}{T_{c}}}{\mathrm{d}{T_{h}}}`,
+      select: (tree) => [findNodeByLatex(tree, String.raw`\mathrm{d}{T_{c}}`)],
+      hover: (tree) => findNodeByLatex(tree, String.raw`T_{h}`),
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`T_{c} = T_{h} \mathrm{d}{T_{c}} \frac{1}{\mathrm{d}{T_{h}}}`
+    );
+  });
+
+  it("moves numerator dT_c across '=' to LHS from FractionDerivative (issue 93)", () => {
+    const next = runMove({
+      latex: String.raw`-T_{c}=-T_{h}\frac{\mathrm{d}{T_{c}}}{\mathrm{d}{T_{h}}}`,
+      select: (tree) => [findNodeByLatex(tree, String.raw`\mathrm{d}{T_{c}}`)],
+      hover: (tree) => {
+        const lhsId = tree.childrenById[tree.rootId!]?.[0];
+        if (!lhsId) throw new Error("Missing LHS");
+        return lhsId;
+      },
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`-\frac{T_{c}}{\mathrm{d}{T_{c}}} = -T_{h} \frac{1}{\mathrm{d}{T_{h}}}`
+    );
+  });
+
   it("moves numerator factor out of fractional side root across '=' (issue 49)", () => {
     const next = runMove({
       latex: String.raw`\frac{R T P^{\frac{1}{\gamma}}}{P} = K^{\frac{1}{\gamma}}`,
@@ -518,6 +550,20 @@ describe("applyMoveMultiplicative executor", () => {
     expect(next).not.toBeNull();
     expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
       String.raw`w = K \int_{v_{1}}^{v_{2}} \frac{1}{v^{\gamma}} \,\mathrm{d}{v}`
+    );
+  });
+
+  it("pulls denominator factor T out of integral as reciprocal (issue 89)", () => {
+    const next = runMove({
+      latex: String.raw`\int \mathrm{d}{S} = \int \frac{P \mathrm{d}{V}}{T}`,
+      select: (tree) => [findNodeByLatex(tree, String.raw`T`)],
+      hover: (tree) => findNodeId(tree, (n) => n.op === "Integrate" && n.latex.includes("P")),
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\int \,\mathrm{d}{S} = \int P \mathrm{d}{V} \frac{1}{T}`
     );
   });
 

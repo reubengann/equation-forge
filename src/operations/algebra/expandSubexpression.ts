@@ -144,9 +144,17 @@ function distributeNegateOverAdd(expr: MJ): MJ {
       const terms = (inner as [string, ...MJ[]]).slice(1) as MJ[];
       return [
         "Add",
-        ...terms.map((term) =>
-          distributeNegateOverAdd(["Negate", term] as MJ)
-        ),
+        ...terms.map((term) => {
+          const mapped = distributeNegateOverAdd(["Negate", term] as MJ);
+          // Avoid double-negative additive terms like "- -T_1" after distribution.
+          if (Array.isArray(mapped) && mapped[0] === "Negate") {
+            const innerNeg = mapped[1] as MJ;
+            if (Array.isArray(innerNeg) && innerNeg[0] === "Negate") {
+              return innerNeg[1] as MJ;
+            }
+          }
+          return mapped;
+        }),
       ] as MJ;
     }
     return ["Negate", kids[0] as MJ] as MJ;

@@ -417,6 +417,15 @@ function evaluateExpression(expr: MJ, mode: EvalMode): MJ | null {
       return normalizedNegation;
     }
 
+    if (mode === "simplify") {
+      const logCombined = simplifyLogAddSub(expr);
+      const normalizedLogCombined = normalizeMathJson(logCombined) ?? logCombined;
+      if (!deepEqualMJ(normalizedLogCombined, expr)) {
+        debugEval("result", normalizedLogCombined);
+        return normalizedLogCombined;
+      }
+    }
+
     const definitePowerIntegral = evaluateDefinitePowerIntegral(expr);
     if (definitePowerIntegral && !deepEqualMJ(definitePowerIntegral, expr)) {
       debugEval("result", definitePowerIntegral);
@@ -601,6 +610,52 @@ function simplifyNegationPairs(expr: MJ): MJ {
   return [op, ...kids] as MJ;
 }
 
+function parseSignedLnTerm(expr: MJ): { sign: 1 | -1; arg: MJ } | null {
+  if (Array.isArray(expr) && expr[0] === "Ln" && expr.length >= 2) {
+    return { sign: 1, arg: expr[1] as MJ };
+  }
+  if (
+    Array.isArray(expr) &&
+    expr[0] === "Negate" &&
+    expr.length >= 2 &&
+    Array.isArray(expr[1]) &&
+    (expr[1] as MJ[])[0] === "Ln" &&
+    (expr[1] as MJ[]).length >= 2
+  ) {
+    return { sign: -1, arg: (expr[1] as MJ[])[1] as MJ };
+  }
+  return null;
+}
+
+function simplifyLogAddSub(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((c) => simplifyLogAddSub(c as MJ));
+  if (op !== "Add" || kids.length !== 2) return [op, ...kids] as MJ;
+
+  const left = parseSignedLnTerm(kids[0] as MJ);
+  const right = parseSignedLnTerm(kids[1] as MJ);
+  if (!left || !right) return [op, ...kids] as MJ;
+
+  const buildProduct = (parts: MJ[]): MJ => {
+    if (parts.length === 0) return 1;
+    if (parts.length === 1) return parts[0] as MJ;
+    return ["InvisibleOperator", ...parts] as MJ;
+  };
+
+  const positives: MJ[] = [];
+  const negatives: MJ[] = [];
+  for (const term of [left, right]) {
+    if (term.sign > 0) positives.push(term.arg);
+    else negatives.push(term.arg);
+  }
+
+  const numerator = buildProduct(positives);
+  const denominator = buildProduct(negatives);
+  const lnArg = negatives.length === 0 ? numerator : (["Divide", numerator, denominator] as MJ);
+  return ["Ln", lnArg] as MJ;
+}
+
 function absoluteNumericMJ(value: MJ): MJ | null {
   if (typeof value === "number" && Number.isFinite(value) && value < 0) {
     return Math.abs(value);
@@ -767,12 +822,46 @@ function isZeroEquivalent(expr: MJ): boolean {
   return false;
 }
 
+function multiSelectionAsEvalSpan(
+  tree: ExpressionTree,
+  sel: Extract<ExprSelection, { kind: "multi" }>
+): Extract<ExprSelection, { kind: "span" }> | null {
+  const ids = Array.from(new Set(sel.nodeIds));
+  if (ids.length < 2) return null;
+  const firstParent = tree.parentById[ids[0]];
+  if (!firstParent) return null;
+  if (!ids.every((id) => tree.parentById[id] === firstParent)) return null;
+
+  const parentOp = tree.nodesById[firstParent]?.op;
+  if (parentOp !== "Add" && parentOp !== "InvisibleOperator") return null;
+
+  const indices = ids
+    .map((id) => tree.childIndexById[id])
+    .filter((idx): idx is number => idx != null)
+    .sort((a, b) => a - b);
+  if (indices.length !== ids.length) return null;
+  for (let i = 1; i < indices.length; i += 1) {
+    if (indices[i] !== indices[i - 1] + 1) return null;
+  }
+
+  return {
+    kind: "span",
+    parentId: firstParent,
+    op: parentOp,
+    start: indices[0],
+    end: indices[indices.length - 1],
+  };
+}
+
 export function canEvaluateSelection(
   tree: ExpressionTree | null,
   sel: ExprSelection | null
 ): boolean {
   if (!tree || !sel) return false;
-  if (sel.kind === "multi") return false;
+  if (sel.kind === "multi") {
+    const span = multiSelectionAsEvalSpan(tree, sel);
+    return span != null;
+  }
   if (sel.kind === "span") {
     const parent = tree.nodesById[sel.parentId];
     if (!parent) return false;
@@ -793,10 +882,15 @@ function applyEvalLikeSelection(
   sel: ExprSelection,
   mode: EvalMode
 ): ExpressionTree | null {
-  if (sel.kind === "multi") return null;
+  let effectiveSel: ExprSelection = sel;
+  if (sel.kind === "multi") {
+    const span = multiSelectionAsEvalSpan(tree, sel);
+    if (!span) return null;
+    effectiveSel = span;
+  }
 
-  if (sel.kind === "node") {
-    const path = tree.pathById[sel.nodeId];
+  if (effectiveSel.kind === "node") {
+    const path = tree.pathById[effectiveSel.nodeId];
     if (!path) return null;
     const target = getAtPath(tree.rootJson, path) as MJ;
     const evaluated = evaluateExpression(target, mode);
@@ -806,7 +900,7 @@ function applyEvalLikeSelection(
       const nextRoot = setAtPath(tree.rootJson, path, 0) as MJ;
       return ExpressionTree.create(nextRoot);
     }
-    const parentId = tree.parentById[sel.nodeId];
+    const parentId = tree.parentById[effectiveSel.nodeId];
     const parentOp = parentId ? tree.nodesById[parentId]?.op : null;
     const normalizedEvaluated = normalizeNegativeAddTerm(evaluated);
     const needsGrouping =
@@ -821,7 +915,7 @@ function applyEvalLikeSelection(
   }
 
   // Span selection
-  const parentPath = tree.pathById[sel.parentId];
+  const parentPath = tree.pathById[effectiveSel.parentId];
   if (!parentPath) return null;
 
   const parentNode = getAtPath(tree.rootJson, parentPath) as MJ;
@@ -832,7 +926,7 @@ function applyEvalLikeSelection(
   const kids = parentNode.slice(1) as MJ[];
   if (kids.length === 0) return null;
 
-  const { start, end } = sel;
+  const { start, end } = effectiveSel;
   if (start < 0 || end >= kids.length || start > end) return null;
 
   const segmentKids = kids.slice(start, end + 1);
@@ -840,7 +934,7 @@ function applyEvalLikeSelection(
 
   const evaluatedSegment = evaluateExpression(segmentExpr, mode);
   if (!evaluatedSegment) return null;
-  const spanParentParentId = tree.parentById[sel.parentId] ?? null;
+  const spanParentParentId = tree.parentById[effectiveSel.parentId] ?? null;
   const spanParentParentOp = spanParentParentId
     ? tree.nodesById[spanParentParentId]?.op
     : null;

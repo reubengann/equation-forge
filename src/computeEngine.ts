@@ -22,10 +22,17 @@ function normalizeVectorMacros(latex: string): string {
 }
 
 function parseIntegralWithDifferentialOnly(latex: string): MJ | null {
-  // Handles forms like: \int_{a}^{b}\differentialD(expr)
-  const re =
-    /^\\int\s*_({[^}]*}|[^\s^]+)?\s*\^({[^}]*}|[^\s^]+)?\s*\\differentialD\s*(?:\\left\((.+)\\right\)|\{(.+)\}|(.+))\s*$/s;
-  const m = latex.match(re);
+  // Handles forms like:
+  // \int_{a}^{b}\differentialD(expr)
+  // \int_{a}^{b}\mathrm{d}'{Q}
+  // \int d'Q
+  const reMacro =
+    /^\\int\s*_({[^}]*}|[^\s^]+)?\s*\^({[^}]*}|[^\s^]+)?\s*(?:\\differentialD|\\inexactDifferentialD|\\mathrm\{d\}')\s*(?:\\left\((.+)\\right\)|\{(.+)\}|(.+))\s*$/s;
+  const reTightPrime =
+    /^\\int\s*_({[^}]*}|[^\s^]+)?\s*\^({[^}]*}|[^\s^]+)?\s*d'([A-Za-z](?:_\{[^}]+\}|_[A-Za-z0-9]+)?)\s*$/s;
+  const mMacro = latex.match(reMacro);
+  const mTight = latex.match(reTightPrime);
+  const m = mMacro ?? mTight;
   if (!m) return null;
 
   const strip = (s: string) =>
@@ -88,10 +95,20 @@ function injectImplicitOneInIntegrals(latex: string): string {
   // Allow optional \, between bounds and differential.
   const re =
     /\\int\s*(?:_({[^}]*}|[^\s^]+))?\s*(?:\^({[^}]*}|[^\s^]+))?\s*(?:\\,|\s)*\\mathrm\{d\}(?!')\s*\{?([^{}]+)\}?/g;
-  return latex.replace(re, (_m, lower, upper, v) => {
+  const withExact = latex.replace(re, (_m, lower, upper, v) => {
     const lowerPart = lower ? `_${lower}` : "";
     const upperPart = upper ? `^${upper}` : "";
     return String.raw`\int${lowerPart}${upperPart} 1 \,\mathrm{d}{${v}}`;
+  });
+
+  // Also handle inexact differentials: \int \mathrm{d}'{Q} and \int d'Q.
+  const inexactRe =
+    /\\int\s*(?:_({[^}]*}|[^\s^]+))?\s*(?:\^({[^}]*}|[^\s^]+))?\s*(?:\\,|\s)*(?:\\mathrm\{d\}'\s*\{?([^{}]+)\}?|d'\s*([A-Za-z](?:_\{[^}]+\}|_[A-Za-z0-9]+)?))/g;
+  return withExact.replace(inexactRe, (_m, lower, upper, grouped, tight) => {
+    const lowerPart = lower ? `_${lower}` : "";
+    const upperPart = upper ? `^${upper}` : "";
+    const v = grouped ?? tight;
+    return String.raw`\int${lowerPart}${upperPart} 1 \,\mathrm{d}'{${v}}`;
   });
 }
 
@@ -115,19 +132,32 @@ function promoteTightPlainDifferentials(latex: string): string {
   });
 }
 
+function promoteInexactDifferentials(latex: string): string {
+  const fromCanonical = latex.replace(
+    /\\mathrm\{d\}'\s*\{([^{}]+)\}/g,
+    (_m, operand) => String.raw`\inexactDifferentialD{${operand}}`
+  );
+  const tightPrime =
+    /(^|[^\\A-Za-z0-9_])d'([A-Za-z](?:_\{[^}]+\}|_[A-Za-z0-9]+)?)(?![A-Za-z0-9_])/g;
+  return fromCanonical.replace(tightPrime, (_m, prefix: string, operand: string) => {
+    return `${prefix}${String.raw`\inexactDifferentialD{${operand}}`}`;
+  });
+}
+
 export function parse(latex: string): MJ | null {
   const prefilled = injectImplicitOneInIntegrals(latex);
   const withPartialFractionsPromoted = promotePartialFracToDfrac(prefilled);
   const withTightDifferentials = promoteTightPlainDifferentials(
     withPartialFractionsPromoted
   );
+  const withInexactDifferentials = promoteInexactDifferentials(withTightDifferentials);
 
   // Special-case bare differential integrals before general parsing.
-  const special = parseIntegralWithDifferentialOnly(withTightDifferentials);
+  const special = parseIntegralWithDifferentialOnly(withInexactDifferentials);
   if (special) return special;
 
   const prepared = normalizeVectorMacros(
-    toMathLiveLatex(withTightDifferentials)
+    toMathLiveLatex(withInexactDifferentials)
   );
   const mj = (ce.parse(prepared, { canonical: false })?.json as MJ) ?? null;
   // Some rewrites (e.g. subscript rebinding after derivative-shape lowering)
@@ -415,10 +445,23 @@ function normalizePrimeDifferentials(mj: MJ | null): MJ | null {
   }
 
   const out: MJ[] = [];
+  const isDifferentialDLike = (expr: MJ): boolean => {
+    if (expr === "d" || expr === "DifferentialD" || expr === "d_upright") return true;
+    if (
+      Array.isArray(expr) &&
+      expr[0] === "Subscript" &&
+      expr.length >= 3 &&
+      expr[1] === "d" &&
+      expr[2] === "upright"
+    ) {
+      return true;
+    }
+    return false;
+  };
   const isPrimeDToken = (expr: MJ): boolean =>
     Array.isArray(expr) &&
     expr[0] === "Prime" &&
-    (((expr as MJ[])[1] as MJ) === "d" || ((expr as MJ[])[1] as MJ) === "DifferentialD");
+    isDifferentialDLike((expr as MJ[])[1] as MJ);
 
   const isPrimeDifferentialNode = (expr: MJ): expr is MJ =>
     Array.isArray(expr) &&
@@ -649,6 +692,19 @@ function normalizePlainDifferentials(mj: MJ | null): MJ | null {
   }
 
   const out: MJ[] = [];
+  const isDifferentialDLike = (expr: MJ): boolean => {
+    if (expr === "d" || expr === "DifferentialD" || expr === "d_upright") return true;
+    if (
+      Array.isArray(expr) &&
+      expr[0] === "Subscript" &&
+      expr.length >= 3 &&
+      expr[1] === "d" &&
+      expr[2] === "upright"
+    ) {
+      return true;
+    }
+    return false;
+  };
   const isUppercaseDifferentialOperand = (expr: MJ | null | undefined): boolean => {
     if (expr == null) return false;
     if (typeof expr === "string") return /^[A-Z]$/.test(expr);
@@ -680,7 +736,7 @@ function normalizePlainDifferentials(mj: MJ | null): MJ | null {
     const curIsPrimeD =
       Array.isArray(cur) &&
       cur[0] === "Prime" &&
-      (cur[1] === "d" || cur[1] === "DifferentialD");
+      isDifferentialDLike(cur[1] as MJ);
     const curIsPrimeDifferentialNode =
       Array.isArray(cur) &&
       cur[0] === "Prime" &&
@@ -929,6 +985,19 @@ function fixBlankIntegrals(mj: MJ | null): MJ | null {
 
     if (badIntegrand) {
       kids[0] = 1;
+    }
+    if (
+      Array.isArray(kids[0]) &&
+      (kids[0][0] === "InvisibleOperator" || kids[0][0] === "Multiply")
+    ) {
+      const factors = (kids[0] as MJ[]).slice(1).filter((factor) => factor !== 1) as MJ[];
+      if (factors.length === 0) {
+        kids[0] = 1;
+      } else if (factors.length === 1) {
+        kids[0] = factors[0] as MJ;
+      } else {
+        kids[0] = ["InvisibleOperator", ...factors] as MJ;
+      }
     }
     const tuple = kids[1];
     if (Array.isArray(tuple) && tuple[0] === "Tuple") {

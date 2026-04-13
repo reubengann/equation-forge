@@ -98,17 +98,6 @@ export function toMathLiveLatex(displayLatex: string): string {
   if (!displayLatex) return displayLatex ?? "";
   let s = replaceCanonicalDifferentialGroups(displayLatex);
 
-  // Inexact differential (d') forms route through a dedicated parser macro.
-  s = s.replace(/\\mathrm\{d\}'\s*\{([^{}]+)\}/g, (_m, v) =>
-    String.raw`\inexactDifferentialD ${formatMathLiveDifferentialOperand(v)}`
-  );
-  s = s.replace(/\\mathrm\{d\}'\s*([A-Za-z])/g, (_m, v) =>
-    String.raw`\inexactDifferentialD ${v}`
-  );
-  s = s.replace(/\\mathrm\{d\}'\s*(\\[A-Za-z]+)\b/g, (_m, v) =>
-    String.raw`\inexactDifferentialD {${v}}`
-  );
-
   // \mathrm{d}{x}  -> \differentialD x
   s = s.replace(/\\mathrm\{d\}\s*\{([^{}]+)\}/g, (_m, v) =>
     String.raw`\differentialD ${formatMathLiveDifferentialOperand(v)}`
@@ -121,7 +110,7 @@ export function toMathLiveLatex(displayLatex: string): string {
   s = s.replace(/\\mathrm\{d\}\s*(\\[A-Za-z]+)\b/g, (_m, v) => String.raw`\differentialD {${v}}`);
 
   // Bare \mathrm{d} (no operand) -> MathLive differential operator.
-  s = s.replace(/\\mathrm\{d\}(?![A-Za-z{\\])/g, String.raw`\differentialD `);
+  s = s.replace(/\\mathrm\{d\}(?![A-Za-z{\\'])/g, String.raw`\differentialD `);
 
   return s;
 }
@@ -136,6 +125,13 @@ export function fromMathLiveLatex(mathLiveLatex: string): string {
   s = s.replace(/\\?dNothing/g, String.raw`\mathrm{d}`);
   s = s.replace(/\\mathrm\{d\}\s*\{?Nothing\}?/g, String.raw`\mathrm{d}`);
   s = s.replace(/\bNothing\b/g, "");
+
+  // Keep inexact differentials canonical in user-facing LaTeX.
+  s = s.replace(/\\inexactDifferentialD\s*\{([^{}]+)\}/g, (_m, v) => String.raw`\mathrm{d}'{${v}}`);
+  s = s.replace(/\\inexactDifferentialD\s+([A-Za-z])/g, (_m, v) => String.raw`\mathrm{d}'{${v}}`);
+  s = s.replace(/\\inexactDifferentialD\s+(\\[A-Za-z]+)\b/g, (_m, v) =>
+    String.raw`\mathrm{d}'{${v}}`
+  );
 
   // \differentialD x -> \mathrm{d}{x}
   s = s.replace(/\\differentialD\s*\{([^{}]+)\}/g, (_m, v) => String.raw`\mathrm{d}{${v}}`);

@@ -19,7 +19,7 @@ describe("differentialLatex helpers", () => {
       String.raw`\frac{\differentialD {P_{s}}}{\differentialD x}`
     );
     expect(toMathLiveLatex(String.raw`\int \mathrm{d}'{Q}`)).toBe(
-      String.raw`\int \inexactDifferentialD Q`
+      String.raw`\int \mathrm{d}'{Q}`
     );
   });
 
@@ -34,6 +34,9 @@ describe("differentialLatex helpers", () => {
     ).toBe(String.raw`\dfrac{\mathrm{d}{f}}{\mathrm{d}{x}} + \mathrm{d}{\theta}`);
     expect(fromMathLiveLatex(String.raw`\frac{\differentialD {P_{s}}}{\differentialD x}`)).toBe(
       String.raw`\frac{\mathrm{d}{P_{s}}}{\mathrm{d}{x}}`
+    );
+    expect(fromMathLiveLatex(String.raw`\inexactDifferentialD Q`)).toBe(
+      String.raw`\mathrm{d}'{Q}`
     );
   });
 

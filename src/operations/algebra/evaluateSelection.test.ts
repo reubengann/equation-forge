@@ -427,6 +427,39 @@ describe("evaluateSelection", () => {
     );
   });
 
+  it("simplifies ln(A) - ln(B) into ln(A/B) (issue 90)", () => {
+    const tree = buildTree(
+      String.raw`\ln\left(\left|V_{f}\right|\right) - \ln\left(\left|V_{0}\right|\right)`
+    );
+    const next = simplifySelection(tree, { kind: "node", nodeId: tree.rootId });
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe(
+      normalizeLatex(String.raw`\ln\left(\frac{\left|V_{f}\right|}{\left|V_{0}\right|}\right)`)
+    );
+  });
+
+  it("simplifies ln(a) + ln(b) into ln(a b) (issue 90)", () => {
+    const tree = buildTree(String.raw`\ln\left(a\right) + \ln\left(b\right)`);
+    const next = simplifySelection(tree, { kind: "node", nodeId: tree.rootId });
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe(
+      normalizeLatex(String.raw`\ln\left(a b\right)`)
+    );
+  });
+
+  it("simplifies contiguous multi-selected ln terms (issue 91)", () => {
+    const tree = buildTree(
+      String.raw`\ln\left(\left|V_{f}\right|\right) - \ln\left(\left|V_{0}\right|\right)`
+    );
+    const addKids = tree.childrenById[tree.rootId] ?? [];
+    expect(addKids.length).toBe(2);
+    const next = simplifySelection(tree, { kind: "multi", nodeIds: addKids });
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe(
+      normalizeLatex(String.raw`\ln\left(\frac{\left|V_{f}\right|}{\left|V_{0}\right|}\right)`)
+    );
+  });
+
   it("simplifies exponential of ln when Euler constant is explicit (issue 61)", () => {
     const tree = buildTreeFromMJ([
       "Power",
@@ -518,11 +551,21 @@ describe("evaluateSelection", () => {
 });
 
 describe("canEvaluateSelection", () => {
-  it("returns false for multi selections", () => {
+  it("returns false for non-contiguous or cross-parent multi selections", () => {
     expect(canEvaluateSelection(null, null)).toBe(false);
     const tree = buildTree("a + b");
     const sel: ExprSelection = { kind: "multi", nodeIds: [] };
     expect(canEvaluateSelection(tree, sel)).toBe(false);
+  });
+
+  it("returns true for contiguous multi selections under Add", () => {
+    const tree = buildTree("a + b + c");
+    const addId = tree.rootId;
+    const [aId, bId] = tree.childrenById[addId] ?? [];
+    expect(aId).toBeTruthy();
+    expect(bId).toBeTruthy();
+    const sel: ExprSelection = { kind: "multi", nodeIds: [aId!, bId!] };
+    expect(canEvaluateSelection(tree, sel)).toBe(true);
   });
 
   it("returns false for spans whose parent is not Add/InvisibleOperator", () => {

@@ -52,6 +52,10 @@ function normalizeMul(factors: MJ[]): MJ {
   return ["InvisibleOperator", ...use] as MJNode;
 }
 
+function isQuotientOp(op: unknown): op is "Divide" | "FractionDerivative" {
+  return op === "Divide" || op === "FractionDerivative";
+}
+
 function reciprocalDenominator(expr: MJ): MJ | null {
   if (!Array.isArray(expr)) return null;
   if (expr[0] !== "Divide") return null;
@@ -126,12 +130,34 @@ function divideTermByFactor(term: MJ, factor: MJ): MJ {
     }
   }
 
-  if (Array.isArray(bareTerm) && bareTerm[0] === "Divide" && bareTerm.length >= 3) {
+  if (Array.isArray(bareTerm) && isQuotientOp(bareTerm[0]) && bareTerm.length >= 3) {
+    const quotientOp = bareTerm[0] as "Divide" | "FractionDerivative";
     const numerator = unwrapDelimiter(bareTerm[1] as MJ);
     const denominator = unwrapDelimiter(bareTerm[2] as MJ);
 
+    if (deepEqualMJ(denominator, bareFactor)) {
+      return numerator;
+    }
+
+    if (
+      Array.isArray(denominator) &&
+      (denominator[0] === "InvisibleOperator" || denominator[0] === "Multiply")
+    ) {
+      const denFactors = (denominator.slice(1) as MJ[]).map(unwrapDelimiter);
+      const idx = denFactors.findIndex((f) => deepEqualMJ(f, bareFactor));
+      if (idx >= 0) {
+        const originalDenFactors = denominator.slice(1) as MJ[];
+        const nextDenominator = normalizeMul(
+          originalDenFactors.filter((_, i) => i !== idx)
+        );
+        return isOneTerm(nextDenominator)
+          ? numerator
+          : ([quotientOp, numerator, nextDenominator] as MJNode);
+      }
+    }
+
     if (deepEqualMJ(numerator, bareFactor)) {
-      return isOneTerm(denominator) ? 1 : (["Divide", 1, denominator] as MJNode);
+      return isOneTerm(denominator) ? 1 : ([quotientOp, 1, denominator] as MJNode);
     }
 
     if (
@@ -147,7 +173,7 @@ function divideTermByFactor(term: MJ, factor: MJ): MJ {
         );
         return isOneTerm(denominator)
           ? nextNumerator
-          : (["Divide", nextNumerator, denominator] as MJNode);
+          : ([quotientOp, nextNumerator, denominator] as MJNode);
       }
     }
   }
@@ -225,7 +251,8 @@ function extractFromDivide(
   const dividePath = tree.pathById[divideId];
   if (!dividePath) return null;
   const divideExpr = getAtPath(tree.rootJson, dividePath) as MJNode;
-  if (!Array.isArray(divideExpr) || divideExpr[0] !== "Divide") return null;
+  if (!Array.isArray(divideExpr) || !isQuotientOp(divideExpr[0])) return null;
+  const quotientOp = divideExpr[0] as "Divide" | "FractionDerivative";
 
   const kids = tree.childrenById[divideId] ?? [];
   if (kids.length !== 2) return null;
@@ -346,7 +373,7 @@ function extractFromDivide(
   if (!extractedExpr) return null;
   const updatedDivide: MJ = isOneTerm(nextDenominator)
     ? nextNumerator
-    : (["Divide", nextNumerator, nextDenominator] as MJNode);
+    : ([quotientOp, nextNumerator, nextDenominator] as MJNode);
   return { extractedExpr, updatedDivide };
 }
 
@@ -449,7 +476,12 @@ export function applyMoveMultiplicative(
     }
     const normalizedOp = tree.nodesById[normalized]?.op;
     if (normalizedOp === "FractionDerivative") {
+      const numeratorId = tree.childrenById[normalized]?.[0];
       const denominatorId = tree.childrenById[normalized]?.[1];
+      if (numeratorId && isAncestorOrSelf(tree, numeratorId, id)) {
+        // Preserve numerator-level intent so factors can be extracted.
+        return id;
+      }
       if (denominatorId && isAncestorOrSelf(tree, denominatorId, id)) {
         // Preserve denominator-level move intent (issue 37) even though
         // generic selection normalization may bubble to the whole fraction.
@@ -524,7 +556,7 @@ export function applyMoveMultiplicative(
       while (cur) {
         const p: string | null = tree.parentById[cur] ?? null;
         if (!p) return null;
-        if (tree.nodesById[p]?.op === "Divide") return p;
+        if (isQuotientOp(tree.nodesById[p]?.op)) return p;
         cur = p;
       }
       return null;
@@ -562,7 +594,7 @@ export function applyMoveMultiplicative(
   }
 
   // Pull out of fraction when hovering a sibling factor in the same product.
-  if (targetSlot != null && tree.nodesById[fromParentId]?.op === "Divide") {
+  if (targetSlot != null && isQuotientOp(tree.nodesById[fromParentId]?.op)) {
     const divideId = fromParentId;
     const parentMulId = tree.parentById[divideId];
     const parentMulOp = parentMulId ? tree.nodesById[parentMulId]?.op : null;
@@ -785,6 +817,9 @@ export function applyMoveMultiplicative(
     if (integrateId) {
       const integrandId = tree.childrenById[integrateId]?.[0];
       if (integrandId && isAncestorOrSelf(tree, integrandId, movedId)) {
+        const movedFromIntegrandDenominator =
+          isUnderDenominatorOfSideRoot(tree, integrandId, movedId) ||
+          isUnderDenominatorOfFractionSideRoot(tree, integrandId, movedId);
         // Find multiplicative ancestor within integrand; if none, treat integrand itself as the container.
         let mulId: string | null = tree.parentById[movedId] ?? null;
         while (
@@ -850,10 +885,13 @@ export function applyMoveMultiplicative(
           ...integrateExpr.slice(2),
         ];
 
+        const movedOutsideExpr: MJ = movedFromIntegrandDenominator
+          ? (["Divide", 1, movedExpr] as MJNode)
+          : movedExpr;
         const wrapped = normalizeMul(
           targetSlot === 0
-            ? ([movedExpr, updatedIntegrate] as MJ[])
-            : ([updatedIntegrate, movedExpr] as MJ[]),
+            ? ([movedOutsideExpr, updatedIntegrate] as MJ[])
+            : ([updatedIntegrate, movedOutsideExpr] as MJ[]),
         );
 
         nextRoot = setAtPath(nextRoot, integratePath, wrapped);

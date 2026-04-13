@@ -258,6 +258,15 @@ describe("computeEngine custom dictionary", () => {
     );
   });
 
+  it("normalizes mixed exact/inexact differential fraction input (issue 92)", () => {
+    const mj = parse(String.raw`\frac{\mathrm{d}'{W}}{d'Q} = 1 - \frac{T_{c}}{T_{h}}`);
+    expect(mj).not.toBeNull();
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toBe(
+      String.raw`\frac{\mathrm{d}'{W}}{\mathrm{d}'{Q}} = 1 - \frac{T_{c}}{T_{h}}`
+    );
+  });
+
   it("keeps partial derivatives in fraction form inside subscripted coefficients", () => {
     const mj = parse(
       String.raw`du = \left(\dfrac{\partial u}{\partial T}\right)_v \, dT + \left(\dfrac{\partial u}{\partial v}\right)_T \, dv`
