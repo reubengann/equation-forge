@@ -15,9 +15,16 @@ import {
   fromMathLiveLatex,
   toMathLiveLatex,
 } from "../../infra/mathlive/differentialLatex";
-import { mathPadFacade, type ExprSelection, type SubstituteScope } from "../../application";
+import {
+  mathPadFacade,
+  type ExprSelection,
+  type SubstituteScope,
+} from "../../application";
 import { useHistory } from "../../hooks/useHistory";
-import { useSelection, getNodeIdsFromPointerEvent } from "../../hooks/useSelection";
+import {
+  useSelection,
+  getNodeIdsFromPointerEvent,
+} from "../../hooks/useSelection";
 import { useDragMove } from "../../hooks/useDragMove";
 import {
   applySelectionHighlight,
@@ -37,7 +44,7 @@ import type {
   MoveCaptureFixture,
   MoveTraceSample,
 } from "../../domain/move/moveDebugFixture";
-import { hitTestNodeIdInMathliveShadow } from "../../infra/mathlive/mathliveShadow";
+import { hitTestOrClosestNodeIdInMathliveShadow } from "../../infra/mathlive/mathliveShadow";
 import { snapshotSelectableRectsForTree } from "../../infra/mathlive/rectProvider";
 import {
   installShadowStyle,
@@ -45,10 +52,7 @@ import {
 } from "../../infra/mathlive/derivationPadHighlight";
 import { lhsMatchesSelected } from "../../mathJson/match";
 import { getAtPath } from "../../movePath";
-import {
-  LatexInputWithToggle,
-  type InputMode,
-} from "./LatexInputWithToggle";
+import { LatexInputWithToggle, type InputMode } from "./LatexInputWithToggle";
 import { rectFromPoints, rectsOverlap, type RectLTRB } from "../../rectMath";
 
 export type ExpressionPadDebugState = {
@@ -73,6 +77,7 @@ export type ExpressionPadDebugState = {
   selectionChildOps: string;
   selectionChildLatex: string;
   selectionNote: string;
+  clickTrace: string;
   debugBoxes: boolean;
 };
 
@@ -97,11 +102,16 @@ type SubstituteSuggestionMatch = {
 };
 
 function stripOuterNegate(expr: MJ): MJ | null {
-  if (!Array.isArray(expr) || expr[0] !== "Negate" || expr.length < 2) return null;
+  if (!Array.isArray(expr) || expr[0] !== "Negate" || expr.length < 2)
+    return null;
   return expr[1] as MJ;
 }
 
-function matchSubstituteSuggestion(lhs: MJ, rhs: MJ, selected: MJ): SubstituteSuggestionMatch | null {
+function matchSubstituteSuggestion(
+  lhs: MJ,
+  rhs: MJ,
+  selected: MJ,
+): SubstituteSuggestionMatch | null {
   if (lhsMatchesSelected(lhs, selected)) {
     return { rhsJson: rhs, rhsLatex: ExpressionTree.create(rhs).latexPlain };
   }
@@ -110,14 +120,20 @@ function matchSubstituteSuggestion(lhs: MJ, rhs: MJ, selected: MJ): SubstituteSu
   const selectedWithoutNegate = stripOuterNegate(selected);
   if (selectedWithoutNegate && lhsMatchesSelected(lhs, selectedWithoutNegate)) {
     const negatedRhs = ["Negate", rhs] as MJ;
-    return { rhsJson: negatedRhs, rhsLatex: ExpressionTree.create(negatedRhs).latexPlain };
+    return {
+      rhsJson: negatedRhs,
+      rhsLatex: ExpressionTree.create(negatedRhs).latexPlain,
+    };
   }
 
   // Symmetric case: selected A can match -A = B and suggest -B.
   const lhsWithoutNegate = stripOuterNegate(lhs);
   if (lhsWithoutNegate && lhsMatchesSelected(lhsWithoutNegate, selected)) {
     const negatedRhs = ["Negate", rhs] as MJ;
-    return { rhsJson: negatedRhs, rhsLatex: ExpressionTree.create(negatedRhs).latexPlain };
+    return {
+      rhsJson: negatedRhs,
+      rhsLatex: ExpressionTree.create(negatedRhs).latexPlain,
+    };
   }
 
   return null;
@@ -127,7 +143,7 @@ export type ExpressionPadProps = {
   debug?: {
     render?: (
       state: ExpressionPadDebugState,
-      actions: ExpressionPadDebugActions
+      actions: ExpressionPadDebugActions,
     ) => ReactNode;
   };
   initialLatex?: string;
@@ -158,7 +174,10 @@ type ActiveMoveCapture = {
   expressionLatex: string;
   mode: MoveMode;
   selectedIds: string[];
-  rects: Record<string, { left: number; top: number; right: number; bottom: number }>;
+  rects: Record<
+    string,
+    { left: number; top: number; right: number; bottom: number }
+  >;
   samples: MoveTraceSample[];
 };
 
@@ -227,9 +246,7 @@ export function ExpressionPad({
   const insertOverlayRef = useRef<HTMLDivElement | null>(null);
   const MARQUEE_SELECT_THRESHOLD_PX = 4;
 
-  const [latexDraft, setLatexDraft] = useState<string>(
-    initialLatex ?? ""
-  );
+  const [latexDraft, setLatexDraft] = useState<string>(initialLatex ?? "");
 
   // Define applyPresentJson before hooks that use it
   function applyPresentJson(json: MJ, opts?: { latex?: string }) {
@@ -272,7 +289,7 @@ export function ExpressionPad({
       commitHistory(newTree.rootJson);
       applyPresentJson(newTree.rootJson, { latex });
     },
-    [commitHistory]
+    [commitHistory],
   );
 
   const {
@@ -333,14 +350,14 @@ export function ExpressionPad({
           succeeded: payload.succeeded,
         });
       },
-    }
+    },
   );
 
   const [latexText, setLatexText] = useState<string>(
-    "Type an equation, click Add / Update."
+    "Type an equation, click Add / Update.",
   );
   const [expressionJsonText, setExpressionJsonText] = useState<string>(
-    "Expression tree will appear here after rendering."
+    "Expression tree will appear here after rendering.",
   );
   const [movePlanText, setMovePlanText] = useState<string>("");
   const [info3, setInfo3] = useState<string>("");
@@ -359,7 +376,8 @@ export function ExpressionPad({
   const [substituteInputMode, setSubstituteInputMode] =
     useState<InputMode>("mathlive");
   const [substituteLatexDraft, setSubstituteLatexDraft] = useState<string>("");
-  const [substituteSuggestionJson, setSubstituteSuggestionJson] = useState<MJ | null>(null);
+  const [substituteSuggestionJson, setSubstituteSuggestionJson] =
+    useState<MJ | null>(null);
   const [infoArgs, setInfoArgs] = useState<string>("");
   const [selectionKind, setSelectionKind] = useState<string>("");
   const [selectionClickedId, setSelectionClickedId] = useState<string>("");
@@ -373,8 +391,11 @@ export function ExpressionPad({
   const [selectionChildOps, setSelectionChildOps] = useState<string>("");
   const [selectionChildLatex, setSelectionChildLatex] = useState<string>("");
   const [selectionNote, setSelectionNote] = useState<string>("");
+  const [clickTrace, setClickTrace] = useState<string>("");
   const [copyFeedback, setCopyFeedback] = useState<"idle" | "done">("idle");
-  const [copySelectionFeedback, setCopySelectionFeedback] = useState<"idle" | "done">("idle");
+  const [copySelectionFeedback, setCopySelectionFeedback] = useState<
+    "idle" | "done"
+  >("idle");
   const [marquee, setMarquee] = useState<MarqueeState | null>(null);
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
   const copySelectionFeedbackTimeoutRef = useRef<number | null>(null);
@@ -387,7 +408,9 @@ export function ExpressionPad({
     if (!initialSnapshot) return;
     if (tree) return;
     commitHistory(initialSnapshot.rootJson);
-    applyPresentJson(initialSnapshot.rootJson, { latex: initialSnapshot.latex });
+    applyPresentJson(initialSnapshot.rootJson, {
+      latex: initialSnapshot.latex,
+    });
   }, [initialSnapshot, tree, commitHistory, applyPresentJson]);
 
   // Allow parent (debug UI) to push a new latex draft (e.g., example copy).
@@ -448,7 +471,7 @@ export function ExpressionPad({
 
   const canSubstitute = useMemo(
     () => mathPadFacade.canSubstitute(tree, selection),
-    [tree, selection]
+    [tree, selection],
   );
 
   useEffect(() => {
@@ -465,7 +488,9 @@ export function ExpressionPad({
     const api = {
       getNodeIdByLatex: (latex: string) => {
         if (!tree || !latex) return null;
-        const hit = Object.values(tree.nodesById).find((node) => node.latex === latex);
+        const hit = Object.values(tree.nodesById).find(
+          (node) => node.latex === latex,
+        );
         return hit?.id ?? null;
       },
       getTreeLatex: () => tree?.latexPlain ?? "",
@@ -482,7 +507,7 @@ export function ExpressionPad({
         const sr = (host as any).shadowRoot as ShadowRoot | null;
         if (!sr) return null;
         const els = sr.querySelectorAll<HTMLElement>(
-          `[data-node-id="${CSS.escape(nodeId)}"]`
+          `[data-node-id="${CSS.escape(nodeId)}"]`,
         );
         if (!els.length) return null;
         let left = Infinity;
@@ -522,7 +547,7 @@ export function ExpressionPad({
       preview?: boolean;
       selectionOverride?: ExprSelection | null;
       clearHighlightAfterRender?: boolean;
-    }
+    },
   ) {
     if (!displayRef.current) return;
 
@@ -684,7 +709,8 @@ export function ExpressionPad({
       const picked = otherPadSnapshots
         .flatMap(({ padIndex: sourcePadIndex, snapshot }) => {
           const root = snapshot.rootJson;
-          if (!Array.isArray(root) || root[0] !== "Equal" || root.length < 3) return [];
+          if (!Array.isArray(root) || root[0] !== "Equal" || root.length < 3)
+            return [];
           const lhs = root[1] as MJ;
           const rhs = root[2] as MJ;
           const match = matchSubstituteSuggestion(lhs, rhs, selectedJson);
@@ -725,7 +751,14 @@ export function ExpressionPad({
         }
       }
     },
-    [setSubstituteError, setSubstituteLatexDraft, substituteInputMode, otherPadSnapshots, tree, substituteTargetId]
+    [
+      setSubstituteError,
+      setSubstituteLatexDraft,
+      substituteInputMode,
+      otherPadSnapshots,
+      tree,
+      substituteTargetId,
+    ],
   );
 
   function submitSubstitution() {
@@ -740,7 +773,8 @@ export function ExpressionPad({
       return;
     }
 
-    const parsed = substituteSuggestionJson ?? mathPadFacade.parseLatex(rhsLatex);
+    const parsed =
+      substituteSuggestionJson ?? mathPadFacade.parseLatex(rhsLatex);
     if (parsed == null) {
       setSubstituteError("Could not parse replacement.");
       return;
@@ -784,7 +818,7 @@ export function ExpressionPad({
     const opLatex: string = fromMathLiveLatex(
       applyFieldRef.current?.getValue?.("latex") ??
         applyFieldRef.current?.value ??
-        ""
+        "",
     );
     if (!opLatex.trim()) {
       setApplyError("Enter an operation.");
@@ -819,7 +853,7 @@ export function ExpressionPad({
 
   function normalizeMarqueeSelectionIds(
     rawIds: string[],
-    candidateRects: Record<string, RectLTRB>
+    candidateRects: Record<string, RectLTRB>,
   ): string[] {
     if (!tree || rawIds.length === 0) return [];
 
@@ -877,7 +911,7 @@ export function ExpressionPad({
   function computeMarqueeSelectionIds(
     origin: { x: number; y: number },
     current: { x: number; y: number },
-    candidateRects: Record<string, RectLTRB>
+    candidateRects: Record<string, RectLTRB>,
   ): string[] {
     const marqueeRect = rectFromPoints(origin, current);
     const raw = Object.entries(candidateRects)
@@ -891,28 +925,35 @@ export function ExpressionPad({
       newSelection: ExprSelection | null;
       multiplicativeSpan: ExprSelection | null;
     },
-    clickedId: string
+    clickedId: string,
   ) {
     if (!tree) return;
     if (clickResult.newSelection) {
       setSelection(clickResult.newSelection);
-      applySelectionHighlight(clickResult.newSelection, tree, displayRef.current);
+      applySelectionHighlight(
+        clickResult.newSelection,
+        tree,
+        displayRef.current,
+      );
 
       if (clickResult.newSelection.kind === "span") {
         const details = getSelectionDetailsForSpan(
           tree,
           clickResult.newSelection,
-          clickResult.multiplicativeSpan ? "Multiplicative span" : undefined
+          clickResult.multiplicativeSpan ? "Multiplicative span" : undefined,
         );
         updateSelectionDetails(details);
       } else if (clickResult.newSelection.kind === "multi") {
-        const details = getSelectionDetailsForMulti(tree, clickResult.newSelection);
+        const details = getSelectionDetailsForMulti(
+          tree,
+          clickResult.newSelection,
+        );
         updateSelectionDetails(details);
       } else {
         const details = getSelectionDetailsForNode(
           tree,
           clickResult.newSelection.nodeId,
-          { clickedId }
+          { clickedId },
         );
         updateSelectionDetails(details);
       }
@@ -936,17 +977,50 @@ export function ExpressionPad({
     }
 
     let ids = getNodeIdsFromPointerEvent(e);
+    const trace: Record<string, unknown> = {
+      pointer: { x: e.clientX, y: e.clientY },
+      pointerId: e.pointerId,
+      composedPathIds: ids,
+      primaryFallbackHitId: null,
+      secondaryFallbackHitId: null,
+      chosenId: null,
+      startedMarquee: false,
+    };
     if ((!ids || ids.length === 0) && displayRef.current) {
-      const hitId = hitTestNodeIdInMathliveShadow(
+      const hit = hitTestOrClosestNodeIdInMathliveShadow(
         displayRef.current,
         e.clientX,
-        e.clientY
+        e.clientY,
+        { maxDistance: 40 },
       );
-      if (hitId) ids = [hitId];
+      trace.primaryFallbackHitId = hit.id;
+      if (hit.id) ids = [hit.id];
     }
-    const clickedId = mathPadFacade.chooseBestAllowedSelectedNode(ids, tree);
+    let clickedId = mathPadFacade.chooseBestAllowedSelectedNode(ids, tree);
+    trace.chosenId = clickedId;
+    if (!clickedId && displayRef.current) {
+      // Composed-path IDs can be present but too structural (e.g. wrappers).
+      // Retry from geometric hit test to recover the nearest selectable node.
+      const fallback = hitTestOrClosestNodeIdInMathliveShadow(
+        displayRef.current,
+        e.clientX,
+        e.clientY,
+        { maxDistance: 40 },
+      );
+      trace.secondaryFallbackHitId = fallback.id;
+      if (fallback.id) {
+        const recovered = mathPadFacade.chooseBestAllowedSelectedNode(
+          [fallback.id, ...(ids ?? [])],
+          tree,
+        );
+        if (recovered) clickedId = recovered;
+      }
+      trace.chosenId = clickedId;
+    }
 
     if (!clickedId) {
+      trace.startedMarquee = true;
+      setClickTrace(JSON.stringify(trace, null, 2));
       pendingClickSelectionRef.current = null;
       const candidateRects = snapshotSelectableRectsForTree(displayEl, tree);
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -959,6 +1033,7 @@ export function ExpressionPad({
       });
       return;
     }
+    setClickTrace(JSON.stringify(trace, null, 2));
 
     // Use the selection hook to handle click logic
     const modKey = e.metaKey || e.ctrlKey;
@@ -966,7 +1041,7 @@ export function ExpressionPad({
       clickedId,
       e.shiftKey,
       modKey,
-      selection
+      selection,
     );
     const isAncestorOrSelf = (ancestorId: string, nodeId: string): boolean => {
       let cur: string | null = nodeId;
@@ -982,7 +1057,7 @@ export function ExpressionPad({
       selection.nodeIds.some(
         (selectedId) =>
           isAncestorOrSelf(selectedId, clickedId) ||
-          isAncestorOrSelf(clickedId, selectedId)
+          isAncestorOrSelf(clickedId, selectedId),
       );
     const effectiveDragIds =
       !e.shiftKey && !modKey && clickedWithinExistingMultiSelection
@@ -1005,10 +1080,14 @@ export function ExpressionPad({
     if (e.shiftKey && clickResult.newSelection?.kind === "span") {
       pendingClickSelectionRef.current = null;
       setSelection(clickResult.newSelection);
-      applySelectionHighlight(clickResult.newSelection, tree, displayRef.current);
+      applySelectionHighlight(
+        clickResult.newSelection,
+        tree,
+        displayRef.current,
+      );
       const details = getSelectionDetailsForSpan(
         tree,
-        clickResult.newSelection as ExprSelection & { kind: "span" }
+        clickResult.newSelection as ExprSelection & { kind: "span" },
       );
       updateSelectionDetails(details);
       return;
@@ -1023,8 +1102,7 @@ export function ExpressionPad({
       !e.shiftKey &&
       !modKey &&
       (selection?.kind === "multi" ||
-        (effectiveReuseExisting &&
-          clickResult.newSelection?.kind === "node"));
+        (effectiveReuseExisting && clickResult.newSelection?.kind === "node"));
     if (shouldDeferClickSelectionCommit) {
       pendingClickSelectionRef.current = {
         pointerId: e.pointerId,
@@ -1042,7 +1120,7 @@ export function ExpressionPad({
     const hit = tree.nodesById[normalizedId];
     if (!hit) {
       const resetDetails = getResetSelectionDetails(
-        `clicked node-id: ${clickedId} (no NodeInfo found)`
+        `clicked node-id: ${clickedId} (no NodeInfo found)`,
       );
       updateSelectionDetails(resetDetails);
       return;
@@ -1124,7 +1202,7 @@ export function ExpressionPad({
 
     if (!expanded) {
       const resetDetails = getResetSelectionDetails(
-        `shift+${e.key} → no expansion (not in Add/InvisibleOperator or no parent/kids)`
+        `shift+${e.key} → no expansion (not in Add/InvisibleOperator or no parent/kids)`,
       );
       updateSelectionDetails(resetDetails);
       return;
@@ -1133,7 +1211,11 @@ export function ExpressionPad({
     setSelection(expanded);
     applySelectionHighlight(expanded, tree, displayRef.current);
     if (expanded.kind === "span") {
-      const details = getSelectionDetailsForSpan(tree, expanded, `shift+${e.key} → expanded`);
+      const details = getSelectionDetailsForSpan(
+        tree,
+        expanded,
+        `shift+${e.key} → expanded`,
+      );
       updateSelectionDetails(details);
     } else if (expanded.kind === "node") {
       const details = getSelectionDetailsForNode(tree, expanded.nodeId, {
@@ -1150,21 +1232,25 @@ export function ExpressionPad({
       const selectedIds = computeMarqueeSelectionIds(
         marquee.origin,
         current,
-        marquee.candidateRects
+        marquee.candidateRects,
       );
       setMarquee((prev) =>
         prev && prev.pointerId === e.pointerId
           ? { ...prev, current, selectedIds }
-          : prev
+          : prev,
       );
       return;
     }
 
     const result = handleDragMove(e);
     setMovePlanText(
-      result.planDescription || "No move intent (planMove returned null)"
+      result.planDescription || "No move intent (planMove returned null)",
     );
-    setInfo3(result.plan ? JSON.stringify(result.plan, null, 2) : "planMove returned null");
+    setInfo3(
+      result.plan
+        ? JSON.stringify(result.plan, null, 2)
+        : "planMove returned null",
+    );
     setInfoArgs(result.infoArgs);
     setDragSlot(result.plan ? result.plan.kind : "");
 
@@ -1193,12 +1279,12 @@ export function ExpressionPad({
       const current = { x: e.clientX, y: e.clientY };
       const dragDistance = Math.hypot(
         current.x - marquee.origin.x,
-        current.y - marquee.origin.y
+        current.y - marquee.origin.y,
       );
       const selectedIds = computeMarqueeSelectionIds(
         marquee.origin,
         current,
-        marquee.candidateRects
+        marquee.candidateRects,
       );
 
       if (dragDistance < MARQUEE_SELECT_THRESHOLD_PX) {
@@ -1219,10 +1305,12 @@ export function ExpressionPad({
           updateSelectionDetails(getSelectionDetailsForNode(tree, next.nodeId));
         } else if (next?.kind === "multi") {
           updateSelectionDetails(
-            getSelectionDetailsForMulti(tree, next, "Rubber-band selection")
+            getSelectionDetailsForMulti(tree, next, "Rubber-band selection"),
           );
         } else {
-          updateSelectionDetails(getResetSelectionDetails("Rubber-band selection"));
+          updateSelectionDetails(
+            getResetSelectionDetails("Rubber-band selection"),
+          );
         }
       }
 
@@ -1242,7 +1330,7 @@ export function ExpressionPad({
             newSelection: pending.newSelection,
             multiplicativeSpan: pending.multiplicativeSpan,
           },
-          pending.clickedId
+          pending.clickedId,
         );
       }
       pendingClickSelectionRef.current = null;
@@ -1274,7 +1362,7 @@ export function ExpressionPad({
     overlay: HTMLElement,
     box: Box,
     label: string,
-    opts?: { stroke?: string; fill?: string; dash?: boolean }
+    opts?: { stroke?: string; fill?: string; dash?: boolean },
   ) {
     const el = document.createElement("div");
     el.style.position = "absolute";
@@ -1307,7 +1395,7 @@ export function ExpressionPad({
   function renderNodeIdBoxes(
     tree: ExpressionTree,
     mathDivEl: HTMLElement,
-    overlay: HTMLElement
+    overlay: HTMLElement,
   ) {
     const sr = (mathDivEl as any).shadowRoot as ShadowRoot | null;
     if (!sr) return;
@@ -1353,27 +1441,33 @@ export function ExpressionPad({
     };
   }, [marquee]);
   const canExpand = !!tree && !!expandTargetId;
-  const canCancel = useMemo(() => mathPadFacade.canCancel(tree, selection), [tree, selection]);
+  const canCancel = useMemo(
+    () => mathPadFacade.canCancel(tree, selection),
+    [tree, selection],
+  );
   const canToggleDelimiterStyle = useMemo(
     () => mathPadFacade.canToggleDelimiterStyle(tree, selection),
-    [tree, selection]
+    [tree, selection],
   );
   const canForceDelimiter = useMemo(
     () => mathPadFacade.canForceDelimiter(tree, selection),
-    [tree, selection]
+    [tree, selection],
   );
   const canEvaluate = useMemo(
     () => mathPadFacade.canEvaluate(tree, selection),
-    [tree, selection]
+    [tree, selection],
   );
   const canSimplify = useMemo(
     () => mathPadFacade.canSimplify(tree, selection),
-    [tree, selection]
+    [tree, selection],
   );
-  const canFactor = useMemo(() => mathPadFacade.canFactor(tree, selection), [tree, selection]);
+  const canFactor = useMemo(
+    () => mathPadFacade.canFactor(tree, selection),
+    [tree, selection],
+  );
   const canDeclareFunction = useMemo(
     () => mathPadFacade.canDeclareFunction(tree, selection),
-    [tree, selection]
+    [tree, selection],
   );
   const selectedNodeLatex = useMemo(() => {
     if (!canSubstitute || !tree || !selection) return "";
@@ -1396,7 +1490,9 @@ export function ExpressionPad({
     if (selection.kind === "multi") {
       return getLatexForSelectionCopy(tree, selection);
     }
-    return substituteTargetId ? tree.nodesById[substituteTargetId]?.latex ?? "" : "";
+    return substituteTargetId
+      ? (tree.nodesById[substituteTargetId]?.latex ?? "")
+      : "";
   }, [canSubstitute, tree, selection, substituteTargetId]);
   const substituteSuggestions = useMemo(() => {
     if (!otherPadSnapshots || !tree || !substituteTargetId) return [];
@@ -1441,7 +1537,7 @@ export function ExpressionPad({
     }
     copyFeedbackTimeoutRef.current = window.setTimeout(
       () => setCopyFeedback("idle"),
-      900
+      900,
     );
   }
 
@@ -1452,7 +1548,7 @@ export function ExpressionPad({
     }
     copySelectionFeedbackTimeoutRef.current = window.setTimeout(
       () => setCopySelectionFeedback("idle"),
-      900
+      900,
     );
   }
 
@@ -1531,7 +1627,7 @@ export function ExpressionPad({
 
   const selectionLatexForCopy = useMemo(
     () => getLatexForSelectionCopy(tree, selection),
-    [tree, selection]
+    [tree, selection],
   );
   const canCopySelection = !!selectionLatexForCopy.trim();
 
@@ -1588,6 +1684,7 @@ export function ExpressionPad({
     selectionChildOps,
     selectionChildLatex,
     selectionNote,
+    clickTrace,
     debugBoxes,
   };
 
@@ -1597,7 +1694,7 @@ export function ExpressionPad({
   };
 
   return (
-    <div style={{ padding: 24, maxWidth: 1000 }}>
+    <div style={{ padding: 6, maxWidth: 1000 }}>
       {mode === "entry" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div
@@ -1631,7 +1728,6 @@ export function ExpressionPad({
               />
             </div>
           </div>
-
         </div>
       )}
 

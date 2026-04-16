@@ -267,6 +267,23 @@ describe("selectionSemantics.bubbleThroughUnary", () => {
     expect(chooseBestAllowedSelectedNode(nodeIds, tree)).toBe(bId);
   });
 
+  it("allows selecting additive factor under multiplication (issue 112)", () => {
+    const tree = ExpressionTree.create(
+      makeMJfromLatex(String.raw`P \left(v - b\right) = R T`)
+    );
+    const groupedAddId = findNodeId(
+      tree,
+      (n: any) =>
+        n.op === "Add" &&
+        n.latex.includes("v") &&
+        n.latex.includes("b")
+    );
+    const parentId = tree.parentById[groupedAddId];
+    expect(parentId).toBeTruthy();
+    expect(tree.nodesById[parentId!]?.op).toMatch(/Delimiter|List|InvisibleOperator/);
+    expect(chooseBestAllowedSelectedNode([groupedAddId], tree)).toBe(parentId);
+  });
+
   it("collects descendants without duplicates even if roots overlap", () => {
     const mj: MJ = ["Add", "a", ["Negate", "b"]];
     const tree = ExpressionTree.create(mj);
@@ -358,5 +375,18 @@ describe("selectionSemantics.bubbleThroughUnary", () => {
 
     const norm = normalizeSelection(tree, dTId);
     expect(norm).toBe(dTId);
+  });
+
+  it("parses P(v-b) and a(v-b) with equivalent structure aside from symbol", () => {
+    const pExpr = makeMJfromLatex(String.raw`P \left(v - b\right)`);
+    const aExpr = makeMJfromLatex(String.raw`a \left(v - b\right)`);
+
+    const normalizeSymbol = (expr: any): any => {
+      if (Array.isArray(expr)) return expr.map((x) => normalizeSymbol(x));
+      if (expr === "P" || expr === "a") return "__sym__";
+      return expr;
+    };
+
+    expect(normalizeSymbol(pExpr)).toEqual(normalizeSymbol(aExpr));
   });
 });

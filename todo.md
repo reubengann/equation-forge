@@ -395,31 +395,31 @@
       No operation (simplify, evaluate, expand) will seem to rewrite this expression with the negative outside, which is a very common desire. i.e.
       `\mathrm{d}{s} = \frac{c_{P}}{T} \mathrm{d}{T} - \left(\left(\frac{\partial{v}}{\partial{T}}\right)_{P}\right) \mathrm{d}{P}`
 
+112.  `P \left(v - b\right) = R T`
+      The parentheses are not selectable.
+
+113.  Anchor the "Add pad" button so that it is always visible.
+
+114.  Make derivation the default page.
+
+115.  Right now we can duplicate a pad in multi-pad, in which case the duplicate is placed right underneath this one, but it would be nice to also have a button that duplicates it to the bottom and jumps to the bottom, since this is the most common use case.
+
+116.  Can you tighten up the spacing on the derivation page? Reduce space between pads and vertical space between the actual pad and the card that contains it.
+
 ---- undone ----
 
-112. `\ln (a/b)` should expand to `ln a - ln b`
+117. Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it. Also maybe store the symbols we've denoted as functions somehow.
 
-113. `\int_{V_{0}}^{V} \frac{R}{v - b} \,\mathrm{d}{v}`
-     This can't be evaluated.
+118. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs, and there's no way to tell from the front-end what occured.
 
-114. `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -\int_{V_{0}}^{V} \frac{1}{3 V} \,\mathrm{d}{V}`
-     Drag the 3 out of the integral. Gives `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -3 \int_{V_{0}}^{V} \frac{1}{V} \,\mathrm{d}{V}` which is wrong.
+119. `\ln (a/b)` should expand to `ln a - ln b`
 
-115. `P \left(v - b\right) = R T`
-     The parentheses are not selectable. Why?
-
-116. We need fraction tools. Such as
+120. We need fraction tools. Such as
      - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`)
      - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)
 
-117. Feature: Need to come up with some way to perform partial derivatives.
+121. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
 
-118. Maybe start over?
+122. Maybe start over? Idk. I would explore whether representing things as our own AST instead of operating directly on MJ trees would be better and reduce the amount of special cases and calls to things like "kids" throughout the code. We have a lot of code that does checking of many cases, and I feel like, while this mostly works, it isn't very elegant. For one thing, should we have separate code paths for planning and executing? Maybe we should just have one path that returns early if it's just planning, storing the work it did, and otherwise we pass this progress back in or restore the state and continue if we decide to execute. This would also probably simplify updating cortexjs, which I think is currently breaking.
 
-119. Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it.
-
-120. Upgrade cortexjs to newest version.
-
-121. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs.
-
-122. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
+123. Upgrade cortexjs to newest version.

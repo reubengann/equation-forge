@@ -55,6 +55,7 @@ export function DerivationPage() {
 
   const [pads, setPads] = useState<Pad[]>(initialPads);
   const [idCounter, setIdCounter] = useState(initialCounter);
+  const [scrollToPadId, setScrollToPadId] = useState<string | null>(null);
 
   // Persist whenever pads change
   useEffect(() => {
@@ -64,6 +65,19 @@ export function DerivationPage() {
       // storage may be unavailable; ignore
     }
   }, [pads]);
+
+  useEffect(() => {
+    if (!scrollToPadId) return;
+    if (typeof document === "undefined") return;
+    const el = document.querySelector<HTMLElement>(
+      `[data-pad-id="${CSS.escape(scrollToPadId)}"]`
+    );
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "end" });
+      setScrollToPadId(null);
+    });
+  }, [pads, scrollToPadId]);
 
   function addPad() {
     setPads((prev) => [...prev, { id: `pad-${idCounter}` }]);
@@ -84,6 +98,17 @@ export function DerivationPage() {
       next.splice(index + 1, 0, newPad);
       return next;
     });
+    setIdCounter((c) => c + 1);
+  }
+
+  function duplicatePadToBottom(id: string) {
+    const newId = `pad-${idCounter}`;
+    setPads((prev) => {
+      const source = prev.find((p) => p.id === id);
+      if (!source) return prev;
+      return [...prev, { id: newId, snapshot: source.snapshot }];
+    });
+    setScrollToPadId(newId);
     setIdCounter((c) => c + 1);
   }
 
@@ -140,6 +165,9 @@ export function DerivationPage() {
           border: "1px solid var(--dp-border)",
           background: "var(--dp-surface)",
           boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+          position: "sticky",
+          top: 8,
+          zIndex: 20,
         }}
       >
         <div>
@@ -181,20 +209,21 @@ export function DerivationPage() {
         </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {pads.map((pad, idx) => (
           <div
             key={pad.id}
+            data-pad-id={pad.id}
             style={{
               border: "1px solid var(--dp-border)",
               borderRadius: 12,
               boxShadow: "0 6px 18px rgba(0,0,0,0.12)",
               background: "var(--dp-surface)",
-              padding: 10,
+              padding: 8,
               display: "flex",
               flexDirection: "row",
               alignItems: "center",
-              gap: 12,
+              gap: 8,
             }}
           >
             <div style={sideControlStyle}>
@@ -260,6 +289,12 @@ export function DerivationPage() {
                 icon={<span style={materialSymbolStyle}>content_copy</span>}
                 onClick={() => duplicatePad(pad.id)}
                 testId={`pad-${idx + 1}-duplicate`}
+              />
+              <IconButton
+                label="Duplicate to bottom"
+                icon={<span style={materialSymbolStyle}>vertical_align_bottom</span>}
+                onClick={() => duplicatePadToBottom(pad.id)}
+                testId={`pad-${idx + 1}-duplicate-to-bottom`}
               />
               <IconButton
                 label="Remove pad"

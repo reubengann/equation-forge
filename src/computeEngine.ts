@@ -562,7 +562,12 @@ function normalizeSymbolHeadApplication(mj: MJ | null): MJ | null {
     return [op, ...kids] as MJ;
   }
   if (/^[A-Za-z]$/.test(op) && kids.length >= 1) {
-    return ["InvisibleOperator", op, ...kids] as MJ;
+    const wrappedKids = kids.map((child) =>
+      Array.isArray(child) && child[0] === "Add"
+        ? (["Delimiter", child] as MJ)
+        : (child as MJ)
+    );
+    return ["InvisibleOperator", op, ...wrappedKids] as MJ;
   }
   return [op, ...kids] as MJ;
 }

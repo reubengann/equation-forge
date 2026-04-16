@@ -152,6 +152,27 @@ export function chooseBestAllowedSelectedNode(
     const info = tree.nodesById[id];
     if (!info) continue;
 
+    if (disallow.has(info.op)) {
+      // If pointer hit resolves to a structural container inside explicit
+      // parentheses, promote selection to that delimiter so parentheses are
+      // directly selectable (e.g. P\left(v-b\right)).
+      const parentId = tree.parentById[id];
+      const parentOp = parentId ? tree.nodesById[parentId]?.op : undefined;
+      if (parentId && (parentOp === "Delimiter" || parentOp === "List")) {
+        return parentId;
+      }
+      // Grouped additive factors (e.g. P(v-b)) are represented as Add inside
+      // an implicit product; allow selecting that Add so parentheses are
+      // directly selectable in the rendered expression.
+      if (
+        info.op === "Add" &&
+        parentId &&
+        (parentOp === "InvisibleOperator" || parentOp === "Multiply")
+      ) {
+        return id;
+      }
+    }
+
     if (!disallow.has(info.op)) return id;
   }
 

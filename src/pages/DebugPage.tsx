@@ -172,6 +172,12 @@ function DebugPanel(state: ExpressionPadDebugState) {
           <label style={labelStyle}>Selection note</label>
           <div style={readonlyBoxStyle}>{state.selectionNote || "—"}</div>
         </div>
+        <div style={fieldHalfStyle}>
+          <label style={labelStyle}>Click trace</label>
+          <div style={{ ...readonlyBoxStyle, minHeight: 130 }}>
+            {state.clickTrace || "—"}
+          </div>
+        </div>
       </div>
 
       <div style={gridStyle}>

@@ -6,7 +6,7 @@ import { DerivationPage } from "./pages/DerivationPage";
 type Page = "debug" | "derivation";
 
 export default function App() {
-  const [page, setPage] = useState<Page>("debug");
+  const [page, setPage] = useState<Page>("derivation");
 
   return (
     <div
