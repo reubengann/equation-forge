@@ -279,6 +279,28 @@ describe("ExpressionTree", () => {
     expect(t.latexPlain).toBe(String.raw`\frac{\partial{f}}{\partial{x^{2}}}`);
   });
 
+  it("renders mixed second-order partials with standard exponent notation", () => {
+    const t = ExpressionTree.create([
+      "FractionPartialDerivative",
+      ["Partial", ["Partial", "u"]],
+      ["InvisibleOperator", ["Partial", "v"], ["Partial", "T"]],
+    ]);
+    expect(t.latexPlain).toBe(
+      String.raw`\frac{\partial^{2}{u}}{\partial{v} \partial{T}}`,
+    );
+  });
+
+  it("renders bare partial operators with grouped application operands", () => {
+    const t = ExpressionTree.create([
+      "InvisibleOperator",
+      ["FractionPartialDerivative", "PartialD", ["Partial", "x"]],
+      ["InvisibleOperator", "a", "x"],
+    ]);
+    expect(t.latexPlain).toBe(
+      String.raw`\left(\frac{\partial}{\partial{x}}\right) \left(a x\right)`,
+    );
+  });
+
   it("renders Integrate with bounds and differential", () => {
     const t = ExpressionTree.create([
       "Integrate",

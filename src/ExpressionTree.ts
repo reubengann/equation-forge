@@ -136,6 +136,73 @@ export class ExpressionTree {
     return `n${this._nextId++}`;
   }
 
+  private partialInfo(expr: MJ): { order: number; operand: MJ | null } | null {
+    if (expr === "PartialD") return { order: 1, operand: null };
+    if (!Array.isArray(expr) || expr[0] !== "Partial") return null;
+    const operand = (expr[1] ?? null) as MJ | null;
+    if (operand == null) return { order: 1, operand: null };
+    const nested = this.partialInfo(operand);
+    if (nested) {
+      return { order: nested.order + 1, operand: nested.operand };
+    }
+    return { order: 1, operand };
+  }
+
+  private isBarePartialOperator(expr: MJ): boolean {
+    if (!Array.isArray(expr) || expr[0] !== "FractionPartialDerivative") return false;
+    const numerator = (expr[1] ?? null) as MJ;
+    const info = this.partialInfo(numerator);
+    return Boolean(info && info.order === 1 && info.operand == null);
+  }
+
+  private shouldWrapAppliedOperand(expr: MJ): boolean {
+    if (!Array.isArray(expr)) return false;
+    return (
+      expr[0] === "Add" ||
+      expr[0] === "Equal" ||
+      expr[0] === "InvisibleOperator" ||
+      expr[0] === "Multiply" ||
+      expr[0] === "Divide" ||
+      expr[0] === "FractionDerivative" ||
+      expr[0] === "FractionPartialDerivative" ||
+      expr[0] === "Negate" ||
+      expr[0] === "DotProduct"
+    );
+  }
+
+  private renderPartialToken(info: { order: number; operand: MJ | null }): string {
+    if (info.operand == null) {
+      return info.order > 1
+        ? String.raw`\partial^{${info.order}}`
+        : String.raw`\partial`;
+    }
+    const operandLatex = ExpressionTree.create(info.operand).latexPlain;
+    if (info.order > 1) {
+      return String.raw`\partial^{${info.order}}{${operandLatex}}`;
+    }
+    return String.raw`\partial{${operandLatex}}`;
+  }
+
+  private renderPartialChain(expr: MJ): string | null {
+    const direct = this.partialInfo(expr);
+    if (direct) return this.renderPartialToken(direct);
+    if (
+      !Array.isArray(expr) ||
+      (expr[0] !== "InvisibleOperator" && expr[0] !== "Multiply")
+    ) {
+      return null;
+    }
+    const factors = expr.slice(1) as MJ[];
+    if (factors.length === 0) return null;
+    const rendered = factors.map((factor) => {
+      const info = this.partialInfo(factor as MJ);
+      if (!info) return null;
+      return this.renderPartialToken(info);
+    });
+    if (rendered.some((part) => part == null)) return null;
+    return rendered.join(" ");
+  }
+
   private emit(
     node: MJ,
     parentId: string | null,
@@ -477,8 +544,29 @@ export class ExpressionTree {
         latexTagged: String.raw`\left(${child.latexTagged}\right)`,
       };
     });
-    const plain = wrappedChildren.map((c) => c.latexPlain).join(" ");
-    const taggedInner = wrappedChildren.map((c) => c.latexTagged).join(sep);
+    const isAppliedPartialOperator =
+      node.length === 3 && this.isBarePartialOperator(node[1] as MJ);
+    const renderedChildren = [...wrappedChildren];
+    if (isAppliedPartialOperator && renderedChildren.length >= 2) {
+      const operatorChild = renderedChildren[0];
+      renderedChildren[0] = {
+        ...operatorChild,
+        latexPlain: String.raw`\left(${operatorChild.latexPlain}\right)`,
+        latexTagged: String.raw`\left(${operatorChild.latexTagged}\right)`,
+      };
+      const operandExpr = node[2] as MJ;
+      if (this.shouldWrapAppliedOperand(operandExpr)) {
+        const operandChild = renderedChildren[1];
+        renderedChildren[1] = {
+          ...operandChild,
+          latexPlain: String.raw`\left(${operandChild.latexPlain}\right)`,
+          latexTagged: String.raw`\left(${operandChild.latexTagged}\right)`,
+        };
+      }
+    }
+
+    const plain = renderedChildren.map((c) => c.latexPlain).join(" ");
+    const taggedInner = renderedChildren.map((c) => c.latexTagged).join(sep);
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
@@ -537,29 +625,17 @@ export class ExpressionTree {
     const num = this.emit(node[1], id, [...path, 1]);
     const den = this.emit(node[2], id, [...path, 2]);
 
-    const innerPlain = (childId: string, fallback: string): string => {
-      const info = this.nodesById[childId];
-      if (info?.op === "Partial") {
-        const innerId = this.childrenById[childId]?.[0];
-        if (innerId && this.nodesById[innerId]) {
-          return this.nodesById[innerId].latex;
-        }
-      }
-      return fallback;
-    };
-
     this.childrenById[id] = [num.id, den.id];
     this.childIndexById[num.id] = 0;
     this.childIndexById[den.id] = 1;
 
-    const numInner = innerPlain(num.id, num.latexPlain);
-    const denInner = innerPlain(den.id, den.latexPlain);
-
-    const numPlain = String.raw`\partial{${numInner}}`;
-    const denPlain = String.raw`\partial{${denInner}}`;
+    const numRaw = (node[1] ?? null) as MJ;
+    const denRaw = (node[2] ?? null) as MJ;
+    const numPlain = this.renderPartialChain(numRaw) ?? String.raw`\partial{${num.latexPlain}}`;
+    const denPlain = this.renderPartialChain(denRaw) ?? String.raw`\partial{${den.latexPlain}}`;
     // Atomic: no inner tagging
-    const numTagged = String.raw`\partial{${numInner}}`;
-    const denTagged = String.raw`\partial{${denInner}}`;
+    const numTagged = numPlain;
+    const denTagged = denPlain;
 
     const plain = String.raw`\frac{${numPlain}}{${denPlain}}`;
     const taggedInner = String.raw`\frac{${numTagged}}{${denTagged}}`;

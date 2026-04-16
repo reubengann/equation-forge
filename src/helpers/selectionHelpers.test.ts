@@ -66,7 +66,7 @@ describe("getLatexForSelectionCopy", () => {
     expect(latex).toBe(String.raw`\frac{a}{v^{2}} \mathrm{d}{v} + P \mathrm{d}{v}`);
   });
 
-  it("preserves additive delimiter term when mixed descendants are selected (issue 104)", () => {
+  it("keeps multiplicative prefactor when mixed descendants are selected (issue 110)", () => {
     const tree = treefromLatex(
       String.raw`\mathrm{d}{s} = \frac{1}{T} \left(\frac{\partial{u}}{\partial{T}}\right)_{v} \mathrm{d}{T} + \frac{1}{T} \left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right] \mathrm{d}{v}`
     );
@@ -96,7 +96,7 @@ describe("getLatexForSelectionCopy", () => {
       nodeIds: [oneOverTId, duDvSubscriptId, pId],
     });
     expect(latex).toBe(
-      String.raw`\left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right]`
+      String.raw`\frac{1}{T} \left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right]`
     );
   });
 });

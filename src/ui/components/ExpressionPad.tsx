@@ -653,31 +653,7 @@ export function ExpressionPad({
     setSubstituteScope("single");
     setSubstituteError("");
     setSubstituteSuggestionJson(null);
-    const initialLatex = (() => {
-      if (!tree || !selection) return "";
-      if (selection.kind === "node") {
-        return tree.nodesById[selection.nodeId]?.latex ?? "";
-      }
-      if (selection.kind === "multi") {
-        const span = mathPadFacade.multiSelectionAsSpan(tree, selection);
-        if (span) {
-          const parentPath = tree.pathById[span.parentId];
-          if (parentPath !== undefined) {
-            const parentExpr = getAtPath(tree.rootJson, parentPath) as MJ;
-            if (Array.isArray(parentExpr)) {
-              const kids = parentExpr.slice(1) as MJ[];
-              const chosen = kids.slice(span.start, span.end + 1);
-              const selectedExpr =
-                chosen.length === 1 ? chosen[0] : ([span.op, ...chosen] as MJ);
-              return ExpressionTree.create(selectedExpr).latexPlain;
-            }
-          }
-        }
-        const firstId = selection.nodeIds[0];
-        return firstId ? tree.nodesById[firstId]?.latex ?? "" : "";
-      }
-      return tree.nodesById[substituteTargetId ?? ""]?.latex ?? "";
-    })();
+    const initialLatex = getLatexForSelectionCopy(tree, selection);
     setSubstituteLatexDraft(initialLatex);
     setSubstituteInputMode("mathlive");
     setShowSubstituteModal(true);
@@ -847,6 +823,17 @@ export function ExpressionPad({
   ): string[] {
     if (!tree || rawIds.length === 0) return [];
 
+    const keepDelimiterAsAtomicSelection = (id: string): boolean => {
+      const info = tree.nodesById[id];
+      if (!info) return false;
+      if (info.op !== "Delimiter" && info.op !== "List") return false;
+      const childId = tree.childrenById[id]?.[0];
+      if (!childId) return false;
+      const childOp = tree.nodesById[childId]?.op;
+      // Keep grouped partial-operator terms selectable during marquee selection.
+      return childOp === "FractionPartialDerivative";
+    };
+
     const deduped = new Set<string>();
     for (const id of rawIds) {
       const normalized = mathPadFacade.normalizeSelection(tree, id);
@@ -856,8 +843,8 @@ export function ExpressionPad({
         info.op === "Add" ||
         info.op === "Equal" ||
         info.op === "InvisibleOperator" ||
-        info.op === "Delimiter" ||
-        info.op === "List"
+        ((info.op === "Delimiter" || info.op === "List") &&
+          !keepDelimiterAsAtomicSelection(normalized))
       ) {
         continue;
       }
@@ -1407,27 +1394,7 @@ export function ExpressionPad({
       return ExpressionTree.create(selectedExpr).latexPlain;
     }
     if (selection.kind === "multi") {
-      const span = mathPadFacade.multiSelectionAsSpan(tree, selection);
-      if (span) {
-        const parentPath = tree.pathById[span.parentId];
-        if (parentPath !== undefined) {
-          const parentExpr = getAtPath(tree.rootJson, parentPath) as MJ;
-          if (Array.isArray(parentExpr)) {
-            const kids = parentExpr.slice(1) as MJ[];
-            const chosen = kids.slice(span.start, span.end + 1);
-            if (chosen.length === 0) return "";
-            const selectedExpr =
-              chosen.length === 1 ? chosen[0] : ([span.op, ...chosen] as MJ);
-            return ExpressionTree.create(selectedExpr).latexPlain;
-          }
-        }
-      }
-      const latexes = selection.nodeIds
-        .map((id) => tree.nodesById[id]?.latex)
-        .filter((s): s is string => !!s);
-      if (latexes.length === 0) return "";
-      if (latexes.length === 1) return latexes[0];
-      return `${latexes[0]} (+${latexes.length - 1} selected)`;
+      return getLatexForSelectionCopy(tree, selection);
     }
     return substituteTargetId ? tree.nodesById[substituteTargetId]?.latex ?? "" : "";
   }, [canSubstitute, tree, selection, substituteTargetId]);
@@ -1498,7 +1465,9 @@ export function ExpressionPad({
   }
 
   function onEdit() {
-    const currentLatex = latexText || latexDraft;
+    // Prefer the canonical rendered latex so edit mode reflects normalized forms
+    // (e.g. MathLive aliases like \lbrack/\rbrack -> \left[...\right]).
+    const currentLatex = tree?.latexPlain || latexText || latexDraft;
     setLatexDraft(currentLatex);
     setMode("entry");
   }

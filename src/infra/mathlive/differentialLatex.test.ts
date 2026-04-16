@@ -38,6 +38,16 @@ describe("differentialLatex helpers", () => {
     expect(fromMathLiveLatex(String.raw`\inexactDifferentialD Q`)).toBe(
       String.raw`\mathrm{d}'{Q}`
     );
+    expect(fromMathLiveLatex(String.raw`Tds`)).toBe(
+      String.raw`T\mathrm{d}{s}`
+    );
+    expect(
+      fromMathLiveLatex(
+        String.raw`\frac{1}{T}\left\lbrack a+\left(\dfrac{\partial P}{\partial T}\right)_{v}\right\rbrack`
+      )
+    ).toBe(
+      String.raw`\frac{1}{T}\left[ a+\left(\dfrac{\partial P}{\partial T}\right)_{v}\right]`
+    );
   });
 
   it("scrubs MathLive internal aliases", () => {

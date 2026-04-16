@@ -2,6 +2,12 @@ import { describe, it, expect, vi } from "vitest";
 import { box, parse, normalizeMathJson, withRealScope } from "./computeEngine";
 import { ExpressionTree } from "./ExpressionTree";
 
+function hasErrorNode(expr: unknown): boolean {
+  if (!Array.isArray(expr)) return false;
+  if (expr[0] === "Error") return true;
+  return expr.slice(1).some((child) => hasErrorNode(child));
+}
+
 describe("computeEngine custom dictionary", () => {
   it("parses differential symbol", () => {
     expect(parse(String.raw`\differentialD x`)).toEqual(["Differential", "x"]);
@@ -21,6 +27,14 @@ describe("computeEngine custom dictionary", () => {
     expect(parse(String.raw`\dfrac{\partial f}{\partial x}`)).toEqual([
       "FractionPartialDerivative",
       ["Partial", "f"],
+      ["Partial", "x"],
+    ]);
+  });
+
+  it("parses bare partial-operator fraction", () => {
+    expect(parse(String.raw`\dfrac{\partial}{\partial x}`)).toEqual([
+      "FractionPartialDerivative",
+      "PartialD",
       ["Partial", "x"],
     ]);
   });
@@ -256,6 +270,13 @@ describe("computeEngine custom dictionary", () => {
     expect(spacedLatex).toBe(String.raw`a = b c + d e - e f`);
   });
 
+  it("parses tight differential tokens after multiplicative factors (issue 107)", () => {
+    const mj = parse(String.raw`Tds`);
+    expect(mj).not.toBeNull();
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toBe(String.raw`T \mathrm{d}{s}`);
+  });
+
   it("normalizes \\mathrm{d}'q into InexactDifferential", () => {
     const mj = parse(String.raw`\mathrm{d}'q = \mathrm{d}u + P \, \mathrm{d}v`);
     expect(mj).not.toBeNull();
@@ -318,12 +339,32 @@ describe("computeEngine custom dictionary", () => {
     const mj = parse(String.raw`\dfrac{\partial^2u}{\partial v\partial T}`);
     expect(mj).not.toBeNull();
     expect(mj).toEqual([
-      "Divide",
+      "FractionPartialDerivative",
       ["Partial", ["Partial", "u"]],
       ["InvisibleOperator", ["Partial", "v"], ["Partial", "T"]],
     ]);
     const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
-    expect(latex).toBe(String.raw`\frac{\partial{\partial{u}}}{\partial{v} \partial{T}}`);
+    expect(latex).toBe(String.raw`\frac{\partial^{2}{u}}{\partial{v} \partial{T}}`);
+  });
+
+  it("parses equations containing rendered mixed partial notation", () => {
+    const mj = parse(
+      String.raw`\frac{\partial^{2}{s}}{\partial{P} \partial{T}} = \left(\frac{\partial}{\partial{P}}\right)\left(\frac{c_{P}}{T}\right)`
+    );
+    expect(mj).not.toBeNull();
+    expect(Array.isArray(mj) && mj[0] === "Equal").toBe(true);
+    expect(hasErrorNode(mj)).toBe(false);
+  });
+
+  it("preserves scalar prefactor order ahead of applied bare partial operator", () => {
+    const mj = parse(
+      String.raw`\frac{\partial^{2}{s}}{\partial{P} \partial{T}} = \frac{1}{T} \left(\frac{\partial}{\partial{P}}\right) \left(c_{P}\right)`
+    );
+    expect(mj).not.toBeNull();
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toBe(
+      String.raw`\frac{\partial^{2}{s}}{\partial{P} \partial{T}} = \frac{1}{T} \left(\frac{\partial}{\partial{P}}\right) \left(c_{P}\right)`
+    );
   });
 
   it("keeps greek mu as a greek symbol with numeric subscript (issue 71)", () => {
@@ -361,6 +402,18 @@ describe("computeEngine custom dictionary", () => {
     expect(latex).toBe(
       String.raw`\mathrm{d}{\left(P V\right)} = \mathrm{d}{\left(n R T\right)}`
     );
+  });
+
+  it("parses MathLive bracket aliases as standard square delimiters (issue 108)", () => {
+    const mj = parse(
+      String.raw`\frac{1}{T}a=\frac{1}{T}\left\lbrack a+\left(\dfrac{\partial P}{\partial T}\right)_{v}\right\rbrack-\frac{1}{T^2}\left\lbrack\left(\dfrac{\partial u}{\partial v}\right)_{T}+P\right\rbrack`
+    );
+    expect(mj).not.toBeNull();
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toContain(String.raw`\left[`);
+    expect(latex).toContain(String.raw`\right]`);
+    expect(latex).not.toContain(String.raw`\lbrack`);
+    expect(latex).not.toContain(String.raw`\rbrack`);
   });
 
   it("promotes spaced plain d before uppercase symbols to Differential (issue 73)", () => {

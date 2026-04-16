@@ -1,5 +1,6 @@
 import { parse } from "../computeEngine";
 import { ExpressionTree, type MJ } from "../ExpressionTree";
+import { getAtPath, setAtPath } from "../movePath";
 import { applyMove, type MoveMode } from "../moveExpression/applyMove";
 import type { Slot } from "../moveExpression/types";
 import {
@@ -115,32 +116,262 @@ function multiSelectionAsSpan(
   const ids = Array.from(new Set(selection.nodeIds));
   if (ids.length < 2) return null;
 
-  const firstParent = tree.parentById[ids[0]];
-  if (!firstParent) return null;
-  if (!ids.every((id) => tree.parentById[id] === firstParent)) return null;
+  const isSpanContainerOp = (op: string | undefined): boolean =>
+    op === "Add" || op === "InvisibleOperator" || op === "Multiply";
 
-  const parentOpRaw = tree.nodesById[firstParent]?.op;
+  const childUnderAncestor = (ancestorId: string, nodeId: string): string | null => {
+    let cur: string | null | undefined = nodeId;
+    while (cur) {
+      const parentId = tree.parentById[cur];
+      if (!parentId) return null;
+      if (parentId === ancestorId) return cur;
+      cur = parentId;
+    }
+    return null;
+  };
+
+  const buildSpanForParent = (
+    parentId: string
+  ):
+    | {
+        parentId: string;
+        op: "Add" | "InvisibleOperator";
+        start: number;
+        end: number;
+        uniqueCount: number;
+        depth: number;
+      }
+    | null => {
+    const parentOpRaw = tree.nodesById[parentId]?.op;
+    if (!isSpanContainerOp(parentOpRaw)) return null;
+    const op: "Add" | "InvisibleOperator" =
+      parentOpRaw === "Add" ? "Add" : "InvisibleOperator";
+
+    const kids = tree.childrenById[parentId] ?? [];
+    if (kids.length < 2) return null;
+
+    const childHits = ids
+      .map((id) => childUnderAncestor(parentId, id))
+      .filter((id): id is string => !!id);
+    if (childHits.length !== ids.length) return null;
+
+    const uniqueHits = Array.from(new Set(childHits));
+    if (uniqueHits.length < 2) return null;
+
+    const indices = uniqueHits
+      .map((id) => kids.indexOf(id))
+      .filter((idx) => idx >= 0)
+      .sort((a, b) => a - b);
+    if (indices.length !== uniqueHits.length) return null;
+    for (let i = 1; i < indices.length; i += 1) {
+      if (indices[i] !== indices[i - 1] + 1) return null;
+    }
+
+    const depth = tree.pathById[parentId]?.length ?? 0;
+    return {
+      parentId,
+      op,
+      start: indices[0],
+      end: indices[indices.length - 1],
+      uniqueCount: uniqueHits.length,
+      depth,
+    };
+  };
+
+  const firstParent = tree.parentById[ids[0]];
+  if (firstParent && ids.every((id) => tree.parentById[id] === firstParent)) {
+    const direct = buildSpanForParent(firstParent);
+    if (direct) {
+      return {
+        parentId: direct.parentId,
+        op: direct.op,
+        start: direct.start,
+        end: direct.end,
+      };
+    }
+  }
+
+  const candidateParents = new Set<string>();
+  for (const id of ids) {
+    let cur: string | null | undefined = id;
+    while (cur) {
+      const parentId = tree.parentById[cur];
+      if (!parentId) break;
+      if (isSpanContainerOp(tree.nodesById[parentId]?.op)) {
+        candidateParents.add(parentId);
+      }
+      cur = parentId;
+    }
+  }
+
+  const candidates = Array.from(candidateParents)
+    .map((parentId) => buildSpanForParent(parentId))
+    .filter(
+      (
+        span
+      ): span is {
+        parentId: string;
+        op: "Add" | "InvisibleOperator";
+        start: number;
+        end: number;
+        uniqueCount: number;
+        depth: number;
+      } => !!span
+    );
+
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) => {
+    if (a.uniqueCount !== b.uniqueCount) return b.uniqueCount - a.uniqueCount;
+    if (a.depth !== b.depth) return b.depth - a.depth;
+    return a.parentId.localeCompare(b.parentId);
+  });
+
+  const best = candidates[0];
+  return {
+    parentId: best.parentId,
+    op: best.op,
+    start: best.start,
+    end: best.end,
+  };
+}
+
+type MultiSelectionGroupedChildren = {
+  parentId: string;
+  op: "Add" | "InvisibleOperator";
+  indices: number[];
+};
+
+function multiSelectionAsGroupedChildren(
+  tree: ExpressionTree,
+  selection: ExprSelection | null
+): MultiSelectionGroupedChildren | null {
+  if (!selection || selection.kind !== "multi") return null;
+  const ids = Array.from(new Set(selection.nodeIds));
+  if (ids.length < 2) return null;
+
+  const isContainerOp = (op: string | undefined): boolean =>
+    op === "Add" || op === "InvisibleOperator" || op === "Multiply";
+
+  const childUnderAncestor = (ancestorId: string, nodeId: string): string | null => {
+    let cur: string | null | undefined = nodeId;
+    while (cur) {
+      const parentId = tree.parentById[cur];
+      if (!parentId) return null;
+      if (parentId === ancestorId) return cur;
+      cur = parentId;
+    }
+    return null;
+  };
+
+  type Candidate = {
+    parentId: string;
+    op: "Add" | "InvisibleOperator";
+    indices: number[];
+    uniqueCount: number;
+    depth: number;
+  };
+
+  const candidateParents = new Set<string>();
+  for (const id of ids) {
+    let cur: string | null | undefined = id;
+    while (cur) {
+      const parentId = tree.parentById[cur];
+      if (!parentId) break;
+      if (isContainerOp(tree.nodesById[parentId]?.op)) {
+        candidateParents.add(parentId);
+      }
+      cur = parentId;
+    }
+  }
+
+  const candidates: Candidate[] = [];
+  for (const parentId of candidateParents) {
+    const parentOpRaw = tree.nodesById[parentId]?.op;
+    if (!isContainerOp(parentOpRaw)) continue;
+    const op: "Add" | "InvisibleOperator" =
+      parentOpRaw === "Add" ? "Add" : "InvisibleOperator";
+
+    const kids = tree.childrenById[parentId] ?? [];
+    if (kids.length < 2) continue;
+
+    const childHits = ids
+      .map((id) => childUnderAncestor(parentId, id))
+      .filter((id): id is string => !!id);
+    if (childHits.length !== ids.length) continue;
+
+    const uniqueHits = Array.from(new Set(childHits));
+    if (uniqueHits.length < 2) continue;
+
+    const indices = uniqueHits
+      .map((id) => kids.indexOf(id))
+      .filter((idx) => idx >= 0)
+      .sort((a, b) => a - b);
+    if (indices.length !== uniqueHits.length) continue;
+
+    candidates.push({
+      parentId,
+      op,
+      indices,
+      uniqueCount: uniqueHits.length,
+      depth: tree.pathById[parentId]?.length ?? 0,
+    });
+  }
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => {
+    if (a.uniqueCount !== b.uniqueCount) return b.uniqueCount - a.uniqueCount;
+    if (a.depth !== b.depth) return b.depth - a.depth;
+    return a.parentId.localeCompare(b.parentId);
+  });
+
+  const best = candidates[0];
+  return { parentId: best.parentId, op: best.op, indices: best.indices };
+}
+
+function replaceGroupedChildrenOnce(
+  tree: ExpressionTree,
+  grouped: MultiSelectionGroupedChildren,
+  replacement: MJ
+): ExpressionTree | null {
+  const parentPath = tree.pathById[grouped.parentId];
+  if (parentPath === undefined) return null;
+  const parentExpr = getAtPath(tree.rootJson, parentPath) as MJ;
+  if (!Array.isArray(parentExpr)) return null;
+
+  const parentOpRaw = String(parentExpr[0]);
   if (parentOpRaw !== "Add" && parentOpRaw !== "InvisibleOperator" && parentOpRaw !== "Multiply") {
     return null;
   }
-  const op: "Add" | "InvisibleOperator" =
-    parentOpRaw === "Add" ? "Add" : "InvisibleOperator";
 
-  const indices = ids
-    .map((id) => tree.childIndexById[id])
-    .filter((idx): idx is number => idx !== undefined)
-    .sort((a, b) => a - b);
-  if (indices.length !== ids.length) return null;
-  for (let i = 1; i < indices.length; i += 1) {
-    if (indices[i] !== indices[i - 1] + 1) return null;
+  const kids = parentExpr.slice(1) as MJ[];
+  const selected = new Set(grouped.indices);
+  if (selected.size < 2) return null;
+
+  const firstIndex = grouped.indices[0];
+  const normalizedReplacement =
+    (parentOpRaw === "InvisibleOperator" || parentOpRaw === "Multiply") &&
+    Array.isArray(replacement) &&
+    (replacement[0] === "Add" || replacement[0] === "Negate")
+      ? (["Delimiter", replacement] as MJ)
+      : replacement;
+
+  const nextKids: MJ[] = [];
+  for (let i = 0; i < kids.length; i += 1) {
+    if (i === firstIndex) {
+      nextKids.push(normalizedReplacement);
+      continue;
+    }
+    if (selected.has(i)) continue;
+    nextKids.push(kids[i]);
   }
 
-  return {
-    parentId: firstParent,
-    op,
-    start: indices[0],
-    end: indices[indices.length - 1],
-  };
+  const nextParent: MJ =
+    nextKids.length === 1
+      ? nextKids[0]
+      : ([parentOpRaw === "Add" ? "Add" : "InvisibleOperator", ...nextKids] as MJ);
+  const nextRoot = setAtPath(tree.rootJson, parentPath, nextParent) as MJ;
+  return ExpressionTree.create(nextRoot);
 }
 
 function getExpandTargetId(
@@ -352,6 +583,18 @@ function applyAction(input: ApplyActionInput): ApplyActionResult {
         end: span.end,
         replacement: action.replacement,
       });
+    } else if (action.scope === "single") {
+      const grouped = multiSelectionAsGroupedChildren(tree, selection);
+      if (grouped) {
+        next = replaceGroupedChildrenOnce(tree, grouped, action.replacement);
+      } else {
+        next = substituteMany({
+          tree,
+          targetIds: selection.nodeIds,
+          replacement: action.replacement,
+          scope: action.scope,
+        });
+      }
     } else {
       next = substituteMany({
         tree,

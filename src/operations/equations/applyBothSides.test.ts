@@ -153,17 +153,49 @@ describe("applyOperationToBothSides", () => {
     const eqn = makeMJfromLatex(String.raw`u = c_{v} T - \frac{a}{v}`);
     const result = applyOperationToBothSides(eqn, String.raw`\frac{\partial}{\partial v}eqn`);
     expect(ExpressionTree.create(result).latexPlain).toBe(
-      String.raw`\frac{\partial}{\partial{v}} u = \frac{\partial}{\partial{v}} \left(c_{v} T - \frac{a}{v}\right)`
+      String.raw`\left(\frac{\partial}{\partial{v}}\right) u = \left(\frac{\partial}{\partial{v}}\right) \left(c_{v} T - \frac{a}{v}\right)`
     );
   });
 
-  it("matches direct parse shape for partial derivative both-sides operation (issue 86)", () => {
+  it("matches direct parse rendering for partial derivative both-sides operation (issue 86)", () => {
     const eqn = makeMJfromLatex(String.raw`u = c_{v} T - \frac{a}{v}`);
     const result = applyOperationToBothSides(eqn, String.raw`\frac{\partial}{\partial v}eqn`);
     const direct = makeMJfromLatex(
-      String.raw`\frac{\partial}{\partial{v}} u = \frac{\partial}{\partial{v}} \left(c_{v} T - \frac{a}{v}\right)`
+      String.raw`\left(\frac{\partial}{\partial{v}}\right) u = \left(\frac{\partial}{\partial{v}}\right) \left(c_{v} T - \frac{a}{v}\right)`
     );
-    expect(result).toEqual(direct);
+    expect(ExpressionTree.create(result).latexPlain).toBe(
+      ExpressionTree.create(direct).latexPlain
+    );
+  });
+
+  it("groups multiplicative side operands when applying a partial operator", () => {
+    const eqn = makeMJfromLatex(String.raw`f = a x`);
+    const result = applyOperationToBothSides(eqn, String.raw`\frac{\partial}{\partial x}eqn`);
+    expect(ExpressionTree.create(result).latexPlain).toBe(
+      String.raw`\left(\frac{\partial}{\partial{x}}\right) f = \left(\frac{\partial}{\partial{x}}\right) \left(a x\right)`
+    );
+  });
+
+  it("wraps applied partial operators in Delimiter nodes for selection", () => {
+    const eqn = makeMJfromLatex(
+      String.raw`\left(\frac{\partial{s}}{\partial{T}}\right)_{P} = \frac{c_{P}}{T}`
+    );
+    const result = applyOperationToBothSides(eqn, String.raw`\frac{\partial}{\partial P}eqn`);
+    const lhs = (result as any[])[1] as MJ;
+    const rhs = (result as any[])[2] as MJ;
+
+    expect(Array.isArray(lhs)).toBe(true);
+    expect(Array.isArray(rhs)).toBe(true);
+    expect((lhs as any[])[0]).toBe("InvisibleOperator");
+    expect((rhs as any[])[0]).toBe("InvisibleOperator");
+    expect((lhs as any[])[1]).toEqual([
+      "Delimiter",
+      ["FractionPartialDerivative", "PartialD", ["Partial", "P"]],
+    ]);
+    expect((rhs as any[])[1]).toEqual([
+      "Delimiter",
+      ["FractionPartialDerivative", "PartialD", ["Partial", "P"]],
+    ]);
   });
 
   it("parses vec notation into a Vector node", () => {

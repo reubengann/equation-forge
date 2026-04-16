@@ -629,6 +629,32 @@ describe("evaluateSelection", () => {
     expect(out).not.toContain(String.raw`\frac{5}{3 T_{0} + T_{1}}`);
   });
 
+  it("simplify combines symbolic powers in multiplicative factors (issue 109)", () => {
+    const tree = buildTree(
+      String.raw`\left(\frac{\partial{P}}{\partial{T}}\right)_{v} = T \frac{1}{T^{2}} \left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right]`
+    );
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(rhsId).toBeTruthy();
+    if (!rhsId) return;
+    const rhsKids = tree.childrenById[rhsId] ?? [];
+    expect(rhsKids.length).toBeGreaterThanOrEqual(3);
+    const next = simplifySelection(tree, {
+      kind: "span",
+      parentId: rhsId,
+      op: "InvisibleOperator",
+      start: 0,
+      end: 1,
+    });
+    expect(next).not.toBeNull();
+    const out = normalizeLatex(next!.latexPlain);
+    expect(out).toContain(
+      normalizeLatex(
+        String.raw`\left(\frac{\partial{P}}{\partial{T}}\right)_{v} = \frac{1}{T} \left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right]`
+      )
+    );
+    expect(out).not.toContain(normalizeLatex(String.raw`T T^{-2}`));
+  });
+
   it("simplify cancels nested leading negatives on RHS products (issue 77)", () => {
     const tree = buildTree(
       String.raw`c_{v} \frac{\mathrm{d}{P}}{\mathrm{d}{v}} = -\left(-c_{P} \frac{1}{\left(\frac{\partial{v}}{\partial{P}}\right)_{T}}\right)`
@@ -649,6 +675,29 @@ describe("evaluateSelection", () => {
         String.raw`= -\left(-c_{P} \frac{1}{\left(\frac{\partial{v}}{\partial{P}}\right)_{T}}\right)`
       )
     );
+  });
+
+  it("simplify rewrites +(-A)B as subtraction with outside negative (issue 111)", () => {
+    const tree = buildTree(
+      String.raw`\mathrm{d}{s} = \frac{c_{P}}{T} \mathrm{d}{T} + \left(-\left(\frac{\partial{v}}{\partial{T}}\right)_{P}\right) \mathrm{d}{P}`
+    );
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(rhsId).toBeTruthy();
+    if (!rhsId) return;
+    const next = simplifySelection(tree, { kind: "node", nodeId: rhsId });
+    expect(next).not.toBeNull();
+    const out = normalizeLatex(next!.latexPlain);
+    expect(out).toContain(
+      normalizeLatex(
+        String.raw`\mathrm{d}{s} = \frac{c_{P}}{T} \mathrm{d}{T} -`
+      )
+    );
+    expect(out).toContain(
+      normalizeLatex(
+        String.raw`\left(\frac{\partial{v}}{\partial{T}}\right)_{P}`
+      )
+    );
+    expect(out).not.toContain("+ -");
   });
 
   it("cancels (dP_s/dv_s) dv_s to dP_s when evaluating selected product (issue 44)", () => {
@@ -675,6 +724,39 @@ describe("evaluateSelection", () => {
     expect(next).not.toBeNull();
     expect(normalizeLatex(next!.latexPlain)).toContain(
       normalizeLatex(String.raw`\frac{\mathrm{d}{P_{s}}}{P}`)
+    );
+  });
+
+  it("simplify collapses applied partial operator into a mixed partial", () => {
+    const tree = buildTree(
+      String.raw`\left(\frac{\partial}{\partial{P}}\right) \left(\frac{\partial{s}}{\partial{T}}\right)_{P}`
+    );
+    const next = simplifySelection(tree, { kind: "node", nodeId: tree.rootId });
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe(
+      normalizeLatex(String.raw`\frac{\partial^{2}{s}}{\partial{P} \partial{T}}`)
+    );
+  });
+
+  it("evaluate collapses applied partial operator into a mixed partial", () => {
+    const tree = buildTree(
+      String.raw`\left(\frac{\partial}{\partial{P}}\right) \left(\frac{\partial{s}}{\partial{T}}\right)_{P}`
+    );
+    const next = evaluateSelection(tree, { kind: "node", nodeId: tree.rootId });
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe(
+      normalizeLatex(String.raw`\frac{\partial^{2}{s}}{\partial{P} \partial{T}}`)
+    );
+  });
+
+  it("simplify keeps applied partial operators as operators, not commuted factors", () => {
+    const tree = buildTree(
+      String.raw`\left(\frac{\partial}{\partial{P}}\right) \left(c_{P}\right)`
+    );
+    const next = simplifySelection(tree, { kind: "node", nodeId: tree.rootId });
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toBe(
+      normalizeLatex(String.raw`\left(\frac{\partial}{\partial{P}}\right) c_{P}`)
     );
   });
 });

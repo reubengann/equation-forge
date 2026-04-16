@@ -420,16 +420,19 @@ function evaluateExpression(expr: MJ, mode: EvalMode): MJ | null {
       if (containsDifferentialAlias(fromCe)) continue;
 
       const normalized = normalizeMathJson(fromCe) ?? fromCe;
-      if (containsSyntheticDelimiterSymbol(normalized)) continue;
-      if (containsDifferentialAlias(normalized)) continue;
+      const normalizedPowerProducts =
+        normalizeMathJson(simplifySymbolPowerProducts(normalized)) ??
+        simplifySymbolPowerProducts(normalized);
+      if (containsSyntheticDelimiterSymbol(normalizedPowerProducts)) continue;
+      if (containsDifferentialAlias(normalizedPowerProducts)) continue;
       try {
-        ExpressionTree.create(normalized);
+        ExpressionTree.create(normalizedPowerProducts);
       } catch {
         continue;
       }
-      if (!deepEqualMJ(normalized, expr)) {
-        debugEval("result", normalized);
-        return normalized;
+      if (!deepEqualMJ(normalizedPowerProducts, expr)) {
+        debugEval("result", normalizedPowerProducts);
+        return normalizedPowerProducts;
       }
     }
 
@@ -465,6 +468,14 @@ function evaluateExpression(expr: MJ, mode: EvalMode): MJ | null {
       return reciprocalSimplified;
     }
 
+    const powerProductSimplified =
+      normalizeMathJson(simplifySymbolPowerProducts(expr)) ??
+      simplifySymbolPowerProducts(expr);
+    if (!deepEqualMJ(powerProductSimplified, expr)) {
+      debugEval("result", powerProductSimplified);
+      return powerProductSimplified;
+    }
+
     const zeroProductSimplified = simplifyZeroProducts(expr);
     const normalizedZeroProduct = normalizeMathJson(zeroProductSimplified) ?? zeroProductSimplified;
     if (!deepEqualMJ(normalizedZeroProduct, expr)) {
@@ -485,6 +496,20 @@ function evaluateExpression(expr: MJ, mode: EvalMode): MJ | null {
       return normalizedNegation;
     }
 
+    const signNormalized =
+      normalizeMathJson(
+        normalizeAddTermSignsRecursively(
+          normalizeNegativeTermsInAdd(normalizeNegativeAddTerm(expr))
+        )
+      ) ??
+      normalizeAddTermSignsRecursively(
+        normalizeNegativeTermsInAdd(normalizeNegativeAddTerm(expr))
+      );
+    if (!deepEqualMJ(signNormalized, expr)) {
+      debugEval("result", signNormalized);
+      return signNormalized;
+    }
+
     if (mode === "simplify") {
       const logCombined = simplifyLogAddSub(expr);
       const normalizedLogCombined = normalizeMathJson(logCombined) ?? logCombined;
@@ -492,6 +517,14 @@ function evaluateExpression(expr: MJ, mode: EvalMode): MJ | null {
         debugEval("result", normalizedLogCombined);
         return normalizedLogCombined;
       }
+    }
+
+    const mixedPartialSimplified = simplifyAppliedPartialOperator(expr);
+    const normalizedMixedPartial =
+      normalizeMathJson(mixedPartialSimplified) ?? mixedPartialSimplified;
+    if (!deepEqualMJ(normalizedMixedPartial, expr)) {
+      debugEval("result", normalizedMixedPartial);
+      return normalizedMixedPartial;
     }
 
     const definitePowerIntegral = evaluateDefinitePowerIntegral(expr);
@@ -554,6 +587,92 @@ function simplifyReciprocalDivides(expr: MJ): MJ {
     }
   }
   return [op, ...kids] as MJ;
+}
+
+function simplifySymbolPowerProducts(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((c) => simplifySymbolPowerProducts(c as MJ));
+  if (op !== "InvisibleOperator" && op !== "Multiply") {
+    return [op, ...kids] as MJ;
+  }
+
+  const factors = [...kids] as MJ[];
+  const isSymbolicBase = (base: MJ): boolean => {
+    if (typeof base === "string") return true;
+    return Array.isArray(base) && base[0] === "Subscript" && base.length >= 3;
+  };
+  const exponentFrom = (value: MJ): number | null => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && /^-?\d+(?:\.\d+)?$/.test(value)) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  };
+  const factorAsPower = (factor: MJ): { base: MJ; exponent: number } | null => {
+    if (Array.isArray(factor) && factor[0] === "Power" && factor.length >= 3) {
+      const base = factor[1] as MJ;
+      const exponent = exponentFrom(factor[2] as MJ);
+      if (!isSymbolicBase(base) || exponent === null) return null;
+      return { base, exponent };
+    }
+    if (!isSymbolicBase(factor)) return null;
+    return { base: factor, exponent: 1 };
+  };
+  const factorFromPower = (base: MJ, exponent: number): MJ => {
+    if (exponent === 1) return base;
+    if (exponent === -1) return ["Divide", 1, base] as MJ;
+    if (exponent < 0) {
+      return ["Divide", 1, ["Power", base, Math.abs(exponent)] as MJ] as MJ;
+    }
+    return ["Power", base, exponent] as MJ;
+  };
+
+  const aggregate = new Map<string, { base: MJ; exponent: number; firstIndex: number }>();
+  for (let i = 0; i < factors.length; i += 1) {
+    const parsed = factorAsPower(factors[i] as MJ);
+    if (!parsed) continue;
+    const key = JSON.stringify(parsed.base);
+    const existing = aggregate.get(key);
+    if (!existing) {
+      aggregate.set(key, { base: parsed.base, exponent: parsed.exponent, firstIndex: i });
+      continue;
+    }
+    existing.exponent += parsed.exponent;
+    existing.firstIndex = Math.min(existing.firstIndex, i);
+  }
+
+  let changed = false;
+  const consumed = new Set<string>();
+  const rebuilt: MJ[] = [];
+  for (let i = 0; i < factors.length; i += 1) {
+    const parsed = factorAsPower(factors[i] as MJ);
+    if (!parsed) {
+      rebuilt.push(factors[i] as MJ);
+      continue;
+    }
+    const key = JSON.stringify(parsed.base);
+    const merged = aggregate.get(key);
+    if (!merged) {
+      rebuilt.push(factors[i] as MJ);
+      continue;
+    }
+    if (merged.firstIndex !== i || consumed.has(key)) {
+      changed = true;
+      continue;
+    }
+    consumed.add(key);
+    if (merged.exponent === 0) {
+      changed = true;
+      continue;
+    }
+    const replacement = factorFromPower(merged.base, merged.exponent);
+    if (!deepEqualMJ(replacement, factors[i] as MJ)) changed = true;
+    rebuilt.push(replacement);
+  }
+
+  return changed ? rebuildGrouped("InvisibleOperator", rebuilt) : ([op, ...kids] as MJ);
 }
 
 function simplifyZeroProducts(expr: MJ): MJ {
@@ -653,6 +772,125 @@ function simplifyDifferentialFractionProducts(expr: MJ): MJ {
   return [op, ...kids] as MJ;
 }
 
+function unwrapDisplayGrouping(expr: MJ): MJ {
+  if (
+    Array.isArray(expr) &&
+    (expr[0] === "Delimiter" || expr[0] === "List") &&
+    expr.length >= 2
+  ) {
+    return expr[1] as MJ;
+  }
+  return expr;
+}
+
+function extractBarePartialOperatorDenominator(expr: MJ): MJ | null {
+  const unwrapped = unwrapDisplayGrouping(expr);
+  if (
+    !Array.isArray(unwrapped) ||
+    unwrapped[0] !== "FractionPartialDerivative" ||
+    unwrapped.length < 3 ||
+    unwrapped[1] !== "PartialD"
+  ) {
+    return null;
+  }
+  return unwrapped[2] as MJ;
+}
+
+function mergePartialDenominatorFactors(outer: MJ, inner: MJ): MJ {
+  const toFactors = (expr: MJ): MJ[] => {
+    if (
+      Array.isArray(expr) &&
+      (expr[0] === "InvisibleOperator" || expr[0] === "Multiply")
+    ) {
+      return expr.slice(1) as MJ[];
+    }
+    return [expr];
+  };
+  return rebuildGrouped("InvisibleOperator", [...toFactors(outer), ...toFactors(inner)]);
+}
+
+function extractPartialOperands(expr: MJ): MJ[] {
+  const unwrapped = unwrapDisplayGrouping(expr);
+  const factors =
+    Array.isArray(unwrapped) &&
+    (unwrapped[0] === "InvisibleOperator" || unwrapped[0] === "Multiply")
+      ? (unwrapped.slice(1) as MJ[])
+      : [unwrapped];
+
+  const operands: MJ[] = [];
+  for (const factor of factors) {
+    if (Array.isArray(factor) && factor[0] === "Partial" && factor.length >= 2) {
+      operands.push(factor[1] as MJ);
+    }
+  }
+  return operands;
+}
+
+function collapseAppliedPartialOperator(operand: MJ, outerDenominator: MJ): MJ | null {
+  const unwrappedOperand = unwrapDisplayGrouping(operand);
+
+  if (
+    Array.isArray(unwrappedOperand) &&
+    unwrappedOperand[0] === "Subscript" &&
+    unwrappedOperand.length >= 3
+  ) {
+    const simplifiedBase = collapseAppliedPartialOperator(
+      unwrappedOperand[1] as MJ,
+      outerDenominator
+    );
+    if (!simplifiedBase) return null;
+    const subscript = unwrappedOperand[2] as MJ;
+    const outerOperands = extractPartialOperands(outerDenominator);
+    const shouldDropSubscript = outerOperands.some((outer) =>
+      deepEqualMJ(outer, subscript)
+    );
+    if (shouldDropSubscript) {
+      return simplifiedBase;
+    }
+    return [
+      "Subscript",
+      ["Delimiter", simplifiedBase] as MJ,
+      subscript,
+    ] as MJ;
+  }
+
+  if (
+    !Array.isArray(unwrappedOperand) ||
+    unwrappedOperand[0] !== "FractionPartialDerivative" ||
+    unwrappedOperand.length < 3
+  ) {
+    return null;
+  }
+
+  const numerator = unwrappedOperand[1] as MJ;
+  const denominator = unwrappedOperand[2] as MJ;
+  const mergedDenominator = mergePartialDenominatorFactors(outerDenominator, denominator);
+  return [
+    "FractionPartialDerivative",
+    ["Partial", numerator] as MJ,
+    mergedDenominator,
+  ] as MJ;
+}
+
+function simplifyAppliedPartialOperator(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((c) => simplifyAppliedPartialOperator(c as MJ));
+
+  if ((op === "InvisibleOperator" || op === "Multiply") && kids.length === 2) {
+    const operatorDenominator = extractBarePartialOperatorDenominator(kids[0] as MJ);
+    if (operatorDenominator) {
+      const collapsed = collapseAppliedPartialOperator(
+        kids[1] as MJ,
+        operatorDenominator
+      );
+      if (collapsed) return collapsed;
+    }
+  }
+
+  return [op, ...kids] as MJ;
+}
+
 function simplifyNegationPairs(expr: MJ): MJ {
   if (!Array.isArray(expr)) return expr;
   const op = expr[0];
@@ -735,8 +973,29 @@ function absoluteNumericMJ(value: MJ): MJ | null {
 }
 
 function normalizeNegativeAddTerm(expr: MJ): MJ {
+  const extractLeadingNegatedFactor = (value: MJ): MJ | null => {
+    if (Array.isArray(value) && value[0] === "Negate" && value.length >= 2) {
+      return value[1] as MJ;
+    }
+    if (
+      Array.isArray(value) &&
+      (value[0] === "Delimiter" || value[0] === "List") &&
+      value.length >= 2 &&
+      Array.isArray(value[1]) &&
+      (value[1] as MJ[])[0] === "Negate" &&
+      (value[1] as MJ[]).length >= 2
+    ) {
+      // Preserve explicit grouping from the original factor when lifting sign.
+      return [value[0], (value[1] as MJ[])[1] as MJ] as MJ;
+    }
+    return null;
+  };
+
   const absScalar = absoluteNumericMJ(expr);
   if (absScalar !== null) return ["Negate", absScalar] as MJ;
+
+  const directNegated = extractLeadingNegatedFactor(expr);
+  if (directNegated !== null) return ["Negate", directNegated] as MJ;
 
   if (!Array.isArray(expr)) return expr;
   const op = expr[0];
@@ -745,9 +1004,10 @@ function normalizeNegativeAddTerm(expr: MJ): MJ {
   const factors = expr.slice(1) as MJ[];
   if (factors.length === 0) return expr;
   const firstAbs = absoluteNumericMJ(factors[0] as MJ);
-  if (firstAbs === null) return expr;
-
-  const rest = [firstAbs, ...factors.slice(1)] as MJ[];
+  const firstNegatedFactor = extractLeadingNegatedFactor(factors[0] as MJ);
+  if (firstAbs === null && firstNegatedFactor === null) return expr;
+  const firstPositive = firstAbs !== null ? firstAbs : firstNegatedFactor;
+  const rest = [firstPositive as MJ, ...factors.slice(1)] as MJ[];
   const product =
     rest.length === 1 ? rest[0] : ([op, ...rest] as MJ);
   return ["Negate", product] as MJ;

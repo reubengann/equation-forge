@@ -524,6 +524,40 @@ describe("applyMoveMultiplicative executor", () => {
     );
   });
 
+  it("moves T out of RHS operand parentheses for applied partial operator without Error nodes", () => {
+    const next = runMove({
+      latex: String.raw`\frac{\partial^{2}{s}}{\partial{P} \partial{T}} = \left(\frac{\partial}{\partial{P}}\right) \left(\frac{c_{P}}{T}\right)`,
+      select: (tree) => [
+        findNodeId(
+          tree,
+          (n) =>
+            n.latex === "T" &&
+            (() => {
+              const rhsId = tree.childrenById[tree.rootId!]?.[1];
+              if (!rhsId) return false;
+              let cur: string | null = n.id;
+              while (cur) {
+                if (cur === rhsId) return true;
+                cur = tree.parentById[cur] ?? null;
+              }
+              return false;
+            })()
+        ),
+      ],
+      hover: (tree) =>
+        findNodeId(
+          tree,
+          (n) =>
+            n.op === "Delimiter" &&
+            n.latex.includes(String.raw`\frac{c_{P}}{T}`)
+        ),
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain).not.toContain("Error");
+  });
+
   it("reorders dv using debug trace args with nested product shape (issue 103)", () => {
     const root: MJ = [
       "Equal",

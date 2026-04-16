@@ -93,6 +93,24 @@ function replaceMathLiveDifferentialGroups(input: string): string {
   return out;
 }
 
+function promoteTightDifferentialTokens(input: string): string {
+  // Preserve tight forms like `Tds` entered in MathLive as explicit differentials.
+  // This catches the trailing `ds` token without requiring whitespace.
+  const tightDifferential =
+    /(^|[^\\'])d([A-Za-z](?:_\{[^}]+\}|_[A-Za-z0-9]+)?)(?![A-Za-z0-9_])/g;
+  return input.replace(tightDifferential, (_m, prefix: string, operand: string) => {
+    return `${prefix}${String.raw`\mathrm{d}{${operand}}`}`;
+  });
+}
+
+function normalizeBracketAliases(input: string): string {
+  return input
+    .replace(/\\left\\lbrack/g, String.raw`\left[`)
+    .replace(/\\right\\rbrack/g, String.raw`\right]`)
+    .replace(/\\lbrack/g, "[")
+    .replace(/\\rbrack/g, "]");
+}
+
 // Canonicalize a few common variants of \mathrm{d} into MathLive's \differentialD
 export function toMathLiveLatex(displayLatex: string): string {
   if (!displayLatex) return displayLatex ?? "";
@@ -118,7 +136,9 @@ export function toMathLiveLatex(displayLatex: string): string {
 // Convert MathLive-emitted LaTeX into our canonical display form.
 export function fromMathLiveLatex(mathLiveLatex: string): string {
   if (!mathLiveLatex) return mathLiveLatex ?? "";
-  let s = replaceMathLiveDifferentialGroups(mathLiveLatex);
+  let s = normalizeBracketAliases(
+    promoteTightDifferentialTokens(replaceMathLiveDifferentialGroups(mathLiveLatex))
+  );
 
   // Normalize MathLive internals first.
   s = s.replace(/\\?d_upright/g, String.raw`\mathrm{d}`);

@@ -150,4 +150,42 @@ test.describe("Differentials end-to-end", () => {
 
     expect(latex).toContain(String.raw`\dfrac{\partial f}{\partial x}`);
   });
+
+  test("edit plain text shows canonical brackets after MathLive aliases (issue 108)", async ({
+    page,
+  }) => {
+    const eq = String.raw`\frac{1}{T}a=\frac{1}{T}\left\lbrack a+\left(\dfrac{\partial P}{\partial T}\right)_{v}\right\rbrack`;
+    await page.goto("/");
+    await page.locator('input[name="entry-mode"][value="mathlive"]').click({
+      force: true,
+    });
+
+    const field = page.getByTestId("latex-input");
+    await field.waitFor();
+    await field.evaluate(
+      async (el: any, value) => {
+        if (typeof customElements !== "undefined" && customElements.whenDefined) {
+          await customElements.whenDefined("math-field");
+        }
+        if (typeof el.setValue === "function") {
+          el.setValue(value);
+        } else {
+          el.value = value;
+        }
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      },
+      eq
+    );
+
+    await page.getByTestId("add-update").click();
+    await waitForMathRender(page);
+    await page.getByTestId("edit-button").click();
+    await page.locator('input[name="entry-mode"][value="text"]').click();
+
+    const textLatex = await page.getByTestId("latex-input").inputValue();
+    expect(textLatex).toContain(String.raw`\left[`);
+    expect(textLatex).toContain(String.raw`\right]`);
+    expect(textLatex).not.toContain(String.raw`\lbrack`);
+    expect(textLatex).not.toContain(String.raw`\rbrack`);
+  });
 });

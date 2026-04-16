@@ -230,6 +230,9 @@ export function getLatexForSelectionCopy(
       const childHits = ids
         .map((id) => childUnderAncestor(containerId, id))
         .filter((id): id is string => !!id);
+      // Candidate must cover the full selection; otherwise we can drop selected
+      // factors (e.g., 1/T) when a nested Add is also selected.
+      if (childHits.length !== ids.length) continue;
       if (childHits.length < 2) continue;
 
       const uniqueHits = Array.from(new Set(childHits));

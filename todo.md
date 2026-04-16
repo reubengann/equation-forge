@@ -376,46 +376,50 @@
       Rubber band select `\left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right]` and hit copy selection. The result is `\frac{1}{T} \left(\frac{\partial{u}}{\partial{v}}\right)_{T} P`. We drop both
       the brackets and the plus sign.
 
+105.  `\dfrac{\partial^2u}{\partial v\partial T}` This renders as `\frac{\partial \partial u}{\partial v \partial T}`
+
+106.  `\left(\frac{\partial{s}}{\partial{T}}\right)_{P} = \frac{c_{P}}{T}`. Apply `\frac{\partial/}{\partial P}` to both sides. Result is `\left(\frac{\partial}{\partial{P}}\right) \left(\frac{\partial{s}}{\partial{T}}\right)_{P} = \left(\frac{\partial}{\partial{P}}\right) \left(\frac{c_{P}}{T}\right)`. The partials are selectable, but the surrounding parentheses are not.
+
+107.  Entering `Tds` in mathlive results in `Tds` coming out in latex (no differential) instead of `T \mathrm{d}{s}`. This seems to happen when any multiplying factor of the differential is present.
+
+108.  `\frac{1}{T}a=\frac{1}{T}\left\lbrack a+\left(\dfrac{\partial P}{\partial T}\right)_{v}\right\rbrack-\frac{1}{T^2}\left\lbrack\left(\dfrac{\partial u}{\partial v}\right)_{T}+P\right\rbrack` I entered the brackets as `[]` in mathlive. This does not parse. I'm also not sure why, when I enter `[]`, we end up with `\lbrack` and `\rbrack` in latex instead of characters, but I would prefer those to show up as `\left[` and `\right]`. If I paste an equation with the characters `[` and `]` those are retained, but when I type them Mathlive seems to put lbrack and rbrack
+
+109.  `\left(\frac{\partial{P}}{\partial{T}}\right)_{v} = T \frac{1}{T^{2}} \left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right]`
+      Select `T \frac{1}{T^{2}}` and simplify. Instead of `1/T` you get `T T^{-2}`
+
+110.  `\mathrm{d}{s} = \frac{1}{T} \left(\frac{\partial{h}}{\partial{T}}\right)_{P} \mathrm{d}{T} + \frac{1}{T} \left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T} - v\right] \mathrm{d}{P}`
+      Rubber band select the right hand term `\frac{1}{T} \left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T} - v\right]` and copy selection.
+      what ends up copied is `\left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T} - v\right]`, missing the `1/T` part, even though it's highlighted.
+
+111.  `\mathrm{d}{s} = \frac{c_{P}}{T} \mathrm{d}{T} + \left(-\left(\frac{\partial{v}}{\partial{T}}\right)_{P}\right) \mathrm{d}{P}`
+      No operation (simplify, evaluate, expand) will seem to rewrite this expression with the negative outside, which is a very common desire. i.e.
+      `\mathrm{d}{s} = \frac{c_{P}}{T} \mathrm{d}{T} - \left(\left(\frac{\partial{v}}{\partial{T}}\right)_{P}\right) \mathrm{d}{P}`
+
 ---- undone ----
 
-105. `\dfrac{\partial^2u}{\partial v\partial T}` This renders as `\frac{\partial \partial u}{\partial v \partial T}`
+112. `\ln (a/b)` should expand to `ln a - ln b`
 
-106. `\frac{1}{T}a=\frac{1}{T}\left\lbrack a+\left(\dfrac{\partial P}{\partial T}\right)_{v}\right\rbrack-\frac{1}{T^2}\left\lbrack\left(\dfrac{\partial u}{\partial v}\right)_{T}+P\right\rbrack` This does not parse.
-
-107. `\left(\frac{\partial{P}}{\partial{T}}\right)_{v} = T \frac{1}{T^{2}} \left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right]`
-     Select `T \frac{1}{T^{2}}` and simplify. Instead of `1/T` you get `T T^{-2}`
-
-108. `\mathrm{d}{s} = \frac{1}{T} \left(\frac{\partial{h}}{\partial{T}}\right)_{P} \mathrm{d}{T} + \frac{1}{T} \left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T} - v\right] \mathrm{d}{P}`
-     Rubber band select `\frac{1}{T} \left(\frac{\partial{h}}{\partial{T}}\right)_{P} \mathrm{d}{T} + \frac{1}{T} \left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T} - v\right]`
-     what ends up copied is `\left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T} - v\right]`, missing the `1/T` part.
-
-109. `\mathrm{d}{s} = \frac{c_{P}}{T} \mathrm{d}{T} + \left(-\left(\frac{\partial{v}}{\partial{T}}\right)_{P}\right) \mathrm{d}{P}`
-     No operation (simplify, evaluate, expand) will seem to rewrite this expression with the negative outside, which is a very common desire. i.e.
-     `\mathrm{d}{s} = \frac{c_{P}}{T} \mathrm{d}{T} - \left(\left(\frac{\partial{v}}{\partial{T}}\right)_{P}\right) \mathrm{d}{P}`
-
-110. `\ln (a/b)` should expand to `ln a - ln b`
-
-111. `\int_{V_{0}}^{V} \frac{R}{v - b} \,\mathrm{d}{v}`
+113. `\int_{V_{0}}^{V} \frac{R}{v - b} \,\mathrm{d}{v}`
      This can't be evaluated.
 
-112. `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -\int_{V_{0}}^{V} \frac{1}{3 V} \,\mathrm{d}{V}`
+114. `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -\int_{V_{0}}^{V} \frac{1}{3 V} \,\mathrm{d}{V}`
      Drag the 3 out of the integral. Gives `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -3 \int_{V_{0}}^{V} \frac{1}{V} \,\mathrm{d}{V}` which is wrong.
 
-113. `P \left(v - b\right) = R T`
+115. `P \left(v - b\right) = R T`
      The parentheses are not selectable. Why?
 
-114. We need fraction tools. Such as
+116. We need fraction tools. Such as
      - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`)
      - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)
 
-115. Feature: Need to come up with some way to perform partial derivatives.
+117. Feature: Need to come up with some way to perform partial derivatives.
 
-116. Maybe start over?
+118. Maybe start over?
 
-117. Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it.
+119. Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it.
 
-118. Upgrade cortexjs to newest version.
+120. Upgrade cortexjs to newest version.
 
-119. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs.
+121. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs.
 
-120. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
+122. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.

@@ -18,7 +18,7 @@ function isIntegralOfEqnOperation(operationLatex: string): boolean {
 function parsePartialOfEqnVariable(operationLatex: string): MJ | null {
   const compact = operationLatex.replace(/\s+/g, "");
   const match = compact.match(
-    /^\\frac\{\\partial\}\{\\partial(?:\{([^{}]+)\}|(\\[A-Za-z]+|[A-Za-z]+))\}(?:\\left\(|\()?eqn(?:\\right\)|\))?$/
+    /^\\(?:dfrac|frac)\{\\partial\}\{\\partial(?:\{([^{}]+)\}|(\\[A-Za-z]+|[A-Za-z]+))\}(?:\\left\(|\()?eqn(?:\\right\)|\))?$/
   );
   if (!match) return null;
 
@@ -236,9 +236,22 @@ export function applyOperationToBothSides(
   const partialVar = parsePartialOfEqnVariable(operationLatex);
   if (partialVar != null) {
     const [, lhs, rhs] = equation;
-    const partialOverVar = ["Divide", "PartialD", ["Partial", partialVar] as MJ] as MJ;
-    const newLhs = ["InvisibleOperator", deepClone(partialOverVar), wrapDifferentialOperand(lhs as MJ)] as MJ;
-    const newRhs = ["InvisibleOperator", deepClone(partialOverVar), wrapDifferentialOperand(rhs as MJ)] as MJ;
+    const partialOverVar = [
+      "FractionPartialDerivative",
+      "PartialD",
+      ["Partial", partialVar] as MJ,
+    ] as MJ;
+    const wrappedPartialOperator = ["Delimiter", deepClone(partialOverVar)] as MJ;
+    const newLhs = [
+      "InvisibleOperator",
+      deepClone(wrappedPartialOperator),
+      wrapDifferentialOperand(lhs as MJ),
+    ] as MJ;
+    const newRhs = [
+      "InvisibleOperator",
+      deepClone(wrappedPartialOperator),
+      wrapDifferentialOperand(rhs as MJ),
+    ] as MJ;
     const result = ["Equal", newLhs, newRhs] as MJ;
 
     if (process.env.NODE_ENV !== "production") {
@@ -252,7 +265,7 @@ export function applyOperationToBothSides(
         ? String.raw`\left(${rhsLatexRaw}\right)`
         : rhsLatexRaw;
       const directLatex =
-        String.raw`\frac{\partial}{\partial{${varLatex}}} ${lhsLatex} = \frac{\partial}{\partial{${varLatex}}} ${rhsLatex}`;
+        String.raw`\left(\frac{\partial}{\partial{${varLatex}}}\right) ${lhsLatex} = \left(\frac{\partial}{\partial{${varLatex}}}\right) ${rhsLatex}`;
       const direct = parse(directLatex);
       if (direct && !deepEqualMJ(direct as MJ, result)) {
         throw new Error(
