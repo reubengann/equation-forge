@@ -1,7 +1,8 @@
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import {
   ExpressionPad,
   type ExpressionPadDebugActions,
+  type ExpressionPadHistory,
   type ExpressionPadDebugState,
 } from "../ui/components/ExpressionPad";
 import "../App.css";
@@ -226,9 +227,32 @@ function DebugPanel(state: ExpressionPadDebugState) {
 }
 
 export function DebugPage() {
+  const historyStorageKey = "debug-pad-history";
+  const initialHistory = useMemo(() => {
+    if (typeof window === "undefined") return undefined;
+    try {
+      const raw = window.localStorage.getItem(historyStorageKey);
+      if (!raw) return undefined;
+      return JSON.parse(raw) as ExpressionPadHistory;
+    } catch {
+      return undefined;
+    }
+  }, []);
   const [exampleIdx, setExampleIdx] = useState(0);
   const [prefillLatex, setPrefillLatex] = useState<string | undefined>(undefined);
   const [prefillKey, setPrefillKey] = useState(0);
+  const [history, setHistory] = useState<ExpressionPadHistory | undefined>(
+    initialHistory,
+  );
+
+  useEffect(() => {
+    if (!history?.present) return;
+    try {
+      window.localStorage.setItem(historyStorageKey, JSON.stringify(history));
+    } catch {
+      // ignore storage issues
+    }
+  }, [history, historyStorageKey]);
 
   function copyExampleIntoEditor() {
     const latex = DEFAULT_EXAMPLES[exampleIdx] ?? "";
@@ -281,8 +305,10 @@ export function DebugPage() {
       </div>
 
       <ExpressionPad
+        initialHistory={history}
         prefillLatex={prefillLatex}
         prefillKey={prefillKey}
+        onHistoryChange={setHistory}
         debug={{
           render: (
             state: ExpressionPadDebugState,

@@ -35,8 +35,11 @@ type MoveModeToolbarProps = {
   canCopyLatex: boolean;
   onCopySelection: () => void;
   canCopySelection: boolean;
+  onCopyHistory: () => void;
+  canCopyHistory: boolean;
   copySelectionFeedback?: "idle" | "done";
   copyFeedback?: "idle" | "done";
+  copyHistoryFeedback?: "idle" | "done";
   onEdit: () => void;
 };
 
@@ -107,14 +110,18 @@ export const MoveModeToolbar = forwardRef<
     canCopyLatex,
     onCopySelection,
     canCopySelection,
+    onCopyHistory,
+    canCopyHistory,
     copySelectionFeedback = "idle",
     copyFeedback = "idle",
+    copyHistoryFeedback = "idle",
     onEdit,
   },
   ref
 ) {
   const isCopyComplete = copyFeedback === "done";
   const isCopySelectionComplete = copySelectionFeedback === "done";
+  const isCopyHistoryComplete = copyHistoryFeedback === "done";
 
   return (
     <div style={toolbarStyle} ref={ref}>
@@ -315,6 +322,18 @@ export const MoveModeToolbar = forwardRef<
         disabled={!canCopySelection}
         testId="copy-selection-button"
         tone={isCopySelectionComplete ? "success" : "default"}
+      />
+      <IconButton
+        label={isCopyHistoryComplete ? "History copied!" : "Copy entire history"}
+        icon={
+          <span style={materialSymbolStyle} aria-hidden>
+            {isCopyHistoryComplete ? "check" : "history"}
+          </span>
+        }
+        onClick={onCopyHistory}
+        disabled={!canCopyHistory}
+        testId="copy-history-button"
+        tone={isCopyHistoryComplete ? "success" : "default"}
       />
       <IconButton
         label="Edit"

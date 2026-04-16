@@ -158,6 +158,9 @@ export async function getNodeRects(
 
 export async function setEquation(page: Page, latex: string) {
   await page.goto("/");
+  await page.evaluate(() => window.localStorage.removeItem("debug-pad-history"));
+  await page.reload();
+  await page.getByRole("button", { name: "Debug (single pad)" }).click();
   await page.locator('input[name="entry-mode"][value="text"]').click();
   await page.getByTestId("latex-input").fill(latex);
   await page.getByTestId("add-update").click();

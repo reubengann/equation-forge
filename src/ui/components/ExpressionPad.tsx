@@ -20,7 +20,7 @@ import {
   type ExprSelection,
   type SubstituteScope,
 } from "../../application";
-import { useHistory } from "../../hooks/useHistory";
+import { useHistory, type History } from "../../hooks/useHistory";
 import {
   useSelection,
   getNodeIdsFromPointerEvent,
@@ -39,6 +39,7 @@ import { MathDisplayPanel } from "./MathDisplayPanel";
 import { MoveModeToolbar } from "./MoveModeToolbar";
 import { ApplyModal } from "./ApplyModal";
 import { SubstituteModal } from "./SubstituteModal";
+import { InvalidateHistoryModal } from "./InvalidateHistoryModal";
 import type { MoveMode } from "../../moveExpression/applyMove";
 import type {
   MoveCaptureFixture,
@@ -91,6 +92,11 @@ export type ExpressionPadSnapshot = {
   rootJson: MJ;
 };
 
+export type ExpressionPadHistoryStep = {
+  latex: string;
+};
+export type ExpressionPadHistory = History<ExpressionPadHistoryStep>;
+
 export type OtherPadSnapshot = {
   padIndex: number;
   snapshot: ExpressionPadSnapshot;
@@ -139,6 +145,46 @@ function matchSubstituteSuggestion(
   return null;
 }
 
+function normalizeHistoryStep(step: unknown): ExpressionPadHistoryStep | null {
+  if (!step || typeof step !== "object") return null;
+  const candidate = step as Partial<ExpressionPadHistoryStep>;
+  if (typeof candidate.latex !== "string") return null;
+  return {
+    latex: candidate.latex,
+  };
+}
+
+function normalizePersistedHistory(input: unknown): ExpressionPadHistory | null {
+  if (!input || typeof input !== "object") return null;
+  const candidate = input as Partial<ExpressionPadHistory>;
+  const present = normalizeHistoryStep(candidate.present);
+  if (!present) return null;
+
+  const normalizeArray = (value: unknown): ExpressionPadHistoryStep[] => {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((item) => normalizeHistoryStep(item))
+      .filter((item): item is ExpressionPadHistoryStep => item !== null);
+  };
+
+  return {
+    past: normalizeArray(candidate.past),
+    present,
+    future: normalizeArray(candidate.future),
+  };
+}
+
+function cloneMj(value: MJ): MJ {
+  return JSON.parse(JSON.stringify(value)) as MJ;
+}
+
+function historyLatexSignature(history: ExpressionPadHistory): string {
+  const encode = (steps: ExpressionPadHistoryStep[]) =>
+    steps.map((step) => step.latex).join("\u241e");
+  const present = history.present?.latex ?? "";
+  return `${encode(history.past)}\u241f${present}\u241f${encode(history.future)}`;
+}
+
 export type ExpressionPadProps = {
   debug?: {
     render?: (
@@ -153,6 +199,11 @@ export type ExpressionPadProps = {
    */
   initialSnapshot?: ExpressionPadSnapshot;
   /**
+   * Optional serialized history to hydrate undo/redo state and current step.
+   * When provided, this takes priority over initialSnapshot.
+   */
+  initialHistory?: ExpressionPadHistory;
+  /**
    * Optional external prefill used by debug tooling (e.g., examples list in App).
    * Whenever prefillKey changes, this latex is applied to the input fields.
    */
@@ -162,6 +213,10 @@ export type ExpressionPadProps = {
    * Called whenever the pad commits a new state (including undo/redo).
    */
   onSnapshot?: (snapshot: ExpressionPadSnapshot) => void;
+  /**
+   * Called whenever history changes so parents can persist it.
+   */
+  onHistoryChange?: (history: ExpressionPadHistory) => void;
   /**
    * Snapshots from sibling pads (derivation view) to surface substitution
    * suggestions. Optional so debug page remains unchanged.
@@ -219,9 +274,11 @@ export function ExpressionPad({
   debug,
   initialLatex,
   initialSnapshot,
+  initialHistory,
   prefillLatex,
   prefillKey,
   onSnapshot,
+  onHistoryChange,
   otherPadSnapshots,
 }: ExpressionPadProps) {
   const MathDiv = useMemo(() => "math-div" as any, []);
@@ -263,9 +320,15 @@ export function ExpressionPad({
     setMode("render");
     onSnapshot?.({
       latex: latexValue,
-      rootJson: nextTree.rootJson,
+      rootJson: cloneMj(nextTree.rootJson),
     });
   }
+
+  const applyPresentStep = useCallback((step: ExpressionPadHistoryStep) => {
+    const parsed = mathPadFacade.parseLatex(step.latex);
+    if (!parsed) return;
+    applyPresentJson(parsed, { latex: step.latex });
+  }, [applyPresentJson]);
 
   // Use extracted hooks
   const {
@@ -274,7 +337,9 @@ export function ExpressionPad({
     commit: commitHistory,
     canUndo,
     canRedo,
-  } = useHistory(null);
+    history,
+    replace: replaceHistory,
+  } = useHistory<ExpressionPadHistoryStep>(null);
 
   const {
     selection,
@@ -284,12 +349,36 @@ export function ExpressionPad({
     clear: clearSelection,
   } = useSelection(tree, moveMode);
 
+  const [showInvalidateHistoryModal, setShowInvalidateHistoryModal] =
+    useState(false);
+  const [pendingHistoryStep, setPendingHistoryStep] =
+    useState<ExpressionPadHistoryStep | null>(null);
+
+  const commitStep = useCallback(
+    (step: ExpressionPadHistoryStep) => {
+      commitHistory(step);
+      applyPresentStep(step);
+    },
+    [commitHistory, applyPresentStep],
+  );
+
+  const commitStepWithBranchGuard = useCallback(
+    (step: ExpressionPadHistoryStep) => {
+      if (canRedo) {
+        setPendingHistoryStep(step);
+        setShowInvalidateHistoryModal(true);
+        return;
+      }
+      commitStep(step);
+    },
+    [canRedo, commitStep],
+  );
+
   const handleMoveComplete = useCallback(
     (newTree: ExpressionTree, latex: string) => {
-      commitHistory(newTree.rootJson);
-      applyPresentJson(newTree.rootJson, { latex });
+      commitStepWithBranchGuard(buildHistoryStep(newTree.rootJson, { latex }));
     },
-    [commitHistory],
+    [commitStepWithBranchGuard],
   );
 
   const {
@@ -396,22 +485,37 @@ export function ExpressionPad({
   const [copySelectionFeedback, setCopySelectionFeedback] = useState<
     "idle" | "done"
   >("idle");
+  const [copyHistoryFeedback, setCopyHistoryFeedback] = useState<
+    "idle" | "done"
+  >("idle");
   const [marquee, setMarquee] = useState<MarqueeState | null>(null);
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
   const copySelectionFeedbackTimeoutRef = useRef<number | null>(null);
+  const copyHistoryFeedbackTimeoutRef = useRef<number | null>(null);
   const pendingClickSelectionRef = useRef<PendingClickSelection | null>(null);
   const activeMoveCaptureRef = useRef<ActiveMoveCapture | null>(null);
   const lastMoveCaptureRef = useRef<MoveCaptureFixture | null>(null);
   const moveApplyAttemptsRef = useRef<MoveApplyAttempt[]>([]);
+  const hasHydratedInitialRef = useRef(false);
+  const lastHistorySignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (hasHydratedInitialRef.current) return;
+    const normalizedInitialHistory = normalizePersistedHistory(initialHistory);
+    if (normalizedInitialHistory?.present) {
+      replaceHistory(normalizedInitialHistory);
+      applyPresentStep(normalizedInitialHistory.present);
+      hasHydratedInitialRef.current = true;
+      return;
+    }
     if (!initialSnapshot) return;
-    if (tree) return;
-    commitHistory(initialSnapshot.rootJson);
-    applyPresentJson(initialSnapshot.rootJson, {
+    const initialStep: ExpressionPadHistoryStep = {
       latex: initialSnapshot.latex,
-    });
-  }, [initialSnapshot, tree, commitHistory, applyPresentJson]);
+    };
+    replaceHistory({ past: [], present: initialStep, future: [] });
+    applyPresentStep(initialStep);
+    hasHydratedInitialRef.current = true;
+  }, [initialHistory, initialSnapshot, replaceHistory, applyPresentStep]);
 
   // Allow parent (debug UI) to push a new latex draft (e.g., example copy).
   useEffect(() => {
@@ -435,6 +539,15 @@ export function ExpressionPad({
       applyFieldRef.current.focus();
     }
   }, [showApplyModal]);
+
+  useEffect(() => {
+    if (!onHistoryChange) return;
+    if (!history.present) return;
+    const signature = historyLatexSignature(history);
+    if (lastHistorySignatureRef.current === signature) return;
+    lastHistorySignatureRef.current = signature;
+    onHistoryChange(history);
+  }, [history, onHistoryChange]);
 
   const substituteTargetId = useMemo(() => {
     if (!tree) return null;
@@ -575,9 +688,16 @@ export function ExpressionPad({
     setExpressionJsonText(JSON.stringify(t.rootJson, null, 2));
   }
 
+  function buildHistoryStep(next: MJ, opts?: { latex?: string }): ExpressionPadHistoryStep {
+    const nextTree = ExpressionTree.create(next);
+    return {
+      latex: opts?.latex ?? nextTree.latexPlain,
+    };
+  }
+
   function commitJson(next: MJ, opts?: { latex?: string }) {
-    commitHistory(next);
-    applyPresentJson(next, opts);
+    const step = buildHistoryStep(next, opts);
+    commitStepWithBranchGuard(step);
   }
 
   const canFlip = useMemo(() => {
@@ -667,11 +787,11 @@ export function ExpressionPad({
   }, [tree, selection, commitJson]);
 
   function undo() {
-    undoHistory(applyPresentJson);
+    undoHistory(applyPresentStep);
   }
 
   function redo() {
-    redoHistory(applyPresentJson);
+    redoHistory(applyPresentStep);
   }
 
   function openSubstituteModal() {
@@ -1527,6 +1647,9 @@ export function ExpressionPad({
       if (copySelectionFeedbackTimeoutRef.current !== null) {
         window.clearTimeout(copySelectionFeedbackTimeoutRef.current);
       }
+      if (copyHistoryFeedbackTimeoutRef.current !== null) {
+        window.clearTimeout(copyHistoryFeedbackTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -1548,6 +1671,17 @@ export function ExpressionPad({
     }
     copySelectionFeedbackTimeoutRef.current = window.setTimeout(
       () => setCopySelectionFeedback("idle"),
+      900,
+    );
+  }
+
+  function markCopyHistorySuccess() {
+    setCopyHistoryFeedback("done");
+    if (copyHistoryFeedbackTimeoutRef.current !== null) {
+      window.clearTimeout(copyHistoryFeedbackTimeoutRef.current);
+    }
+    copyHistoryFeedbackTimeoutRef.current = window.setTimeout(
+      () => setCopyHistoryFeedback("idle"),
       900,
     );
   }
@@ -1592,34 +1726,7 @@ export function ExpressionPad({
 
   async function onCopyLatex() {
     if (!canCopyLatex || !latexForCopy) return;
-    let copied = false;
-    // Prefer modern clipboard API; fall back to execCommand when unavailable.
-    try {
-      if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(latexForCopy);
-        copied = true;
-      }
-    } catch {
-      // Ignore and try the legacy path.
-    }
-
-    if (!copied) {
-      try {
-        if (typeof document === "undefined") return;
-        const textarea = document.createElement("textarea");
-        textarea.value = latexForCopy;
-        textarea.style.position = "fixed";
-        textarea.style.left = "-9999px";
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textarea);
-        copied = true;
-      } catch {
-        // Swallow copy failures; button is best-effort.
-      }
-    }
-
+    const copied = await copyTextToClipboard(latexForCopy);
     if (copied) {
       markCopySuccess();
     }
@@ -1630,10 +1737,16 @@ export function ExpressionPad({
     [tree, selection],
   );
   const canCopySelection = !!selectionLatexForCopy.trim();
+  const fullHistorySteps = useMemo(() => {
+    if (!history.present) return [];
+    return [...history.past, history.present, ...history.future];
+  }, [history]);
+  const fullHistoryLatex = useMemo(() => {
+    return fullHistorySteps.map((step) => `$$ ${step.latex} $$`).join("\n");
+  }, [fullHistorySteps]);
+  const canCopyHistory = !!fullHistorySteps.length;
 
-  async function onCopySelection() {
-    if (!canCopySelection) return;
-    const text = selectionLatexForCopy;
+  async function copyTextToClipboard(text: string): Promise<boolean> {
     let copied = false;
     try {
       if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
@@ -1645,7 +1758,7 @@ export function ExpressionPad({
     }
     if (!copied) {
       try {
-        if (typeof document === "undefined") return;
+        if (typeof document === "undefined") return false;
         const textarea = document.createElement("textarea");
         textarea.value = text;
         textarea.style.position = "fixed";
@@ -1659,7 +1772,31 @@ export function ExpressionPad({
         // Best effort only.
       }
     }
+    return copied;
+  }
+
+  async function onCopySelection() {
+    if (!canCopySelection) return;
+    const copied = await copyTextToClipboard(selectionLatexForCopy);
     if (copied) markCopySelectionSuccess();
+  }
+
+  async function onCopyHistory() {
+    if (!canCopyHistory || !fullHistoryLatex) return;
+    const copied = await copyTextToClipboard(fullHistoryLatex);
+    if (copied) markCopyHistorySuccess();
+  }
+
+  function confirmInvalidateFutureHistory() {
+    if (!pendingHistoryStep) return;
+    commitStep(pendingHistoryStep);
+    setPendingHistoryStep(null);
+    setShowInvalidateHistoryModal(false);
+  }
+
+  function cancelInvalidateFutureHistory() {
+    setPendingHistoryStep(null);
+    setShowInvalidateHistoryModal(false);
   }
 
   const debugState: ExpressionPadDebugState = {
@@ -1779,8 +1916,11 @@ export function ExpressionPad({
                 canCopyLatex={canCopyLatex}
                 onCopySelection={onCopySelection}
                 canCopySelection={canCopySelection}
+                onCopyHistory={onCopyHistory}
+                canCopyHistory={canCopyHistory}
                 copyFeedback={copyFeedback}
                 copySelectionFeedback={copySelectionFeedback}
+                copyHistoryFeedback={copyHistoryFeedback}
                 onEdit={onEdit}
               />
             }
@@ -1823,6 +1963,11 @@ export function ExpressionPad({
         onSuggestionPick={applySuggestionToField}
         MathField={MathField}
         MathDiv={MathDiv}
+      />
+      <InvalidateHistoryModal
+        open={showInvalidateHistoryModal}
+        onConfirm={confirmInvalidateFutureHistory}
+        onCancel={cancelInvalidateFutureHistory}
       />
     </div>
   );

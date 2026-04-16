@@ -1,12 +1,25 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   ExpressionPad,
+  type ExpressionPadHistory,
   type ExpressionPadSnapshot,
 } from "../ui/components/ExpressionPad";
+import { parse } from "../computeEngine";
 import { IconButton } from "../ui/components/IconButton";
 import "../App.css";
 
-type Pad = { id: string; snapshot?: ExpressionPadSnapshot };
+type Pad = {
+  id: string;
+  snapshot?: ExpressionPadSnapshot;
+  history?: ExpressionPadHistory;
+};
+
+function historyLatexSignature(history?: ExpressionPadHistory): string {
+  if (!history?.present) return "";
+  const encode = (steps: Array<{ latex: string }>) =>
+    steps.map((step) => step.latex).join("\u241e");
+  return `${encode(history.past)}\u241f${history.present.latex}\u241f${encode(history.future)}`;
+}
 
 const materialSymbolStyle: CSSProperties = {
   fontVariationSettings: `"FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24`,
@@ -31,18 +44,68 @@ const sideControlStyle: CSSProperties = {
 export function DerivationPage() {
   const storageKey = "derivation-pads";
 
+  const snapshotFromHistory = (
+    history?: ExpressionPadHistory,
+  ): ExpressionPadSnapshot | undefined => {
+    if (!history?.present) return undefined;
+    const parsed = parse(history.present.latex);
+    if (!parsed) return undefined;
+    return {
+      latex: history.present.latex,
+      rootJson: parsed,
+    };
+  };
+
+  const cloneHistory = (
+    history?: ExpressionPadHistory,
+  ): ExpressionPadHistory | undefined => {
+    if (!history?.present) return undefined;
+    return {
+      past: history.past.map((step) => ({ latex: step.latex })),
+      present: {
+        latex: history.present.latex,
+      },
+      future: history.future.map((step) => ({ latex: step.latex })),
+    };
+  };
+
   const loadFromStorage = () => {
     const fallback = { pads: [{ id: "pad-1" }] as Pad[], counter: 2 };
     if (typeof window === "undefined") return fallback;
     try {
       const raw = window.localStorage.getItem(storageKey);
       if (!raw) return fallback;
-      const parsed = JSON.parse(raw) as Pad[];
+      const parsed = JSON.parse(raw) as Array<{
+        id?: string;
+        snapshot?: ExpressionPadSnapshot;
+        history?: ExpressionPadHistory;
+      }>;
       if (!Array.isArray(parsed) || parsed.length === 0) return fallback;
+      const normalizedPads: Pad[] = parsed
+        .map((entry, idx) => {
+          const id = typeof entry.id === "string" ? entry.id : `pad-${idx + 1}`;
+          const history = cloneHistory(entry.history);
+          const snapshot = history
+            ? snapshotFromHistory(history)
+            : entry.snapshot
+              ? {
+                  latex: entry.snapshot.latex,
+                  rootJson: entry.snapshot.rootJson,
+                }
+              : undefined;
+          const migratedHistory =
+            history ??
+            (snapshot
+              ? { past: [], present: { latex: snapshot.latex }, future: [] }
+              : undefined);
+          return { id, snapshot, history: migratedHistory };
+        })
+        .filter((pad) => !!pad.id);
+      if (normalizedPads.length === 0) return fallback;
       const maxNum = parsed
-        .map((p) => Number(p.id.split("-")[1] ?? "0"))
+        .map((p) => Number((p.id ?? "").split("-")[1] ?? "0"))
         .reduce((a, b) => (Number.isFinite(b) ? Math.max(a, b) : a), 1);
-      return { pads: parsed, counter: maxNum + 1 };
+      return { pads: normalizedPads, counter: maxNum + 1 };
     } catch {
       return fallback;
     }
@@ -93,7 +156,14 @@ export function DerivationPage() {
       const index = prev.findIndex((p) => p.id === id);
       if (index === -1) return prev;
       const source = prev[index];
-      const newPad: Pad = { id: `pad-${idCounter}`, snapshot: source.snapshot };
+      const newHistory = cloneHistory(source.history);
+      const newPad: Pad = {
+        id: `pad-${idCounter}`,
+        snapshot: newHistory
+          ? snapshotFromHistory(newHistory)
+          : source.snapshot,
+        history: newHistory,
+      };
       const next = [...prev];
       next.splice(index + 1, 0, newPad);
       return next;
@@ -106,7 +176,15 @@ export function DerivationPage() {
     setPads((prev) => {
       const source = prev.find((p) => p.id === id);
       if (!source) return prev;
-      return [...prev, { id: newId, snapshot: source.snapshot }];
+      const newHistory = cloneHistory(source.history);
+      return [
+        ...prev,
+        {
+          id: newId,
+          snapshot: newHistory ? snapshotFromHistory(newHistory) : source.snapshot,
+          history: newHistory,
+        },
+      ];
     });
     setScrollToPadId(newId);
     setIdCounter((c) => c + 1);
@@ -139,6 +217,25 @@ export function DerivationPage() {
   function updateSnapshot(id: string, snapshot: ExpressionPadSnapshot) {
     setPads((prev) =>
       prev.map((p) => (p.id === id ? { ...p, snapshot } : p))
+    );
+  }
+
+  function updateHistory(id: string, history: ExpressionPadHistory) {
+    const nextHistory = cloneHistory(history);
+    const nextSignature = historyLatexSignature(nextHistory);
+    setPads((prev) =>
+      prev.map((p) =>
+        p.id === id
+          ? (() => {
+              if (historyLatexSignature(p.history) === nextSignature) return p;
+              return {
+                ...p,
+                history: nextHistory,
+                snapshot: snapshotFromHistory(nextHistory),
+              };
+            })()
+          : p,
+      ),
     );
   }
 
@@ -262,7 +359,9 @@ export function DerivationPage() {
               <ExpressionPad
                 key={pad.id}
                 initialSnapshot={pad.snapshot}
+                initialHistory={pad.history}
                 onSnapshot={(snapshot) => updateSnapshot(pad.id, snapshot)}
+                onHistoryChange={(history) => updateHistory(pad.id, history)}
                 otherPadSnapshots={pads.flatMap((p, pIdx) =>
                   pIdx === idx || !p.snapshot
                     ? []
