@@ -435,6 +435,149 @@ describe("applyMoveMultiplicative executor", () => {
     );
   });
 
+  it("moves RHS denominator factor onto reciprocal LHS without inverting at slot 1 (issue 102)", () => {
+    const next = runMove({
+      latex: String.raw`\frac{1}{T_{h} - T_{c}} = \frac{Q_{h2}}{\left(Q_{h2} - Q_{c}\right) T_{h}}`,
+      select: (tree) => [
+        findNodeId(
+          tree,
+          (n) =>
+            n.latex === String.raw`T_{h}` &&
+            (() => {
+              const rhsId = tree.childrenById[tree.rootId!]?.[1];
+              if (!rhsId) return false;
+              let cur: string | null = n.id;
+              while (cur) {
+                if (cur === rhsId) return true;
+                cur = tree.parentById[cur] ?? null;
+              }
+              return false;
+            })()
+        ),
+      ],
+      hover: (tree) => {
+        const lhsId = tree.childrenById[tree.rootId!]?.[0];
+        if (!lhsId) throw new Error("Missing LHS");
+        return lhsId;
+      },
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\frac{1}{T_{h} - T_{c}} T_{h} = \frac{Q_{h2}}{\left(Q_{h2} - Q_{c}\right)}`
+    );
+  });
+
+  it("moves RHS denominator factor onto reciprocal LHS without inverting at slot 0 (issue 102)", () => {
+    const next = runMove({
+      latex: String.raw`\frac{1}{T_{h} - T_{c}} = \frac{Q_{h2}}{\left(Q_{h2} - Q_{c}\right) T_{h}}`,
+      select: (tree) => [
+        findNodeId(
+          tree,
+          (n) =>
+            n.latex === String.raw`T_{h}` &&
+            (() => {
+              const rhsId = tree.childrenById[tree.rootId!]?.[1];
+              if (!rhsId) return false;
+              let cur: string | null = n.id;
+              while (cur) {
+                if (cur === rhsId) return true;
+                cur = tree.parentById[cur] ?? null;
+              }
+              return false;
+            })()
+        ),
+      ],
+      hover: (tree) => {
+        const lhsId = tree.childrenById[tree.rootId!]?.[0];
+        if (!lhsId) throw new Error("Missing LHS");
+        return lhsId;
+      },
+      targetSlot: 0,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`T_{h} \frac{1}{T_{h} - T_{c}} = \frac{Q_{h2}}{\left(Q_{h2} - Q_{c}\right)}`
+    );
+  });
+
+  it("reorders dv to the right of additive delimiter term in product (issue 103)", () => {
+    const next = runMove({
+      latex: String.raw`\mathrm{d}{s} = \frac{1}{T} \left(\frac{\partial{u}}{\partial{T}}\right)_{v} \mathrm{d}{T} + \frac{1}{T} \mathrm{d}{v} \left(\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right)`,
+      select: (tree) => [findNodeByLatex(tree, String.raw`\mathrm{d}{v}`)],
+      hover: (tree) =>
+        findNodeId(
+          tree,
+          (n) =>
+            n.op === "Delimiter" &&
+            n.latex.includes(String.raw`\frac{\partial{u}}{\partial{v}}`) &&
+            n.latex.includes("+ P")
+        ),
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\mathrm{d}{s} = \frac{1}{T} \left(\frac{\partial{u}}{\partial{T}}\right)_{v} \mathrm{d}{T} + \frac{1}{T} \left(\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right) \mathrm{d}{v}`
+    );
+  });
+
+  it("reorders dv using debug trace args with nested product shape (issue 103)", () => {
+    const root: MJ = [
+      "Equal",
+      ["Differential", "s"],
+      [
+        "Add",
+        [
+          "InvisibleOperator",
+          ["Divide", 1, "T"],
+          [
+            "Subscript",
+            ["Delimiter", ["FractionPartialDerivative", ["Partial", "u"], ["Partial", "T"]]],
+            "v",
+          ],
+          ["Differential", "T"],
+        ],
+        [
+          "InvisibleOperator",
+          ["InvisibleOperator", ["Divide", 1, "T"], ["Differential", "v"]],
+          [
+            "Delimiter",
+            [
+              "Add",
+              [
+                "Subscript",
+                ["Delimiter", ["FractionPartialDerivative", ["Partial", "u"], ["Partial", "v"]]],
+                "T",
+              ],
+              "P",
+            ],
+          ],
+        ],
+      ],
+    ];
+    const tree = ExpressionTree.create(root);
+    const movedDvId = tree.idByPath["2.2.1.2"];
+    const hoverOuterMulId = tree.idByPath["2.2"];
+    expect(movedDvId).toBeTruthy();
+    expect(hoverOuterMulId).toBeTruthy();
+
+    const next = applyMove({
+      tree,
+      selectedIds: [movedDvId!],
+      hoverId: hoverOuterMulId!,
+      targetSlot: 2,
+      mode: "multiplicative",
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`\mathrm{d}{s} = \frac{1}{T} \left(\frac{\partial{u}}{\partial{T}}\right)_{v} \mathrm{d}{T} + \frac{1}{T} \left(\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right) \mathrm{d}{v}`
+    );
+  });
+
   it("moves denominator dv from LHS derivative fraction to RHS (issue 59)", () => {
     const next = runMove({
       latex: String.raw`c_{v} \frac{\mathrm{d}{T}}{\mathrm{d}{v}} = -\frac{R T}{v}`,

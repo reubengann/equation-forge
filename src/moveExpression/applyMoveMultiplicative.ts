@@ -63,6 +63,15 @@ function reciprocalDenominator(expr: MJ): MJ | null {
   return (expr[2] as MJ) ?? null;
 }
 
+function isReciprocalDivideExpr(expr: MJ): boolean {
+  return (
+    Array.isArray(expr) &&
+    expr[0] === "Divide" &&
+    expr.length >= 3 &&
+    isOneTerm(expr[1] as MJ)
+  );
+}
+
 function unwrapDelimiter(expr: MJ): MJ {
   if (
     Array.isArray(expr) &&
@@ -82,6 +91,13 @@ function wrapForMultiplicativeInsertion(expr: MJ): MJ {
     return ["Delimiter", expr] as MJNode;
   }
   return expr;
+}
+
+function delimiterWrapsAdd(tree: ExpressionTree, delimiterId: string): boolean {
+  if (tree.nodesById[delimiterId]?.op !== "Delimiter") return false;
+  const innerId = tree.childrenById[delimiterId]?.[0];
+  if (!innerId) return false;
+  return tree.nodesById[innerId]?.op === "Add";
 }
 
 function deepEqualMJ(a: MJ, b: MJ): boolean {
@@ -691,6 +707,7 @@ export function applyMoveMultiplicative(
     !(
       tree.nodesById[hoverNodeId]?.op === "Delimiter" &&
       tree.parentById[hoverNodeId] === fromParentId &&
+      !delimiterWrapsAdd(tree, hoverNodeId) &&
       hoverNodeId !== movedId
     )
   ) {
@@ -739,6 +756,61 @@ export function applyMoveMultiplicative(
     const nextMul = normalizeMul(nextFactors);
     const nextRoot = setAtPath(tree.rootJson, mulPath, nextMul);
     return ExpressionTree.create(nextRoot);
+  }
+
+  // Pull selected factors from a nested product into its outer product when
+  // hovering the outer product container itself.
+  if (targetSlot != null && isMulOp(fromParentOp)) {
+    const outerMulId = tree.parentById[fromParentId];
+    const outerMulOp = outerMulId ? tree.nodesById[outerMulId]?.op : null;
+    const hoverInOuterMul = !!outerMulId && hoverNodeId === outerMulId;
+    if (outerMulId && isMulOp(outerMulOp ?? undefined) && hoverInOuterMul) {
+      const fromMulPath = tree.pathById[fromParentId];
+      const outerMulPath = tree.pathById[outerMulId];
+      if (!fromMulPath || !outerMulPath) return null;
+
+      const fromMulExpr = getAtPath(tree.rootJson, fromMulPath) as MJNode;
+      if (!Array.isArray(fromMulExpr)) return null;
+      const [fromOp, ...fromFactors] = fromMulExpr;
+      if (!isMulOp(fromOp)) return null;
+
+      const fromKids = tree.childrenById[fromParentId] ?? [];
+      const selectedIndices = movedIdsInFromParent
+        .map((id) => fromKids.indexOf(id))
+        .filter((idx) => idx >= 0)
+        .sort((a, b) => a - b);
+      if (selectedIndices.length === 0) return null;
+
+      const selectedSet = new Set<number>(selectedIndices);
+      const movedExpr = normalizeMul(
+        selectedIndices
+          .map((idx) => fromFactors[idx])
+          .filter((f): f is MJ => f !== undefined),
+      );
+      const remainingInner = normalizeMul(
+        fromFactors.filter((_, i) => !selectedSet.has(i)),
+      );
+
+      let nextRoot = setAtPath(tree.rootJson, fromMulPath, remainingInner);
+
+      const outerExpr = getAtPath(nextRoot, outerMulPath) as MJNode;
+      if (!Array.isArray(outerExpr)) return null;
+      const [outerOp, ...outerFactors] = outerExpr;
+      if (!isMulOp(outerOp)) return null;
+
+      const slot = Math.max(0, Math.min(outerFactors.length, targetSlot));
+      const nextOuterFactors = [
+        ...outerFactors.slice(0, slot),
+        movedExpr,
+        ...outerFactors.slice(slot),
+      ];
+      nextRoot = setAtPath(
+        nextRoot,
+        outerMulPath,
+        normalizeMul(nextOuterFactors),
+      );
+      return ExpressionTree.create(nextRoot);
+    }
   }
 
   // Pull selected factors out of a parenthesized product into its outer product.
@@ -993,6 +1065,7 @@ export function applyMoveMultiplicative(
   if (
     (targetSlot === 0 || targetSlot === 1) &&
     tree.nodesById[hoverNodeId]?.op === "Delimiter" &&
+    !delimiterWrapsAdd(tree, hoverNodeId) &&
     fromParentId &&
     tree.parentById[hoverNodeId] === fromParentId &&
     isMulOp(fromParentOp) &&
@@ -1517,6 +1590,10 @@ export function applyMoveMultiplicative(
   // Handle side root drops: whole division vs edge insertion
   if (isHoveringSideRoot) {
     const destExpr = getAtPath(nextRoot, destRootPath) as MJ;
+    const keepDenominatorFactorOrientation =
+      movedWasDivisor &&
+      movedFromDenominatorProductSubset &&
+      isReciprocalDivideExpr(destExpr);
     let updatedDest: MJ;
 
     if (targetSlot === null) {
@@ -1539,7 +1616,9 @@ export function applyMoveMultiplicative(
       // Left edge: multiply by reciprocal before
       const reciprocal: MJ = movedWasDivisor
         ? movedFromDenominatorProductSubset
-          ? (["Divide", 1, wrapForMultiplicativeInsertion(movedExpr)] as MJNode)
+          ? keepDenominatorFactorOrientation
+            ? wrapForMultiplicativeInsertion(movedExpr)
+            : (["Divide", 1, wrapForMultiplicativeInsertion(movedExpr)] as MJNode)
           : wrapForMultiplicativeInsertion(movedExpr)
         : (["Divide", 1, movedExpr] as MJNode);
       // Wrap destExpr in delimiter if it's an Add to preserve grouping
@@ -1552,7 +1631,9 @@ export function applyMoveMultiplicative(
       // Right edge (targetSlot === 1): multiply by reciprocal after
       const reciprocal: MJ = movedWasDivisor
         ? movedFromDenominatorProductSubset
-          ? (["Divide", 1, wrapForMultiplicativeInsertion(movedExpr)] as MJNode)
+          ? keepDenominatorFactorOrientation
+            ? wrapForMultiplicativeInsertion(movedExpr)
+            : (["Divide", 1, wrapForMultiplicativeInsertion(movedExpr)] as MJNode)
           : wrapForMultiplicativeInsertion(movedExpr)
         : (["Divide", 1, movedExpr] as MJNode);
       // Wrap destExpr in delimiter if it's an Add to preserve grouping

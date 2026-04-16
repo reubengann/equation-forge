@@ -295,6 +295,31 @@ describe("applyMove", () => {
     );
   });
 
+  it("reorders duplicate additive log terms when hovering sibling term (issue 100)", () => {
+    const tree = treefromLatex(
+      String.raw`\Delta S = c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right) - c_{P} m \ln\left(T_{1}\right) + c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right) - c_{P} m \ln\left(T_{2}\right)`
+    );
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(rhsId).toBeTruthy();
+    const rhsKids = rhsId ? tree.childrenById[rhsId] ?? [] : [];
+    expect(rhsKids.length).toBeGreaterThanOrEqual(4);
+
+    const movedId = rhsKids[0];
+    const hoverId = rhsKids[2];
+    const next = applyMove({
+      tree,
+      selectedIds: [movedId],
+      hoverId,
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    const out = next!.latexPlain.replace(/\s+/g, " ");
+    expect(out).toContain(
+      String.raw`\ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right) + c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right)`
+    );
+  });
+
   it("treats bare symbol in equality as implicit sum", () => {
     const tree = treefromLatex(String.raw`a=b`);
     const next = applyMove({

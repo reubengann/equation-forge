@@ -152,6 +152,43 @@ function promoteInexactDifferentials(latex: string): string {
   });
 }
 
+function parseMixedSecondOrderPartialFraction(latex: string): MJ | null {
+  const simpleOperand =
+    String.raw`(?:\{([^{}]+)\}|([A-Za-z](?:_\{[^}]+\}|_[A-Za-z0-9]+)?))`;
+  const pattern = new RegExp(
+    String.raw`^\\(?:dfrac|frac)\s*\{\s*\\partial\^2\s*${simpleOperand}\s*\}\s*\{\s*\\partial\s*${simpleOperand}\s*\\partial\s*${simpleOperand}\s*\}\s*$`,
+    "s"
+  );
+  const match = latex.match(pattern);
+  if (!match) return null;
+
+  const parseOperand = (fragment: string): MJ => {
+    const parsed = (ce.parse(fragment, { canonical: false })?.json as MJ) ?? fragment;
+    return normalizeMathJson(parsed) ?? fragment;
+  };
+
+  const numeratorLatex = (match[1] ?? match[2] ?? "").trim();
+  const denominatorFirstLatex = (match[3] ?? match[4] ?? "").trim();
+  const denominatorSecondLatex = (match[5] ?? match[6] ?? "").trim();
+  if (!numeratorLatex || !denominatorFirstLatex || !denominatorSecondLatex) {
+    return null;
+  }
+
+  const numerator = parseOperand(numeratorLatex);
+  const denominatorFirst = parseOperand(denominatorFirstLatex);
+  const denominatorSecond = parseOperand(denominatorSecondLatex);
+
+  return [
+    "Divide",
+    ["Partial", ["Partial", numerator] as MJ] as MJ,
+    [
+      "InvisibleOperator",
+      ["Partial", denominatorFirst] as MJ,
+      ["Partial", denominatorSecond] as MJ,
+    ] as MJ,
+  ] as MJ;
+}
+
 export function parse(latex: string): MJ | null {
   const prefilled = injectImplicitOneInIntegrals(latex);
   const withPartialFractionsPromoted = promotePartialFracToDfrac(prefilled);
@@ -163,6 +200,10 @@ export function parse(latex: string): MJ | null {
   // Special-case bare differential integrals before general parsing.
   const special = parseIntegralWithDifferentialOnly(withInexactDifferentials);
   if (special) return special;
+  const mixedSecondOrderPartial = parseMixedSecondOrderPartialFraction(
+    withInexactDifferentials
+  );
+  if (mixedSecondOrderPartial) return mixedSecondOrderPartial;
 
   const prepared = normalizeVectorMacros(
     toMathLiveLatex(withInexactDifferentials)

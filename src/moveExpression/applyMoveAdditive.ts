@@ -155,6 +155,46 @@ export function applyMoveAdditive(args: {
   if (selectedIds.length < 1) return null;
   const effectiveSelectedIds = promoteToAdditiveTermRoot(tree, selectedIds);
 
+  // Fast-path: reorder a single additive term among siblings when hovering
+  // either the Add container itself or one of its direct children.
+  if (effectiveSelectedIds.length === 1) {
+    const movedId = normalizeSelection(tree, effectiveSelectedIds[0]);
+    const addId = tree.parentById[movedId];
+    if (addId && tree.nodesById[addId]?.op === "Add") {
+      const addKids = tree.childrenById[addId] ?? [];
+      const fromIndex = addKids.indexOf(movedId);
+      if (fromIndex >= 0) {
+        let insertionRaw: number | null = null;
+        if (hoverId === addId) {
+          insertionRaw = typeof targetSlot === "number" ? targetSlot : null;
+        } else if (tree.parentById[hoverId] === addId) {
+          const hoverIndex = addKids.indexOf(hoverId);
+          if (hoverIndex >= 0) {
+            insertionRaw =
+              targetSlot === 0 ? hoverIndex : targetSlot === 1 ? hoverIndex + 1 : null;
+          }
+        }
+        if (insertionRaw != null) {
+          const insertionClamped = Math.max(0, Math.min(addKids.length, insertionRaw));
+          const adjustedInsertion =
+            insertionClamped > fromIndex ? insertionClamped - 1 : insertionClamped;
+          if (adjustedInsertion === fromIndex) return null;
+
+          const addPath = tree.pathById[addId];
+          if (!addPath) return null;
+          const addExpr = getAtPath(tree.rootJson, addPath) as MJ;
+          if (!Array.isArray(addExpr) || addExpr[0] !== "Add") return null;
+          const terms = addExpr.slice(1) as MJ[];
+          const [movedTerm] = terms.splice(fromIndex, 1);
+          terms.splice(adjustedInsertion, 0, movedTerm as MJ);
+          const nextRoot = setAtPath(tree.rootJson, addPath, normalizeAdd(terms)) as MJ;
+          const normalizedRoot = normalizeMathJson(nextRoot) ?? nextRoot;
+          return ExpressionTree.create(normalizedRoot);
+        }
+      }
+    }
+  }
+
   // Handle multi-term moves when all selected terms are contiguous siblings in an Add
   if (effectiveSelectedIds.length > 1) {
     const normIds = effectiveSelectedIds.map((id) => normalizeSelection(tree, id));

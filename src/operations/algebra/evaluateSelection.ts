@@ -34,8 +34,8 @@ function normalizeRoundTripAliases(expr: MJ): MJ {
 }
 
 function assertEvaluationRoundTripInvariant(next: ExpressionTree): void {
-  if (process.env.NODE_ENV !== "development") return;
-  if (next.latexPlain.includes("object Object")) return;
+  if (process.env.NODE_ENV === "production") return;
+  if (/\[?object\s+Object\]?/i.test(next.latexPlain)) return;
   const reparsed = parse(next.latexPlain);
   if (!reparsed) {
     throw new Error(`Round-trip parse failed for evaluation result latex: ${next.latexPlain}`);
@@ -44,12 +44,15 @@ function assertEvaluationRoundTripInvariant(next: ExpressionTree): void {
     try {
       const normalized = normalizeRoundTripAliases((normalizeMathJson(root) ?? root) as MJ);
       const normalizedLatex = ExpressionTree.create(normalized).latexPlain;
+      if (/\[?object\s+Object\]?/i.test(normalizedLatex)) return null;
       const reparsedCanonical = parse(normalizedLatex);
       if (!reparsedCanonical) return null;
       const canonical = normalizeRoundTripAliases(
         (normalizeMathJson(reparsedCanonical as MJ) ?? reparsedCanonical) as MJ
       );
-      return ExpressionTree.create(canonical).latexPlain.replace(/\s+/g, " ").trim();
+      const canonicalLatex = ExpressionTree.create(canonical).latexPlain;
+      if (/\[?object\s+Object\]?/i.test(canonicalLatex)) return null;
+      return canonicalLatex.replace(/\s+/g, " ").trim();
     } catch {
       return null;
     }
@@ -64,6 +67,13 @@ function assertEvaluationRoundTripInvariant(next: ExpressionTree): void {
         `latex: ${currentLatex}`,
         `reparsed latex: ${reparsedLatex}`,
       ].join("\n")
+    );
+  }
+
+  const invalidPath = findUndelimitedGroupedSubexprPath(next.rootJson);
+  if (invalidPath) {
+    throw new Error(
+      `Evaluation result has undelimited grouped subexpression at ${invalidPath}: ${next.latexPlain}`
     );
   }
 }
@@ -751,6 +761,15 @@ function normalizeNegativeTermsInAdd(expr: MJ): MJ {
   return ["Add", ...terms] as MJ;
 }
 
+function normalizeAddTermSignsRecursively(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((term) => normalizeAddTermSignsRecursively(term as MJ));
+  const rebuilt = [op, ...kids] as MJ;
+  if (op === "Add") return normalizeNegativeTermsInAdd(rebuilt);
+  return rebuilt;
+}
+
 function ensureNegatedAddIsDelimited(expr: MJ): MJ {
   if (!Array.isArray(expr) || expr[0] !== "Negate" || expr.length < 2) return expr;
   const inner = expr[1] as MJ;
@@ -758,6 +777,89 @@ function ensureNegatedAddIsDelimited(expr: MJ): MJ {
     return ["Negate", ["Delimiter", inner] as MJ] as MJ;
   }
   return expr;
+}
+
+function normalizeNegativeDivideNumeratorsInPowers(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((c) => normalizeNegativeDivideNumeratorsInPowers(c as MJ));
+  if (op === "Power" && kids.length >= 2) {
+    const exponent = kids[1] as MJ;
+    if (
+      Array.isArray(exponent) &&
+      exponent[0] === "Divide" &&
+      exponent.length >= 3 &&
+      typeof exponent[1] === "number" &&
+      exponent[1] < 0
+    ) {
+      return [
+        "Power",
+        kids[0] as MJ,
+        ["Negate", ["Divide", Math.abs(exponent[1]), exponent[2] as MJ] as MJ] as MJ,
+      ] as MJ;
+    }
+  }
+  return [op, ...kids] as MJ;
+}
+
+function ensureGroupingDelimiters(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((c) => ensureGroupingDelimiters(c as MJ));
+  if (op === "Negate" && kids.length >= 1) {
+    const inner = kids[0] as MJ;
+    if (Array.isArray(inner) && inner[0] === "Add") {
+      return ["Negate", ["Delimiter", inner] as MJ] as MJ;
+    }
+  }
+  if ((op === "InvisibleOperator" || op === "Multiply") && kids.length > 0) {
+    const wrapped = kids.map((k) =>
+      Array.isArray(k) && k[0] === "Add" ? (["Delimiter", k] as MJ) : (k as MJ)
+    );
+    return [op, ...wrapped] as MJ;
+  }
+  if (op === "Power" && kids.length >= 2) {
+    const base = kids[0] as MJ;
+    const exponent = kids[1] as MJ;
+    const wrappedBase =
+      Array.isArray(base) && base[0] === "Add" ? (["Delimiter", base] as MJ) : base;
+    const wrappedExponent =
+      Array.isArray(exponent) && exponent[0] === "Add"
+        ? (["Delimiter", exponent] as MJ)
+        : exponent;
+    return ["Power", wrappedBase, wrappedExponent] as MJ;
+  }
+  return [op, ...kids] as MJ;
+}
+
+function findUndelimitedGroupedSubexprPath(
+  expr: MJ,
+  path = "root",
+  parentOp: string | null = null,
+  childIndex = -1
+): string | null {
+  if (!Array.isArray(expr)) return null;
+  const op = expr[0];
+  const isBareAdd = op === "Add";
+  if (
+    isBareAdd &&
+    ((parentOp === "InvisibleOperator" || parentOp === "Multiply") ||
+      (parentOp === "Negate" && childIndex === 1) ||
+      (parentOp === "Power" && (childIndex === 1 || childIndex === 2)))
+  ) {
+    return path;
+  }
+  for (let i = 1; i < expr.length; i += 1) {
+    const child = expr[i] as MJ;
+    const hit = findUndelimitedGroupedSubexprPath(
+      child,
+      `${path}.${i}`,
+      op,
+      i
+    );
+    if (hit) return hit;
+  }
+  return null;
 }
 
 function numberFromMJ(expr: MJ): number | null {
@@ -901,31 +1003,79 @@ function multiSelectionAsEvalSpan(
   tree: ExpressionTree,
   sel: Extract<ExprSelection, { kind: "multi" }>
 ): Extract<ExprSelection, { kind: "span" }> | null {
+  const isEvalSpanParentOp = (op: string | undefined): op is "Add" | "InvisibleOperator" =>
+    op === "Add" || op === "InvisibleOperator" || op === "Multiply";
+  const childUnderAncestor = (ancestorId: string, nodeId: string): string | null => {
+    let cur: string | null = nodeId;
+    while (cur) {
+      const parentId = tree.parentById[cur] ?? null;
+      if (!parentId) return null;
+      if (parentId === ancestorId) return cur;
+      cur = parentId;
+    }
+    return null;
+  };
+  const buildSpanFromChildren = (
+    parentId: string,
+    opRaw: "Add" | "InvisibleOperator" | "Multiply",
+    childIds: string[]
+  ): Extract<ExprSelection, { kind: "span" }> | null => {
+    if (childIds.length < 2) return null;
+    const unique = Array.from(new Set(childIds));
+    const indices = unique
+      .map((id) => tree.childIndexById[id])
+      .filter((idx): idx is number => idx != null)
+      .sort((a, b) => a - b);
+    if (indices.length !== unique.length) return null;
+    for (let i = 1; i < indices.length; i += 1) {
+      if (indices[i] !== indices[i - 1] + 1) return null;
+    }
+    return {
+      kind: "span",
+      parentId,
+      op: opRaw === "Add" ? "Add" : "InvisibleOperator",
+      start: indices[0],
+      end: indices[indices.length - 1],
+    };
+  };
+
   const ids = Array.from(new Set(sel.nodeIds));
   if (ids.length < 2) return null;
   const firstParent = tree.parentById[ids[0]];
-  if (!firstParent) return null;
-  if (!ids.every((id) => tree.parentById[id] === firstParent)) return null;
-
-  const parentOp = tree.nodesById[firstParent]?.op;
-  if (parentOp !== "Add" && parentOp !== "InvisibleOperator") return null;
-
-  const indices = ids
-    .map((id) => tree.childIndexById[id])
-    .filter((idx): idx is number => idx != null)
-    .sort((a, b) => a - b);
-  if (indices.length !== ids.length) return null;
-  for (let i = 1; i < indices.length; i += 1) {
-    if (indices[i] !== indices[i - 1] + 1) return null;
+  if (firstParent && ids.every((id) => tree.parentById[id] === firstParent)) {
+    const parentOp = tree.nodesById[firstParent]?.op;
+    if (isEvalSpanParentOp(parentOp)) {
+      const span = buildSpanFromChildren(firstParent, parentOp, ids);
+      if (span) return span;
+    }
   }
 
-  return {
-    kind: "span",
-    parentId: firstParent,
-    op: parentOp,
-    start: indices[0],
-    end: indices[indices.length - 1],
+  const ancestorChain = (id: string): string[] => {
+    const chain: string[] = [];
+    let cur: string | null = id;
+    while (cur) {
+      chain.push(cur);
+      cur = tree.parentById[cur] ?? null;
+    }
+    return chain;
   };
+  const chains = ids.map((id) => ancestorChain(id));
+  const firstChain = chains[0];
+  const commonAncestor = firstChain.find((candidate) => {
+    const op = tree.nodesById[candidate]?.op;
+    if (!isEvalSpanParentOp(op)) return false;
+    return chains.every((chain) => chain.includes(candidate));
+  });
+  if (!commonAncestor) return null;
+  const commonAncestorOp = tree.nodesById[commonAncestor]?.op;
+  if (!isEvalSpanParentOp(commonAncestorOp)) return null;
+
+  const liftedChildren = ids
+    .map((id) => childUnderAncestor(commonAncestor, id))
+    .filter((id): id is string => !!id);
+  if (liftedChildren.length !== ids.length) return null;
+
+  return buildSpanFromChildren(commonAncestor, commonAncestorOp, liftedChildren);
 }
 
 export function canEvaluateSelection(
@@ -977,8 +1127,14 @@ function applyEvalLikeSelection(
     }
     const parentId = tree.parentById[effectiveSel.nodeId];
     const parentOp = parentId ? tree.nodesById[parentId]?.op : null;
-    const normalizedEvaluated = ensureNegatedAddIsDelimited(
-      normalizeNegativeTermsInAdd(normalizeNegativeAddTerm(evaluated))
+    const normalizedEvaluated = ensureGroupingDelimiters(
+      normalizeAddTermSignsRecursively(
+        normalizeNegativeDivideNumeratorsInPowers(
+          ensureNegatedAddIsDelimited(
+            normalizeNegativeTermsInAdd(normalizeNegativeAddTerm(evaluated))
+          )
+        )
+      )
     );
     const needsGrouping =
       Array.isArray(normalizedEvaluated) &&
@@ -1021,7 +1177,11 @@ function applyEvalLikeSelection(
   const normalizedSegment = shouldNormalizeSegmentSign
     ? normalizeNegativeTermsInAdd(normalizeNegativeAddTerm(evaluatedSegment))
     : evaluatedSegment;
-  const groupedSegment = ensureNegatedAddIsDelimited(normalizedSegment);
+  const groupedSegment = ensureGroupingDelimiters(
+    normalizeAddTermSignsRecursively(
+      normalizeNegativeDivideNumeratorsInPowers(ensureNegatedAddIsDelimited(normalizedSegment))
+    )
+  );
 
   const nextKids = [
     ...kids.slice(0, start),

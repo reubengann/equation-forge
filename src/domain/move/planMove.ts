@@ -386,6 +386,21 @@ function findIntegrateAncestor(
   return null;
 }
 
+function childUnderAncestor(
+  tree: ExpressionTree,
+  ancestorId: string,
+  nodeId: string
+): string | null {
+  let cur: string | null = nodeId;
+  while (cur) {
+    const parentId: string | null | undefined = tree.parentById[cur];
+    if (!parentId) return null;
+    if (parentId === ancestorId) return cur;
+    cur = parentId;
+  }
+  return null;
+}
+
 function resolveFractionPullOutIntent(args: {
   tree: ExpressionTree;
   divideId: string;
@@ -590,6 +605,15 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
       })();
 
       if (delimiterId && delimiterId !== movedId) {
+        const delimiterInnerId = tree.childrenById[delimiterId]?.[0];
+        const delimiterInnerOp = delimiterInnerId
+          ? tree.nodesById[delimiterInnerId]?.op
+          : null;
+        // If the delimiter wraps an additive expression, multiplicative dragging
+        // around it should reorder sibling factors, not merge into the delimiter.
+        if (delimiterInnerOp === "Add") {
+          // continue to generic multiplicative reorder/slot planning below
+        } else {
         const delimiterRect = rectFor(delimiterId);
         const DELIMITER_PAD = 6;
         const inDelimiter =
@@ -614,6 +638,7 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
             movedId,
             insertIndex,
           };
+        }
         }
       }
     }
@@ -1269,17 +1294,35 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
     const toAddId = target.addId;
 
     const toAddRect = rectFor(toAddId);
-    if (!toAddRect) return null;
-    if (!yGate(toAddRect, pointer.y)) return null;
-
     const toChildren = tree.childrenById[toAddId] ?? [];
     if (toChildren.length < 2) return null;
 
-    const slot = computeSlotByMidpoints({
-      childIds: toChildren,
-      pointerX: pointer.x,
-      rectFor,
-    });
+    let slot: number | null = null;
+    // Prefer sibling-hover sloting when hovering a direct Add child. This keeps
+    // drop planning stable for duplicate-looking terms where midpoint sloting can
+    // collapse to "no move" while the cursor is clearly on a sibling term edge.
+    const hoveredTermId = childUnderAncestor(tree, toAddId, hoverId) ?? hoverId;
+    if (tree.parentById[hoveredTermId] === toAddId) {
+      const hoverIndex = toChildren.indexOf(hoveredTermId);
+      if (hoverIndex >= 0) {
+        const hoverRect = rectFor(hoveredTermId);
+        slot =
+          hoverRect != null
+            ? pointer.x < midX(hoverRect)
+              ? hoverIndex
+              : hoverIndex + 1
+            : hoverIndex + 1;
+      }
+    }
+    if (slot == null) {
+      if (!toAddRect) return null;
+      if (!yGate(toAddRect, pointer.y)) return null;
+      slot = computeSlotByMidpoints({
+        childIds: toChildren,
+        pointerX: pointer.x,
+        rectFor,
+      });
+    }
 
     // Reorder within same Add
     if (toAddId === fromAddId) {

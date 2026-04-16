@@ -314,6 +314,18 @@ describe("computeEngine custom dictionary", () => {
     expect(latex).toBe(String.raw`P \left(\frac{\partial{v}}{\partial{T}}\right)_{P}`);
   });
 
+  it("preserves mixed second-order partial factors in denominator (issue 105)", () => {
+    const mj = parse(String.raw`\dfrac{\partial^2u}{\partial v\partial T}`);
+    expect(mj).not.toBeNull();
+    expect(mj).toEqual([
+      "Divide",
+      ["Partial", ["Partial", "u"]],
+      ["InvisibleOperator", ["Partial", "v"], ["Partial", "T"]],
+    ]);
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toBe(String.raw`\frac{\partial{\partial{u}}}{\partial{v} \partial{T}}`);
+  });
+
   it("keeps greek mu as a greek symbol with numeric subscript (issue 71)", () => {
     const mj = parse(String.raw`\mu_0`);
     expect(mj).toEqual(["Subscript", "mu", 0]);

@@ -65,4 +65,38 @@ describe("getLatexForSelectionCopy", () => {
     });
     expect(latex).toBe(String.raw`\frac{a}{v^{2}} \mathrm{d}{v} + P \mathrm{d}{v}`);
   });
+
+  it("preserves additive delimiter term when mixed descendants are selected (issue 104)", () => {
+    const tree = treefromLatex(
+      String.raw`\mathrm{d}{s} = \frac{1}{T} \left(\frac{\partial{u}}{\partial{T}}\right)_{v} \mathrm{d}{T} + \frac{1}{T} \left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right] \mathrm{d}{v}`
+    );
+    const oneOverTId = findNodeId(
+      tree,
+      (n) =>
+        n.op === "Divide" &&
+        n.latex === String.raw`\frac{1}{T}` &&
+        (() => {
+          const rhsId = tree.childrenById[tree.rootId]?.[1];
+          const rhsKids = rhsId ? tree.childrenById[rhsId] ?? [] : [];
+          const secondTermId = rhsKids[1];
+          return secondTermId != null && tree.parentById[n.id] === secondTermId;
+        })()
+    );
+    const duDvSubscriptId = findNodeId(
+      tree,
+      (n) =>
+        n.op === "Subscript" &&
+        n.latex.includes(String.raw`\frac{\partial{u}}{\partial{v}}`) &&
+        n.latex.endsWith(String.raw`_{T}`)
+    );
+    const pId = findNodeId(tree, (n) => n.op === "Symbol" && n.latex === "P");
+
+    const latex = getLatexForSelectionCopy(tree, {
+      kind: "multi",
+      nodeIds: [oneOverTId, duDvSubscriptId, pId],
+    });
+    expect(latex).toBe(
+      String.raw`\left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right]`
+    );
+  });
 });

@@ -673,3 +673,91 @@ scenarios:
           mode: multiplicative
         expect:
           latex: "c_{P} - c_{v} = -\\left[\\left(\\frac{\\partial{h}}{\\partial{P}}\\right)_{T} - v\\right] \\frac{\\mathrm{d}{P}}{\\mathrm{d}{T}}"
+  - version: 1
+    name: Issue 100 - reorder duplicate additive log terms
+    tags: [issue, move, additive, logs]
+    initial:
+      latex: "\\Delta S = c_{P} m \\ln\\left(\\frac{1}{2} \\left(T_{1} + T_{2}\\right)\\right) - c_{P} m \\ln\\left(T_{1}\\right) + c_{P} m \\ln\\left(\\frac{1}{2} \\left(T_{1} + T_{2}\\right)\\right) - c_{P} m \\ln\\left(T_{2}\\right)"
+    steps:
+      - name: drag first log term to right of duplicate
+        select:
+          kind: node
+          path: [2, 1]
+        action:
+          type: move
+          hover:
+            path: [2, 3]
+          targetSlot: 1
+          mode: additive
+        expect:
+          latex: "\\Delta S = -c_{P} m \\ln\\left(T_{1}\\right) + c_{P} m \\ln\\left(\\frac{1}{2} \\left(T_{1} + T_{2}\\right)\\right) + c_{P} m \\ln\\left(\\frac{1}{2} \\left(T_{1} + T_{2}\\right)\\right) - c_{P} m \\ln\\left(T_{2}\\right)"
+  - version: 1
+    name: Issue 101 - simplify duplicate additive log terms from descendant picks
+    tags: [issue, simplify, additive, selection]
+    initial:
+      latex: "\\Delta S = c_{P} m \\ln\\left(\\frac{1}{2} \\left(T_{1} + T_{2}\\right)\\right) + c_{P} m \\ln\\left(\\frac{1}{2} \\left(T_{1} + T_{2}\\right)\\right) - c_{P} m \\ln\\left(T_{1}\\right) - c_{P} m \\ln\\left(T_{2}\\right)"
+    steps:
+      - name: simplify with multi-selection on descendants inside first two additive terms
+        select:
+          kind: multi
+          items:
+            - path: [2, 1, 1]
+            - path: [2, 2, 3]
+        action:
+          type: simplify
+        expect:
+          latex: "\\Delta S = 2 c_{P} m \\ln\\left(\\frac{1}{2} \\left(T_{1} + T_{2}\\right)\\right) - c_{P} m \\ln\\left(T_{1}\\right) - c_{P} m \\ln\\left(T_{2}\\right)"
+  - version: 1
+    name: Issue 102 - move denominator factor to reciprocal lhs right edge
+    tags: [issue, move, multiplicative, denominator]
+    initial:
+      latex: "\\frac{1}{T_{h} - T_{c}} = \\frac{Q_{h2}}{\\left(Q_{h2} - Q_{c}\\right) T_{h}}"
+    steps:
+      - name: drag rhs denominator T_h to right edge of lhs fraction
+        select:
+          kind: node
+          path: [2, 2, 2, 2]
+        action:
+          type: move
+          hover:
+            path: [1]
+          targetSlot: 1
+          mode: multiplicative
+        expect:
+          latex: "\\frac{1}{T_{h} - T_{c}} T_{h} = \\frac{Q_{h2}}{\\left(Q_{h2} - Q_{c}\\right)}"
+  - version: 1
+    name: Issue 102b - move denominator factor to reciprocal lhs left edge
+    tags: [issue, move, multiplicative, denominator]
+    initial:
+      latex: "\\frac{1}{T_{h} - T_{c}} = \\frac{Q_{h2}}{\\left(Q_{h2} - Q_{c}\\right) T_{h}}"
+    steps:
+      - name: drag rhs denominator T_h to left edge of lhs fraction
+        select:
+          kind: node
+          path: [2, 2, 2, 2]
+        action:
+          type: move
+          hover:
+            path: [1]
+          targetSlot: 0
+          mode: multiplicative
+        expect:
+          latex: "T_{h} \\frac{1}{T_{h} - T_{c}} = \\frac{Q_{h2}}{\\left(Q_{h2} - Q_{c}\\right)}"
+  - version: 1
+    name: Issue 103 - reorder dv to right of additive parentheses factor
+    tags: [issue, move, multiplicative, differential]
+    initial:
+      latex: "\\mathrm{d}{s} = \\frac{1}{T} \\left(\\frac{\\partial{u}}{\\partial{T}}\\right)_{v} \\mathrm{d}{T} + \\frac{1}{T} \\mathrm{d}{v} \\left(\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right)"
+    steps:
+      - name: drag dv to right edge of additive delimiter term
+        select:
+          kind: node
+          path: [2, 2, 2]
+        action:
+          type: move
+          hover:
+            path: [2, 2, 3]
+          targetSlot: 1
+          mode: multiplicative
+        expect:
+          latex: "\\mathrm{d}{s} = \\frac{1}{T} \\left(\\frac{\\partial{u}}{\\partial{T}}\\right)_{v} \\mathrm{d}{T} + \\frac{1}{T} \\left(\\left(\\frac{\\partial{u}}{\\partial{v}}\\right)_{T} + P\\right) \\mathrm{d}{v}"

@@ -353,37 +353,65 @@
 
 98. `W = -\left(C_{P} \sqrt{T_{1} T_{2}} - C_{P} T_{1}\right) - \left(C_{P} \sqrt{T_{1} T_{2}} - C_{P} T_{2}\right)` Run simplify on the RHS. Result is `W = C_{P} T_{1} + C_{P} T_{2} + -2 C_{P} \sqrt{T_{1} T_{2}}`. Note the `+ -`.
 
----- undone ----
-
 99. `W = C_{P} T_{1} + C_{P} T_{2} - 2 C_{P} \sqrt{T_{1} T_{2}}` Factor the RHS. Result is
     `W = C_{P} \left(T_{1} + T_{2} + -2 \sqrt{T_{1} T_{2}}\right)` Note the `+ -`.
 
-100. `\left(\left(\sqrt{T_{1}}\right)^{2} + -2 \sqrt{T_{1}} \sqrt{T_{2}} + \left(\sqrt{T_{2}}\right)^{2}\right)`
-     I would think we could factor this, since it's equivalent to a^2
+100.  `\Delta S = c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right) - c_{P} m \ln\left(T_{1}\right) + c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right) - c_{P} m \ln\left(T_{2}\right)`. The term `c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right)` cannot be dragged additively to the right of `c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right)` so that we get
+      `\Delta S = c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right) + c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right) - c_{P} m \ln\left(T_{1}\right)  - c_{P} m \ln\left(T_{2}\right)`
 
-101. `\ln (a/b)` should expand to `ln a - ln b`
+101.  `\Delta S = c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right) + c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right) - c_{P} m \ln\left(T_{1}\right) - c_{P} m \ln\left(T_{2}\right)`
+      When I select just the first two terms in the sum
+      `c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right) + c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right)`
+      I cannot simplify this. The button is grayed.
 
-102. `\int_{V_{0}}^{V} \frac{R}{v - b} \,\mathrm{d}{v}`
+102.  `\frac{1}{T_{h} - T_{c}} = \frac{Q_{h2}}{\left(Q_{h2} - Q_{c}\right) T_{h}}`
+      Drag `T_h` multiplicatively from the denominator of the RHS on the right of the LHS fraction. The result is
+      `\frac{\frac{1}{T_{h} - T_{c}}}{T_{h}} = \frac{Q_{h2}}{\left(Q_{h2} - Q_{c}\right)}` which is wrong.
+      Dragging to the left of the LHS fraction results in `\frac{1}{T_{h}} \frac{1}{T_{h} - T_{c}} = \frac{Q_{h2}}{\left(Q_{h2} - Q_{c}\right)}`, which is also wrong.
+
+103.  `\mathrm{d}{s} = \frac{1}{T} \left(\frac{\partial{u}}{\partial{T}}\right)_{v} \mathrm{d}{T} + \frac{1}{T} \mathrm{d}{v} \left(\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right)`
+      On the RHS, dv cannot be moved multiplicatively to the right of the parentheses (i.e. to arrive at `\mathrm{d}{s} = \frac{1}{T} \left(\frac{\partial{u}}{\partial{T}}\right)_{v} \mathrm{d}{T} + \frac{1}{T} \left(\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right) \mathrm{d}{v}`)
+
+104.  `\mathrm{d}{s} = \frac{1}{T} \left(\frac{\partial{u}}{\partial{T}}\right)_{v} \mathrm{d}{T} + \frac{1}{T} \left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right] \mathrm{d}{v}`
+      Rubber band select `\left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right]` and hit copy selection. The result is `\frac{1}{T} \left(\frac{\partial{u}}{\partial{v}}\right)_{T} P`. We drop both
+      the brackets and the plus sign.
+
+---- undone ----
+
+105. `\dfrac{\partial^2u}{\partial v\partial T}` This renders as `\frac{\partial \partial u}{\partial v \partial T}`
+
+106. `\frac{1}{T}a=\frac{1}{T}\left\lbrack a+\left(\dfrac{\partial P}{\partial T}\right)_{v}\right\rbrack-\frac{1}{T^2}\left\lbrack\left(\dfrac{\partial u}{\partial v}\right)_{T}+P\right\rbrack` This does not parse.
+
+107. `\left(\frac{\partial{P}}{\partial{T}}\right)_{v} = T \frac{1}{T^{2}} \left[\left(\frac{\partial{u}}{\partial{v}}\right)_{T} + P\right]`
+     Select `T \frac{1}{T^{2}}` and simplify. Instead of `1/T` you get `T T^{-2}`
+
+108. `\mathrm{d}{s} = \frac{1}{T} \left(\frac{\partial{h}}{\partial{T}}\right)_{P} \mathrm{d}{T} + \frac{1}{T} \left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T} - v\right] \mathrm{d}{P}`
+     Rubber band select `\frac{1}{T} \left(\frac{\partial{h}}{\partial{T}}\right)_{P} \mathrm{d}{T} + \frac{1}{T} \left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T} - v\right]`
+     what ends up copied is `\left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T} - v\right]`, missing the `1/T` part.
+
+109. `\ln (a/b)` should expand to `ln a - ln b`
+
+110. `\int_{V_{0}}^{V} \frac{R}{v - b} \,\mathrm{d}{v}`
      This can't be evaluated.
 
-103. `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -\int_{V_{0}}^{V} \frac{1}{3 V} \,\mathrm{d}{V}`
+111. `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -\int_{V_{0}}^{V} \frac{1}{3 V} \,\mathrm{d}{V}`
      Drag the 3 out of the integral. Gives `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -3 \int_{V_{0}}^{V} \frac{1}{V} \,\mathrm{d}{V}` which is wrong.
 
-104. `P \left(v - b\right) = R T`
+112. `P \left(v - b\right) = R T`
      The parentheses are not selectable. Why?
 
-105. We need fraction tools. Such as
+113. We need fraction tools. Such as
      - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`)
      - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)
 
-106. Feature: Need to come up with some way to perform partial derivatives.
+114. Feature: Need to come up with some way to perform partial derivatives.
 
-107. Maybe start over?
+115. Maybe start over?
 
-108. Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it.
+116. Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it.
 
-109. Upgrade cortexjs to newest version.
+117. Upgrade cortexjs to newest version.
 
-110. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs.
+118. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs.
 
-111. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
+119. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.

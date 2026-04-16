@@ -183,6 +183,131 @@ export function getLatexForSelectionCopy(
   const ids = Array.from(new Set(selection.nodeIds));
   if (ids.length === 0) return "";
 
+  const childUnderAncestor = (ancestorId: string, nodeId: string): string | null => {
+    let cur: string | null | undefined = nodeId;
+    while (cur) {
+      const parentId = tree.parentById[cur];
+      if (!parentId) return null;
+      if (parentId === ancestorId) return cur;
+      cur = parentId;
+    }
+    return null;
+  };
+
+  type ContainerCandidate = {
+    containerId: string;
+    op: "Add" | "InvisibleOperator";
+    start: number;
+    end: number;
+    uniqueCount: number;
+    coverageCount: number;
+    depth: number;
+  };
+
+  const collectContainerCandidates = (op: "Add" | "InvisibleOperator"): ContainerCandidate[] => {
+    const containerIds = new Set<string>();
+    for (const id of ids) {
+      let cur: string | null | undefined = id;
+      while (cur) {
+        const parentId = tree.parentById[cur];
+        if (!parentId) break;
+        const parentOp = tree.nodesById[parentId]?.op;
+        if (
+          (op === "Add" && parentOp === "Add") ||
+          (op === "InvisibleOperator" &&
+            (parentOp === "InvisibleOperator" || parentOp === "Multiply"))
+        ) {
+          containerIds.add(parentId);
+        }
+        cur = parentId;
+      }
+    }
+
+    const out: ContainerCandidate[] = [];
+    for (const containerId of containerIds) {
+      const children = tree.childrenById[containerId] ?? [];
+      if (children.length < 2) continue;
+      const childHits = ids
+        .map((id) => childUnderAncestor(containerId, id))
+        .filter((id): id is string => !!id);
+      if (childHits.length < 2) continue;
+
+      const uniqueHits = Array.from(new Set(childHits));
+      const indices = uniqueHits
+        .map((id) => children.indexOf(id))
+        .filter((idx) => idx >= 0)
+        .sort((a, b) => a - b);
+      if (indices.length < 2) continue;
+      const contiguous = indices.every((idx, i) => i === 0 || idx === indices[i - 1] + 1);
+      if (!contiguous) continue;
+
+      const containerPath = tree.pathById[containerId];
+      out.push({
+        containerId,
+        op,
+        start: indices[0],
+        end: indices[indices.length - 1],
+        uniqueCount: indices.length,
+        coverageCount: childHits.length,
+        depth: containerPath ? containerPath.length : 0,
+      });
+    }
+    return out;
+  };
+
+  const buildLatexFromContainerCandidate = (cand: ContainerCandidate): string => {
+    const parentPath = tree.pathById[cand.containerId];
+    if (parentPath === undefined) return "";
+    const parentExpr = getAtPath(tree.rootJson, parentPath) as MJ;
+    if (!Array.isArray(parentExpr)) return "";
+    const kids = parentExpr.slice(1) as MJ[];
+    const chosen = kids.slice(cand.start, cand.end + 1);
+    if (chosen.length === 0) return "";
+    const selectedExpr =
+      chosen.length === 1 ? chosen[0] : ([cand.op, ...chosen] as MJ);
+
+    if (cand.op === "Add" && cand.start === 0 && cand.end === kids.length - 1) {
+      const wrapperId = tree.parentById[cand.containerId];
+      if (wrapperId) {
+        const wrapperOp = tree.nodesById[wrapperId]?.op;
+        if (wrapperOp === "Delimiter" || wrapperOp === "List") {
+          const wrapperPath = tree.pathById[wrapperId];
+          if (wrapperPath !== undefined) {
+            const wrapperExpr = getAtPath(tree.rootJson, wrapperPath) as MJ;
+            try {
+              return ExpressionTree.create(wrapperExpr).latexPlain;
+            } catch {
+              // Fall through to selectedExpr rendering.
+            }
+          }
+        }
+      }
+    }
+    return ExpressionTree.create(selectedExpr).latexPlain;
+  };
+
+  const pickBestCandidate = (candidates: ContainerCandidate[]): ContainerCandidate | null => {
+    if (candidates.length === 0) return null;
+    return candidates.sort((a, b) => {
+      if (a.uniqueCount !== b.uniqueCount) return b.uniqueCount - a.uniqueCount;
+      if (a.depth !== b.depth) return b.depth - a.depth;
+      if (a.coverageCount !== b.coverageCount) return b.coverageCount - a.coverageCount;
+      return a.containerId.localeCompare(b.containerId);
+    })[0];
+  };
+
+  const bestAdd = pickBestCandidate(collectContainerCandidates("Add"));
+  if (bestAdd) {
+    const latex = buildLatexFromContainerCandidate(bestAdd);
+    if (latex) return latex;
+  }
+
+  const bestMul = pickBestCandidate(collectContainerCandidates("InvisibleOperator"));
+  if (bestMul) {
+    const latex = buildLatexFromContainerCandidate(bestMul);
+    if (latex) return latex;
+  }
+
   const findAddTermAncestor = (
     nodeId: string
   ): { addId: string; termId: string } | null => {

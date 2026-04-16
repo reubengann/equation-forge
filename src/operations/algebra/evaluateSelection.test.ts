@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { evaluateRaw, parse } from "../../computeEngine";
 import { ExpressionTree, type MJ } from "../../ExpressionTree";
+import { mathPadFacade } from "../../application/mathPadFacade";
 import type { ExprSelection } from "../../selectionSemantics";
 import { canEvaluateSelection, evaluateSelection, simplifySelection } from "./evaluateSelection";
 
@@ -526,6 +527,68 @@ describe("evaluateSelection", () => {
     );
   });
 
+  it("simplifies when multi-selection picks descendants of adjacent additive terms (issue 101)", () => {
+    const tree = buildTree(
+      String.raw`\Delta S = c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right) + c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right) - c_{P} m \ln\left(T_{1}\right) - c_{P} m \ln\left(T_{2}\right)`
+    );
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(rhsId).toBeTruthy();
+    const rhsKids = rhsId ? tree.childrenById[rhsId] ?? [] : [];
+    expect(rhsKids.length).toBeGreaterThanOrEqual(4);
+
+    const firstTermKids = tree.childrenById[rhsKids[0]] ?? [];
+    const secondTermKids = tree.childrenById[rhsKids[1]] ?? [];
+    const selectedFromFirst = firstTermKids[0];
+    const selectedFromSecond = secondTermKids[2];
+    expect(selectedFromFirst).toBeTruthy();
+    expect(selectedFromSecond).toBeTruthy();
+
+    const sel: ExprSelection = {
+      kind: "multi",
+      nodeIds: [selectedFromFirst, selectedFromSecond],
+    };
+    expect(canEvaluateSelection(tree, sel)).toBe(true);
+
+    const next = simplifySelection(tree, sel);
+    expect(next).not.toBeNull();
+    expect(normalizeLatex(next!.latexPlain)).toContain(
+      normalizeLatex(
+        String.raw`2 c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right)`
+      )
+    );
+  });
+
+  it("keeps simplified parenthesized additive factor structurally round-trippable (issue 102)", () => {
+    const tree = buildTree(
+      String.raw`\Delta U_{\mathrm{max}} = \frac{3}{2} R T_{i} \left(\frac{1}{2^{\frac{2}{3}}} - 1\right)`
+    );
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(rhsId).toBeTruthy();
+    const rhsKids = rhsId ? tree.childrenById[rhsId] ?? [] : [];
+    const delimiterId = rhsKids[3];
+    expect(tree.nodesById[delimiterId]?.op).toBe("Delimiter");
+
+    const result = mathPadFacade.applyAction({
+      tree,
+      selection: { kind: "node", nodeId: delimiterId },
+      action: { type: "simplify" },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const next = result.tree;
+
+    const nextRhsId = next.childrenById[next.rootId]?.[1];
+    const nextRhsKids = nextRhsId ? next.childrenById[nextRhsId] ?? [] : [];
+    const groupedFactor = nextRhsKids[3];
+    expect(next.nodesById[groupedFactor]?.op).toBe("Delimiter");
+
+    const reparsed = parse(next.latexPlain);
+    expect(reparsed).toBeTruthy();
+    if (!reparsed) return;
+    const reparsedTree = ExpressionTree.create(reparsed as MJ);
+    expect(reparsedTree.latexPlain).toBe(next.latexPlain);
+  });
+
   it("simplifies exponential of ln when Euler constant is explicit (issue 61)", () => {
     const tree = buildTreeFromMJ([
       "Power",
@@ -631,6 +694,22 @@ describe("canEvaluateSelection", () => {
     expect(aId).toBeTruthy();
     expect(bId).toBeTruthy();
     const sel: ExprSelection = { kind: "multi", nodeIds: [aId!, bId!] };
+    expect(canEvaluateSelection(tree, sel)).toBe(true);
+  });
+
+  it("returns true for descendant picks that lift to contiguous additive terms", () => {
+    const tree = buildTree(
+      String.raw`\Delta S = c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right) + c_{P} m \ln\left(\frac{1}{2} \left(T_{1} + T_{2}\right)\right) - c_{P} m \ln\left(T_{1}\right) - c_{P} m \ln\left(T_{2}\right)`
+    );
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(rhsId).toBeTruthy();
+    const rhsKids = rhsId ? tree.childrenById[rhsId] ?? [] : [];
+    const firstTermKids = tree.childrenById[rhsKids[0]] ?? [];
+    const secondTermKids = tree.childrenById[rhsKids[1]] ?? [];
+    const sel: ExprSelection = {
+      kind: "multi",
+      nodeIds: [firstTermKids[0], secondTermKids[2]],
+    };
     expect(canEvaluateSelection(tree, sel)).toBe(true);
   });
 
