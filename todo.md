@@ -389,29 +389,33 @@
      Rubber band select `\frac{1}{T} \left(\frac{\partial{h}}{\partial{T}}\right)_{P} \mathrm{d}{T} + \frac{1}{T} \left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T} - v\right]`
      what ends up copied is `\left[\left(\frac{\partial{h}}{\partial{P}}\right)_{T} - v\right]`, missing the `1/T` part.
 
-109. `\ln (a/b)` should expand to `ln a - ln b`
+109. `\mathrm{d}{s} = \frac{c_{P}}{T} \mathrm{d}{T} + \left(-\left(\frac{\partial{v}}{\partial{T}}\right)_{P}\right) \mathrm{d}{P}`
+     No operation (simplify, evaluate, expand) will seem to rewrite this expression with the negative outside, which is a very common desire. i.e.
+     `\mathrm{d}{s} = \frac{c_{P}}{T} \mathrm{d}{T} - \left(\left(\frac{\partial{v}}{\partial{T}}\right)_{P}\right) \mathrm{d}{P}`
 
-110. `\int_{V_{0}}^{V} \frac{R}{v - b} \,\mathrm{d}{v}`
+110. `\ln (a/b)` should expand to `ln a - ln b`
+
+111. `\int_{V_{0}}^{V} \frac{R}{v - b} \,\mathrm{d}{v}`
      This can't be evaluated.
 
-111. `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -\int_{V_{0}}^{V} \frac{1}{3 V} \,\mathrm{d}{V}`
+112. `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -\int_{V_{0}}^{V} \frac{1}{3 V} \,\mathrm{d}{V}`
      Drag the 3 out of the integral. Gives `\int_{T_{0}}^{T} \frac{\mathrm{d}{T}}{T}  = -3 \int_{V_{0}}^{V} \frac{1}{V} \,\mathrm{d}{V}` which is wrong.
 
-112. `P \left(v - b\right) = R T`
+113. `P \left(v - b\right) = R T`
      The parentheses are not selectable. Why?
 
-113. We need fraction tools. Such as
+114. We need fraction tools. Such as
      - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`)
      - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)
 
-114. Feature: Need to come up with some way to perform partial derivatives.
+115. Feature: Need to come up with some way to perform partial derivatives.
 
-115. Maybe start over?
+116. Maybe start over?
 
-116. Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it.
+117. Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it.
 
-117. Upgrade cortexjs to newest version.
+118. Upgrade cortexjs to newest version.
 
-118. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs.
+119. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs.
 
-119. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
+120. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
