@@ -348,6 +348,43 @@ describe("applyMoveMultiplicative executor", () => {
     );
   });
 
+  it("folds moved denominator beta under matching beta sibling, not adjacent derivative fraction (issue 120)", () => {
+    const next = runMove({
+      latex: String.raw`-\beta \frac{c_{P}}{\beta v} \frac{\mathrm{d}{v_{s}}}{\mathrm{d}{P_{s}}} = \kappa c_{v}`,
+      select: (tree) => [
+        findNodeId(
+          tree,
+          (n) =>
+            n.latex === String.raw`\beta` &&
+            (() => {
+              const parentId = tree.parentById[n.id];
+              if (!parentId) return false;
+              if (tree.nodesById[parentId]?.op !== "InvisibleOperator") return false;
+              const grandParentId = tree.parentById[parentId];
+              return !!grandParentId && tree.nodesById[grandParentId]?.op === "Divide";
+            })()
+        ),
+      ],
+      hover: (tree) =>
+        findNodeId(
+          tree,
+          (n) =>
+            n.op === "Divide" &&
+            n.latex.includes(String.raw`\frac{c_{P}}{\beta v}`)
+        ),
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    const latex = next!.latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toContain(String.raw`\frac{\beta}{\beta}`);
+    expect(latex).toContain(String.raw`\frac{c_{P}}{v}`);
+    expect(latex).toContain(String.raw`\frac{\mathrm{d}{v_{s}}}{\mathrm{d}{P_{s}}}`);
+    expect(latex).not.toContain(
+      String.raw`\frac{\frac{\mathrm{d}{v_{s}}}{\mathrm{d}{P_{s}}}}{\beta}`
+    );
+  });
+
   it("reorders factor to the right of bracketed list term (issue 31)", () => {
     const next = runMove({
       latex: String.raw`a = b c e + f \left[g h + i\right]`,

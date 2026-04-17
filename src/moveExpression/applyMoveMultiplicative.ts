@@ -237,6 +237,20 @@ function childUnderAncestor(
   return null;
 }
 
+function canAbsorbReciprocalDenominatorFactor(factorExpr: MJ, denom: MJ): boolean {
+  const bareFactor = unwrapDelimiter(factorExpr);
+  const bareDenom = unwrapDelimiter(denom);
+  if (deepEqualMJ(bareFactor, bareDenom)) return true;
+  if (
+    Array.isArray(bareFactor) &&
+    bareFactor[0] === "Negate" &&
+    bareFactor.length >= 2
+  ) {
+    return deepEqualMJ(unwrapDelimiter(bareFactor[1] as MJ), bareDenom);
+  }
+  return false;
+}
+
 function pullFactorOutOfDivide(args: {
   tree: ExpressionTree;
   divideId: string;
@@ -640,8 +654,17 @@ export function applyMoveMultiplicative(
         // When pulling a denominator factor onto a sibling factor (e.g., e onto f),
         // interpret "after hover" as division of that hovered factor: f -> f/e.
         if (insertAfterHover && denom) {
-          const hoverExpr = replaced[hoverIndex] as MJ;
-          replaced[hoverIndex] = ["Divide", hoverExpr, denom] as MJNode;
+          // Prefer folding onto a sibling that matches the denominator factor
+          // (e.g. moving denominator beta onto an existing beta factor), even
+          // if the geometric hover landed on a different sibling.
+          const preferredFoldIndex = replaced.findIndex(
+            (expr, idx) =>
+              idx !== divideIndex &&
+              canAbsorbReciprocalDenominatorFactor(expr as MJ, denom)
+          );
+          const foldIndex = preferredFoldIndex >= 0 ? preferredFoldIndex : hoverIndex;
+          const hoverExpr = replaced[foldIndex] as MJ;
+          replaced[foldIndex] = ["Divide", hoverExpr, denom] as MJNode;
           const nextParent = normalizeMul(replaced as MJ[]);
           const nextRoot = setAtPath(tree.rootJson, parentPath, nextParent);
           return ExpressionTree.create(nextRoot);
@@ -1152,10 +1175,17 @@ export function applyMoveMultiplicative(
               const [, ...factors] = parentExpr;
               const nextFactors = [...factors] as MJ[];
               nextFactors[divideIndex] = updatedDivide;
-              const siblingExpr = nextFactors[siblingIndex] as MJ;
-              nextFactors[siblingIndex] = [
+              const preferredFoldIndex = nextFactors.findIndex(
+                (expr, idx) =>
+                  idx !== divideIndex &&
+                  canAbsorbReciprocalDenominatorFactor(expr as MJ, denom)
+              );
+              const foldIndex =
+                preferredFoldIndex >= 0 ? preferredFoldIndex : siblingIndex;
+              const foldExpr = nextFactors[foldIndex] as MJ;
+              nextFactors[foldIndex] = [
                 "Divide",
-                siblingExpr,
+                foldExpr,
                 denom,
               ] as MJNode;
               const normalizedParent = normalizeMul(nextFactors);
