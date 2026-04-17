@@ -1633,7 +1633,7 @@ export function ExpressionPad({
   }, [otherPadSnapshots, substituteTargetId, tree]);
 
   const latexForCopy =
-    tree?.latexPlain ??
+    (tree ? ExpressionTree.exportLatex(tree.rootJson) : null) ??
     (latexText && latexText !== "Type an equation, click Add / Update."
       ? latexText
       : latexDraft);
@@ -1742,7 +1742,15 @@ export function ExpressionPad({
     return [...history.past, history.present, ...history.future];
   }, [history]);
   const fullHistoryLatex = useMemo(() => {
-    return fullHistorySteps.map((step) => `$$ ${step.latex} $$`).join("\n");
+    return fullHistorySteps
+      .map((step) => {
+        const parsed = mathPadFacade.parseLatex(step.latex);
+        const exportLatex = parsed
+          ? ExpressionTree.exportLatex(parsed)
+          : step.latex;
+        return `$$ ${exportLatex} $$`;
+      })
+      .join("\n");
   }, [fullHistorySteps]);
   const canCopyHistory = !!fullHistorySteps.length;
 

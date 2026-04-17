@@ -8,6 +8,10 @@ export type NodeInfo = {
   json: MJ;
 };
 
+type ExpressionTreeOptions = {
+  includeTrailingDifferentialThinspace?: boolean;
+};
+
 const FUNCTION_OPS = new Set([
   "Sin",
   "Cos",
@@ -117,6 +121,7 @@ export class ExpressionTree {
   */
 
   private _leafLatex: (node: MJ) => string;
+  private _includeTrailingDifferentialThinspace: boolean;
 
   private _nextId = 1;
 
@@ -392,9 +397,12 @@ export class ExpressionTree {
     return this.recordTagged({ id, latexPlain: plain, latexTagged: tagged });
   }
 
-  constructor(mj: MJ) {
+  constructor(mj: MJ, options?: ExpressionTreeOptions) {
     const normalized = normalizeVectors(mj);
     this.rootJson = normalized;
+    this._includeTrailingDifferentialThinspace = Boolean(
+      options?.includeTrailingDifferentialThinspace,
+    );
     // Map atomic symbols to display forms before general leaf handling.
     this._leafLatex = (x) => {
       const asString = String(x);
@@ -565,7 +573,25 @@ export class ExpressionTree {
       }
     }
 
-    const plain = renderedChildren.map((c) => c.latexPlain).join(" ");
+    const trailingDifferentialSpacingEnabled =
+      this._includeTrailingDifferentialThinspace && renderedChildren.length >= 2;
+    const lastRenderedChild = renderedChildren[renderedChildren.length - 1];
+    const lastRenderedChildOp = lastRenderedChild
+      ? this.nodesById[lastRenderedChild.id]?.op
+      : null;
+    const hasTrailingDifferential =
+      lastRenderedChildOp === "Differential" ||
+      lastRenderedChildOp === "InexactDifferential";
+    const plain =
+      trailingDifferentialSpacingEnabled && hasTrailingDifferential
+        ? (() => {
+            const prefix = renderedChildren
+              .slice(0, renderedChildren.length - 1)
+              .map((c) => c.latexPlain)
+              .join(" ");
+            return `${prefix} ${String.raw`\,`} ${lastRenderedChild.latexPlain}`;
+          })()
+        : renderedChildren.map((c) => c.latexPlain).join(" ");
     const taggedInner = renderedChildren.map((c) => c.latexTagged).join(sep);
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
@@ -1204,6 +1230,12 @@ export class ExpressionTree {
 
   static create(mj: MJ): ExpressionTree {
     return new ExpressionTree(mj);
+  }
+
+  static exportLatex(mj: MJ): string {
+    return new ExpressionTree(mj, {
+      includeTrailingDifferentialThinspace: true,
+    }).latexPlain;
   }
 
   private emitDotProduct(node: MJNode, id: string, path: number[], op: string) {

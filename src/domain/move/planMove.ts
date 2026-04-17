@@ -1080,10 +1080,19 @@ export function planMove(args: PlanMoveArgs): MovePlan | null {
     }
       // Side-root fraction pull-out: support dropping on the side body/whitespace
       // when the moved factor is inside the fraction numerator/denominator.
+      // If both moved+hover are within the same numerator/denominator product,
+      // prefer in-place multiplicative reorder (handled later) over pull-out.
+      const movedInDivideChildMul =
+        isMulOp(tree.nodesById[movedParentId]?.op) &&
+        tree.parentById[movedParentId] === divideId;
+      const hoverInsideMovedDivideChildMul =
+        movedInDivideChildMul &&
+        isAncestorOrSelf(tree, movedParentId, hoverId);
       if (
-        hoverId === divideId ||
-        isAncestorOrSelf(tree, hoverId, divideId) ||
-        isAncestorOrSelf(tree, divideId, hoverId)
+        !hoverInsideMovedDivideChildMul &&
+        (hoverId === divideId ||
+          isAncestorOrSelf(tree, hoverId, divideId) ||
+          isAncestorOrSelf(tree, divideId, hoverId))
       ) {
         const divideRect = rectFor(divideId);
         const insertIndex: 0 | 1 = divideRect

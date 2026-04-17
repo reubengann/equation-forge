@@ -442,6 +442,29 @@ describe("ExpressionTree", () => {
     );
   });
 
+  it("keeps plain implicit product spacing by default", () => {
+    const t = ExpressionTree.create(["InvisibleOperator", "P", ["Differential", "v"]]);
+    expect(t.latexPlain).toBe(String.raw`P \mathrm{d}{v}`);
+  });
+
+  it("adds thinspace before trailing differential in export latex", () => {
+    const latex = ExpressionTree.exportLatex([
+      "InvisibleOperator",
+      "P",
+      ["Differential", "v"],
+    ]);
+    expect(latex).toBe(String.raw`P \, \mathrm{d}{v}`);
+  });
+
+  it("does not add thinspace when differential is not trailing in export latex", () => {
+    const latex = ExpressionTree.exportLatex([
+      "InvisibleOperator",
+      ["Differential", "v"],
+      "P",
+    ]);
+    expect(latex).toBe(String.raw`\mathrm{d}{v} P`);
+  });
+
   it("renders DotProduct with a centered dot", () => {
     const mj: MJ = ["DotProduct", ["Vector", "a"], ["Vector", "b"]];
     const t = ExpressionTree.create(mj);

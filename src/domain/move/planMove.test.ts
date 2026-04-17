@@ -167,3 +167,73 @@ describe("planMove multiplicative delimiter-hover reorder", () => {
   });
 });
 
+describe("planMove multiplicative reorder within fraction products", () => {
+  it("plans numerator factor reorder instead of pull-out for fraction interior drag", () => {
+    const tree = treefromLatex(String.raw`\frac{a b}{c d}`);
+    const divideId = tree.rootId!;
+    const numeratorMulId = tree.childrenById[divideId]?.[0];
+    expect(numeratorMulId).toBeTruthy();
+    if (!numeratorMulId) return;
+
+    const numeratorKids = tree.childrenById[numeratorMulId] ?? [];
+    expect(numeratorKids.length).toBe(2);
+    const movedId = numeratorKids[0];
+    const hoverId = numeratorKids[1];
+
+    const rectMap = new Map<string, { left: number; top: number; right: number; bottom: number }>();
+    rectMap.set(divideId, { left: 0, top: 0, right: 220, bottom: 70 });
+    rectMap.set(numeratorMulId, { left: 20, top: 0, right: 200, bottom: 30 });
+    rectMap.set(numeratorKids[0], { left: 20, top: 0, right: 90, bottom: 30 });
+    rectMap.set(numeratorKids[1], { left: 110, top: 0, right: 180, bottom: 30 });
+
+    const plan = planMove({
+      tree,
+      selectedIds: [movedId],
+      hoverId,
+      pointer: { x: 175, y: 15 }, // right side of second numerator factor
+      rectFor: (id) => rectMap.get(id) ?? null,
+      mode: "multiplicative",
+    });
+
+    expect(plan).not.toBeNull();
+    expect(plan?.kind).toBe("ReorderAdd");
+    if (!plan || plan.kind !== "ReorderAdd") return;
+    expect(plan.addId).toBe(numeratorMulId);
+    expect(plan.toIndex).toBe(1);
+  });
+
+  it("plans denominator factor reorder instead of pull-out for fraction interior drag", () => {
+    const tree = treefromLatex(String.raw`\frac{a b}{c d}`);
+    const divideId = tree.rootId!;
+    const denominatorMulId = tree.childrenById[divideId]?.[1];
+    expect(denominatorMulId).toBeTruthy();
+    if (!denominatorMulId) return;
+
+    const denominatorKids = tree.childrenById[denominatorMulId] ?? [];
+    expect(denominatorKids.length).toBe(2);
+    const movedId = denominatorKids[0];
+    const hoverId = denominatorKids[1];
+
+    const rectMap = new Map<string, { left: number; top: number; right: number; bottom: number }>();
+    rectMap.set(divideId, { left: 0, top: 0, right: 220, bottom: 70 });
+    rectMap.set(denominatorMulId, { left: 20, top: 40, right: 200, bottom: 70 });
+    rectMap.set(denominatorKids[0], { left: 20, top: 40, right: 90, bottom: 70 });
+    rectMap.set(denominatorKids[1], { left: 110, top: 40, right: 180, bottom: 70 });
+
+    const plan = planMove({
+      tree,
+      selectedIds: [movedId],
+      hoverId,
+      pointer: { x: 175, y: 55 }, // right side of second denominator factor
+      rectFor: (id) => rectMap.get(id) ?? null,
+      mode: "multiplicative",
+    });
+
+    expect(plan).not.toBeNull();
+    expect(plan?.kind).toBe("ReorderAdd");
+    if (!plan || plan.kind !== "ReorderAdd") return;
+    expect(plan.addId).toBe(denominatorMulId);
+    expect(plan.toIndex).toBe(1);
+  });
+});
+

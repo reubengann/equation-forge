@@ -408,20 +408,22 @@
 
 117.  Save/export history. Instead of storing the states in memory only, store the latex after each manipulation, and reload it from local storage each time. This will allow undo/redo across reloads. Then add a "copy entire history" button that copies all of the equations, `$$ <state1> $$\n$$ <state2> $$\n` etc. A change to an intermediate step invalidates the history after it.
 
+118.  Multiplicative dragging of terms within a fraction really doesn't work. If you have `\frac{a b}{c d}`, there's no way to drag `a` to get `\frac{b a}{c d}` or `c` to get `\frac{a b}{d c}`. If you drag the term fully out of the fraction first, then you can drag it back in at the place you want, but this is annoying.
+
 ---- undone ----
 
-118. Multiplicative dragging of terms within a fraction really doesn't work. If you have `\frac{a b}{c d}`, there's no way to drag `a` to get `\frac{b a}{c d}` or `c` to get `\frac{a b}{d c}`
+119. When exporting latex, it would be convenient to render the space before a differential. Right now, when we render a differential like P dv, the result looks visually like `P \, \mathrm{d}{v}`, but when we export, we don't include the thinspace `\,`. That being said, the thinspace is only needed when the differential is at the end of a product (InvisibleOperator).
 
-119. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs, and there's no way to tell from the front-end what occured.
+120. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs, and there's no way to tell from the front-end what occured.
 
-120. `\ln (a/b)` should expand to `ln a - ln b`
+121. `\ln (a/b)` should expand to `ln a - ln b`
 
-121. We need fraction tools. Such as
+122. We need fraction tools. Such as
      - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`)
      - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)
 
-122. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
+123. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
 
-123. Maybe start over? Idk. I would explore whether representing things as our own AST instead of operating directly on MJ trees would be better and reduce the amount of special cases and calls to things like "kids" throughout the code. We have a lot of code that does checking of many cases, and I feel like, while this mostly works, it isn't very elegant. For one thing, should we have separate code paths for planning and executing? Maybe we should just have one path that returns early if it's just planning, storing the work it did, and otherwise we pass this progress back in or restore the state and continue if we decide to execute. This would also probably simplify updating cortexjs, which I think is currently breaking.
+124. Maybe start over? Idk. I would explore whether representing things as our own AST instead of operating directly on MJ trees would be better and reduce the amount of special cases and calls to things like "kids" throughout the code. We have a lot of code that does checking of many cases, and I feel like, while this mostly works, it isn't very elegant. For one thing, should we have separate code paths for planning and executing? Maybe we should just have one path that returns early if it's just planning, storing the work it did, and otherwise we pass this progress back in or restore the state and continue if we decide to execute. This would also probably simplify updating cortexjs, which I think is currently breaking.
 
-124. Upgrade cortexjs to newest version.
+125. Upgrade cortexjs to newest version.
