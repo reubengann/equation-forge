@@ -123,9 +123,26 @@ function injectImplicitOneInIntegrals(latex: string): string {
 function promotePartialFracToDfrac(latex: string): string {
   // Ensure \frac{\partial ...}{\partial ...} hits our custom derivative parser.
   // The CE built-in \frac path can collapse this shape in larger expressions.
-  // Keep higher-order numerators (e.g. \partial^{2}u) on the built-in \frac path:
-  // our custom \dfrac parser currently targets first-order Leibniz forms.
-  return latex.replace(/\\frac(?=\s*\{\s*\\partial\b(?!\s*\^))/g, "\\dfrac");
+  // Include higher-order numerators too (e.g. \partial^{2}u), then let
+  // normalizePartialDerivativeForms canonicalize the parsed shape.
+  return latex.replace(/\\frac(?=\s*\{\s*\\partial\b)/g, "\\dfrac");
+}
+
+function expandSquaredPartialDenominatorOperands(latex: string): string {
+  const operandPattern = String.raw`(?:[A-Za-z]+|\\[A-Za-z]+)(?:_\{[^}]+\}|_[A-Za-z0-9]+)?`;
+  // CE can produce malformed trees for denominator factors like \partial{T^2}.
+  // Rewrite this to an equivalent repeated-factor Leibniz form.
+  const braced = new RegExp(
+    String.raw`\\partial\s*\{\s*(${operandPattern})\s*\^\s*(?:\{\s*2\s*\}|2)\s*\}`,
+    "g",
+  );
+  const unbraced = new RegExp(
+    String.raw`\\partial\s+(${operandPattern})\s*\^\s*(?:\{\s*2\s*\}|2)`,
+    "g",
+  );
+  return latex
+    .replace(braced, String.raw`\partial{$1} \partial{$1}`)
+    .replace(unbraced, String.raw`\partial{$1} \partial{$1}`);
 }
 
 function promoteTightPlainDifferentials(latex: string): string {
@@ -300,8 +317,10 @@ export function parse(latex: string): MJ | null {
   const withNormalizedBrackets = normalizeBracketAliases(latex);
   const prefilled = injectImplicitOneInIntegrals(withNormalizedBrackets);
   const withPartialFractionsPromoted = promotePartialFracToDfrac(prefilled);
+  const withExpandedSquaredPartialDenominators =
+    expandSquaredPartialDenominatorOperands(withPartialFractionsPromoted);
   const withTightDifferentials = promoteTightPlainDifferentials(
-    withPartialFractionsPromoted
+    withExpandedSquaredPartialDenominators
   );
   const withInexactDifferentials = promoteInexactDifferentials(withTightDifferentials);
   const hoistedMixedPartials =
@@ -1576,12 +1595,37 @@ const fractionDerivativeEntry: LatexDictionaryEntry = {
       ) {
         const factors = part.slice(1) as Expression[];
         if (factors.length > 0) {
-          const rendered = factors.map((factor) => {
+          const infos = factors.map((factor) => {
             const info = partialInfo(factor);
-            return info ? renderPartialToken(info) : null;
+            return info ?? null;
           });
-          if (rendered.every((factor) => factor != null)) {
-            return (rendered as string[]).join(" ");
+          if (infos.every((factor) => factor != null)) {
+            const resolved = infos as {
+              order: number;
+              operand: Expression | null;
+            }[];
+            const tokens: string[] = [];
+            for (let i = 0; i < resolved.length; i += 1) {
+              const info = resolved[i];
+              if (info.operand != null && info.order === 1) {
+                let runLength = 1;
+                const key = JSON.stringify(info.operand);
+                while (i + runLength < resolved.length) {
+                  const next = resolved[i + runLength];
+                  if (next.order !== 1 || next.operand == null) break;
+                  if (JSON.stringify(next.operand) !== key) break;
+                  runLength += 1;
+                }
+                if (runLength > 1) {
+                  const operandLatex = serializer.wrap(info.operand, 0);
+                  tokens.push(String.raw`\\partial{${operandLatex}^{${runLength}}}`);
+                  i += runLength - 1;
+                  continue;
+                }
+              }
+              tokens.push(renderPartialToken(info));
+            }
+            return tokens.join(" ");
           }
         }
       }
@@ -1646,12 +1690,37 @@ const fractionPartialDerivativeEntry: LatexDictionaryEntry = {
       ) {
         const factors = part.slice(1) as Expression[];
         if (factors.length > 0) {
-          const rendered = factors.map((factor) => {
+          const infos = factors.map((factor) => {
             const info = partialInfo(factor);
-            return info ? renderPartialToken(info) : null;
+            return info ?? null;
           });
-          if (rendered.every((factor) => factor != null)) {
-            return (rendered as string[]).join(" ");
+          if (infos.every((factor) => factor != null)) {
+            const resolved = infos as {
+              order: number;
+              operand: Expression | null;
+            }[];
+            const tokens: string[] = [];
+            for (let i = 0; i < resolved.length; i += 1) {
+              const info = resolved[i];
+              if (info.operand != null && info.order === 1) {
+                let runLength = 1;
+                const key = JSON.stringify(info.operand);
+                while (i + runLength < resolved.length) {
+                  const next = resolved[i + runLength];
+                  if (next.order !== 1 || next.operand == null) break;
+                  if (JSON.stringify(next.operand) !== key) break;
+                  runLength += 1;
+                }
+                if (runLength > 1) {
+                  const operandLatex = serializer.wrap(info.operand, 0);
+                  tokens.push(String.raw`\\partial{${operandLatex}^{${runLength}}}`);
+                  i += runLength - 1;
+                  continue;
+                }
+              }
+              tokens.push(renderPartialToken(info));
+            }
+            return tokens.join(" ");
           }
         }
       }

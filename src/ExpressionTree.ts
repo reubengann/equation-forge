@@ -199,13 +199,35 @@ export class ExpressionTree {
     }
     const factors = expr.slice(1) as MJ[];
     if (factors.length === 0) return null;
-    const rendered = factors.map((factor) => {
+    const infos = factors.map((factor) => {
       const info = this.partialInfo(factor as MJ);
       if (!info) return null;
-      return this.renderPartialToken(info);
+      return info;
     });
-    if (rendered.some((part) => part == null)) return null;
-    return rendered.join(" ");
+    if (infos.some((part) => part == null)) return null;
+    const resolved = infos as { order: number; operand: MJ | null }[];
+    const tokens: string[] = [];
+    for (let i = 0; i < resolved.length; i += 1) {
+      const info = resolved[i];
+      if (info.operand != null && info.order === 1) {
+        let runLength = 1;
+        const key = JSON.stringify(info.operand);
+        while (i + runLength < resolved.length) {
+          const next = resolved[i + runLength];
+          if (next.order !== 1 || next.operand == null) break;
+          if (JSON.stringify(next.operand) !== key) break;
+          runLength += 1;
+        }
+        if (runLength > 1) {
+          const operandLatex = ExpressionTree.create(info.operand).latexPlain;
+          tokens.push(String.raw`\partial{${operandLatex}^{${runLength}}}`);
+          i += runLength - 1;
+          continue;
+        }
+      }
+      tokens.push(this.renderPartialToken(info));
+    }
+    return tokens.join(" ");
   }
 
   private emit(

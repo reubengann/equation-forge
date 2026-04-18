@@ -759,6 +759,15 @@ describe("evaluateSelection", () => {
       normalizeLatex(String.raw`\left(\frac{\partial}{\partial{P}}\right) c_{P}`)
     );
   });
+
+  it("simplify preserves nested subscript structure (issue 126)", () => {
+    const tree = buildTree(String.raw`-1 \left(c_{P} - c_{P_{0}}\right)`);
+    const next = simplifySelection(tree, { kind: "node", nodeId: tree.rootId });
+    expect(next).not.toBeNull();
+    const out = normalizeLatex(next!.latexPlain);
+    expect(out).toBe(normalizeLatex(String.raw`-c_{P} + c_{P_{0}}`));
+    expect(out).not.toContain("Subscript");
+  });
 });
 
 describe("canEvaluateSelection", () => {

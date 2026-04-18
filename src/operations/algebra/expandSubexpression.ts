@@ -58,12 +58,14 @@ function containsUnsafePowerExpansion(expr: MJ): boolean {
 }
 
 function unwrapDelimiter(expr: MJ): MJ {
-  if (
-    Array.isArray(expr) &&
-    (expr[0] === "Delimiter" || expr[0] === "List") &&
-    expr.length >= 2
-  ) {
-    return expr[1] as MJ;
+  if (Array.isArray(expr) && expr.length >= 2) {
+    const op = expr[0];
+    if (op === "Delimiter" || op === "List") {
+      return unwrapDelimiter(expr[1] as MJ);
+    }
+    if (op === "Sequence" && expr.length === 2) {
+      return unwrapDelimiter(expr[1] as MJ);
+    }
   }
   return expr;
 }
@@ -103,10 +105,13 @@ function distributeDotProduct(expr: MJ): MJ {
   return [op, ...kids] as MJ;
 }
 
-function distributeInvisibleOperator(expr: MJ): MJ {
+function distributeInvisibleOperator(expr: MJ, insideIntegrate = false): MJ {
   if (!Array.isArray(expr)) return expr;
   const op = expr[0];
-  const kids = expr.slice(1).map(distributeInvisibleOperator) as MJ[];
+  const nextInsideIntegrate = insideIntegrate || op === "Integrate";
+  const kids = expr
+    .slice(1)
+    .map((child) => distributeInvisibleOperator(child as MJ, nextInsideIntegrate)) as MJ[];
 
   if (op !== "InvisibleOperator") {
     return [op, ...kids] as MJ;
@@ -117,6 +122,27 @@ function distributeInvisibleOperator(expr: MJ): MJ {
     return isAdd(unwrapped);
   });
   if (addIndex < 0) {
+    return [op, ...kids] as MJ;
+  }
+
+  const candidateFactor = kids[addIndex];
+  const candidateIsExplicitlyDelimitedAdd =
+    Array.isArray(candidateFactor) &&
+    (candidateFactor[0] === "Delimiter" || candidateFactor[0] === "List") &&
+    isAdd(unwrapDelimiter(candidateFactor));
+  const hasDifferentialSibling = kids.some(
+    (kid, idx) =>
+      idx !== addIndex &&
+      Array.isArray(kid) &&
+      (kid[0] === "Differential" || kid[0] === "InexactDifferential")
+  );
+  // Keep grouped additive factors intact in differential products, e.g.
+  // [v - T(...)] dP should remain grouped instead of distributing to v dP - T(...) dP.
+  if (
+    insideIntegrate &&
+    candidateIsExplicitlyDelimitedAdd &&
+    hasDifferentialSibling
+  ) {
     return [op, ...kids] as MJ;
   }
 
@@ -180,6 +206,37 @@ function normalizeMul(factors: MJ[]): MJ {
   return ["InvisibleOperator", ...flattened] as MJ;
 }
 
+function distributeIntegrateOverAdd(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map(distributeIntegrateOverAdd) as MJ[];
+
+  if (op !== "Integrate" || kids.length < 2) {
+    return [op, ...kids] as MJ;
+  }
+
+  const integrandRaw = kids[0] as MJ;
+  const domain = kids[1] as MJ;
+  const integrand = unwrapDelimiter(integrandRaw);
+  if (!isAdd(integrand)) {
+    return ["Integrate", integrandRaw, domain] as MJ;
+  }
+
+  const terms = (integrand as [string, ...MJ[]]).slice(1) as MJ[];
+  return [
+    "Add",
+    ...terms.map((term) => {
+      if (Array.isArray(term) && term[0] === "Negate" && term.length >= 2) {
+        return [
+          "Negate",
+          distributeIntegrateOverAdd(["Integrate", term[1] as MJ, domain] as MJ),
+        ] as MJ;
+      }
+      return distributeIntegrateOverAdd(["Integrate", term, domain] as MJ);
+    }),
+  ] as MJ;
+}
+
 function distributePowerOverMulDiv(expr: MJ): MJ {
   if (!Array.isArray(expr)) return expr;
   const op = expr[0];
@@ -213,6 +270,30 @@ function distributePowerOverMulDiv(expr: MJ): MJ {
       ] as MJ);
       return ["Divide", numerator, denominator] as MJ;
     }
+  }
+
+  return [op, ...kids] as MJ;
+}
+
+function distributeDivideOverAdd(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map(distributeDivideOverAdd) as MJ[];
+
+  if (op === "Divide" && kids.length >= 2) {
+    const numeratorRaw = kids[0] as MJ;
+    const denominator = kids[1] as MJ;
+    const numerator = unwrapDelimiter(numeratorRaw);
+    if (isAdd(numerator)) {
+      const terms = (numerator as [string, ...MJ[]]).slice(1) as MJ[];
+      return [
+        "Add",
+        ...terms.map((term) =>
+          distributeDivideOverAdd(["Divide", term, denominator] as MJ)
+        ),
+      ] as MJ;
+    }
+    return ["Divide", numeratorRaw, denominator] as MJ;
   }
 
   return [op, ...kids] as MJ;
@@ -318,7 +399,9 @@ export function expandSubexpression(
   const distributedMul = distributeInvisibleOperator(distributedDot);
   const distributedNegate = distributeNegateOverAdd(distributedMul);
   const distributedPower = distributePowerOverMulDiv(distributedNegate);
-  const distributed = distributeDifferential(distributedPower);
+  const distributedDivide = distributeDivideOverAdd(distributedPower);
+  const distributedDifferential = distributeDifferential(distributedDivide);
+  const distributed = distributeIntegrateOverAdd(distributedDifferential);
   const customChanged = !deepEqualMJ(distributed, target);
 
   // Step 2: let the Compute Engine do standard expansion where safe.

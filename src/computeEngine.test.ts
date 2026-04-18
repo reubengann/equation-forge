@@ -356,6 +356,25 @@ describe("computeEngine custom dictionary", () => {
     expect(hasErrorNode(mj)).toBe(false);
   });
 
+  it("preserves second partial derivative with squared denominator operand (issue 124)", () => {
+    const mj = parse(
+      String.raw`\left(\frac{\partial{c_{P}}}{\partial{P}}\right)_{T} = - T\left(\frac{\partial^2{v}}{\partial {T^2}}\right)_{P}`
+    );
+    expect(mj).not.toBeNull();
+    expect(hasErrorNode(mj)).toBe(false);
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toContain(String.raw`\frac{\partial^{2}{v}}{\partial{T^{2}}}`);
+    expect(latex).not.toContain(String.raw`\partial{v}_{P}`);
+  });
+
+  it("parses standalone squared-denominator second partial (issue 124)", () => {
+    const mj = parse(String.raw`\frac{\partial^2{v}}{\partial {T^2}}`);
+    expect(mj).not.toBeNull();
+    expect(hasErrorNode(mj)).toBe(false);
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toContain(String.raw`\frac{\partial^{2}{v}}{\partial{T^{2}}}`);
+  });
+
   it("preserves scalar prefactor order ahead of applied bare partial operator", () => {
     const mj = parse(
       String.raw`\frac{\partial^{2}{s}}{\partial{P} \partial{T}} = \frac{1}{T} \left(\frac{\partial}{\partial{P}}\right) \left(c_{P}\right)`

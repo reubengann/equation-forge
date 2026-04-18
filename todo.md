@@ -412,22 +412,47 @@
 
 119.  When exporting latex, it would be convenient to render the space before a differential. Right now, when we render a differential like P dv, the result looks visually like `P \, \mathrm{d}{v}`, but when we export, we don't include the thinspace `\,`. That being said, the thinspace is only needed when the differential is at the end of a product (InvisibleOperator).
 
+120.  `-\beta \frac{c_{P}}{\beta v} \frac{\mathrm{d}{v_{s}}}{\mathrm{d}{P_{s}}} = \kappa c_{v}`
+      Move the beta in the denominator underneath the other beta. The result is
+      `-\beta \frac{c_{P}}{v} \frac{\frac{\mathrm{d}{v_{s}}}{\mathrm{d}{P_{s}}}}{\beta} = \kappa c_{v}` So the beta actually moves under the fraction of differentials, which is wrong.
+
+121.  `\mathrm{d}{s} = \frac{c_{P} \, \mathrm{d}{T} - T \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \, \mathrm{d}{P}}{T}`
+      Expand on the RHS fraction should split the fraction, but it doesn't for some reason. Usually it will, but on this particular one it doesn't.
+
+122.  `\mathrm{d}{s} = \frac{c_{P}}{T} \, \mathrm{d}{T} - \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \, \mathrm{d}{P}`
+      Integrate both sides. The result is
+      `\int \,\mathrm{d}{s} = \int \frac{c_{P}}{T} \,\mathrm{d}{T} - \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \, \mathrm{d}{P}`
+      This is not correct. The RHS needs partheses around the integrand.
+
+123.  `\int \left(\frac{c_{P}}{T} \mathrm{d}{T} - \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \mathrm{d}{P}\right) `
+      This should expand to
+      `\int \left(\frac{c_{P}}{T} \mathrm{d}{T} - \int \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \mathrm{d}{P}\right) `
+
+124.  `\left(\frac{\partial{c_{P}}}{\partial{P}}\right)_{T} = - T\left(\frac{\partial^2{v}}{\partial {T^2}}\right)_{P}`
+      After rendering, this becomes `\left(\frac{\partial{c_{P}}}{\partial{P}}\right)_{T} = -T \partial{v}_{P}` The RHS is not correctly represented as a second derivative.
+
+125.  `a = -b`
+      When integrating both sides like this, if a term is a negate, we should probably take it
+      outside. I.e., if we apply \int eqn, the result should not say
+      `\int a = \int - b` but instead `\int a = - \int b`.
+
 ---- undone ----
 
-120. `-\beta \frac{c_{P}}{\beta v} \frac{\mathrm{d}{v_{s}}}{\mathrm{d}{P_{s}}} = \kappa c_{v}`
-     Move the beta in the denominator underneath the other beta. The result is
-     `-\beta \frac{c_{P}}{v} \frac{\frac{\mathrm{d}{v_{s}}}{\mathrm{d}{P_{s}}}}{\beta} = \kappa c_{v}` So the beta actually moves under the fraction of differentials, which is wrong.
+126. We seem to puke on double subscripts
+     `-1 \left(c_{P} - c_{P_{0}}\right)`
+     This simplifies to
+     `-c_P + c_Subscript_P_0`
 
-121. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs, and there's no way to tell from the front-end what occured.
+127. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs, and there's no way to tell from the front-end what occured.
 
-122. `\ln (a/b)` should expand to `ln a - ln b`
+128. `\ln (a/b)` should expand to `ln a - ln b`
 
-123. We need fraction tools. Such as
+129. We need fraction tools. Such as
      - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`)
      - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)
 
-124. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
+130. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
 
-125. Maybe start over? Idk. I would explore whether representing things as our own AST instead of operating directly on MJ trees would be better and reduce the amount of special cases and calls to things like "kids" throughout the code. We have a lot of code that does checking of many cases, and I feel like, while this mostly works, it isn't very elegant. For one thing, should we have separate code paths for planning and executing? Maybe we should just have one path that returns early if it's just planning, storing the work it did, and otherwise we pass this progress back in or restore the state and continue if we decide to execute. This would also probably simplify updating cortexjs, which I think is currently breaking.
+131. Maybe start over? Idk. I would explore whether representing things as our own AST instead of operating directly on MJ trees would be better and reduce the amount of special cases and calls to things like "kids" throughout the code. We have a lot of code that does checking of many cases, and I feel like, while this mostly works, it isn't very elegant. For one thing, should we have separate code paths for planning and executing? Maybe we should just have one path that returns early if it's just planning, storing the work it did, and otherwise we pass this progress back in or restore the state and continue if we decide to execute. This would also probably simplify updating cortexjs, which I think is currently breaking.
 
-126. Upgrade cortexjs to newest version.
+132. Upgrade cortexjs to newest version.

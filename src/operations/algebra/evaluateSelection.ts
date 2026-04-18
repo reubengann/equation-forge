@@ -118,14 +118,46 @@ function sanitizeSymbolPart(part: string): string {
 }
 
 function encodeSubscriptSymbol(base: MJ, sub: MJ): string {
-  const basePart = sanitizeSymbolPart(String(base));
-  const subPart = sanitizeSymbolPart(String(sub));
-  return `${SUBSCRIPT_PREFIX}${basePart}__${subPart}`;
+  // Only use structured transport when a nested subscript payload appears in the
+  // subscript position (e.g., c_{P_{0}}). Keep legacy encoding for other cases
+  // to preserve existing simplify/evaluate behavior.
+  if (!Array.isArray(sub)) {
+    const basePart = sanitizeSymbolPart(String(base));
+    const subPart = sanitizeSymbolPart(String(sub));
+    return `${SUBSCRIPT_PREFIX}${basePart}__${subPart}`;
+  }
+  // Preserve full nested subscript structure by transporting JSON payload
+  // as a hex string accepted by CE symbol parsing.
+  const payload = JSON.stringify([base, sub]);
+  const bytes = new TextEncoder().encode(payload);
+  const hex = Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return `${SUBSCRIPT_PREFIX}h__${hex}`;
 }
 
 function decodeSubscriptSymbol(value: MJ): MJ {
   if (typeof value === "string" && value.startsWith(SUBSCRIPT_PREFIX)) {
     const payload = value.slice(SUBSCRIPT_PREFIX.length);
+    if (payload.startsWith("h__")) {
+      const hex = payload.slice(3);
+      if (hex.length > 0 && hex.length % 2 === 0 && /^[0-9a-f]+$/i.test(hex)) {
+        const bytes = new Uint8Array(hex.length / 2);
+        for (let i = 0; i < hex.length; i += 2) {
+          bytes[i / 2] = Number.parseInt(hex.slice(i, i + 2), 16);
+        }
+        try {
+          const decoded = new TextDecoder().decode(bytes);
+          const parsed = JSON.parse(decoded);
+          if (Array.isArray(parsed) && parsed.length === 2) {
+            return ["Subscript", parsed[0] as MJ, parsed[1] as MJ] as MJ;
+          }
+        } catch {
+          // Fallback to legacy decode shape below.
+        }
+      }
+    }
+    // Legacy payload support: "__pd_sub__<base>__<sub>"
     const pivot = payload.lastIndexOf("__");
     if (pivot > 0) {
       const base = payload.slice(0, pivot);

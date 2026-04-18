@@ -174,4 +174,69 @@ describe("expandSubexpression", () => {
     expect(result).not.toBeNull();
     expect(normalizeSpaces(result!.latexPlain)).toBe(String.raw`-T_{f} + T_{1}`);
   });
+
+  it("expands rhs fraction with additive numerator in differential expression (issue 121)", () => {
+    const tree = treefromLatex(
+      String.raw`\mathrm{d}{s} = \frac{c_{P} \, \mathrm{d}{T} - T \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \, \mathrm{d}{P}}{T}`
+    );
+    const rhsId = (tree.childrenById[tree.rootId] ?? [])[1];
+    expect(rhsId).toBeTruthy();
+    if (!rhsId) return;
+
+    const result = expandSubexpression(tree, rhsId);
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    const latex = normalizeSpaces(result.latexPlain);
+    expect(latex).toContain(String.raw`\mathrm{d}{s} =`);
+    expect(latex).toContain(" - ");
+    expect(latex).toContain(String.raw`\frac{c_{P} \mathrm{d}{T}}{T}`);
+    expect(latex).toContain(
+      String.raw`\frac{T \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \mathrm{d}{P}}{T}`
+    );
+    expect(latex).not.toContain(
+      String.raw`\frac{c_{P} \mathrm{d}{T} - T \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \mathrm{d}{P}}{T}`
+    );
+  });
+
+  it("expands integral of a sum into sum of integrals (issue 123)", () => {
+    const tree = treefromLatex(
+      String.raw`\int \left(\frac{c_{P}}{T} \mathrm{d}{T} - \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \mathrm{d}{P}\right)`
+    );
+    const integralId = tree.rootId;
+    expect(integralId).toBeTruthy();
+    if (!integralId) return;
+
+    const result = expandSubexpression(tree, integralId);
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    const latex = normalizeSpaces(result.latexPlain);
+    expect(latex).toContain(
+      String.raw`\int \frac{c_{P}}{T} \mathrm{d}{T} - \int \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \mathrm{d}{P}`
+    );
+  });
+
+  it("does not distribute an inner grouped additive differential term while splitting outer integral", () => {
+    const tree = treefromLatex(
+      String.raw`\int \left(c_{P} \mathrm{d}{T} + \left[v - T \left(\frac{\partial{v}}{\partial{T}}\right)_{P}\right] \mathrm{d}{P}\right)`
+    );
+    const integralId = tree.rootId;
+    expect(integralId).toBeTruthy();
+    if (!integralId) return;
+
+    const result = expandSubexpression(tree, integralId);
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    const latex = normalizeSpaces(result.latexPlain);
+    expect(latex).toContain(String.raw`\int c_{P} \mathrm{d}{T}`);
+    expect(latex).toContain(
+      String.raw`\int \left[v - T \left(\frac{\partial{v}}{\partial{T}}\right)_{P}\right] \mathrm{d}{P}`
+    );
+    expect(latex).not.toContain(String.raw`\int v \mathrm{d}{P}`);
+    expect(latex).not.toContain(
+      String.raw`\int -T \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \mathrm{d}{P}`
+    );
+  });
 });

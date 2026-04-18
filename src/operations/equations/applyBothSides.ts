@@ -12,7 +12,7 @@ function isDifferentialOfEqnOperation(operationLatex: string): boolean {
 
 function isIntegralOfEqnOperation(operationLatex: string): boolean {
   const compact = operationLatex.replace(/\s+/g, "");
-  return /^\\int(?:\\left\(|\()eqn(?:\\right\)|\))$/.test(compact);
+  return /^\\int(?:(?:\\left\(|\()eqn(?:\\right\)|\))|eqn)$/.test(compact);
 }
 
 function parsePartialOfEqnVariable(operationLatex: string): MJ | null {
@@ -172,6 +172,38 @@ function wrapDifferentialOperand(side: MJ): MJ {
   return deepClone(side);
 }
 
+function wrapIntegralOperand(side: MJ): MJ {
+  // Keep additive integrands grouped so \int applies to the whole side.
+  if (Array.isArray(side) && side[0] === "Add") {
+    return ["Delimiter", deepClone(side)] as MJ;
+  }
+  return deepClone(side);
+}
+
+function integrateSide(side: MJ): MJ {
+  // Keep a top-level unary minus outside the integral:
+  // \int(-f) -> -\int(f)
+  if (Array.isArray(side) && side[0] === "Negate" && side.length >= 2) {
+    return ["Negate", ["Integrate", wrapIntegralOperand(side[1] as MJ), ["Tuple", "Nothing"]] as MJ] as MJ;
+  }
+  return ["Integrate", wrapIntegralOperand(side), ["Tuple", "Nothing"]] as MJ;
+}
+
+function hoistTopLevelNegateFromIntegral(expr: MJ): MJ {
+  if (!Array.isArray(expr) || expr[0] !== "Integrate" || expr.length < 3) {
+    return expr;
+  }
+  const integrand = expr[1] as MJ;
+  const domain = deepClone(expr[2] as MJ);
+  if (!Array.isArray(integrand) || integrand[0] !== "Negate" || integrand.length < 2) {
+    return expr;
+  }
+  return [
+    "Negate",
+    ["Integrate", wrapIntegralOperand(integrand[1] as MJ), domain] as MJ,
+  ] as MJ;
+}
+
 function distributeTopLevelMulOverAdd(expr: MJ): MJ {
   if (!Array.isArray(expr)) return expr;
   const op = expr[0];
@@ -228,8 +260,8 @@ export function applyOperationToBothSides(
   // the variable unresolved until the user provides/derives one later.
   if (isIntegralOfEqnOperation(operationLatex)) {
     const [, lhs, rhs] = equation;
-    const newLhs = ["Integrate", deepClone(lhs as MJ), ["Tuple", "Nothing"]] as MJ;
-    const newRhs = ["Integrate", deepClone(rhs as MJ), ["Tuple", "Nothing"]] as MJ;
+    const newLhs = integrateSide(lhs as MJ);
+    const newRhs = integrateSide(rhs as MJ);
     return ["Equal", newLhs, newRhs];
   }
 
@@ -304,6 +336,7 @@ export function applyOperationToBothSides(
     if (!parsed) {
       throw new Error("Could not parse applied expression.");
     }
+    parsed = hoistTopLevelNegateFromIntegral(parsed);
     if (containsOp(parsed, "Equal")) {
       throw new Error("Operation result must not contain an equality.");
     }

@@ -149,6 +149,46 @@ describe("applyOperationToBothSides", () => {
     expect(latex).not.toContain(String.raw`\mathrm{d}{Nothing}`);
   });
 
+  it("groups additive RHS integrand when applying \\int(eqn) (issue 122)", () => {
+    const eqn = makeMJfromLatex(
+      String.raw`\mathrm{d}{s} = \frac{c_{P}}{T} \, \mathrm{d}{T} - \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \, \mathrm{d}{P}`
+    );
+    const result = applyOperationToBothSides(eqn, String.raw`\int(eqn)`);
+    const latex = ExpressionTree.create(result).latexPlain.replace(/\s+/g, " ").trim();
+
+    expect(latex).toContain(String.raw`\int \mathrm{d}{s}`);
+    expect(latex).toContain(
+      String.raw`\int \left(\frac{c_{P}}{T} \mathrm{d}{T} - \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \mathrm{d}{P}\right)`
+    );
+  });
+
+  it("treats \\int eqn the same as \\int(eqn) for grouped additive integrands", () => {
+    const eqn = makeMJfromLatex(
+      String.raw`\mathrm{d}{s} = \frac{c_{P}}{T} \, \mathrm{d}{T} - \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \, \mathrm{d}{P}`
+    );
+    const result = applyOperationToBothSides(eqn, String.raw`\int eqn`);
+    const latex = ExpressionTree.create(result).latexPlain.replace(/\s+/g, " ").trim();
+
+    expect(latex).toContain(String.raw`\int \mathrm{d}{s}`);
+    expect(latex).toContain(
+      String.raw`\int \left(\frac{c_{P}}{T} \mathrm{d}{T} - \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \mathrm{d}{P}\right)`
+    );
+  });
+
+  it("pulls top-level negation outside integral for \\int eqn (issue 125)", () => {
+    const eqn = makeMJfromLatex(String.raw`a = -b`);
+    const result = applyOperationToBothSides(eqn, String.raw`\int eqn`);
+    const latex = ExpressionTree.create(result).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toBe(String.raw`\int a = -\int b`);
+  });
+
+  it("pulls top-level negation outside integral for \\int eqn dP (issue 125)", () => {
+    const eqn = makeMJfromLatex(String.raw`a = -b`);
+    const result = applyOperationToBothSides(eqn, String.raw`\int eqn dP`);
+    const latex = ExpressionTree.create(result).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toBe(String.raw`\int a \,\mathrm{d}{P} = -\int b \,\mathrm{d}{P}`);
+  });
+
   it("treats \\frac{\\partial}{\\partial v}eqn as whole-side partial derivative (issue 86)", () => {
     const eqn = makeMJfromLatex(String.raw`u = c_{v} T - \frac{a}{v}`);
     const result = applyOperationToBothSides(eqn, String.raw`\frac{\partial}{\partial v}eqn`);

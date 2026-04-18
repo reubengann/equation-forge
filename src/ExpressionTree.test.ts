@@ -290,6 +290,24 @@ describe("ExpressionTree", () => {
     );
   });
 
+  it("renders repeated denominator partial factors as squared operand notation", () => {
+    const t = ExpressionTree.create([
+      "Subscript",
+      [
+        "Delimiter",
+        [
+          "FractionPartialDerivative",
+          ["Partial", ["Partial", "v"]],
+          ["InvisibleOperator", ["Partial", "T"], ["Partial", "T"]],
+        ],
+      ],
+      "P",
+    ]);
+    expect(t.latexPlain).toBe(
+      String.raw`\left(\frac{\partial^{2}{v}}{\partial{T^{2}}}\right)_{P}`,
+    );
+  });
+
   it("renders bare partial operators with grouped application operands", () => {
     const t = ExpressionTree.create([
       "InvisibleOperator",
