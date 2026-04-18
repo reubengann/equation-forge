@@ -436,12 +436,13 @@
       outside. I.e., if we apply \int eqn, the result should not say
       `\int a = \int - b` but instead `\int a = - \int b`.
 
----- undone ----
 
 126. We seem to puke on double subscripts
      `-1 \left(c_{P} - c_{P_{0}}\right)`
      This simplifies to
      `-c_P + c_Subscript_P_0`
+
+---- undone ----
 
 127. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs, and there's no way to tell from the front-end what occured.
 
