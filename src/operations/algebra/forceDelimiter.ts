@@ -5,6 +5,16 @@ import type { ExprSelection } from "../../selectionSemantics";
 
 function forceOrUnforceDelimiter(expr: MJ): MJ | null {
   if (!Array.isArray(expr)) return ["Delimiter", expr] as MJ;
+  if (expr[0] === "Negate" && expr.length >= 2) {
+    const inner = expr[1] as MJ;
+    if (
+      Array.isArray(inner) &&
+      (inner[0] === "Delimiter" || inner[0] === "List") &&
+      inner.length >= 2
+    ) {
+      return ["Negate", (inner[1] as MJ)] as MJ;
+    }
+  }
   if (expr[0] === "Delimiter" || expr[0] === "List") {
     const inner = (expr[1] ?? null) as MJ | null;
     if (inner == null) return null;
@@ -15,7 +25,8 @@ function forceOrUnforceDelimiter(expr: MJ): MJ | null {
 
 function normalizedRoot(root: MJ): MJ {
   const normalized = (normalizeMathJson(root) ?? root) as MJ;
-  return simplifyUnaryNegates(normalized);
+  const signNormalized = normalizeAddTermSignsRecursively(normalized);
+  return simplifyUnaryNegates(signNormalized);
 }
 
 function simplifyUnaryNegates(expr: MJ): MJ {
@@ -29,6 +40,80 @@ function simplifyUnaryNegates(expr: MJ): MJ {
     }
   }
   return [op, ...kids] as MJ;
+}
+
+function absoluteNumericMJ(value: MJ): MJ | null {
+  if (typeof value === "number" && Number.isFinite(value) && value < 0) {
+    return Math.abs(value);
+  }
+  if (typeof value === "string" && /^-\d+(?:\.\d+)?$/.test(value)) {
+    return value.slice(1);
+  }
+  return null;
+}
+
+function normalizeNegativeAddTerm(expr: MJ): MJ {
+  const extractLeadingNegatedFactor = (value: MJ): MJ | null => {
+    if (Array.isArray(value) && value[0] === "Negate" && value.length >= 2) {
+      return value[1] as MJ;
+    }
+    if (
+      Array.isArray(value) &&
+      (value[0] === "Delimiter" || value[0] === "List") &&
+      value.length >= 2 &&
+      Array.isArray(value[1]) &&
+      (value[1] as MJ[])[0] === "Negate" &&
+      (value[1] as MJ[]).length >= 2
+    ) {
+      const lifted = (value[1] as MJ[])[1] as MJ;
+      if (
+        Array.isArray(lifted) &&
+        (lifted[0] === "Delimiter" || lifted[0] === "List") &&
+        lifted.length >= 2
+      ) {
+        return lifted;
+      }
+      return [value[0], lifted] as MJ;
+    }
+    return null;
+  };
+
+  const absScalar = absoluteNumericMJ(expr);
+  if (absScalar !== null) return ["Negate", absScalar] as MJ;
+
+  const directNegated = extractLeadingNegatedFactor(expr);
+  if (directNegated !== null) return ["Negate", directNegated] as MJ;
+
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  if (op !== "InvisibleOperator" && op !== "Multiply") return expr;
+
+  const factors = expr.slice(1) as MJ[];
+  if (factors.length === 0) return expr;
+  const firstAbs = absoluteNumericMJ(factors[0] as MJ);
+  const firstNegatedFactor = extractLeadingNegatedFactor(factors[0] as MJ);
+  if (firstAbs === null && firstNegatedFactor === null) return expr;
+  const firstPositive = firstAbs !== null ? firstAbs : firstNegatedFactor;
+  const rest = [firstPositive as MJ, ...factors.slice(1)] as MJ[];
+  const product = rest.length === 1 ? rest[0] : ([op, ...rest] as MJ);
+  return ["Negate", product] as MJ;
+}
+
+function normalizeNegativeTermsInAdd(expr: MJ): MJ {
+  if (!Array.isArray(expr) || expr[0] !== "Add") return expr;
+  const terms = (expr.slice(1) as MJ[]).map((term) => normalizeNegativeAddTerm(term));
+  if (terms.length === 0) return 0;
+  if (terms.length === 1) return terms[0] as MJ;
+  return ["Add", ...terms] as MJ;
+}
+
+function normalizeAddTermSignsRecursively(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((term) => normalizeAddTermSignsRecursively(term as MJ));
+  const rebuilt = [op, ...kids] as MJ;
+  if (op === "Add") return normalizeNegativeTermsInAdd(rebuilt);
+  return rebuilt;
 }
 
 export function canForceDelimiter(

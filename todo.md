@@ -436,24 +436,26 @@
       outside. I.e., if we apply \int eqn, the result should not say
       `\int a = \int - b` but instead `\int a = - \int b`.
 
-
-126. We seem to puke on double subscripts
-     `-1 \left(c_{P} - c_{P_{0}}\right)`
-     This simplifies to
-     `-c_P + c_Subscript_P_0`
+126.  We seem to puke on double subscripts
+      `-1 \left(c_{P} - c_{P_{0}}\right)`
+      This simplifies to
+      `-c_P + c_Subscript_P_0`
 
 ---- undone ----
 
-127. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs, and there's no way to tell from the front-end what occured.
+127. `s = \int_{T_{0}}^{T} \frac{c_{P}}{T} \,\mathrm{d}{T} - \left(R \ln\left(\frac{\left|P\right|}{\left|P_{0}\right|}\right)\right) + s_{0}`
+     Select the parentheses, and press the "force/unforce parentheses" button. This results in `s = \int_{T_{0}}^{T} \frac{c_{P}}{T} \,\mathrm{d}{T} + \left(-\left(R \ln\left(\frac{\left|P\right|}{\left|P_{0}\right|}\right)\right)\right) + s_{0}` instead of `s = \int_{T_{0}}^{T} \frac{c_{P}}{T} \,\mathrm{d}{T} - R \ln\left(\frac{\left|P\right|}{\left|P_{0}\right|}\right) + s_{0}`
 
-128. `\ln (a/b)` should expand to `ln a - ln b`
+128. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs, and there's no way to tell from the front-end what occured.
 
-129. We need fraction tools. Such as
+129. `\ln (a/b)` should expand to `ln a - ln b`
+
+130. We need fraction tools. Such as
      - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`)
      - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)
 
-130. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
+131. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
 
-131. Maybe start over? Idk. I would explore whether representing things as our own AST instead of operating directly on MJ trees would be better and reduce the amount of special cases and calls to things like "kids" throughout the code. We have a lot of code that does checking of many cases, and I feel like, while this mostly works, it isn't very elegant. For one thing, should we have separate code paths for planning and executing? Maybe we should just have one path that returns early if it's just planning, storing the work it did, and otherwise we pass this progress back in or restore the state and continue if we decide to execute. This would also probably simplify updating cortexjs, which I think is currently breaking.
+132. Maybe start over? Idk. I would explore whether representing things as our own AST instead of operating directly on MJ trees would be better and reduce the amount of special cases and calls to things like "kids" throughout the code. We have a lot of code that does checking of many cases, and I feel like, while this mostly works, it isn't very elegant. For one thing, should we have separate code paths for planning and executing? Maybe we should just have one path that returns early if it's just planning, storing the work it did, and otherwise we pass this progress back in or restore the state and continue if we decide to execute. This would also probably simplify updating cortexjs, which I think is currently breaking.
 
-132. Upgrade cortexjs to newest version.
+133. Upgrade cortexjs to newest version.

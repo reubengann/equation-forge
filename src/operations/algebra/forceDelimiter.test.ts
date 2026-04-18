@@ -79,5 +79,46 @@ describe("forceDelimiter", () => {
       String.raw`c_{P} - c_{v} = v \left(\frac{\partial{P}}{\partial{T}}\right)_{v}`
     );
   });
+
+  it("unforcing grouped negative additive term restores subtraction form (issue 127)", () => {
+    const tree = treefromLatex(
+      String.raw`s = \int_{T_{0}}^{T} \frac{c_{P}}{T} \,\mathrm{d}{T} - \left(R \ln\left(\frac{\left|P\right|}{\left|P_{0}\right|}\right)\right) + s_{0}`
+    );
+    const innerGroupId = findNodeId(
+      tree,
+      (n) => n.op === "Delimiter" && n.latex.includes(String.raw`R \ln`)
+    );
+    const result = forceDelimiter(tree, {
+      kind: "node",
+      nodeId: innerGroupId,
+    });
+
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe(
+      String.raw`s = \int_{T_{0}}^{T} \frac{c_{P}}{T} \,\mathrm{d}{T} - R \ln\left(\frac{\left|P\right|}{\left|P_{0}\right|}\right) + s_{0}`
+    );
+  });
+
+  it("unforcing when selection resolves to negated grouped term removes extra parentheses (issue 127)", () => {
+    const tree = treefromLatex(
+      String.raw`s = \int_{T_{0}}^{T} \frac{c_{P}}{T} \,\mathrm{d}{T} - \left(R \ln\left(\frac{\left|P\right|}{\left|P_{0}\right|}\right)\right) + s_{0}`
+    );
+    const negatedTermId = findNodeId(
+      tree,
+      (n) => n.op === "Negate" && n.latex.includes(String.raw`R \ln`)
+    );
+    const result = forceDelimiter(tree, {
+      kind: "node",
+      nodeId: negatedTermId,
+    });
+
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe(
+      String.raw`s = \int_{T_{0}}^{T} \frac{c_{P}}{T} \,\mathrm{d}{T} - R \ln\left(\frac{\left|P\right|}{\left|P_{0}\right|}\right) + s_{0}`
+    );
+    expect(normalizeSpaces(result!.latexPlain)).not.toContain(
+      String.raw`\left(\left(R \ln`
+    );
+  });
 });
 
