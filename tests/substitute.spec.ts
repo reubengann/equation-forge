@@ -33,6 +33,20 @@ async function setSubstituteInput(page: any, latex: string) {
 }
 
 test.describe("Substitute modal", () => {
+  test("pressing Enter accepts substitution", async ({ page }) => {
+    const equation = "a + a = b";
+    await setEquation(page, equation);
+
+    await clickNodeByLatex(page, equation, "a");
+    await page.getByTestId("substitute-button").click();
+
+    await setSubstituteInput(page, "c");
+    await page.keyboard.press("Enter");
+
+    const latex = await getRenderedLatex(page);
+    expect(normalizeLatex(latex)).toContain("c + a = b");
+  });
+
   test("single occurrence substitution", async ({ page }) => {
     const equation = "a + a = b";
     await setEquation(page, equation);

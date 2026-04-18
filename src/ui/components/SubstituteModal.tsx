@@ -1,4 +1,10 @@
-import { useRef, type CSSProperties, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type CSSProperties,
+  type RefObject,
+} from "react";
 import type { SubstituteScope } from "../../operations";
 import { vecMacroOptions } from "../../infra/mathlive/vecMacroOptions";
 import {
@@ -75,10 +81,27 @@ export function SubstituteModal({
   // useVecMacro(open, selectedMathDivRef, [selectedNodeLatex]);
   // useVecMacro(open, substituteFieldRef as RefObject<HTMLElement | null>);
 
+  const onModalEnter = useCallback(() => onSubmit(), [onSubmit]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocumentKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+      event.preventDefault();
+      onModalEnter();
+    };
+    document.addEventListener("keydown", onDocumentKeyDown, true);
+    return () => document.removeEventListener("keydown", onDocumentKeyDown, true);
+  }, [open, onModalEnter]);
+
   if (!open) return null;
 
   return (
-    <div style={modalOverlayStyle} role="dialog" aria-modal="true">
+    <div
+      style={modalOverlayStyle}
+      role="dialog"
+      aria-modal="true"
+    >
       <div style={modalCardStyle}>
         <h3 style={{ margin: 0 }}>Substitute</h3>
         <div

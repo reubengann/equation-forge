@@ -441,21 +441,34 @@
       This simplifies to
       `-c_P + c_Subscript_P_0`
 
+127.  `s = \int_{T_{0}}^{T} \frac{c_{P}}{T} \,\mathrm{d}{T} - \left(R \ln\left(\frac{\left|P\right|}{\left|P_{0}\right|}\right)\right) + s_{0}`
+      Select the parentheses, and press the "force/unforce parentheses" button. This results in `s = \int_{T_{0}}^{T} \frac{c_{P}}{T} \,\mathrm{d}{T} + \left(-\left(R \ln\left(\frac{\left|P\right|}{\left|P_{0}\right|}\right)\right)\right) + s_{0}` instead of `s = \int_{T_{0}}^{T} \frac{c_{P}}{T} \,\mathrm{d}{T} - R \ln\left(\frac{\left|P\right|}{\left|P_{0}\right|}\right) + s_{0}`
+
+128.  Feature: Can we accept the substitution when pressing enter on the modal?
+
 ---- undone ----
 
-127. `s = \int_{T_{0}}^{T} \frac{c_{P}}{T} \,\mathrm{d}{T} - \left(R \ln\left(\frac{\left|P\right|}{\left|P_{0}\right|}\right)\right) + s_{0}`
-     Select the parentheses, and press the "force/unforce parentheses" button. This results in `s = \int_{T_{0}}^{T} \frac{c_{P}}{T} \,\mathrm{d}{T} + \left(-\left(R \ln\left(\frac{\left|P\right|}{\left|P_{0}\right|}\right)\right)\right) + s_{0}` instead of `s = \int_{T_{0}}^{T} \frac{c_{P}}{T} \,\mathrm{d}{T} - R \ln\left(\frac{\left|P\right|}{\left|P_{0}\right|}\right) + s_{0}`
+129. When entering substitute modal (and others), focus should automatically be given to the edit component, so that we don't have to click.
 
-128. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs, and there's no way to tell from the front-end what occured.
+130. Active item. Only one equation should be active for editing at a time. When a mathlive entry is active, no other interactions should be possible
+     on another equation. An equation becomes active when clicked on it. Only then does the toolbar appear and items can be chosen. If another equation is
+     selected, editing is disabled on this one and the toolbar vanishes. It would be nice if the items that are non-editable are more compact vertically; to do this,
+     we would have to remove the buttons for changing the order and copying, but possibly they could just be laid out horizontally in miniaturized form.
 
-129. `\ln (a/b)` should expand to `ln a - ln b`
+131. Keyboard shortcuts: From the derivation page, we should be able to enter substitution page via the U key, but of course it should only do it for the last highlighted
+     item. In fact, it would be nice if we highlighted an item in one pad, if all the others became de-selected so it's clear what will happen.
+     We should also have shortcuts for all the other commands, but I'm not sure what they should be. They should only be active when no mathlive environment is active, as we don't want to preempt all of those commands.
 
-130. We need fraction tools. Such as
+132. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs, and there's no way to tell from the front-end what occured.
+
+133. `\ln (a/b)` should expand to `ln a - ln b`
+
+134. We need fraction tools. Such as
      - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`)
      - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)
 
-131. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
+135. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
 
-132. Maybe start over? Idk. I would explore whether representing things as our own AST instead of operating directly on MJ trees would be better and reduce the amount of special cases and calls to things like "kids" throughout the code. We have a lot of code that does checking of many cases, and I feel like, while this mostly works, it isn't very elegant. For one thing, should we have separate code paths for planning and executing? Maybe we should just have one path that returns early if it's just planning, storing the work it did, and otherwise we pass this progress back in or restore the state and continue if we decide to execute. This would also probably simplify updating cortexjs, which I think is currently breaking.
+136. Maybe start over? Idk. I would explore whether representing things as our own AST instead of operating directly on MJ trees would be better and reduce the amount of special cases and calls to things like "kids" throughout the code. We have a lot of code that does checking of many cases, and I feel like, while this mostly works, it isn't very elegant. For one thing, should we have separate code paths for planning and executing? Maybe we should just have one path that returns early if it's just planning, storing the work it did, and otherwise we pass this progress back in or restore the state and continue if we decide to execute. This would also probably simplify updating cortexjs, which I think is currently breaking.
 
-133. Upgrade cortexjs to newest version.
+137. Upgrade cortexjs to newest version.
