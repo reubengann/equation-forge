@@ -525,6 +525,11 @@ describe("ExpressionTree", () => {
     expect(t.latexPlain).toContain(String.raw`x''`);
   });
 
+  it("renders Derivative nodes without throwing", () => {
+    const t = ExpressionTree.create(["Derivative", ["Subscript", "w", "T"]]);
+    expect(t.latexPlain).toBe(String.raw`\mathrm{d}'{w_{T}}`);
+  });
+
   it("renders List as square brackets", () => {
     const t = ExpressionTree.create(makeMJfromLatex("[a+b]"));
     expect(t.latexPlain).toContain(String.raw`\left[a + b\right]`);

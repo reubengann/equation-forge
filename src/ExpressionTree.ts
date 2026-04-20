@@ -340,6 +340,9 @@ export class ExpressionTree {
       if (op === "Prime") {
         return this.recordTagged(this.emitPrime(node, id, path, op));
       }
+      if (op === "Derivative") {
+        return this.recordTagged(this.emitDerivative(node, id, path, op));
+      }
       if (op === "Degrees") {
         return this.recordTagged(this.emitDegrees(node, id, path, op));
       }
@@ -771,6 +774,36 @@ export class ExpressionTree {
     const plain = String.raw`${inner.latexPlain}${cmd}`;
     const taggedInner = String.raw`${cmd}{${inner.latexTagged}}`;
 
+    this.nodesById[id] = { id, op, latex: plain, json: node };
+    return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+  }
+
+  private emitDerivative(node: MJNode, id: string, path: number[], op: string) {
+    const children = node
+      .slice(1)
+      .map((childNode, i) => this.emit(childNode, id, [...path, i + 1]));
+
+    this.childrenById[id] = children.map((c) => c.id);
+    children.forEach((c, i) => (this.childIndexById[c.id] = i));
+
+    if (children.length === 0) {
+      const plain = String.raw`\mathrm{d}'`;
+      this.nodesById[id] = { id, op, latex: plain, json: node };
+      return { id, latexPlain: plain, latexTagged: this.wrap(id, plain) };
+    }
+
+    if (children.length === 1) {
+      const operand = children[0];
+      const plain = String.raw`\mathrm{d}'{${operand.latexPlain}}`;
+      const taggedInner = String.raw`\mathrm{d}'{${operand.latexTagged}}`;
+      this.nodesById[id] = { id, op, latex: plain, json: node };
+      return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
+    }
+
+    const argsPlain = children.map((c) => c.latexPlain).join(", ");
+    const argsTagged = children.map((c) => c.latexTagged).join(", ");
+    const plain = String.raw`\operatorname{Derivative}\left(${argsPlain}\right)`;
+    const taggedInner = String.raw`\operatorname{Derivative}\left(${argsTagged}\right)`;
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
   }

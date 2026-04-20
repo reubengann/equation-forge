@@ -166,4 +166,24 @@ describe("substitute", () => {
       String.raw`P \left(\frac{R T}{P}\right)^{\gamma} = K`
     );
   });
+
+  it("wraps additive replacement when substituting into an integral integrand", () => {
+    const tree = treefromLatex(
+      String.raw`u = \int_{T_{0}}^{T} c_{P} \,\mathrm{d}{T} + h_{0} - R T`
+    );
+    const targetId = findNodeByLatex(tree, String.raw`c_{P}`);
+    const replacement = makeMJfromLatex(String.raw`c_{v} + R`);
+
+    const result = substitute({
+      tree,
+      targetId,
+      replacement,
+      scope: "single",
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`u = \int_{T_{0}}^{T} \left(c_{v} + R\right) \,\mathrm{d}{T} + h_{0} - R T`
+    );
+  });
 });

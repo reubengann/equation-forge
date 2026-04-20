@@ -175,6 +175,20 @@ describe("applyOperationToBothSides", () => {
     );
   });
 
+  it("does not crash when integrating equations with inexact differential lhs (issue 130)", () => {
+    const eqn = makeMJfromLatex(
+      String.raw`\mathrm{d}'{w_{T}} = \left(\frac{R T}{v - b} - \frac{a}{v^{2}}\right) \, \mathrm{d}{v}`
+    );
+    const result = applyOperationToBothSides(eqn, String.raw`\int eqn`);
+    const latex = ExpressionTree.create(result).latexPlain.replace(/\s+/g, " ").trim();
+
+    expect(containsOp(result, "Derivative")).toBe(false);
+    expect(latex).toContain(String.raw`\int \mathrm{d}'{w_{T}}`);
+    expect(latex).toContain(
+      String.raw`\int \left(\frac{R T}{v - b} - \frac{a}{v^{2}}\right) \mathrm{d}{v}`
+    );
+  });
+
   it("pulls top-level negation outside integral for \\int eqn (issue 125)", () => {
     const eqn = makeMJfromLatex(String.raw`a = -b`);
     const result = applyOperationToBothSides(eqn, String.raw`\int eqn`);

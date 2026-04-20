@@ -94,6 +94,7 @@ export type ExpressionPadSnapshot = {
 
 export type ExpressionPadHistoryStep = {
   latex: string;
+  rootJson?: MJ;
 };
 export type ExpressionPadHistory = History<ExpressionPadHistoryStep>;
 
@@ -149,8 +150,10 @@ function normalizeHistoryStep(step: unknown): ExpressionPadHistoryStep | null {
   if (!step || typeof step !== "object") return null;
   const candidate = step as Partial<ExpressionPadHistoryStep>;
   if (typeof candidate.latex !== "string") return null;
+  const hasRootJson = candidate.rootJson !== undefined;
   return {
     latex: candidate.latex,
+    ...(hasRootJson ? { rootJson: cloneMj(candidate.rootJson as MJ) } : {}),
   };
 }
 
@@ -325,9 +328,12 @@ export function ExpressionPad({
   }
 
   const applyPresentStep = useCallback((step: ExpressionPadHistoryStep) => {
-    const parsed = mathPadFacade.parseLatex(step.latex);
-    if (!parsed) return;
-    applyPresentJson(parsed, { latex: step.latex });
+    const sourceJson =
+      step.rootJson !== undefined
+        ? cloneMj(step.rootJson)
+        : mathPadFacade.parseLatex(step.latex);
+    if (!sourceJson) return;
+    applyPresentJson(sourceJson, { latex: step.latex });
   }, [applyPresentJson]);
 
   // Use extracted hooks
@@ -511,6 +517,7 @@ export function ExpressionPad({
     if (!initialSnapshot) return;
     const initialStep: ExpressionPadHistoryStep = {
       latex: initialSnapshot.latex,
+      rootJson: cloneMj(initialSnapshot.rootJson),
     };
     replaceHistory({ past: [], present: initialStep, future: [] });
     applyPresentStep(initialStep);
@@ -692,6 +699,7 @@ export function ExpressionPad({
     const nextTree = ExpressionTree.create(next);
     return {
       latex: opts?.latex ?? nextTree.latexPlain,
+      rootJson: cloneMj(nextTree.rootJson),
     };
   }
 
@@ -1744,10 +1752,11 @@ export function ExpressionPad({
   const fullHistoryLatex = useMemo(() => {
     return fullHistorySteps
       .map((step) => {
-        const parsed = mathPadFacade.parseLatex(step.latex);
-        const exportLatex = parsed
-          ? ExpressionTree.exportLatex(parsed)
-          : step.latex;
+        const parsed =
+          step.rootJson !== undefined
+            ? cloneMj(step.rootJson)
+            : mathPadFacade.parseLatex(step.latex);
+        const exportLatex = parsed ? ExpressionTree.exportLatex(parsed) : step.latex;
         return `$$ ${exportLatex} $$`;
       })
       .join("\n");

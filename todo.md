@@ -446,29 +446,61 @@
 
 128.  Feature: Can we accept the substitution when pressing enter on the modal?
 
+129.  `u = \int_{T_{0}}^{T} c_{P} \,\mathrm{d}{T} + h_{0} - R T`
+      Replace `c_{P}` with `c_{v} + R`. The result is `u = \int_{T_{0}}^{T} c_{v} + R \,\mathrm{d}{T} + h_{0} - R T` instead of `u = \int_{T_{0}}^{T} (c_{v} + R) \,\mathrm{d}{T} + h_{0} - R T`
+
+130.  `\mathrm{d}'{w_{T}} = \left(\frac{R T}{v - b} - \frac{a}{v^{2}}\right) \, \mathrm{d}{v}`
+      Apply `\int eqn` to both sides. The result is an error and crashes the interface:
+      Uncaught Error: Derivative is not a known type of array
+
 ---- undone ----
 
-129. When entering substitute modal (and others), focus should automatically be given to the edit component, so that we don't have to click.
+131. We might need a `distribute negation` command somehow. For instance, we frequently want to take
+     `w_{T} = R T \ln\left(\frac{v_{2} - b}{v_{1} - b}\right) - \left(\frac{a}{v_{1}} - \frac{a}{v_{2}}\right)`
+     and transform it to
+     `w_{T} = R T \ln\left(\frac{v_{2} - b}{v_{1} - b}\right) + \left(-\frac{a}{v_{1}} + \frac{a}{v_{2}}\right)`
+     Right now the only way to do that is via substitute.
 
-130. Active item. Only one equation should be active for editing at a time. When a mathlive entry is active, no other interactions should be possible
-     on another equation. An equation becomes active when clicked on it. Only then does the toolbar appear and items can be chosen. If another equation is
-     selected, editing is disabled on this one and the toolbar vanishes. It would be nice if the items that are non-editable are more compact vertically; to do this,
-     we would have to remove the buttons for changing the order and copying, but possibly they could just be laid out horizontally in miniaturized form.
+132. When copying an equation, differentials have a thinspace `\,` put before them when needed (e.g. `P dv` becomes `P \, \mathrm{d}{v}`). This does not occur, however,
+     when copying selection.
 
-131. Keyboard shortcuts: From the derivation page, we should be able to enter substitution page via the U key, but of course it should only do it for the last highlighted
-     item. In fact, it would be nice if we highlighted an item in one pad, if all the others became de-selected so it's clear what will happen.
-     We should also have shortcuts for all the other commands, but I'm not sure what they should be. They should only be active when no mathlive environment is active, as we don't want to preempt all of those commands.
+133. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
+     When simplifying the LHS, I expect `P v_{c_P/c_v}` or something, but I actually get `P^{\left[c_{v}\right]} v^{\left[c_{P}\right]} = \mathrm{const}^{\frac{1}{c_{_v}}}` which is odd.
 
-132. Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs, and there's no way to tell from the front-end what occured.
+134. When entering a modal, I randomly get this error
+     Uncaught TypeError: can't access property "textContent", this.ariaLiveText is undefined
+     onBlur mathlive.mjs:40147
+     onFocus mathlive.mjs:40098
+     focus mathlive.mjs:39823
+     focus mathlive.mjs:41605
+     ApplyModal ApplyModal.tsx:73
+     React 46
+     openApplyModal ExpressionPad.tsx:809
+     React 13
+     <anonymous> main.tsx:6
+     mathlive.mjs:40147:5
 
-133. `\ln (a/b)` should expand to `ln a - ln b`
+---- backlog ----
 
-134. We need fraction tools. Such as
-     - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`)
-     - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)
+When entering substitute modal (and others), focus should automatically be given to the edit component, so that we don't have to click.
 
-135. Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
+Active item. Only one equation should be active for editing at a time. When a mathlive entry is active, no other interactions should be possible
+on another equation. An equation becomes active when clicked on it. Only then does the toolbar appear and items can be chosen. If another equation is
+selected, editing is disabled on this one and the toolbar vanishes. It would be nice if the items that are non-editable are more compact vertically; to do this,
+we would have to remove the buttons for changing the order and copying, but possibly they could just be laid out horizontally in miniaturized form.
 
-136. Maybe start over? Idk. I would explore whether representing things as our own AST instead of operating directly on MJ trees would be better and reduce the amount of special cases and calls to things like "kids" throughout the code. We have a lot of code that does checking of many cases, and I feel like, while this mostly works, it isn't very elegant. For one thing, should we have separate code paths for planning and executing? Maybe we should just have one path that returns early if it's just planning, storing the work it did, and otherwise we pass this progress back in or restore the state and continue if we decide to execute. This would also probably simplify updating cortexjs, which I think is currently breaking.
+Keyboard shortcuts: From the derivation page, we should be able to enter substitution page via the U key, but of course it should only do it for the last highlighted
+item. In fact, it would be nice if we highlighted an item in one pad, if all the others became de-selected so it's clear what will happen.
+We should also have shortcuts for all the other commands, but I'm not sure what they should be. They should only be active when no mathlive environment is active, as we don't want to preempt all of those commands.
 
-137. Upgrade cortexjs to newest version.
+Error feedback. Right now it just goes into the console when something like unbalanced \left/\right happens or unknown symbol occurs, and there's no way to tell from the front-end what occured.
+
+`\ln (a/b)` should expand to `ln a - ln b`
+
+We need fraction tools. Such as - Apply to numerator and denominator (e.g. `\frac{T}{\frac{a}{R}}` multiply top/bottom by `R` to get `\frac{R T}{a}`) - Flip term from denominator to numerator or vice versa (e.g. `\frac{a}{b^2} to a b^{-2}`)
+
+Symbol replacement would be nice. If you have an identity you want to apply, often you just want to drill into the expression and swap the symbols with the ones from your problem.
+
+Maybe start over? Idk. I would explore whether representing things as our own AST instead of operating directly on MJ trees would be better and reduce the amount of special cases and calls to things like "kids" throughout the code. We have a lot of code that does checking of many cases, and I feel like, while this mostly works, it isn't very elegant. For one thing, should we have separate code paths for planning and executing? Maybe we should just have one path that returns early if it's just planning, storing the work it did, and otherwise we pass this progress back in or restore the state and continue if we decide to execute. This would also probably simplify updating cortexjs, which I think is currently breaking.
+
+Upgrade cortexjs to newest version.

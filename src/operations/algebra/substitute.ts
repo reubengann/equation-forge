@@ -76,6 +76,18 @@ function replacementForPath(root: MJ, path: number[], replacement: MJ): MJ {
   ) {
     return ["Delimiter", replacement] as MJ;
   }
+
+  // Preserve integrand precedence: \int f(x) dx with f -> (a+b) must become
+  // \int (a+b) dx, not \int a+b dx.
+  if (
+    Array.isArray(parent) &&
+    parent[0] === "Integrate" &&
+    childIndex === 1 &&
+    Array.isArray(replacement) &&
+    (replacement[0] === "Add" || replacement[0] === "Negate")
+  ) {
+    return ["Delimiter", replacement] as MJ;
+  }
   return replacement;
 }
 
