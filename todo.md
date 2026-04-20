@@ -453,21 +453,33 @@
       Apply `\int eqn` to both sides. The result is an error and crashes the interface:
       Uncaught Error: Derivative is not a known type of array
 
+131.  `\left(\frac{\partial{h}}{\partial{P}}\right)_{T} = \frac{R T v^{3} b - 2 a v^{3} - 2 a v b^{2} + 4 a b v^{2}}{R T v^{3} - 2 a b^{2} + 4 a b v - 2 a v^{2}}`
+      Rubber band select the latter 3 terms in the numerator `-2 a v^{3} - 2 a v b^{2} + 4 a b v^{2}` and factor
+      The result is `\left(\frac{\partial{h}}{\partial{P}}\right)_{T} = \frac{R T v^{3} b + 2 a \left(-v^{3} - v b^{2} + 2 b v^{2}\right)}{R T v^{3} - 2 a b^{2} + 4 a b v - 2 a v^{2}}`
+      It's inexplicable that a factor of `v` is not brought out.
+      This also happens when you factor the RHS of
+      `T_{2} - T_{1} = \frac{a}{c_{v} v_{2}} - \frac{a}{c_{v} v_{1}}`
+      You expect to pull out a and c_v, but it doesn't happen.
+
 ---- undone ----
 
-131. We might need a `distribute negation` command somehow. For instance, we frequently want to take
+132. We need some kind of `negation` command somehow. For instance, we frequently want to take
      `w_{T} = R T \ln\left(\frac{v_{2} - b}{v_{1} - b}\right) - \left(\frac{a}{v_{1}} - \frac{a}{v_{2}}\right)`
      and transform it to
      `w_{T} = R T \ln\left(\frac{v_{2} - b}{v_{1} - b}\right) + \left(-\frac{a}{v_{1}} + \frac{a}{v_{2}}\right)`
-     Right now the only way to do that is via substitute.
+     Right now the only way to do that is via substitute. Another option is to be able to drag the minus sign in to the parentheses. That might be kind of weird though. It's also fairly common to want to negate an equation
+     `a = -b` to `-a = b`. If we use the command with nothing selected, we do it to the whole equation. Otherwise, we check if the selected term is negated. If it is, we try to distribute that -1 into an also-selected multiplying delimiter (the first if there are more than one). If the selected term is not negated, factor a -1 from the nearest selected delimeter.
 
-132. When copying an equation, differentials have a thinspace `\,` put before them when needed (e.g. `P dv` becomes `P \, \mathrm{d}{v}`). This does not occur, however,
+133. `v = v_{0} + \beta v \int_{T_{0}}^{T} \,\mathrm{d}{T} - \int_{P_{0}}^{P} \kappa v \,\mathrm{d}{P}`
+     We cannot simultaneously take `\kappa v` out of the integral (i.e., select both and move them multiplicatively). We have to move them individually.
+
+134. When copying an equation, differentials have a thinspace `\,` put before them when needed (e.g. `P dv` becomes `P \, \mathrm{d}{v}`). This does not occur, however,
      when copying selection.
 
-133. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
+135. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
      When simplifying the LHS, I expect `P v_{c_P/c_v}` or something, but I actually get `P^{\left[c_{v}\right]} v^{\left[c_{P}\right]} = \mathrm{const}^{\frac{1}{c_{_v}}}` which is odd.
 
-134. When entering a modal, I randomly get this error
+136. When entering a modal, I randomly get this error
      Uncaught TypeError: can't access property "textContent", this.ariaLiveText is undefined
      onBlur mathlive.mjs:40147
      onFocus mathlive.mjs:40098
@@ -482,8 +494,11 @@
 
 ---- backlog ----
 
+Add new pad should jump to the bottom.
+
 When entering substitute modal (and others), focus should automatically be given to the edit component, so that we don't have to click.
 
+Maybe not.
 Active item. Only one equation should be active for editing at a time. When a mathlive entry is active, no other interactions should be possible
 on another equation. An equation becomes active when clicked on it. Only then does the toolbar appear and items can be chosen. If another equation is
 selected, editing is disabled on this one and the toolbar vanishes. It would be nice if the items that are non-editable are more compact vertically; to do this,

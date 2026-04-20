@@ -209,4 +209,44 @@ describe("factorSelection", () => {
       String.raw`W = C_{P} \left(T_{1} + T_{2} - 2 \sqrt{T_{1} T_{2}}\right)`
     );
   });
+
+  it("factors v out of selected numerator tail terms (issue 131)", () => {
+    const tree = treefromLatex(
+      String.raw`\left(\frac{\partial{h}}{\partial{P}}\right)_{T} = \frac{R T v^{3} b - 2 a v^{3} - 2 a v b^{2} + 4 a b v^{2}}{R T v^{3} - 2 a b^{2} + 4 a b v - 2 a v^{2}}`
+    );
+    const numeratorAddId = findNodeId(
+      tree,
+      (n) =>
+        n.op === "Add" &&
+        n.latex.includes(String.raw`R T v^{3} b`) &&
+        n.latex.includes(String.raw`- 2 a v^{3}`) &&
+        n.latex.includes(String.raw`+ 4 a b v^{2}`)
+    );
+    const result = factorSelection(tree, {
+      kind: "span",
+      parentId: numeratorAddId,
+      op: "Add",
+      start: 1,
+      end: 3,
+    });
+    expect(result).not.toBeNull();
+    const out = normalizeSpaces(result!.latexPlain);
+    expect(out).toContain(String.raw`2 a v \left`);
+    expect(out).toContain(String.raw`v^{2}`);
+    expect(out).toContain(String.raw`- b^{2}`);
+    expect(out).toContain(String.raw`+ 2 b v`);
+  });
+
+  it("factors both a and c_v from RHS terms (issue 131)", () => {
+    const tree = treefromLatex(
+      String.raw`T_{2} - T_{1} = \frac{a}{c_{v} v_{2}} - \frac{a}{c_{v} v_{1}}`
+    );
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(rhsId).toBeTruthy();
+    const result = factorSelection(tree, { kind: "node", nodeId: rhsId! });
+    expect(result).not.toBeNull();
+    const out = normalizeSpaces(result!.latexPlain);
+    expect(out).toContain(String.raw`\frac{a}{c_{v}}`);
+    expect(out).toContain(String.raw`\left(\frac{1}{v_{2}} - \frac{1}{v_{1}}\right)`);
+  });
 });

@@ -44,26 +44,93 @@ function factorsOf(expr: MJ): MJ[] {
 }
 
 function factorsForCommonFactor(expr: MJ): MJ[] {
+  const parsePositiveIntegerExponent = (value: MJ): number | null => {
+    if (typeof value === "number" && Number.isInteger(value) && value > 1) {
+      return value;
+    }
+    if (typeof value === "string" && /^\d+$/.test(value)) {
+      const n = Number(value);
+      return n > 1 ? n : null;
+    }
+    return null;
+  };
+  const inverseFactor = (factor: MJ): MJ => ["Divide", 1, factor] as MJ;
+  const expand = (value: MJ, reciprocal = false): MJ[] => {
+    const unwrappedValue = unwrapDelimiter(value);
+    if (Array.isArray(unwrappedValue)) {
+      const op = unwrappedValue[0];
+      if (op === "InvisibleOperator" || op === "Multiply") {
+        return (unwrappedValue.slice(1) as MJ[]).flatMap((child) =>
+          expand(child as MJ, reciprocal),
+        );
+      }
+      if (op === "Divide" && unwrappedValue.length >= 3) {
+        const numerator = unwrappedValue[1] as MJ;
+        const denominator = unwrappedValue[2] as MJ;
+        if (!reciprocal) {
+          return [...expand(numerator, false), ...expand(denominator, true)];
+        }
+        return [...expand(denominator, false), ...expand(numerator, true)];
+      }
+      if (op === "Power" && unwrappedValue.length >= 3) {
+        const exponent = parsePositiveIntegerExponent(unwrappedValue[2] as MJ);
+        if (exponent !== null && exponent <= 12) {
+          return Array.from({ length: exponent }, () =>
+            reciprocal
+              ? inverseFactor(unwrappedValue[1] as MJ)
+              : (unwrappedValue[1] as MJ),
+          );
+        }
+      }
+    }
+    return [reciprocal ? inverseFactor(unwrappedValue) : unwrappedValue];
+  };
+
   const unwrapped = unwrapDelimiter(expr);
-  if (Array.isArray(unwrapped) && (unwrapped[0] === "InvisibleOperator" || unwrapped[0] === "Multiply")) {
-    return (unwrapped.slice(1) as MJ[]).flatMap((child) => factorsForCommonFactor(child as MJ));
-  }
-  if (Array.isArray(unwrapped) && unwrapped[0] === "Divide" && unwrapped.length >= 3) {
-    const numerator = unwrapped[1] as MJ;
-    const denominator = unwrapped[2] as MJ;
-    // For common-factor detection, treat a/b as factors(a...) * (1/b).
-    return [
-      ...factorsForCommonFactor(numerator),
-      ["Divide", 1, denominator] as MJ,
-    ];
-  }
-  return [unwrapped];
+  return expand(unwrapped, false);
 }
 
 function buildProductFromFactors(factors: MJ[]): MJ {
-  if (factors.length === 0) return 1;
-  if (factors.length === 1) return factors[0];
-  return ["InvisibleOperator", ...factors] as MJNode;
+  const mergeRepeatedFactors = (input: MJ[]): MJ[] => {
+    const out: MJ[] = [];
+    let i = 0;
+    while (i < input.length) {
+      const cur = input[i] as MJ;
+      let j = i + 1;
+      while (j < input.length && deepEqualMJ(input[j] as MJ, cur)) j += 1;
+      const count = j - i;
+      if (count > 1 && typeof cur !== "number") {
+        out.push(["Power", cur, count] as MJ);
+      } else {
+        out.push(cur);
+      }
+      i = j;
+    }
+    return out;
+  };
+  const combineLeadingReciprocals = (input: MJ[]): MJ[] => {
+    const out: MJ[] = [];
+    for (const factor of input) {
+      if (
+        Array.isArray(factor) &&
+        factor[0] === "Divide" &&
+        factor.length >= 3 &&
+        factor[1] === 1 &&
+        out.length > 0
+      ) {
+        const prev = out[out.length - 1] as MJ;
+        out[out.length - 1] = ["Divide", prev, factor[2] as MJ] as MJ;
+        continue;
+      }
+      out.push(factor);
+    }
+    return out;
+  };
+
+  const compacted = combineLeadingReciprocals(mergeRepeatedFactors(factors));
+  if (compacted.length === 0) return 1;
+  if (compacted.length === 1) return compacted[0];
+  return ["InvisibleOperator", ...compacted] as MJNode;
 }
 
 function buildAddFromTerms(terms: MJ[]): MJ {
@@ -311,11 +378,7 @@ function commonFactorFromAdd(expr: MJ): MJ | null {
   for (const info of allTerms) {
     const factors: MJ[] = [];
     const residualNumeric = divideRational(info.numeric, numericCommon);
-    let remainingRest = info.rest;
-    for (const cf of commonFactors) {
-      const removal = removeFactorOnce(remainingRest, unwrapDelimiter(cf));
-      remainingRest = removal.remaining;
-    }
+    const remainingRest = info.rest;
 
     if (isRationalNegativeOne(residualNumeric) && remainingRest.length > 0) {
       const termExpr = ["Negate", buildProductFromFactors(remainingRest)] as MJ;
@@ -489,43 +552,80 @@ function perfectSquareTrinomialFromAdd(expr: MJ): MJ | null {
 }
 
 function factorExpression(expr: MJ): MJ | null {
+  const factorToFixedPoint = (source: MJ): MJ | null => {
+    let current = source;
+    for (let i = 0; i < 4; i += 1) {
+      const next = box(toComputeEngine(current))?.factor?.();
+      if (!next?.json) return null;
+      const candidate = fromComputeEngine(next.json as MJ);
+      const normalized = normalizeNegativeTermsInAdd(
+        normalizeMathJson(candidate) ?? candidate,
+      );
+      if (deepEqualMJ(normalized, current)) return normalized;
+      current = normalized;
+    }
+    return current;
+  };
+
   const ceReady = toComputeEngine(expr);
   const ceBox = box(ceReady) as any;
   const candidates: MJ[] = [];
 
-  const factored = ceBox?.factor?.();
-  if (factored?.json) candidates.push(fromComputeEngine(factored.json as MJ));
+  const factored = factorToFixedPoint(expr);
+  if (factored) candidates.push(factored);
 
   const collected = ceBox?.collect?.();
-  if (collected?.json) candidates.push(fromComputeEngine(collected.json as MJ));
-
-  for (const cand of candidates) {
-    const normalized = normalizeNegativeTermsInAdd(normalizeMathJson(cand) ?? cand);
-    if (!deepEqualMJ(normalized, expr)) return normalized;
+  if (collected?.json) {
+    const collectedCandidate = fromComputeEngine(collected.json as MJ);
+    candidates.push(
+      normalizeNegativeTermsInAdd(
+        normalizeMathJson(collectedCandidate) ?? collectedCandidate,
+      ),
+    );
   }
 
   // Deterministic fallback: common denominator from Add
   const denomFactored = commonDenominatorFromAdd(expr);
   if (denomFactored && !deepEqualMJ(denomFactored, expr)) {
-    return normalizeNegativeTermsInAdd(denomFactored);
+    candidates.push(normalizeNegativeTermsInAdd(normalizeMathJson(denomFactored) ?? denomFactored));
   }
 
   // Deterministic fallback: difference of squares (A^2 - B^2 = (A-B)(A+B))
   const dosFactored = differenceOfSquaresFromAdd(expr);
   if (dosFactored && !deepEqualMJ(dosFactored, expr)) {
-    return normalizeNegativeTermsInAdd(dosFactored);
+    candidates.push(normalizeNegativeTermsInAdd(normalizeMathJson(dosFactored) ?? dosFactored));
   }
 
   // Deterministic fallback: perfect-square trinomial
   const pstFactored = perfectSquareTrinomialFromAdd(expr);
   if (pstFactored && !deepEqualMJ(pstFactored, expr)) {
-    return normalizeNegativeTermsInAdd(pstFactored);
+    candidates.push(normalizeNegativeTermsInAdd(normalizeMathJson(pstFactored) ?? pstFactored));
   }
 
   // Deterministic fallback: common factor from Add
   const fallback = commonFactorFromAdd(expr);
   if (fallback && !deepEqualMJ(fallback, expr)) {
-    return normalizeNegativeTermsInAdd(fallback);
+    candidates.push(normalizeNegativeTermsInAdd(normalizeMathJson(fallback) ?? fallback));
+  }
+
+  const changed = candidates.filter((cand) => !deepEqualMJ(cand, expr));
+  if (changed.length > 0) {
+    let best = changed[0];
+    let bestScore = Infinity;
+    for (const cand of changed) {
+      const score = (() => {
+        try {
+          return ExpressionTree.create(cand).latexPlain.length;
+        } catch {
+          return JSON.stringify(cand).length;
+        }
+      })();
+      if (score < bestScore) {
+        best = cand;
+        bestScore = score;
+      }
+    }
+    return best;
   }
 
   return null;
