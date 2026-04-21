@@ -23,6 +23,16 @@ describe("expandAtomicSelectionNodeIds", () => {
 });
 
 describe("getLatexForSelectionCopy", () => {
+  it("adds thinspace before trailing differential for node copy", () => {
+    const tree = treefromLatex(String.raw`P \mathrm{d}{v}`);
+    const productId = findNodeId(tree, (n) => n.op === "InvisibleOperator");
+    const latex = getLatexForSelectionCopy(tree, {
+      kind: "node",
+      nodeId: productId,
+    });
+    expect(latex).toBe(String.raw`P \, \mathrm{d}{v}`);
+  });
+
   it("returns grouped latex for contiguous multi-selection", () => {
     const tree = treefromLatex(String.raw`a = b c e + \left[g h + i\right] f`);
     const bId = findNodeId(tree, (n) => n.latex === "b");
@@ -63,7 +73,7 @@ describe("getLatexForSelectionCopy", () => {
       kind: "multi",
       nodeIds: [dvFromFraction, pId],
     });
-    expect(latex).toBe(String.raw`\frac{a}{v^{2}} \mathrm{d}{v} + P \mathrm{d}{v}`);
+    expect(latex).toBe(String.raw`\frac{a}{v^{2}} \, \mathrm{d}{v} + P \, \mathrm{d}{v}`);
   });
 
   it("keeps multiplicative prefactor when mixed descendants are selected (issue 110)", () => {

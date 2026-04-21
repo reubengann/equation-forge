@@ -164,6 +164,15 @@ export function getLatexForSelectionCopy(
 ): string {
   if (!tree || !selection) return "";
   if (selection.kind === "node") {
+    const path = tree.pathById[selection.nodeId];
+    if (path !== undefined) {
+      const expr = getAtPath(tree.rootJson, path) as MJ;
+      try {
+        return ExpressionTree.exportLatex(expr);
+      } catch {
+        // Fall back to display latex when export rendering fails.
+      }
+    }
     return tree.nodesById[selection.nodeId]?.latex ?? "";
   }
 
@@ -177,7 +186,7 @@ export function getLatexForSelectionCopy(
     if (chosen.length === 0) return "";
     const selectedExpr =
       chosen.length === 1 ? chosen[0] : ([selection.op, ...chosen] as MJ);
-    return ExpressionTree.create(selectedExpr).latexPlain;
+    return ExpressionTree.exportLatex(selectedExpr);
   }
 
   const ids = Array.from(new Set(selection.nodeIds));
@@ -278,7 +287,7 @@ export function getLatexForSelectionCopy(
           if (wrapperPath !== undefined) {
             const wrapperExpr = getAtPath(tree.rootJson, wrapperPath) as MJ;
             try {
-              return ExpressionTree.create(wrapperExpr).latexPlain;
+              return ExpressionTree.exportLatex(wrapperExpr);
             } catch {
               // Fall through to selectedExpr rendering.
             }
@@ -286,7 +295,7 @@ export function getLatexForSelectionCopy(
         }
       }
     }
-    return ExpressionTree.create(selectedExpr).latexPlain;
+    return ExpressionTree.exportLatex(selectedExpr);
   };
 
   const pickBestCandidate = (candidates: ContainerCandidate[]): ContainerCandidate | null => {
@@ -350,7 +359,7 @@ export function getLatexForSelectionCopy(
             const chosen = addTerms.slice(indices[0], indices[indices.length - 1] + 1);
             const selectedExpr =
               chosen.length === 1 ? chosen[0] : (["Add", ...chosen] as MJ);
-            return ExpressionTree.create(selectedExpr).latexPlain;
+            return ExpressionTree.exportLatex(selectedExpr);
           }
         }
       }
@@ -383,7 +392,7 @@ export function getLatexForSelectionCopy(
             const chosen = kids.slice(indices[0], indices[indices.length - 1] + 1);
             const selectedExpr =
               chosen.length === 1 ? chosen[0] : ([op, ...chosen] as MJ);
-            return ExpressionTree.create(selectedExpr).latexPlain;
+            return ExpressionTree.exportLatex(selectedExpr);
           }
         }
       }

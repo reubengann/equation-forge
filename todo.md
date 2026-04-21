@@ -503,13 +503,13 @@
 138.  `T = A' \exp\left(\int g \left(\theta\right) \,\mathrm{d}{\theta}\right)`
       Can we allow \exp\left(\right) to accept toggling of delimeter so that we can get square brackets?
 
+139.  `v = v_{0} + \beta v \int_{T_{0}}^{T} \,\mathrm{d}{T} - \int_{P_{0}}^{P} \kappa v \,\mathrm{d}{P}`
+      We cannot simultaneously take `\kappa v` out of the integral (i.e., select both and move them multiplicatively). We have to move them individually.
+
+140.  When copying an equation, differentials have a thinspace `\,` put before them when needed (e.g. `P dv` becomes `P \, \mathrm{d}{v}`). This does not occur, however,
+      when copying selection.
+
 ---- undone ----
-
-139. `v = v_{0} + \beta v \int_{T_{0}}^{T} \,\mathrm{d}{T} - \int_{P_{0}}^{P} \kappa v \,\mathrm{d}{P}`
-     We cannot simultaneously take `\kappa v` out of the integral (i.e., select both and move them multiplicatively). We have to move them individually.
-
-140. When copying an equation, differentials have a thinspace `\,` put before them when needed (e.g. `P dv` becomes `P \, \mathrm{d}{v}`). This does not occur, however,
-     when copying selection.
 
 141. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
      When simplifying the LHS, I expect `P v_{c_P/c_v}` or something, but I actually get `P^{\left[c_{v}\right]} v^{\left[c_{P}\right]} = \mathrm{const}^{\frac{1}{c_{_v}}}` which is odd.

@@ -204,3 +204,43 @@ describe("move integration (table-driven)", () => {
     });
   }
 });
+
+it("multiplicative: moves kappa v out of integral together (issue 139)", () => {
+  const tree = treefromLatex(
+    String.raw`v = v_{0} + \beta v \int_{T_{0}}^{T} \,\mathrm{d}{T} - \int_{P_{0}}^{P} \kappa v \,\mathrm{d}{P}`
+  );
+  const integrateId = findNodeId(
+    tree,
+    (n) => n.op === "Integrate" && n.latex.includes(String.raw`P_{0}`)
+  );
+  expect(integrateId).toBeTruthy();
+  if (!integrateId) return;
+
+  const integrandId = tree.childrenById[integrateId]?.[0];
+  expect(integrandId).toBeTruthy();
+  if (!integrandId) return;
+
+  const integrandFactors = tree.childrenById[integrandId] ?? [];
+  const kappaId = integrandFactors.find(
+    (id) => tree.nodesById[id]?.latex === String.raw`\kappa`
+  );
+  const vId = integrandFactors.find((id) => tree.nodesById[id]?.latex === "v");
+  expect(kappaId).toBeTruthy();
+  expect(vId).toBeTruthy();
+  if (!kappaId || !vId) return;
+
+  const next = applyMove({
+    tree,
+    selectedIds: [kappaId, vId],
+    hoverId: integrateId,
+    targetSlot: 0,
+    mode: "multiplicative",
+  });
+
+  expect(next).not.toBeNull();
+  expect(normalizeLatex(next!.latexPlain)).toBe(
+    normalizeLatex(
+      String.raw`v = v_{0} + \beta v \int_{T_{0}}^{T} \,\mathrm{d}{T} - \kappa v \int_{P_{0}}^{P} \,\mathrm{d}{P}`
+    )
+  );
+});

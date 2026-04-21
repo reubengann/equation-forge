@@ -950,14 +950,52 @@ export function applyMoveMultiplicative(
           if (!Array.isArray(mulExpr)) return null;
           const [, ...factors] = mulExpr;
           const siblings = tree.childrenById[containerId] ?? [];
-          const fromIndex = siblings.indexOf(movedId);
-          if (fromIndex < 0 || fromIndex >= factors.length) return null;
+          const selectedInContainer = normalizedSelectedIds.filter(
+            (id) => tree.parentById[id] === containerId,
+          );
+          const selectedIndices = selectedInContainer
+            .map((id) => siblings.indexOf(id))
+            .filter((idx) => idx >= 0 && idx < factors.length)
+            .sort((a, b) => a - b);
+          const effectiveSelectedIndices =
+            selectedIndices.length > 0
+              ? selectedIndices
+              : (() => {
+                  const idx = siblings.indexOf(movedId);
+                  return idx >= 0 && idx < factors.length ? [idx] : [];
+                })();
+          if (effectiveSelectedIndices.length === 0) return null;
 
-          const remainingFactors = factors.filter((_, i) => i !== fromIndex);
+          const selectedIndexSet = new Set<number>(effectiveSelectedIndices);
+          const movedFromContainerExpr = normalizeMul(
+            effectiveSelectedIndices
+              .map((idx) => factors[idx])
+              .filter((f): f is MJ => f !== undefined),
+          );
+          const remainingFactors = factors.filter((_, i) => !selectedIndexSet.has(i));
           const normalizedMul = normalizeMul(remainingFactors as MJ[]);
           nextRoot = setAtPath(nextRoot, containerPath, normalizedMul);
 
           updatedIntegrand = getAtPath(nextRoot, integrandPath) as MJ;
+          // Use grouped moved payload for outside placement.
+          const movedOutsideExpr: MJ = movedFromIntegrandDenominator
+            ? (["Divide", 1, movedFromContainerExpr] as MJNode)
+            : movedFromContainerExpr;
+          const integrateExpr = getAtPath(nextRoot, integratePath) as MJNode;
+          if (!Array.isArray(integrateExpr) || integrateExpr[0] !== "Integrate")
+            return null;
+
+          const updatedIntegrate: MJNode = [
+            "Integrate",
+            updatedIntegrand,
+            ...integrateExpr.slice(2),
+          ];
+          const wrapped = normalizeMul(
+            targetSlot === 0
+              ? ([movedOutsideExpr, updatedIntegrate] as MJ[])
+              : ([updatedIntegrate, movedOutsideExpr] as MJ[]),
+          );
+          nextRoot = setAtPath(nextRoot, integratePath, wrapped);
         } else {
           // Container is the integrand root and not a multiplicative op.
           // Remove the moved factor from the integrand when it appears
@@ -968,28 +1006,26 @@ export function applyMoveMultiplicative(
           if (deepEqualMJ(reducedIntegrand, fallback)) return null;
           updatedIntegrand = reducedIntegrand;
           nextRoot = setAtPath(nextRoot, integrandPath, updatedIntegrand);
+          const integrateExpr = getAtPath(nextRoot, integratePath) as MJNode;
+          if (!Array.isArray(integrateExpr) || integrateExpr[0] !== "Integrate")
+            return null;
+
+          const updatedIntegrate: MJNode = [
+            "Integrate",
+            updatedIntegrand,
+            ...integrateExpr.slice(2),
+          ];
+
+          const movedOutsideExpr: MJ = movedFromIntegrandDenominator
+            ? (["Divide", 1, movedExpr] as MJNode)
+            : movedExpr;
+          const wrapped = normalizeMul(
+            targetSlot === 0
+              ? ([movedOutsideExpr, updatedIntegrate] as MJ[])
+              : ([updatedIntegrate, movedOutsideExpr] as MJ[]),
+          );
+          nextRoot = setAtPath(nextRoot, integratePath, wrapped);
         }
-
-        const integrateExpr = getAtPath(nextRoot, integratePath) as MJNode;
-        if (!Array.isArray(integrateExpr) || integrateExpr[0] !== "Integrate")
-          return null;
-
-        const updatedIntegrate: MJNode = [
-          "Integrate",
-          updatedIntegrand,
-          ...integrateExpr.slice(2),
-        ];
-
-        const movedOutsideExpr: MJ = movedFromIntegrandDenominator
-          ? (["Divide", 1, movedExpr] as MJNode)
-          : movedExpr;
-        const wrapped = normalizeMul(
-          targetSlot === 0
-            ? ([movedOutsideExpr, updatedIntegrate] as MJ[])
-            : ([updatedIntegrate, movedOutsideExpr] as MJ[]),
-        );
-
-        nextRoot = setAtPath(nextRoot, integratePath, wrapped);
 
         // Normalize the parent multiplicative container (if any) to flatten nested products.
         const integrateParentId = tree.parentById[integrateId];
