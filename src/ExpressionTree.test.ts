@@ -518,11 +518,22 @@ describe("ExpressionTree", () => {
   it("renders primes", () => {
     const t = ExpressionTree.create(makeMJfromLatex(String.raw`x'`));
     expect(t.latexPlain).toContain(String.raw`x'`);
+    expect(t.latexTagged).toContain(String.raw`}'`);
+    expect(t.latexTagged).not.toContain(String.raw`'{\htmlData`);
   });
 
   it("renders primes 2", () => {
     const t = ExpressionTree.create(makeMJfromLatex(String.raw`x''`));
     expect(t.latexPlain).toContain(String.raw`x''`);
+    expect(t.latexTagged).toContain(String.raw`}''`);
+    expect(t.latexTagged).not.toContain(String.raw`''{\htmlData`);
+  });
+
+  it("renders symbol prime in suffix order", () => {
+    const t = ExpressionTree.create(makeMJfromLatex(String.raw`A'`));
+    expect(t.latexPlain).toContain(String.raw`A'`);
+    expect(t.latexTagged).toContain(String.raw`}'`);
+    expect(t.latexTagged).not.toContain(String.raw`'{\htmlData`);
   });
 
   it("renders Derivative nodes without throwing", () => {

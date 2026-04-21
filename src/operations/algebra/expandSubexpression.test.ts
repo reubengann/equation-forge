@@ -239,4 +239,22 @@ describe("expandSubexpression", () => {
       String.raw`\int -T \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \mathrm{d}{P}`
     );
   });
+
+  it("expands exp(a+b) into exp(a)exp(b) on equation RHS", () => {
+    const tree = treefromLatex(
+      String.raw`T = \exp\left(\int g \left(\theta\right) \,\mathrm{d}{\theta} + \ln\left(A'\right)\right)`
+    );
+    const rhsId = (tree.childrenById[tree.rootId] ?? [])[1];
+    expect(rhsId).toBeTruthy();
+    if (!rhsId) return;
+
+    expect(mathPadFacade.canExpand(tree, { kind: "node", nodeId: rhsId })).toBe(true);
+    const result = expandSubexpression(tree, rhsId);
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    expect(normalizeSpaces(result.latexPlain)).toBe(
+      String.raw`T = \exp\left(\int g \left(\theta\right) \,\mathrm{d}{\theta}\right) \exp\left(\ln\left(A'\right)\right)`
+    );
+  });
 });

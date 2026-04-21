@@ -546,14 +546,16 @@ export class ExpressionTree {
           : this.wrap(id, fnLatex);
       const argsPlain = args.map((a) => a.latexPlain).join(", ");
       const argsTagged = args.map((a) => a.latexTagged).join(", ");
-      const singleIsDelimiter =
-        args.length === 1 && this.nodesById[args[0].id]?.op === "Delimiter";
+      const singleIsDelimitedArg =
+        args.length === 1 &&
+        (this.nodesById[args[0].id]?.op === "Delimiter" ||
+          this.nodesById[args[0].id]?.op === "List");
       const plain =
         funcNameRaw === "Abs"
           ? String.raw`${fnLatex}${argsPlain}\right|`
           : funcNameRaw === "Sqrt" && args.length === 1
             ? String.raw`${fnLatex}{${argsPlain}}`
-          : singleIsDelimiter
+          : singleIsDelimitedArg
             ? `${fnLatex}${argsPlain}`
             : `${fnLatex}\\left(${argsPlain}\\right)`;
       const taggedInner =
@@ -561,7 +563,7 @@ export class ExpressionTree {
           ? String.raw`${taggedFnLatex}${argsTagged}\right|`
           : funcNameRaw === "Sqrt" && args.length === 1
             ? String.raw`${taggedFnLatex}{${argsTagged}}`
-          : singleIsDelimiter
+          : singleIsDelimitedArg
             ? `${taggedFnLatex}${argsTagged}`
             : `${taggedFnLatex}\\left(${argsTagged}\\right)`;
 
@@ -776,7 +778,7 @@ export class ExpressionTree {
     const cmd = "'".repeat(count);
 
     const plain = String.raw`${inner.latexPlain}${cmd}`;
-    const taggedInner = String.raw`${cmd}{${inner.latexTagged}}`;
+    const taggedInner = String.raw`${inner.latexTagged}${cmd}`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
@@ -1125,15 +1127,17 @@ export class ExpressionTree {
     const argsPlain = args.map((a) => a.latexPlain).join(", ");
     const argsTagged = args.map((a) => a.latexTagged).join(", ");
 
-    const singleIsDelimiter =
-      args.length === 1 && this.nodesById[args[0].id]?.op === "Delimiter";
+    const singleIsDelimitedArg =
+      args.length === 1 &&
+      (this.nodesById[args[0].id]?.op === "Delimiter" ||
+        this.nodesById[args[0].id]?.op === "List");
 
     const plain =
       op === "Abs"
         ? String.raw`${fnLatex}${argsPlain}\right|`
         : op === "Sqrt" && args.length === 1
           ? String.raw`${fnLatex}{${argsPlain}}`
-        : singleIsDelimiter
+          : singleIsDelimitedArg
           ? `${fnLatex}${argsPlain}`
           : `${fnLatex}\\left(${argsPlain}\\right)`;
     const taggedInner =
@@ -1141,7 +1145,7 @@ export class ExpressionTree {
         ? String.raw`${taggedFnLatex}${argsTagged}\right|`
         : op === "Sqrt" && args.length === 1
           ? String.raw`${taggedFnLatex}{${argsTagged}}`
-        : singleIsDelimiter
+          : singleIsDelimitedArg
           ? `${taggedFnLatex}${argsTagged}`
           : `${taggedFnLatex}\\left(${argsTagged}\\right)`;
 

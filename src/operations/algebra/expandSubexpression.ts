@@ -299,6 +299,24 @@ function distributeDivideOverAdd(expr: MJ): MJ {
   return [op, ...kids] as MJ;
 }
 
+function distributeExpOverAdd(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map(distributeExpOverAdd) as MJ[];
+
+  if (op === "Exp" && kids.length >= 1) {
+    const argRaw = kids[0] as MJ;
+    const arg = unwrapDelimiter(argRaw);
+    if (isAdd(arg)) {
+      const terms = (arg as [string, ...MJ[]]).slice(1) as MJ[];
+      return normalizeMul(terms.map((term) => ["Exp", term] as MJ));
+    }
+    return ["Exp", argRaw] as MJ;
+  }
+
+  return [op, ...kids] as MJ;
+}
+
 function distributeDifferential(expr: MJ): MJ {
   if (!Array.isArray(expr)) return expr;
   const op = expr[0];
@@ -400,7 +418,8 @@ export function expandSubexpression(
   const distributedNegate = distributeNegateOverAdd(distributedMul);
   const distributedPower = distributePowerOverMulDiv(distributedNegate);
   const distributedDivide = distributeDivideOverAdd(distributedPower);
-  const distributedDifferential = distributeDifferential(distributedDivide);
+  const distributedExp = distributeExpOverAdd(distributedDivide);
+  const distributedDifferential = distributeDifferential(distributedExp);
   const distributed = distributeIntegrateOverAdd(distributedDifferential);
   const customChanged = !deepEqualMJ(distributed, target);
 
