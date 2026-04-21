@@ -4,5 +4,6 @@ export * from "./evaluateSelection";
 export * from "./expandSubexpression";
 export * from "./factorSelection";
 export * from "./forceDelimiter";
+export * from "./negateSelection";
 export * from "./substitute";
 export * from "./toggleDelimiterStyle";

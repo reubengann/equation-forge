@@ -17,6 +17,8 @@ type MoveModeToolbarProps = {
   canDeclareFunction: boolean;
   onCancelTerm: () => void;
   canCancelTerm: boolean;
+  onNegate: () => void;
+  canNegate: boolean;
   onForceDelimiter: () => void;
   canForceDelimiter: boolean;
   onToggleDelimiterStyle: () => void;
@@ -92,6 +94,8 @@ export const MoveModeToolbar = forwardRef<
     canDeclareFunction,
     onCancelTerm,
     canCancelTerm,
+    onNegate,
+    canNegate,
     onForceDelimiter,
     canForceDelimiter,
     onToggleDelimiterStyle,
@@ -229,6 +233,17 @@ export const MoveModeToolbar = forwardRef<
         onClick={onCancelTerm}
         disabled={!canCancelTerm}
         testId="cancel-term-button"
+      />
+      <IconButton
+        label="Negate"
+        icon={
+          <span style={materialSymbolStyle} aria-hidden>
+            exposure_neg_1
+          </span>
+        }
+        onClick={onNegate}
+        disabled={!canNegate}
+        testId="negate-button"
       />
       <IconButton
         label="Force/Unforce parentheses"

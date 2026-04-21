@@ -555,7 +555,8 @@ function factorExpression(expr: MJ): MJ | null {
   const factorToFixedPoint = (source: MJ): MJ | null => {
     let current = source;
     for (let i = 0; i < 4; i += 1) {
-      const next = box(toComputeEngine(current))?.factor?.();
+      const ce = box(toComputeEngine(current)) as any;
+      const next = ce?.factor?.();
       if (!next?.json) return null;
       const candidate = fromComputeEngine(next.json as MJ);
       const normalized = normalizeNegativeTermsInAdd(

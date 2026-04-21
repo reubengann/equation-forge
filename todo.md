@@ -461,25 +461,35 @@
       `T_{2} - T_{1} = \frac{a}{c_{v} v_{2}} - \frac{a}{c_{v} v_{1}}`
       You expect to pull out a and c_v, but it doesn't happen.
 
+132.  We need some kind of `negation` command somehow. For instance, we frequently want to take
+      `w_{T} = R T \ln\left(\frac{v_{2} - b}{v_{1} - b}\right) - \left(\frac{a}{v_{1}} - \frac{a}{v_{2}}\right)`
+      and transform it to
+      `w_{T} = R T \ln\left(\frac{v_{2} - b}{v_{1} - b}\right) + \left(-\frac{a}{v_{1}} + \frac{a}{v_{2}}\right)`
+      Right now the only way to do that is via substitute. Another option is to be able to drag the minus sign in to the parentheses. That might be kind of weird though. It's also fairly common to want to negate an equation
+      `a = -b` to `-a = b`. If we use the command with nothing selected, we do it to the whole equation. Otherwise, we check if the selected term is negated. If it is, we try to distribute that -1 into an also-selected multiplying delimiter (the first if there are more than one). If the selected term is not negated, factor a -1 from the nearest selected delimeter.
+
 ---- undone ----
 
-132. We need some kind of `negation` command somehow. For instance, we frequently want to take
-     `w_{T} = R T \ln\left(\frac{v_{2} - b}{v_{1} - b}\right) - \left(\frac{a}{v_{1}} - \frac{a}{v_{2}}\right)`
-     and transform it to
-     `w_{T} = R T \ln\left(\frac{v_{2} - b}{v_{1} - b}\right) + \left(-\frac{a}{v_{1}} + \frac{a}{v_{2}}\right)`
-     Right now the only way to do that is via substitute. Another option is to be able to drag the minus sign in to the parentheses. That might be kind of weird though. It's also fairly common to want to negate an equation
-     `a = -b` to `-a = b`. If we use the command with nothing selected, we do it to the whole equation. Otherwise, we check if the selected term is negated. If it is, we try to distribute that -1 into an also-selected multiplying delimiter (the first if there are more than one). If the selected term is not negated, factor a -1 from the nearest selected delimeter.
+133. Snappiness. Sometimes when I select something, I think a lot of logic is going on to see what buttons are enabled. We should
+     probably limit how much work we do to see if a button should be enabled. If it's enabled, and it has no effect, that's not that
+     bad. So if we're doing a ton of work to figure out, we should just default to enabling.
+     This equation `T_{2} - T_{1} = \frac{a}{c_{v}} \left(\frac{1}{v_{2}} - \frac{1}{v_{1}}\right)` when I rubber band
+     select the whole equation takes over a second to unfreeze. In fact, I'm not necessarily convinced that we should ever
+     be doing any checks to enable buttons. It's a pretty heavy operation. I would at least profile the code that determines
+     whether a button is enabled against out test cases and see which ones are slow. Selecting certain fractions is also
+     pretty slow sometimes, over 5 seconds of waiting for a response. And it's not like the button being enabled even guarantees
+     and action; the simplify/evaluate buttons frequently do nothing.
 
-133. `v = v_{0} + \beta v \int_{T_{0}}^{T} \,\mathrm{d}{T} - \int_{P_{0}}^{P} \kappa v \,\mathrm{d}{P}`
+134. `v = v_{0} + \beta v \int_{T_{0}}^{T} \,\mathrm{d}{T} - \int_{P_{0}}^{P} \kappa v \,\mathrm{d}{P}`
      We cannot simultaneously take `\kappa v` out of the integral (i.e., select both and move them multiplicatively). We have to move them individually.
 
-134. When copying an equation, differentials have a thinspace `\,` put before them when needed (e.g. `P dv` becomes `P \, \mathrm{d}{v}`). This does not occur, however,
+135. When copying an equation, differentials have a thinspace `\,` put before them when needed (e.g. `P dv` becomes `P \, \mathrm{d}{v}`). This does not occur, however,
      when copying selection.
 
-135. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
+136. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
      When simplifying the LHS, I expect `P v_{c_P/c_v}` or something, but I actually get `P^{\left[c_{v}\right]} v^{\left[c_{P}\right]} = \mathrm{const}^{\frac{1}{c_{_v}}}` which is odd.
 
-136. When entering a modal, I randomly get this error
+137. When entering a modal, I randomly get this error
      Uncaught TypeError: can't access property "textContent", this.ariaLiveText is undefined
      onBlur mathlive.mjs:40147
      onFocus mathlive.mjs:40098

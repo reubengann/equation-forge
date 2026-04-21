@@ -18,8 +18,10 @@ import {
   factorSelection,
   forceDelimiter,
   canForceDelimiter,
+  canNegateSelection,
   flipEquation,
   isFlippableEquation,
+  negateSelection,
   substitute,
   substituteMany,
   substituteSpan,
@@ -55,6 +57,7 @@ export type MathAction =
   | { type: "declareFunction" }
   | { type: "factor" }
   | { type: "cancel" }
+  | { type: "negate" }
   | { type: "forceDelimiter" }
   | { type: "toggleDelimiterStyle" }
   | { type: "evaluate" }
@@ -521,6 +524,12 @@ function applyAction(input: ApplyActionInput): ApplyActionResult {
     return { ok: true, tree: next };
   }
 
+  if (action.type === "negate") {
+    const next = negateSelection(tree, selection);
+    if (!next) return { ok: false, reason: "Negate action produced no change." };
+    return { ok: true, tree: next };
+  }
+
   if (action.type === "forceDelimiter") {
     const next = forceDelimiter(tree, selection);
     if (!next) return { ok: false, reason: "No node selected." };
@@ -672,6 +681,10 @@ export const mathPadFacade = {
 
   canCancel(tree: ExpressionTree | null, selection: ExprSelection | null): boolean {
     return canCancelTerm(tree, selection);
+  },
+
+  canNegate(tree: ExpressionTree | null, selection: ExprSelection | null): boolean {
+    return canNegateSelection(tree, selection);
   },
 
   canToggleDelimiterStyle(

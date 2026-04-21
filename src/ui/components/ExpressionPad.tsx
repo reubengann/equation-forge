@@ -772,6 +772,17 @@ export function ExpressionPad({
     commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
   }, [tree, selection, commitJson]);
 
+  const onNegate = useCallback(() => {
+    if (!tree) return;
+    const result = mathPadFacade.applyAction({
+      tree,
+      selection,
+      action: { type: "negate" },
+    });
+    if (!result.ok) return;
+    commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
+  }, [tree, selection, commitJson]);
+
   const onToggleDelimiterStyle = useCallback(() => {
     if (!tree || !selection) return;
     const result = mathPadFacade.applyAction({
@@ -1573,6 +1584,10 @@ export function ExpressionPad({
     () => mathPadFacade.canCancel(tree, selection),
     [tree, selection],
   );
+  const canNegate = useMemo(
+    () => mathPadFacade.canNegate(tree, selection),
+    [tree, selection],
+  );
   const canToggleDelimiterStyle = useMemo(
     () => mathPadFacade.canToggleDelimiterStyle(tree, selection),
     [tree, selection],
@@ -1917,6 +1932,8 @@ export function ExpressionPad({
                 canDeclareFunction={canDeclareFunction}
                 onCancelTerm={onCancelTerm}
                 canCancelTerm={canCancel}
+                onNegate={onNegate}
+                canNegate={canNegate}
                 onForceDelimiter={onForceDelimiter}
                 canForceDelimiter={canForceDelimiter}
                 onToggleDelimiterStyle={onToggleDelimiterStyle}
