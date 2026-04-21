@@ -251,6 +251,16 @@ function canAbsorbReciprocalDenominatorFactor(factorExpr: MJ, denom: MJ): boolea
   return false;
 }
 
+function divideByAdditionalFactor(expr: MJ, extraDenom: MJ): MJ {
+  if (Array.isArray(expr) && isQuotientOp(expr[0]) && expr.length >= 3) {
+    const quotientOp = expr[0] as "Divide" | "FractionDerivative";
+    const numerator = expr[1] as MJ;
+    const denominator = expr[2] as MJ;
+    return [quotientOp, numerator, normalizeMul([denominator, extraDenom])] as MJNode;
+  }
+  return ["Divide", expr, extraDenom] as MJNode;
+}
+
 function pullFactorOutOfDivide(args: {
   tree: ExpressionTree;
   divideId: string;
@@ -654,6 +664,13 @@ export function applyMoveMultiplicative(
         // When pulling a denominator factor onto a sibling factor (e.g., e onto f),
         // interpret "after hover" as division of that hovered factor: f -> f/e.
         if (insertAfterHover && denom) {
+          const hoveredExpr = replaced[hoverIndex] as MJ;
+          if (Array.isArray(hoveredExpr) && isQuotientOp(hoveredExpr[0])) {
+            replaced[hoverIndex] = divideByAdditionalFactor(hoveredExpr, denom);
+            const nextParent = normalizeMul(replaced as MJ[]);
+            const nextRoot = setAtPath(tree.rootJson, parentPath, nextParent);
+            return ExpressionTree.create(nextRoot);
+          }
           // Prefer folding onto a sibling that matches the denominator factor
           // (e.g. moving denominator beta onto an existing beta factor), even
           // if the geometric hover landed on a different sibling.

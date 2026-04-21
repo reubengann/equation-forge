@@ -131,6 +131,34 @@ describe("computeInsertX", () => {
     expect(computeInsertX(planLeft, tree, rects)).toBe(120);
     expect(computeInsertX(planRight, tree, rects)).toBe(140);
   });
+
+  it("uses hovered fraction denominator edge for PullOutOfFraction ontoFactor", () => {
+    const tree = ExpressionTree.create([
+      "Equal",
+      "a",
+      ["InvisibleOperator", ["Divide", "b", "c"], ["Divide", 1, "e"]],
+    ]);
+    const rhsId = tree.childrenById[tree.rootId][1];
+    const [targetDivideId, sourceDivideId] = tree.childrenById[rhsId];
+    const targetDenId = tree.childrenById[targetDivideId][1];
+
+    const rects = rectFor({
+      [targetDivideId]: rect(20, 60),
+      [targetDenId]: rect(42, 52),
+      [sourceDivideId]: rect(70, 90),
+    });
+
+    const plan: MovePlan = {
+      kind: "PullOutOfFraction",
+      divideId: sourceDivideId,
+      movedId: tree.childrenById[sourceDivideId][1],
+      insertIndex: 1,
+      strategy: "ontoFactor",
+      targetHoverId: targetDivideId,
+    };
+
+    expect(computeInsertX(plan, tree, rects)).toBe(52);
+  });
 });
 
 describe("targetRectForPlan", () => {
@@ -218,5 +246,33 @@ describe("targetRectForPlan", () => {
       rect(53, 57)
     );
     expect(targetRectForPlan(liftDot, rects)).toEqual(rect(60, 70));
+  });
+
+  it("returns hovered fraction denominator rect for PullOutOfFraction ontoFactor", () => {
+    const tree = ExpressionTree.create([
+      "Equal",
+      "a",
+      ["InvisibleOperator", ["Divide", "b", "c"], ["Divide", 1, "e"]],
+    ]);
+    const rhsId = tree.childrenById[tree.rootId][1];
+    const [targetDivideId, sourceDivideId] = tree.childrenById[rhsId];
+    const targetDenId = tree.childrenById[targetDivideId][1];
+
+    const dynamicRects = rectFor({
+      [sourceDivideId]: rect(70, 90, 0, 24),
+      [targetDivideId]: rect(20, 60, 0, 24),
+      [targetDenId]: rect(42, 52, 14, 24),
+    });
+
+    const plan: MovePlan = {
+      kind: "PullOutOfFraction",
+      divideId: sourceDivideId,
+      movedId: tree.childrenById[sourceDivideId][1],
+      insertIndex: 1,
+      strategy: "ontoFactor",
+      targetHoverId: targetDivideId,
+    };
+
+    expect(targetRectForPlan(plan, dynamicRects, tree)).toEqual(rect(42, 52, 14, 24));
   });
 });

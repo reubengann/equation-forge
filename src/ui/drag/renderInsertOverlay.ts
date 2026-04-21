@@ -123,6 +123,17 @@ export function computeInsertX(
     return plan.insertIndex === 0 ? r.left : r.right;
   }
   if (plan.kind === "PullOutOfFraction") {
+    if (
+      plan.strategy === "ontoFactor" &&
+      plan.targetHoverId &&
+      tree?.nodesById[plan.targetHoverId]?.op === "Divide"
+    ) {
+      const denominatorId = tree.childrenById[plan.targetHoverId]?.[1];
+      const denominatorRect = denominatorId ? rectForVisual(denominatorId, rectFor, tree) : null;
+      if (denominatorRect) {
+        return plan.insertIndex === 0 ? denominatorRect.left : denominatorRect.right;
+      }
+    }
     const r = rectFor(plan.divideId);
     if (!r) return null;
     return plan.insertIndex === 0 ? r.left : r.right;
@@ -159,7 +170,19 @@ export function targetRectForPlan(
     const innerRect = innerId ? rectForVisual(innerId, rectFor, tree) : null;
     return innerRect ?? rectFor(plan.delimiterId);
   }
-  if (plan.kind === "PullOutOfFraction") return rectFor(plan.divideId);
+  if (plan.kind === "PullOutOfFraction") {
+    if (
+      tree &&
+      plan.strategy === "ontoFactor" &&
+      plan.targetHoverId &&
+      tree.nodesById[plan.targetHoverId]?.op === "Divide"
+    ) {
+      const denominatorId = tree.childrenById[plan.targetHoverId]?.[1];
+      const denominatorRect = denominatorId ? rectForVisual(denominatorId, rectFor, tree) : null;
+      if (denominatorRect) return denominatorRect;
+    }
+    return rectFor(plan.divideId);
+  }
   if (plan.kind === "LiftDotScalar") return rectFor(plan.dotId);
   return null;
 }
@@ -239,7 +262,8 @@ export function renderInsertOverlay(
   if (
     plan.kind === "PullOutOfFraction" &&
     plan.strategy === "ontoFactor" &&
-    plan.targetHoverId
+    plan.targetHoverId &&
+    tree?.nodesById[plan.targetHoverId]?.op !== "Divide"
   ) {
     const hoverRect = rectFor(plan.targetHoverId);
     if (!hoverRect) return;

@@ -509,9 +509,18 @@
 140.  When copying an equation, differentials have a thinspace `\,` put before them when needed (e.g. `P dv` becomes `P \, \mathrm{d}{v}`). This does not occur, however,
       when copying selection.
 
+141.  `a = \frac{b}{c} \frac{1}{e}`
+      It should be possible to move `e` multiplicatively into the other fraction to arrivate at
+      `a = \frac{b}{c e}`
+
+142.  `\int g \left(\theta\right) \,\mathrm{d}{\theta} = \ln\left(\left|\theta\right|\right)`
+      Select `\left|\theta\right|` and unforce parentheses. Should remove the absolute value, but it doesn't.
+
 ---- undone ----
 
-141. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
+143. In mathlive, type `\phi(\theta) = \exp` then type open bracket. Result is `exp [] []`. If you then delete the right-most bracket, you get exp [] [ [] ]. This does not occur with parentheses. What is going on here? Are brackets not editable in this way?
+
+144. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
      When simplifying the LHS, I expect `P v_{c_P/c_v}` or something, but I actually get `P^{\left[c_{v}\right]} v^{\left[c_{P}\right]} = \mathrm{const}^{\frac{1}{c_{_v}}}` which is odd.
 
 ---- backlog ----

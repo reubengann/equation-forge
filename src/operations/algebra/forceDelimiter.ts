@@ -20,6 +20,11 @@ function forceOrUnforceDelimiter(expr: MJ): MJ | null {
     if (inner == null) return null;
     return inner;
   }
+  if (expr[0] === "Abs") {
+    const inner = (expr[1] ?? null) as MJ | null;
+    if (inner == null) return null;
+    return inner;
+  }
   return ["Delimiter", expr] as MJ;
 }
 

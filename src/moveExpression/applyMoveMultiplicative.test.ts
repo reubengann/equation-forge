@@ -348,6 +348,24 @@ describe("applyMoveMultiplicative executor", () => {
     );
   });
 
+  it("moves denominator e from 1/e into sibling fraction denominator (issue 141)", () => {
+    const next = runMove({
+      latex: String.raw`a = \frac{b}{c} \frac{1}{e}`,
+      select: (tree) => [findNodeByLatex(tree, "e")],
+      hover: (tree) =>
+        findNodeId(
+          tree,
+          (n) => n.op === "Divide" && n.latex.includes(String.raw`\frac{b}{c}`)
+        ),
+      targetSlot: 1,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`a = \frac{b}{c e}`
+    );
+  });
+
   it("folds moved denominator beta under matching beta sibling, not adjacent derivative fraction (issue 120)", () => {
     const next = runMove({
       latex: String.raw`-\beta \frac{c_{P}}{\beta v} \frac{\mathrm{d}{v_{s}}}{\mathrm{d}{P_{s}}} = \kappa c_{v}`,

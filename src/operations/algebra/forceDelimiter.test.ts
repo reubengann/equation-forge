@@ -120,5 +120,21 @@ describe("forceDelimiter", () => {
       String.raw`\left(\left(R \ln`
     );
   });
+
+  it("unforcing absolute value under ln removes abs wrapper (issue 142)", () => {
+    const tree = treefromLatex(
+      String.raw`\int g \left(\theta\right) \,\mathrm{d}{\theta} = \ln\left(\left|\theta\right|\right)`
+    );
+    const absId = findNodeId(tree, (n) => n.op === "Abs" && n.latex.includes(String.raw`\theta`));
+    const result = forceDelimiter(tree, {
+      kind: "node",
+      nodeId: absId,
+    });
+
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe(
+      String.raw`\int g \left(\theta\right) \,\mathrm{d}{\theta} = \ln\left(\theta\right)`
+    );
+  });
 });
 
