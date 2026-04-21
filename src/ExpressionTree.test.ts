@@ -606,7 +606,7 @@ describe("ExpressionTree", () => {
     expect(t.latexPlain).toBe(String.raw`\exp\left(a + b\right)`);
   });
 
-  it("renders InvisibleOperator Exp x as function call", () => {
+  it("renders exp implicit argument as function call", () => {
     const t = ExpressionTree.create(makeMJfromLatex(String.raw`\exp x`));
     expect(t.latexPlain).toBe(String.raw`\exp\left(x\right)`);
   });

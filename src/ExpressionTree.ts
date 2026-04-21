@@ -519,6 +519,7 @@ export class ExpressionTree {
     if (
       typeof funcNameRaw === "string" &&
       FUNCTION_OPS.has(funcNameRaw) &&
+      funcNameRaw !== "Exp" &&
       children.length >= 2
     ) {
       const args = children.slice(1);
@@ -532,7 +533,6 @@ export class ExpressionTree {
         ArcSin: String.raw`\arcsin`,
         Arccos: String.raw`\arccos`,
         ArcCos: String.raw`\arccos`,
-        Exp: String.raw`\exp`,
         Log: String.raw`\log`,
         Ln: String.raw`\ln`,
         Abs: String.raw`\left|`,

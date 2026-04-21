@@ -267,20 +267,20 @@ describe("selectionSemantics.bubbleThroughUnary", () => {
     expect(chooseBestAllowedSelectedNode(nodeIds, tree)).toBe(bId);
   });
 
-  it("allows selecting function-like implicit products such as Exp(arg)", () => {
+  it("allows selecting Exp(arg) as a first-class function node", () => {
     const tree = ExpressionTree.create(
       makeMJfromLatex(String.raw`\exp\left(\ln\left(T\right)\right)`)
     );
-    const expContainerId = findNodeId(
+    const expNodeId = findNodeId(
       tree,
       (n: any) =>
-        n.op === "InvisibleOperator" &&
+        n.op === "Exp" &&
         n.latex.includes(String.raw`\exp`) &&
         n.latex.includes(String.raw`\ln\left(T\right)`),
     );
 
-    expect(chooseBestAllowedSelectedNode([expContainerId], tree)).toBe(
-      expContainerId
+    expect(chooseBestAllowedSelectedNode([expNodeId], tree)).toBe(
+      expNodeId
     );
   });
 

@@ -360,27 +360,25 @@ export function normalizeMathJson(mj: MJ | null): MJ | null {
             normalizeSubscriptLikeSymbols(
               normalizeSequenceEquationTail(
                 normalizeSymbolHeadApplication(
-                  normalizeLegacyExpNodes(
-                    normalizeDotProducts(
-                      normalizePrimeDifferentials(
-                        rewriteNegateToFrontOfProduct(
-                          normalizeDivideSigns(
-                          normalizeDeltaOfQuantity(
-                            normalizeDifferentialOperands(
-                              normalizePrimeDifferentials(
-                                normalizePlainDifferentials(
-                                  normalizeIntegralTrailingDifferentialFactor(
-                                    normalizeTrailingDerivativeSubscriptBinding(
-                                      normalizePartialDerivativeForms(
-                                        normalizeProducts(normalizeVectors(mj))
-                                      )
+                  normalizeDotProducts(
+                    normalizePrimeDifferentials(
+                      rewriteNegateToFrontOfProduct(
+                        normalizeDivideSigns(
+                        normalizeDeltaOfQuantity(
+                          normalizeDifferentialOperands(
+                            normalizePrimeDifferentials(
+                              normalizePlainDifferentials(
+                                normalizeIntegralTrailingDifferentialFactor(
+                                  normalizeTrailingDerivativeSubscriptBinding(
+                                    normalizePartialDerivativeForms(
+                                      normalizeProducts(normalizeVectors(mj))
                                     )
                                   )
                                 )
                               )
                             )
                           )
-                          )
+                        )
                         )
                       )
                     )
@@ -612,17 +610,6 @@ function normalizeSequenceEquationTail(mj: MJ | null): MJ | null {
         ? rhsFactors[0]
         : (["InvisibleOperator", ...rhsFactors] as MJ);
     return ["Equal", eq[1] as MJ, rhs] as MJ;
-  }
-  return [op, ...kids] as MJ;
-}
-
-function normalizeLegacyExpNodes(mj: MJ | null): MJ | null {
-  if (mj === null || mj === undefined) return mj;
-  if (!Array.isArray(mj)) return mj;
-  const op = mj[0];
-  const kids = mj.slice(1).map((child) => normalizeLegacyExpNodes(child as MJ)) as MJ[];
-  if (op === "Exp" && kids.length >= 1) {
-    return ["InvisibleOperator", "Exp", kids[0] as MJ] as MJ;
   }
   return [op, ...kids] as MJ;
 }

@@ -491,18 +491,22 @@
       <anonymous> main.tsx:6
       mathlive.mjs:40147:5
 
+135.  `\exp\left(\ln\left(T\right)\right) = \exp\left(\int g \left(\theta\right) \,\mathrm{d}{\theta} + \ln\left(A'\right)\right)`
+      exp is not selectable.
+
 ---- undone ----
 
-135. `\exp\left(\ln\left(T\right)\right) = \exp\left(\int g \left(\theta\right) \,\mathrm{d}{\theta} + \ln\left(A'\right)\right)`
-     exp is not selectable.
+136. Make the RHS of `T = \exp\left(\int g \left(\theta\right) \,\mathrm{d}{\theta} + \ln\left(A'\right)\right)` expand to
+     `\exp\left(\int g \left(\theta\right) \,\mathrm{d}{\theta}\right) \exp\left(\ln\left(A'\right)\right)`
+     i.e. expand should make `\exp(a+b)` to go `\exp a \exp b`
 
-136. `v = v_{0} + \beta v \int_{T_{0}}^{T} \,\mathrm{d}{T} - \int_{P_{0}}^{P} \kappa v \,\mathrm{d}{P}`
+137. `v = v_{0} + \beta v \int_{T_{0}}^{T} \,\mathrm{d}{T} - \int_{P_{0}}^{P} \kappa v \,\mathrm{d}{P}`
      We cannot simultaneously take `\kappa v` out of the integral (i.e., select both and move them multiplicatively). We have to move them individually.
 
-137. When copying an equation, differentials have a thinspace `\,` put before them when needed (e.g. `P dv` becomes `P \, \mathrm{d}{v}`). This does not occur, however,
+138. When copying an equation, differentials have a thinspace `\,` put before them when needed (e.g. `P dv` becomes `P \, \mathrm{d}{v}`). This does not occur, however,
      when copying selection.
 
-138. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
+139. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
      When simplifying the LHS, I expect `P v_{c_P/c_v}` or something, but I actually get `P^{\left[c_{v}\right]} v^{\left[c_{P}\right]} = \mathrm{const}^{\frac{1}{c_{_v}}}` which is odd.
 
 ---- backlog ----

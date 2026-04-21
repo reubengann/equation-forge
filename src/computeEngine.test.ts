@@ -92,11 +92,7 @@ describe("computeEngine custom dictionary", () => {
   });
 
   it("parses exp with implicit argument", () => {
-    expect(parse(String.raw`\exp x`)).toEqual([
-      "InvisibleOperator",
-      "Exp",
-      "x",
-    ]);
+    expect(parse(String.raw`\exp x`)).toEqual(["Exp", "x"]);
   });
 
   it("canonicalizes Delta quantity into DeltaOfQuantity object", () => {
