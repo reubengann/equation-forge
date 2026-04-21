@@ -183,6 +183,30 @@ function DebugPanel(state: ExpressionPadDebugState) {
 
       <div style={gridStyle}>
         <div style={fieldHalfStyle}>
+          <label style={labelStyle}>Latest selection profile</label>
+          <div style={{ ...readonlyBoxStyle, minHeight: 180 }}>
+            {state.selectionProfile || "—"}
+          </div>
+        </div>
+        <div style={fieldHalfStyle}>
+          <label style={labelStyle}>Toolbar enablement profile</label>
+          <div style={{ ...readonlyBoxStyle, minHeight: 180 }}>
+            {state.toolbarProfile || "—"}
+          </div>
+        </div>
+      </div>
+
+      <div style={fieldFullStyle}>
+        <label style={labelStyle}>Recent selection profile history</label>
+        <textarea
+          style={{ ...textareaStyle, minHeight: 220 }}
+          readOnly
+          value={state.selectionProfileHistory || "—"}
+        />
+      </div>
+
+      <div style={gridStyle}>
+        <div style={fieldHalfStyle}>
           <label style={labelStyle}>Move plan</label>
           <div style={readonlyBoxStyle}>{state.movePlanText || "—"}</div>
         </div>

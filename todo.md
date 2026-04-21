@@ -478,7 +478,7 @@
      be doing any checks to enable buttons. It's a pretty heavy operation. I would at least profile the code that determines
      whether a button is enabled against out test cases and see which ones are slow. Selecting certain fractions is also
      pretty slow sometimes, over 5 seconds of waiting for a response. And it's not like the button being enabled even guarantees
-     and action; the simplify/evaluate buttons frequently do nothing.
+     and action; the simplify/evaluate buttons frequently do nothing. Even clicking `\mu` in `\mu = -\frac{1}{c_{P}} \frac{R T v^{3} b - 2 a v \left(v - b\right)^{2}}{R T v^{3} - 2 a \left(v - b\right)^{2}}` is very slow.
 
 134. `v = v_{0} + \beta v \int_{T_{0}}^{T} \,\mathrm{d}{T} - \int_{P_{0}}^{P} \kappa v \,\mathrm{d}{P}`
      We cannot simultaneously take `\kappa v` out of the integral (i.e., select both and move them multiplicatively). We have to move them individually.

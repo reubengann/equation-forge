@@ -79,6 +79,9 @@ export type ExpressionPadDebugState = {
   selectionChildLatex: string;
   selectionNote: string;
   clickTrace: string;
+  selectionProfile: string;
+  selectionProfileHistory: string;
+  toolbarProfile: string;
   debugBoxes: boolean;
 };
 
@@ -262,7 +265,67 @@ type PendingClickSelection = {
   clickedId: string;
   newSelection: ExprSelection | null;
   multiplicativeSpan: ExprSelection | null;
+  startedAt: number;
+  phases: ProfilePhase[];
 };
+
+type ProfilePhase = {
+  label: string;
+  durationMs: number;
+};
+
+type ProfileSample = {
+  kind: string;
+  totalMs: number;
+  phases: ProfilePhase[];
+  selectionKind: string;
+  selectionLatex: string;
+  treeLatex: string;
+  clickedId?: string;
+  note?: string;
+};
+
+type PendingProfileSample = Omit<ProfileSample, "totalMs"> & {
+  startedAt: number;
+};
+
+function roundProfileDuration(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function measureProfileStep<T>(
+  phases: ProfilePhase[],
+  label: string,
+  fn: () => T,
+): T {
+  const startedAt = performance.now();
+  const result = fn();
+  phases.push({
+    label,
+    durationMs: roundProfileDuration(performance.now() - startedAt),
+  });
+  return result;
+}
+
+function selectionKindLabel(selection: ExprSelection | null): string {
+  return selection?.kind ?? "none";
+}
+
+function selectionLatexForProfile(
+  tree: ExpressionTree | null,
+  selection: ExprSelection | null,
+): string {
+  if (!tree || !selection) return "";
+  if (selection.kind === "node") {
+    return tree.nodesById[selection.nodeId]?.latex ?? "";
+  }
+  return getLatexForSelectionCopy(tree, selection);
+}
+
+function formatProfileSample(sample: ProfileSample | ProfileSample[] | null): string {
+  if (!sample) return "";
+  return JSON.stringify(sample, null, 2);
+}
 
 MathfieldElement.fontsDirectory = "/fonts";
 // Ensure all MathLive fields pick up our custom macros (e.g., \differentialD).
@@ -494,6 +557,9 @@ export function ExpressionPad({
   const [copyHistoryFeedback, setCopyHistoryFeedback] = useState<
     "idle" | "done"
   >("idle");
+  const [selectionProfile, setSelectionProfile] = useState<string>("");
+  const [selectionProfileHistory, setSelectionProfileHistory] =
+    useState<string>("");
   const [marquee, setMarquee] = useState<MarqueeState | null>(null);
   const copyFeedbackTimeoutRef = useRef<number | null>(null);
   const copySelectionFeedbackTimeoutRef = useRef<number | null>(null);
@@ -502,8 +568,34 @@ export function ExpressionPad({
   const activeMoveCaptureRef = useRef<ActiveMoveCapture | null>(null);
   const lastMoveCaptureRef = useRef<MoveCaptureFixture | null>(null);
   const moveApplyAttemptsRef = useRef<MoveApplyAttempt[]>([]);
+  const selectionProfileHistoryRef = useRef<ProfileSample[]>([]);
+  const pendingProfileSampleRef = useRef<PendingProfileSample | null>(null);
+  const [profileFlushVersion, setProfileFlushVersion] = useState(0);
   const hasHydratedInitialRef = useRef(false);
   const lastHistorySignatureRef = useRef<string | null>(null);
+
+  const recordProfileSample = useCallback((sample: ProfileSample) => {
+    const normalized: ProfileSample = {
+      ...sample,
+      totalMs: roundProfileDuration(sample.totalMs),
+      phases: sample.phases.map((phase) => ({
+        ...phase,
+        durationMs: roundProfileDuration(phase.durationMs),
+      })),
+    };
+    setSelectionProfile(formatProfileSample(normalized));
+    const nextHistory = [normalized, ...selectionProfileHistoryRef.current].slice(
+      0,
+      12,
+    );
+    selectionProfileHistoryRef.current = nextHistory;
+    setSelectionProfileHistory(formatProfileSample(nextHistory));
+  }, []);
+
+  const scheduleProfileAfterPaint = useCallback((sample: PendingProfileSample) => {
+    pendingProfileSampleRef.current = sample;
+    setProfileFlushVersion((value) => value + 1);
+  }, []);
 
   useEffect(() => {
     if (hasHydratedInitialRef.current) return;
@@ -556,10 +648,140 @@ export function ExpressionPad({
     onHistoryChange(history);
   }, [history, onHistoryChange]);
 
-  const substituteTargetId = useMemo(() => {
-    if (!tree) return null;
-    return mathPadFacade.getSubstituteTargetId(tree, selection);
-  }, [tree, selection]);
+  const selectionCapabilities = useMemo(() => {
+    const phases: ProfilePhase[] = [];
+    const startedAt = performance.now();
+    const canFlip = measureProfileStep(phases, "isFlippableEquation", () =>
+      !!tree && mathPadFacade.isFlippableEquation(tree.rootJson),
+    );
+    const expandTargetId = measureProfileStep(phases, "getExpandTargetId", () =>
+      tree ? mathPadFacade.getExpandTargetId(tree, selection) : null,
+    );
+    const substituteTargetId = measureProfileStep(
+      phases,
+      "getSubstituteTargetId",
+      () => (tree ? mathPadFacade.getSubstituteTargetId(tree, selection) : null),
+    );
+    const canSubstitute = measureProfileStep(phases, "canSubstitute", () =>
+      mathPadFacade.canSubstitute(tree, selection),
+    );
+    const canCancel = measureProfileStep(phases, "canCancel", () =>
+      mathPadFacade.canCancel(tree, selection),
+    );
+    const canNegate = measureProfileStep(phases, "canNegate", () =>
+      mathPadFacade.canNegate(tree, selection),
+    );
+    const canToggleDelimiterStyle = measureProfileStep(
+      phases,
+      "canToggleDelimiterStyle",
+      () => mathPadFacade.canToggleDelimiterStyle(tree, selection),
+    );
+    const canForceDelimiter = measureProfileStep(
+      phases,
+      "canForceDelimiter",
+      () => mathPadFacade.canForceDelimiter(tree, selection),
+    );
+    const canEvaluate = measureProfileStep(phases, "canEvaluate", () =>
+      mathPadFacade.canEvaluate(tree, selection),
+    );
+    const canSimplify = measureProfileStep(phases, "canSimplify", () =>
+      mathPadFacade.canSimplify(tree, selection),
+    );
+    const canFactor = measureProfileStep(phases, "canFactor", () =>
+      mathPadFacade.canFactor(tree, selection),
+    );
+    const canDeclareFunction = measureProfileStep(
+      phases,
+      "canDeclareFunction",
+      () => mathPadFacade.canDeclareFunction(tree, selection),
+    );
+    return {
+      expandTargetId,
+      substituteTargetId,
+      canFlip,
+      canApply: canFlip,
+      canExpand: !!tree && !!expandTargetId,
+      canSubstitute,
+      canCancel,
+      canNegate,
+      canToggleDelimiterStyle,
+      canForceDelimiter,
+      canEvaluate,
+      canSimplify,
+      canFactor,
+      canDeclareFunction,
+      profile: {
+        kind: "toolbar-enablement",
+        totalMs: performance.now() - startedAt,
+        phases,
+        selectionKind: selectionKindLabel(selection),
+        selectionLatex: selectionLatexForProfile(tree, selection),
+        treeLatex: tree?.latexPlain ?? latexDraft,
+      } satisfies ProfileSample,
+    };
+  }, [tree, selection, latexDraft]);
+
+  const toolbarProfile = useMemo(
+    () => formatProfileSample(selectionCapabilities.profile),
+    [selectionCapabilities],
+  );
+
+  const {
+    expandTargetId,
+    substituteTargetId,
+    canFlip,
+    canApply,
+    canExpand,
+    canSubstitute,
+    canCancel,
+    canNegate,
+    canToggleDelimiterStyle,
+    canForceDelimiter,
+    canEvaluate,
+    canSimplify,
+    canFactor,
+    canDeclareFunction,
+  } = selectionCapabilities;
+
+  useEffect(() => {
+    const pending = pendingProfileSampleRef.current;
+    if (!pending) return;
+
+    let raf1 = 0;
+    let raf2 = 0;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        if (pendingProfileSampleRef.current !== pending) return;
+        const totalMs = roundProfileDuration(performance.now() - pending.startedAt);
+        const phaseSum = pending.phases.reduce(
+          (sum, phase) => sum + phase.durationMs,
+          0,
+        );
+        const remainder = Math.max(0, roundProfileDuration(totalMs - phaseSum));
+        const noteParts = [pending.note];
+        noteParts.push(
+          `toolbarEnablementMs=${roundProfileDuration(
+            selectionCapabilities.profile.totalMs,
+          )}`,
+        );
+        recordProfileSample({
+          ...pending,
+          totalMs,
+          note: noteParts.filter(Boolean).join("; "),
+          phases: [
+            ...pending.phases,
+            { label: "react/render/paint", durationMs: remainder },
+          ],
+        });
+        pendingProfileSampleRef.current = null;
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [profileFlushVersion, recordProfileSample, selectionCapabilities.profile.totalMs]);
 
   useEffect(() => {
     if (!showSubstituteModal) return;
@@ -589,11 +811,6 @@ export function ExpressionPad({
     }
   }, [showSubstituteModal, substituteInputMode]);
 
-  const canSubstitute = useMemo(
-    () => mathPadFacade.canSubstitute(tree, selection),
-    [tree, selection],
-  );
-
   useEffect(() => {
     if (showSubstituteModal && !canSubstitute) {
       closeSubstituteModal();
@@ -622,6 +839,9 @@ export function ExpressionPad({
       clearMoveApplyAttempts: () => {
         moveApplyAttemptsRef.current = [];
       },
+      getSelectionProfile: () => selectionProfileHistoryRef.current[0] ?? null,
+      getSelectionProfileHistory: () => selectionProfileHistoryRef.current,
+      getToolbarProfile: () => selectionCapabilities.profile,
       getNodeRectById: (nodeId: string) => {
         if (!nodeId) return null;
         const sr = (host as any).shadowRoot as ShadowRoot | null;
@@ -652,7 +872,7 @@ export function ExpressionPad({
         delete (window as any).__dpDebug;
       }
     };
-  }, [tree, mode]);
+  }, [tree, mode, selectionCapabilities, latexDraft]);
 
   // Render once the display element is mounted in render mode
   useEffect(() => {
@@ -708,10 +928,6 @@ export function ExpressionPad({
     commitStepWithBranchGuard(step);
   }
 
-  const canFlip = useMemo(() => {
-    return !!tree && mathPadFacade.isFlippableEquation(tree.rootJson);
-  }, [tree]);
-
   const onFlip = useCallback(() => {
     if (!tree) return;
     const result = mathPadFacade.applyAction({
@@ -722,11 +938,6 @@ export function ExpressionPad({
     if (!result.ok) return;
     commitJson(result.tree.rootJson, { latex: result.tree.latexPlain });
   }, [tree]);
-
-  const expandTargetId = useMemo(() => {
-    if (!tree) return null;
-    return mathPadFacade.getExpandTargetId(tree, selection);
-  }, [tree, selection]);
 
   const onExpand = useCallback(() => {
     if (!tree || !expandTargetId) return;
@@ -1065,43 +1276,100 @@ export function ExpressionPad({
       multiplicativeSpan: ExprSelection | null;
     },
     clickedId: string,
+    source = "selection-commit",
+    opts?: {
+      startedAt?: number;
+      phases?: ProfilePhase[];
+      note?: string;
+    },
   ) {
     if (!tree) return;
-    if (clickResult.newSelection) {
-      setSelection(clickResult.newSelection);
-      applySelectionHighlight(
-        clickResult.newSelection,
-        tree,
-        displayRef.current,
+    const phases: ProfilePhase[] = [...(opts?.phases ?? [])];
+    const startedAt = opts?.startedAt ?? performance.now();
+    const nextSelection = clickResult.newSelection;
+    if (nextSelection) {
+      measureProfileStep(phases, "setSelection", () =>
+        setSelection(nextSelection),
+      );
+      measureProfileStep(phases, "applySelectionHighlight", () =>
+        applySelectionHighlight(
+          nextSelection,
+          tree,
+          displayRef.current,
+        ),
       );
 
-      if (clickResult.newSelection.kind === "span") {
-        const details = getSelectionDetailsForSpan(
-          tree,
-          clickResult.newSelection,
-          clickResult.multiplicativeSpan ? "Multiplicative span" : undefined,
+      if (nextSelection.kind === "span") {
+        const details = measureProfileStep(
+          phases,
+          "getSelectionDetailsForSpan",
+          () =>
+            getSelectionDetailsForSpan(
+              tree,
+              nextSelection,
+              clickResult.multiplicativeSpan ? "Multiplicative span" : undefined,
+            ),
         );
-        updateSelectionDetails(details);
-      } else if (clickResult.newSelection.kind === "multi") {
-        const details = getSelectionDetailsForMulti(
-          tree,
-          clickResult.newSelection,
+        measureProfileStep(phases, "updateSelectionDetails", () =>
+          updateSelectionDetails(details),
         );
-        updateSelectionDetails(details);
+      } else if (nextSelection.kind === "multi") {
+        const details = measureProfileStep(
+          phases,
+          "getSelectionDetailsForMulti",
+          () => getSelectionDetailsForMulti(tree, nextSelection),
+        );
+        measureProfileStep(phases, "updateSelectionDetails", () =>
+          updateSelectionDetails(details),
+        );
       } else {
-        const details = getSelectionDetailsForNode(
-          tree,
-          clickResult.newSelection.nodeId,
-          { clickedId },
+        const details = measureProfileStep(
+          phases,
+          "getSelectionDetailsForNode",
+          () =>
+            getSelectionDetailsForNode(tree, nextSelection.nodeId, {
+              clickedId,
+            }),
         );
-        updateSelectionDetails(details);
+        measureProfileStep(phases, "updateSelectionDetails", () =>
+          updateSelectionDetails(details),
+        );
       }
+      scheduleProfileAfterPaint({
+        kind: source,
+        phases,
+        selectionKind: selectionKindLabel(nextSelection),
+        selectionLatex: selectionLatexForProfile(tree, nextSelection),
+        treeLatex: tree.latexPlain,
+        clickedId,
+        note: opts?.note,
+        startedAt,
+      });
       return;
     }
 
-    setSelection(null);
-    applySelectionHighlight(null, tree, displayRef.current);
-    updateSelectionDetails(getResetSelectionDetails("Cleared selection"));
+    measureProfileStep(phases, "setSelection", () => setSelection(null));
+    measureProfileStep(phases, "applySelectionHighlight", () =>
+      applySelectionHighlight(null, tree, displayRef.current),
+    );
+    const clearedDetails = measureProfileStep(
+      phases,
+      "getResetSelectionDetails",
+      () => getResetSelectionDetails("Cleared selection"),
+    );
+    measureProfileStep(phases, "updateSelectionDetails", () =>
+      updateSelectionDetails(clearedDetails),
+    );
+    scheduleProfileAfterPaint({
+      kind: source,
+      phases,
+      selectionKind: "none",
+      selectionLatex: "",
+      treeLatex: tree.latexPlain,
+      clickedId,
+      note: opts?.note,
+      startedAt,
+    });
   }
 
   function onDisplayPointerDown(e: React.PointerEvent) {
@@ -1115,7 +1383,11 @@ export function ExpressionPad({
       return;
     }
 
-    let ids = getNodeIdsFromPointerEvent(e);
+    const phases: ProfilePhase[] = [];
+    const startedAt = performance.now();
+    let ids = measureProfileStep(phases, "getNodeIdsFromPointerEvent", () =>
+      getNodeIdsFromPointerEvent(e),
+    );
     const trace: Record<string, unknown> = {
       pointer: { x: e.clientX, y: e.clientY },
       pointerId: e.pointerId,
@@ -1126,31 +1398,48 @@ export function ExpressionPad({
       startedMarquee: false,
     };
     if ((!ids || ids.length === 0) && displayRef.current) {
-      const hit = hitTestOrClosestNodeIdInMathliveShadow(
-        displayRef.current,
-        e.clientX,
-        e.clientY,
-        { maxDistance: 40 },
+      const hit = measureProfileStep(phases, "hitTestOrClosestNodeId.primary", () =>
+        hitTestOrClosestNodeIdInMathliveShadow(
+          displayEl,
+          e.clientX,
+          e.clientY,
+          { maxDistance: 40 },
+        ),
       );
       trace.primaryFallbackHitId = hit.id;
       if (hit.id) ids = [hit.id];
     }
-    let clickedId = mathPadFacade.chooseBestAllowedSelectedNode(ids, tree);
+    let clickedId = measureProfileStep(
+      phases,
+      "chooseBestAllowedSelectedNode",
+      () => mathPadFacade.chooseBestAllowedSelectedNode(ids, tree),
+    );
     trace.chosenId = clickedId;
     if (!clickedId && displayRef.current) {
       // Composed-path IDs can be present but too structural (e.g. wrappers).
       // Retry from geometric hit test to recover the nearest selectable node.
-      const fallback = hitTestOrClosestNodeIdInMathliveShadow(
-        displayRef.current,
-        e.clientX,
-        e.clientY,
-        { maxDistance: 40 },
+      const fallback = measureProfileStep(
+        phases,
+        "hitTestOrClosestNodeId.secondary",
+        () =>
+          hitTestOrClosestNodeIdInMathliveShadow(
+            displayEl,
+            e.clientX,
+            e.clientY,
+            { maxDistance: 40 },
+          ),
       );
       trace.secondaryFallbackHitId = fallback.id;
-      if (fallback.id) {
-        const recovered = mathPadFacade.chooseBestAllowedSelectedNode(
-          [fallback.id, ...(ids ?? [])],
-          tree,
+      const fallbackId = fallback.id;
+      if (fallbackId) {
+        const recovered = measureProfileStep(
+          phases,
+          "chooseBestAllowedSelectedNode.recovered",
+          () =>
+            mathPadFacade.chooseBestAllowedSelectedNode(
+              [fallbackId, ...ids],
+              tree,
+            ),
         );
         if (recovered) clickedId = recovered;
       }
@@ -1161,7 +1450,20 @@ export function ExpressionPad({
       trace.startedMarquee = true;
       setClickTrace(JSON.stringify(trace, null, 2));
       pendingClickSelectionRef.current = null;
-      const candidateRects = snapshotSelectableRectsForTree(displayEl, tree);
+      const candidateRects = measureProfileStep(
+        phases,
+        "snapshotSelectableRectsForTree",
+        () => snapshotSelectableRectsForTree(displayEl, tree),
+      );
+      recordProfileSample({
+        kind: "marquee-start",
+        totalMs: performance.now() - startedAt,
+        phases,
+        selectionKind: "none",
+        selectionLatex: "",
+        treeLatex: tree.latexPlain,
+        note: `candidateRects=${Object.keys(candidateRects).length}`,
+      });
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       setMarquee({
         pointerId: e.pointerId,
@@ -1176,11 +1478,8 @@ export function ExpressionPad({
 
     // Use the selection hook to handle click logic
     const modKey = e.metaKey || e.ctrlKey;
-    const clickResult = handleSelectionClick(
-      clickedId,
-      e.shiftKey,
-      modKey,
-      selection,
+    const clickResult = measureProfileStep(phases, "handleSelectionClick", () =>
+      handleSelectionClick(clickedId, e.shiftKey, modKey, selection),
     );
     const isAncestorOrSelf = (ancestorId: string, nodeId: string): boolean => {
       let cur: string | null = nodeId;
@@ -1211,31 +1510,53 @@ export function ExpressionPad({
     // Ctrl/Cmd multi-select: update selection only, no drag start.
     if (modKey) {
       pendingClickSelectionRef.current = null;
-      commitSelectionFromClickResult(clickResult, clickedId);
+      commitSelectionFromClickResult(clickResult, clickedId, "multi-select commit", {
+        startedAt,
+        phases,
+      });
       return;
     }
 
     // Handle SHIFT+click range selection
     if (e.shiftKey && clickResult.newSelection?.kind === "span") {
       pendingClickSelectionRef.current = null;
-      setSelection(clickResult.newSelection);
-      applySelectionHighlight(
-        clickResult.newSelection,
-        tree,
-        displayRef.current,
+      measureProfileStep(phases, "setSelection", () =>
+        setSelection(clickResult.newSelection),
       );
-      const details = getSelectionDetailsForSpan(
-        tree,
-        clickResult.newSelection as ExprSelection & { kind: "span" },
+      measureProfileStep(phases, "applySelectionHighlight", () =>
+        applySelectionHighlight(
+          clickResult.newSelection,
+          tree,
+          displayRef.current,
+        ),
       );
-      updateSelectionDetails(details);
+      const details = measureProfileStep(phases, "getSelectionDetailsForSpan", () =>
+        getSelectionDetailsForSpan(
+          tree,
+          clickResult.newSelection as ExprSelection & { kind: "span" },
+        ),
+      );
+      measureProfileStep(phases, "updateSelectionDetails", () =>
+        updateSelectionDetails(details),
+      );
+      scheduleProfileAfterPaint({
+        kind: "shift-range commit",
+        phases,
+        selectionKind: selectionKindLabel(clickResult.newSelection),
+        selectionLatex: selectionLatexForProfile(tree, clickResult.newSelection),
+        treeLatex: tree.latexPlain,
+        clickedId,
+        startedAt,
+      });
       return;
     }
 
     // Start drag
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    startDrag(e.pointerId, effectiveDragIds, { x: e.clientX, y: e.clientY });
-    setDragSlot("");
+    measureProfileStep(phases, "startDrag", () => {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      startDrag(e.pointerId, effectiveDragIds, { x: e.clientX, y: e.clientY });
+      setDragSlot("");
+    });
 
     const shouldDeferClickSelectionCommit =
       !e.shiftKey &&
@@ -1248,10 +1569,15 @@ export function ExpressionPad({
         clickedId,
         newSelection: clickResult.newSelection,
         multiplicativeSpan: clickResult.multiplicativeSpan,
+        startedAt,
+        phases: [...phases],
       };
     } else {
       pendingClickSelectionRef.current = null;
-      commitSelectionFromClickResult(clickResult, clickedId);
+      commitSelectionFromClickResult(clickResult, clickedId, "click commit", {
+        startedAt,
+        phases,
+      });
     }
 
     // Logging
@@ -1415,21 +1741,45 @@ export function ExpressionPad({
         setMarquee(null);
         return;
       }
+      const phases: ProfilePhase[] = [];
+      const startedAt = performance.now();
       const current = { x: e.clientX, y: e.clientY };
       const dragDistance = Math.hypot(
         current.x - marquee.origin.x,
         current.y - marquee.origin.y,
       );
-      const selectedIds = computeMarqueeSelectionIds(
-        marquee.origin,
-        current,
-        marquee.candidateRects,
+      const selectedIds = measureProfileStep(
+        phases,
+        "computeMarqueeSelectionIds",
+        () =>
+          computeMarqueeSelectionIds(
+            marquee.origin,
+            current,
+            marquee.candidateRects,
+          ),
       );
 
       if (dragDistance < MARQUEE_SELECT_THRESHOLD_PX) {
-        clearSelection();
-        applySelectionHighlight(null, tree, displayRef.current);
-        updateSelectionDetails(getResetSelectionDetails("Cleared selection"));
+        measureProfileStep(phases, "clearSelection", () => clearSelection());
+        measureProfileStep(phases, "applySelectionHighlight", () =>
+          applySelectionHighlight(null, tree, displayRef.current),
+        );
+        const details = measureProfileStep(
+          phases,
+          "getResetSelectionDetails",
+          () => getResetSelectionDetails("Cleared selection"),
+        );
+        measureProfileStep(phases, "updateSelectionDetails", () =>
+          updateSelectionDetails(details),
+        );
+        scheduleProfileAfterPaint({
+          kind: "marquee-clear",
+          phases,
+          selectionKind: "none",
+          selectionLatex: "",
+          treeLatex: tree.latexPlain,
+          startedAt,
+        });
       } else {
         let next: ExprSelection | null = null;
         if (selectedIds.length === 1) {
@@ -1438,19 +1788,52 @@ export function ExpressionPad({
           next = { kind: "multi", nodeIds: selectedIds };
         }
 
-        setSelection(next);
-        applySelectionHighlight(next, tree, displayRef.current);
+        measureProfileStep(phases, "setSelection", () => setSelection(next));
+        measureProfileStep(phases, "applySelectionHighlight", () =>
+          applySelectionHighlight(next, tree, displayRef.current),
+        );
         if (next?.kind === "node") {
-          updateSelectionDetails(getSelectionDetailsForNode(tree, next.nodeId));
+          const details = measureProfileStep(
+            phases,
+            "getSelectionDetailsForNode",
+            () => getSelectionDetailsForNode(tree, next.nodeId),
+          );
+          measureProfileStep(phases, "updateSelectionDetails", () =>
+            updateSelectionDetails(details),
+          );
         } else if (next?.kind === "multi") {
-          updateSelectionDetails(
-            getSelectionDetailsForMulti(tree, next, "Rubber-band selection"),
+          const details = measureProfileStep(
+            phases,
+            "getSelectionDetailsForMulti",
+            () =>
+              getSelectionDetailsForMulti(
+                tree,
+                next,
+                "Rubber-band selection",
+              ),
+          );
+          measureProfileStep(phases, "updateSelectionDetails", () =>
+            updateSelectionDetails(details),
           );
         } else {
-          updateSelectionDetails(
-            getResetSelectionDetails("Rubber-band selection"),
+          const details = measureProfileStep(
+            phases,
+            "getResetSelectionDetails",
+            () => getResetSelectionDetails("Rubber-band selection"),
+          );
+          measureProfileStep(phases, "updateSelectionDetails", () =>
+            updateSelectionDetails(details),
           );
         }
+        scheduleProfileAfterPaint({
+          kind: "marquee-commit",
+          phases,
+          selectionKind: selectionKindLabel(next),
+          selectionLatex: selectionLatexForProfile(tree, next),
+          treeLatex: tree.latexPlain,
+          note: `selectedIds=${selectedIds.length}`,
+          startedAt,
+        });
       }
 
       if ((e.currentTarget as HTMLElement).hasPointerCapture?.(e.pointerId)) {
@@ -1470,6 +1853,12 @@ export function ExpressionPad({
             multiplicativeSpan: pending.multiplicativeSpan,
           },
           pending.clickedId,
+          "deferred click commit",
+          {
+            startedAt: pending.startedAt,
+            phases: pending.phases,
+            note: "selection commit deferred until pointerup",
+          },
         );
       }
       pendingClickSelectionRef.current = null;
@@ -1567,7 +1956,6 @@ export function ExpressionPad({
     }
   }
 
-  const canApply = !!tree && mathPadFacade.isFlippableEquation(tree.rootJson);
   const marqueeRect = useMemo(() => {
     if (!marquee || !renderBoxRef.current) return null;
     const local = renderBoxRef.current.getBoundingClientRect();
@@ -1579,39 +1967,6 @@ export function ExpressionPad({
       height: Math.max(0, rect.bottom - rect.top),
     };
   }, [marquee]);
-  const canExpand = !!tree && !!expandTargetId;
-  const canCancel = useMemo(
-    () => mathPadFacade.canCancel(tree, selection),
-    [tree, selection],
-  );
-  const canNegate = useMemo(
-    () => mathPadFacade.canNegate(tree, selection),
-    [tree, selection],
-  );
-  const canToggleDelimiterStyle = useMemo(
-    () => mathPadFacade.canToggleDelimiterStyle(tree, selection),
-    [tree, selection],
-  );
-  const canForceDelimiter = useMemo(
-    () => mathPadFacade.canForceDelimiter(tree, selection),
-    [tree, selection],
-  );
-  const canEvaluate = useMemo(
-    () => mathPadFacade.canEvaluate(tree, selection),
-    [tree, selection],
-  );
-  const canSimplify = useMemo(
-    () => mathPadFacade.canSimplify(tree, selection),
-    [tree, selection],
-  );
-  const canFactor = useMemo(
-    () => mathPadFacade.canFactor(tree, selection),
-    [tree, selection],
-  );
-  const canDeclareFunction = useMemo(
-    () => mathPadFacade.canDeclareFunction(tree, selection),
-    [tree, selection],
-  );
   const selectedNodeLatex = useMemo(() => {
     if (!canSubstitute || !tree || !selection) return "";
     if (selection.kind === "node") {
@@ -1854,6 +2209,9 @@ export function ExpressionPad({
     selectionChildLatex,
     selectionNote,
     clickTrace,
+    selectionProfile,
+    selectionProfileHistory,
+    toolbarProfile,
     debugBoxes,
   };
 

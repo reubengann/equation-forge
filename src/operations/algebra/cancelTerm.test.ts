@@ -250,11 +250,21 @@ describe("cancelTerm", () => {
       return n.latex === "g" && isDescendant(tree, n.id, rhsId);
     });
     expect(gId).toBeTruthy();
+    expect(canCancelTerm(tree, select(gId))).toBe(true);
     const result = cancelTerm(tree, select(gId));
     expect(result).not.toBeNull();
     expect(normalizeSpaces(result!.latexPlain)).toBe(
       String.raw`0 = \sin\left(\theta\right) - \mu_{s} \cos\left(\theta\right)`
     );
+  });
+
+  it("does not enable cancel for a plain symbol on a nonzero equation side", () => {
+    const tree = treefromLatex(
+      String.raw`\mu = -\frac{1}{c_{P}} \frac{R T v^{3} b - 2 a v \left(v - b\right)^{2}}{R T v^{3} - 2 a \left(v - b\right)^{2}}`
+    );
+    const muId = findNodeId(tree, (n) => n.latex === String.raw`\mu`);
+    expect(muId).toBeTruthy();
+    expect(canCancelTerm(tree, select(muId))).toBe(false);
   });
 
   it("returns null when the selection is not cancellable", () => {

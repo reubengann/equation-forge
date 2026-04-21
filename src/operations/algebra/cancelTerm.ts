@@ -64,6 +64,96 @@ function isOneEquivalent(expr: MJ): boolean {
   return simp === 1 || simp === "1";
 }
 
+function unwrapDisplayGrouping(expr: MJ): MJ {
+  if (
+    Array.isArray(expr) &&
+    (expr[0] === "Delimiter" || expr[0] === "List") &&
+    expr.length >= 2
+  ) {
+    return expr[1] as MJ;
+  }
+  return expr;
+}
+
+function isObviouslyZeroEquivalent(expr: MJ): boolean {
+  const unwrapped = unwrapDisplayGrouping(expr);
+  if (unwrapped === 0 || unwrapped === "0") return true;
+  if (!Array.isArray(unwrapped)) return false;
+  if (unwrapped[0] === "Negate" && unwrapped.length >= 2) {
+    return isObviouslyZeroEquivalent(unwrapped[1] as MJ);
+  }
+  if (
+    (unwrapped[0] === "InvisibleOperator" || unwrapped[0] === "Multiply") &&
+    (unwrapped.slice(1) as MJ[]).some((child) => isObviouslyZeroEquivalent(child))
+  ) {
+    return true;
+  }
+  if (unwrapped[0] === "Add" && unwrapped.length >= 2) {
+    return (unwrapped.slice(1) as MJ[]).every((child) =>
+      isObviouslyZeroEquivalent(child)
+    );
+  }
+  return false;
+}
+
+function isObviouslyOneEquivalent(expr: MJ): boolean {
+  const unwrapped = unwrapDisplayGrouping(expr);
+  if (unwrapped === 1 || unwrapped === "1") return true;
+  if (!Array.isArray(unwrapped)) return false;
+  if (
+    (unwrapped[0] === "InvisibleOperator" || unwrapped[0] === "Multiply") &&
+    unwrapped.length >= 2
+  ) {
+    return (unwrapped.slice(1) as MJ[]).every((child) =>
+      isObviouslyOneEquivalent(child)
+    );
+  }
+  return false;
+}
+
+function countSubtreeNodesUpTo(
+  tree: ExpressionTree,
+  nodeId: string,
+  limit: number
+): number {
+  const stack = [nodeId];
+  let count = 0;
+  while (stack.length > 0 && count <= limit) {
+    const current = stack.pop();
+    if (!current) continue;
+    count += 1;
+    const kids = tree.childrenById[current] ?? [];
+    for (const kid of kids) stack.push(kid);
+  }
+  return count;
+}
+
+function canUseExactEquivalenceCheck(
+  tree: ExpressionTree,
+  nodeId: string,
+  maxNodes = 12
+): boolean {
+  return countSubtreeNodesUpTo(tree, nodeId, maxNodes) <= maxNodes;
+}
+
+function isProbablyZeroEquivalent(
+  tree: ExpressionTree,
+  nodeId: string,
+  expr: MJ
+): boolean {
+  if (isObviouslyZeroEquivalent(expr)) return true;
+  return canUseExactEquivalenceCheck(tree, nodeId) && isZeroEquivalent(expr);
+}
+
+function isProbablyOneEquivalent(
+  tree: ExpressionTree,
+  nodeId: string,
+  expr: MJ
+): boolean {
+  if (isObviouslyOneEquivalent(expr)) return true;
+  return canUseExactEquivalenceCheck(tree, nodeId, 8) && isOneEquivalent(expr);
+}
+
 function stripNegatedZero(expr: MJ): MJ {
   if (!Array.isArray(expr)) return expr;
   const op = expr[0];
@@ -212,6 +302,83 @@ function findEqualAncestor(
     cursor = tree.parentById[cursor] ?? null;
   }
   return null;
+}
+
+function unwrapEquationSideRoot(tree: ExpressionTree, nodeId: string): string {
+  let current = nodeId;
+  while (true) {
+    const op = tree.nodesById[current]?.op;
+    if (op !== "Negate" && op !== "Delimiter" && op !== "List") return current;
+    const childId = tree.childrenById[current]?.[0];
+    if (!childId) return current;
+    current = childId;
+  }
+}
+
+function isTopLevelFactorOnEquationSide(
+  tree: ExpressionTree,
+  sideRootId: string,
+  selId: string
+): boolean {
+  const normalizedSideRootId = unwrapEquationSideRoot(tree, sideRootId);
+  if (selId === normalizedSideRootId) return true;
+  if (tree.nodesById[normalizedSideRootId]?.op !== "InvisibleOperator") return false;
+
+  let current = selId;
+  while (true) {
+    const parentId = tree.parentById[current];
+    if (!parentId) return false;
+    if (parentId === normalizedSideRootId) return true;
+    if (parentId === sideRootId) return false;
+    current = parentId;
+  }
+}
+
+function canCancelSingleFactorWhenOtherSideIsZeroQuick(
+  tree: ExpressionTree,
+  selId: string
+): boolean {
+  const equalInfo = findEqualAncestor(tree, selId);
+  if (!equalInfo) return false;
+
+  const kids = tree.childrenById[equalInfo.equalId] ?? [];
+  if (kids.length < 2) return false;
+  const lhsId = kids[0];
+  const rhsId = kids[1];
+  const sideId = equalInfo.isLhs ? lhsId : rhsId;
+  const otherSideId = equalInfo.isLhs ? rhsId : lhsId;
+  if (!sideId || !otherSideId) return false;
+
+  const otherSideExpr = tree.nodesById[otherSideId]?.json;
+  if (otherSideExpr == null) return false;
+  if (!isProbablyZeroEquivalent(tree, otherSideId, otherSideExpr)) return false;
+
+  return isTopLevelFactorOnEquationSide(tree, sideId, selId);
+}
+
+function canCancelNodeQuick(tree: ExpressionTree, selId: string): boolean {
+  const selInfo = tree.nodesById[selId];
+  if (!selInfo) return false;
+
+  if (canCancelSingleFactorWhenOtherSideIsZeroQuick(tree, selId)) return true;
+
+  const parentId = tree.parentById[selId];
+  if (!parentId) return false;
+  const parentOp = tree.nodesById[parentId]?.op;
+
+  if (parentOp === "Equal") {
+    return isProbablyZeroEquivalent(tree, selId, selInfo.json);
+  }
+  if (parentOp === "Add") {
+    return isProbablyZeroEquivalent(tree, selId, selInfo.json);
+  }
+  if (parentOp === "InvisibleOperator") {
+    return (
+      isProbablyZeroEquivalent(tree, selId, selInfo.json) ||
+      isProbablyOneEquivalent(tree, selId, selInfo.json)
+    );
+  }
+  return false;
 }
 
 function findAddTermAncestor(
@@ -554,7 +721,7 @@ export function canCancelTerm(
     return canCancelCandidates(tree, candidates);
   }
   if (selection.kind !== "node") return false;
-  return cancelTerm(tree, selection) !== null;
+  return canCancelNodeQuick(tree, selection.nodeId);
 }
 
 export function cancelTerm(
