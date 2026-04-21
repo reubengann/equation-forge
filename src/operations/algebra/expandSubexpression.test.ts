@@ -1,11 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { ExpressionTree, type MJ } from "../../ExpressionTree";
+import { parse } from "../../computeEngine";
 import { treefromLatex, findNodeId } from "../../testHelpers";
 import { mathPadFacade } from "../../application/mathPadFacade";
 import { expandSubexpression } from "./expandSubexpression";
 
 function normalizeSpaces(s: string): string {
   return s.replace(/\s+/g, " ").trim();
+}
+
+function containsHorizontalSpacing(expr: MJ): boolean {
+  if (!Array.isArray(expr)) return false;
+  if (expr[0] === "HorizontalSpacing") return true;
+  return expr.slice(1).some((child) => containsHorizontalSpacing(child as MJ));
 }
 
 describe("expandSubexpression", () => {
@@ -256,5 +263,25 @@ describe("expandSubexpression", () => {
     expect(normalizeSpaces(result.latexPlain)).toBe(
       String.raw`T = \exp\left(\int g \left(\theta\right) \,\mathrm{d}{\theta}\right) \exp\left(\ln\left(A'\right)\right)`
     );
+  });
+
+  it("expands rhs without retaining HorizontalSpacing wrappers (issue 143)", () => {
+    const tree = treefromLatex(
+      String.raw`\mathrm{d}{S} = \frac{\mathrm{d}{U} + Y_{1} \, \mathrm{d}{X_{1}} + Y_{2} \, \mathrm{d}{X_{2}}}{T}`
+    );
+    const rhsId = (tree.childrenById[tree.rootId] ?? [])[1];
+    expect(rhsId).toBeTruthy();
+    if (!rhsId) return;
+
+    const result = expandSubexpression(tree, rhsId);
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    expect(containsHorizontalSpacing(result.rootJson)).toBe(false);
+
+    const reparsed = parse(result.latexPlain);
+    expect(reparsed).not.toBeNull();
+    if (!reparsed) return;
+    expect(containsHorizontalSpacing(reparsed)).toBe(false);
   });
 });

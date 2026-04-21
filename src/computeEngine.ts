@@ -365,13 +365,15 @@ export function normalizeMathJson(mj: MJ | null): MJ | null {
                       rewriteNegateToFrontOfProduct(
                         normalizeDivideSigns(
                         normalizeDeltaOfQuantity(
-                          normalizeDifferentialOperands(
-                            normalizePrimeDifferentials(
-                              normalizePlainDifferentials(
-                                normalizeIntegralTrailingDifferentialFactor(
-                                  normalizeTrailingDerivativeSubscriptBinding(
-                                    normalizePartialDerivativeForms(
-                                      normalizeProducts(normalizeVectors(mj))
+                          normalizeHorizontalSpacing(
+                            normalizeDifferentialOperands(
+                              normalizePrimeDifferentials(
+                                normalizePlainDifferentials(
+                                  normalizeIntegralTrailingDifferentialFactor(
+                                    normalizeTrailingDerivativeSubscriptBinding(
+                                      normalizePartialDerivativeForms(
+                                        normalizeProducts(normalizeVectors(mj))
+                                      )
                                     )
                                   )
                                 )
@@ -611,6 +613,25 @@ function normalizeSequenceEquationTail(mj: MJ | null): MJ | null {
         : (["InvisibleOperator", ...rhsFactors] as MJ);
     return ["Equal", eq[1] as MJ, rhs] as MJ;
   }
+  return [op, ...kids] as MJ;
+}
+
+function normalizeHorizontalSpacing(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+  const op = mj[0];
+  if (op === "HorizontalSpacing") return null;
+
+  const kids = mj
+    .slice(1)
+    .map((child) => normalizeHorizontalSpacing(child as MJ))
+    .filter((child): child is MJ => child !== null) as MJ[];
+
+  if (op === "InvisibleOperator" || op === "Multiply") {
+    if (kids.length === 0) return 1;
+    if (kids.length === 1) return kids[0];
+  }
+
   return [op, ...kids] as MJ;
 }
 

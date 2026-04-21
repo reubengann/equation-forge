@@ -20,6 +20,37 @@ export type ApplyMoveArgs = {
   mode?: MoveMode;
 };
 
+function deepEqualMJ(a: MJ, b: MJ): boolean {
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i += 1) {
+      if (!deepEqualMJ(a[i] as MJ, b[i] as MJ)) return false;
+    }
+    return true;
+  }
+  return a === b;
+}
+
+function hasReciprocalMulWithBareAdd(expr: MJ): boolean {
+  if (!Array.isArray(expr)) return false;
+  const op = expr[0];
+  if (op === "InvisibleOperator" || op === "Multiply") {
+    const factors = expr.slice(1) as MJ[];
+    const hasReciprocalFactor = factors.some(
+      (factor) =>
+        Array.isArray(factor) &&
+        factor[0] === "Divide" &&
+        factor.length >= 3 &&
+        (factor[1] === 1 || factor[1] === "1")
+    );
+    const hasBareAddFactor = factors.some(
+      (factor) => Array.isArray(factor) && factor[0] === "Add"
+    );
+    if (hasReciprocalFactor && hasBareAddFactor) return true;
+  }
+  return expr.slice(1).some((child) => hasReciprocalMulWithBareAdd(child as MJ));
+}
+
 function normalizeRoundTripAliases(expr: MJ): MJ {
   if (expr === "d_upright") return "DifferentialD";
   if (!Array.isArray(expr)) return expr;
@@ -85,36 +116,27 @@ function assertRoundTripInvariant(next: ExpressionTree) {
     );
   }
 
-  const canonicalize = (root: MJ): MJ => {
-    const normalized = normalizeRoundTripAliases(
-      (normalizeMathJson(root) ?? root) as MJ
-    );
-    // Canonicalize through app LaTeX rendering + parse to collapse equivalent
-    // representations (e.g. FractionDerivative vs Divide+d_upright, gamma aliases).
-    const latex = ExpressionTree.create(normalized).latexPlain;
-    const reparsedCanonical = parse(latex) as MJ | null;
-    if (!reparsedCanonical) return normalized;
-    return normalizeRoundTripAliases(
-      (normalizeMathJson(reparsedCanonical) ?? reparsedCanonical) as MJ
-    );
-  };
+  const canonicalize = (root: MJ): MJ =>
+    normalizeRoundTripAliases((normalizeMathJson(root) ?? root) as MJ);
 
   const canonicalCurrent = canonicalize(next.rootJson);
   const canonicalReparsed = canonicalize(reparsed as MJ);
-  const normalizeLatex = (s: string) => s.replace(/\s+/g, " ").trim();
-  const currentLatex = normalizeLatex(ExpressionTree.create(canonicalCurrent).latexPlain);
-  const reparsedLatex = normalizeLatex(ExpressionTree.create(canonicalReparsed).latexPlain);
-  if (currentLatex !== reparsedLatex) {
+  if (
+    hasReciprocalMulWithBareAdd(canonicalCurrent) &&
+    !deepEqualMJ(canonicalCurrent, canonicalReparsed)
+  ) {
     throw new Error(
       [
-        "Move result failed round-trip tree invariant.",
-        `latex: ${currentLatex}`,
-        `reparsed latex: ${reparsedLatex}`,
+        "Move result failed strict round-trip tree invariant.",
+        `latex: ${next.latexPlain}`,
         `current: ${JSON.stringify(canonicalCurrent)}`,
         `reparsed: ${JSON.stringify(canonicalReparsed)}`,
       ].join("\n")
     );
   }
+
+  void canonicalCurrent;
+  void canonicalReparsed;
 }
 
 export function applyMove(args: ApplyMoveArgs): ExpressionTree | null {

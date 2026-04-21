@@ -273,11 +273,12 @@ function pullFactorOutOfDivide(args: {
   const extraction = extractFromDivide(tree, divideId, movedId);
   if (!extraction) return null;
   const { extractedExpr, updatedDivide } = extraction;
+  const groupedUpdatedDivide = wrapForMultiplicativeInsertion(updatedDivide);
 
   const nextExpr =
     targetSlot === 0
-      ? normalizeMul([extractedExpr, updatedDivide])
-      : normalizeMul([updatedDivide, extractedExpr]);
+      ? normalizeMul([extractedExpr, groupedUpdatedDivide])
+      : normalizeMul([groupedUpdatedDivide, extractedExpr]);
   const nextRoot = setAtPath(tree.rootJson, dividePath, nextExpr);
   const nextTree = ExpressionTree.create(nextRoot);
   return nextTree;

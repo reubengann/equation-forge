@@ -518,7 +518,9 @@
 
 ---- undone ----
 
-143. In mathlive, type `\phi(\theta) = \exp` then type open bracket. Result is `exp [] []`. If you then delete the right-most bracket, you get exp [] [ [] ]. This does not occur with parentheses. What is going on here? Are brackets not editable in this way?
+143. `\mathrm{d}{S} = \frac{\mathrm{d}{U} + Y_{1} \, \mathrm{d}{X_{1}} + Y_{2} \, \mathrm{d}{X_{2}}}{T}`
+     Expand the RHS. The resulting tree does not match that if you compile the statement back, indicating that our assert is not
+     firing correctly. We get HorizontalSpacing in one of trees wrapping the differentials. See dump.txt.
 
 144. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
      When simplifying the LHS, I expect `P v_{c_P/c_v}` or something, but I actually get `P^{\left[c_{v}\right]} v^{\left[c_{P}\right]} = \mathrm{const}^{\frac{1}{c_{_v}}}` which is odd.
