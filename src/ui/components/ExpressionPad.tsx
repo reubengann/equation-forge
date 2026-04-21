@@ -633,13 +633,6 @@ export function ExpressionPad({
   }, [prefillLatex, prefillKey]);
 
   useEffect(() => {
-    if (showApplyModal && applyFieldRef.current) {
-      applyFieldRef.current.value = "";
-      applyFieldRef.current.focus();
-    }
-  }, [showApplyModal]);
-
-  useEffect(() => {
     if (!onHistoryChange) return;
     if (!history.present) return;
     const signature = historyLatexSignature(history);

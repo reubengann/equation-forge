@@ -147,6 +147,23 @@ export function chooseBestAllowedSelectedNode(
   tree: ExpressionTree
 ): string | null {
   const disallow = new Set(["Add", "Equal", "InvisibleOperator"]);
+  const functionLikeSymbolHeads = new Set([
+    "Sin",
+    "Cos",
+    "Tan",
+    "Arctan",
+    "ArcTan",
+    "Arcsin",
+    "ArcSin",
+    "Arccos",
+    "ArcCos",
+    "Exp",
+    "Log",
+    "Ln",
+    "Abs",
+    "Sqrt",
+    "D",
+  ]);
 
   for (const id of nodeIds) {
     const info = tree.nodesById[id];
@@ -170,6 +187,22 @@ export function chooseBestAllowedSelectedNode(
         (parentOp === "InvisibleOperator" || parentOp === "Multiply")
       ) {
         return id;
+      }
+      // Standard functions can be parsed as an implicit-product container
+      // whose head is a function symbol, e.g. ["InvisibleOperator", "Exp", arg].
+      // Allow selecting that container when the pointer hit lands on the
+      // rendered function name token.
+      if (info.op === "InvisibleOperator") {
+        const firstChildId = tree.childrenById[id]?.[0];
+        const firstChild = firstChildId ? tree.nodesById[firstChildId] : undefined;
+        if (
+          firstChild &&
+          firstChild.op === "Symbol" &&
+          typeof firstChild.json === "string" &&
+          functionLikeSymbolHeads.has(firstChild.json)
+        ) {
+          return id;
+        }
       }
     }
 

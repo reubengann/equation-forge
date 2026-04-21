@@ -63,14 +63,33 @@ export function ApplyModal({
   }, [open, equationLatex]);
 
   useEffect(() => {
-    if (open && applyFieldRef.current) {
-      const field = applyFieldRef.current as any;
+    if (!open || !applyFieldRef.current) return;
+
+    const field = applyFieldRef.current as any;
+    const resetValue = () => {
       if (typeof field.setValue === "function") {
         field.setValue("");
       } else {
         field.value = "";
       }
-      field.focus?.();
+    };
+    const focusField = () => {
+      try {
+        field.focus?.();
+      } catch {
+        // MathLive may not be upgraded yet; ignore and rely on the next open.
+      }
+    };
+
+    resetValue();
+
+    // Wait for the custom element upgrade before focusing to avoid ariaLiveText errors.
+    if (typeof customElements !== "undefined" && customElements.whenDefined) {
+      customElements.whenDefined("math-field").then(() => {
+        requestAnimationFrame(focusField);
+      });
+    } else {
+      requestAnimationFrame(focusField);
     }
   }, [open, applyFieldRef]);
 

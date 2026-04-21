@@ -267,6 +267,23 @@ describe("selectionSemantics.bubbleThroughUnary", () => {
     expect(chooseBestAllowedSelectedNode(nodeIds, tree)).toBe(bId);
   });
 
+  it("allows selecting function-like implicit products such as Exp(arg)", () => {
+    const tree = ExpressionTree.create(
+      makeMJfromLatex(String.raw`\exp\left(\ln\left(T\right)\right)`)
+    );
+    const expContainerId = findNodeId(
+      tree,
+      (n: any) =>
+        n.op === "InvisibleOperator" &&
+        n.latex.includes(String.raw`\exp`) &&
+        n.latex.includes(String.raw`\ln\left(T\right)`),
+    );
+
+    expect(chooseBestAllowedSelectedNode([expContainerId], tree)).toBe(
+      expContainerId
+    );
+  });
+
   it("allows selecting additive factor under multiplication (issue 112)", () => {
     const tree = ExpressionTree.create(
       makeMJfromLatex(String.raw`P \left(v - b\right) = R T`)

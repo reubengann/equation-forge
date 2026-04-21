@@ -540,6 +540,10 @@ export class ExpressionTree {
         D: "D",
       };
       const fnLatex = nameMap[funcNameRaw] ?? funcNameRaw;
+      const taggedFnLatex =
+        funcNameRaw === "Abs" || funcNameRaw === "Sqrt"
+          ? fnLatex
+          : this.wrap(id, fnLatex);
       const argsPlain = args.map((a) => a.latexPlain).join(", ");
       const argsTagged = args.map((a) => a.latexTagged).join(", ");
       const singleIsDelimiter =
@@ -554,12 +558,12 @@ export class ExpressionTree {
             : `${fnLatex}\\left(${argsPlain}\\right)`;
       const taggedInner =
         funcNameRaw === "Abs"
-          ? String.raw`${fnLatex}${argsTagged}\right|`
+          ? String.raw`${taggedFnLatex}${argsTagged}\right|`
           : funcNameRaw === "Sqrt" && args.length === 1
-            ? String.raw`${fnLatex}{${argsTagged}}`
+            ? String.raw`${taggedFnLatex}{${argsTagged}}`
           : singleIsDelimiter
-            ? `${fnLatex}${argsTagged}`
-            : `${fnLatex}\\left(${argsTagged}\\right)`;
+            ? `${taggedFnLatex}${argsTagged}`
+            : `${taggedFnLatex}\\left(${argsTagged}\\right)`;
 
       this.nodesById[id] = { id, op, latex: plain, json: node };
       return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
@@ -1115,6 +1119,8 @@ export class ExpressionTree {
     };
 
     const fnLatex = nameMap[op] ?? op;
+    const taggedFnLatex =
+      op === "Abs" || op === "Sqrt" ? fnLatex : this.wrap(id, fnLatex);
 
     const argsPlain = args.map((a) => a.latexPlain).join(", ");
     const argsTagged = args.map((a) => a.latexTagged).join(", ");
@@ -1132,12 +1138,12 @@ export class ExpressionTree {
           : `${fnLatex}\\left(${argsPlain}\\right)`;
     const taggedInner =
       op === "Abs"
-        ? String.raw`${fnLatex}${argsTagged}\right|`
+        ? String.raw`${taggedFnLatex}${argsTagged}\right|`
         : op === "Sqrt" && args.length === 1
-          ? String.raw`${fnLatex}{${argsTagged}}`
+          ? String.raw`${taggedFnLatex}{${argsTagged}}`
         : singleIsDelimiter
-          ? `${fnLatex}${argsTagged}`
-          : `${fnLatex}\\left(${argsTagged}\\right)`;
+          ? `${taggedFnLatex}${argsTagged}`
+          : `${taggedFnLatex}\\left(${argsTagged}\\right)`;
 
     this.nodesById[id] = { id, op, latex: plain, json: node };
     return { id, latexPlain: plain, latexTagged: this.wrap(id, taggedInner) };
