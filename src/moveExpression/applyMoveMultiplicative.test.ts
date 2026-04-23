@@ -366,6 +366,24 @@ describe("applyMoveMultiplicative executor", () => {
     );
   });
 
+  it("moves denominator v from lhs fraction to rhs multiplicatively (issue 147)", () => {
+    const next = runMove({
+      latex: String.raw`\frac{R T}{v} = \left(P + b\right)`,
+      select: (tree) => [findNodeByLatex(tree, "v")],
+      hover: (tree) => {
+        const rhsId = tree.childrenById[tree.rootId!]?.[1];
+        if (!rhsId) throw new Error("Missing RHS");
+        return rhsId;
+      },
+      targetSlot: 0,
+    });
+
+    expect(next).not.toBeNull();
+    expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
+      String.raw`R T = v \left(P + b\right)`
+    );
+  });
+
   it("folds moved denominator beta under matching beta sibling, not adjacent derivative fraction (issue 120)", () => {
     const next = runMove({
       latex: String.raw`-\beta \frac{c_{P}}{\beta v} \frac{\mathrm{d}{v_{s}}}{\mathrm{d}{P_{s}}} = \kappa c_{v}`,
@@ -795,7 +813,7 @@ describe("applyMoveMultiplicative executor", () => {
 
     expect(next).not.toBeNull();
     expect(next!.latexPlain.replace(/\s+/g, " ").trim()).toBe(
-      String.raw`\int \,\mathrm{d}{S} = \int P \mathrm{d}{V} \frac{1}{T}`
+      String.raw`\int \,\mathrm{d}{S} = \int P \,\mathrm{d}{V} \frac{1}{T}`
     );
   });
 

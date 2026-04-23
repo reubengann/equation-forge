@@ -538,11 +538,14 @@
       If I try to expand the RHS, nothing happens. I expect to get
       `P = \left(a T^2 + T \phi\left(v\right)\right)`
 
+146.  `\kappa(T)=-\frac{1}{v}\frac{1}{T\phi^{\prime}(v)}` This produces an error.
+
 ---- undone ----
 
-146. `\kappa(T)=-\frac{1}{v}\frac{1}{T\phi^{\prime}(v)}` This produces an error.
+147. `\frac{R T}{v} = \left(P + b\right)`
+     Cannot move `v` multiplicatively to the RHS.
 
-147. `v = \frac{R T}{P}`
+148. `v = \frac{R T}{P}`
      When doing apply to both sides `\frac{\partial eqn}{\partial P}`
      Uncaught Error: The first element of an array should be a string (the function name): [
      [
@@ -558,10 +561,10 @@
      ]
      This does not happen if eqn is outside the partial (`\frac{\partial}{\partial P} eqn`)
 
-148. `v = \frac{m}{n \rho}` Choose m and n and hit substitute. Since these are not part of the same group, the substitution
+149. `v = \frac{m}{n \rho}` Choose m and n and hit substitute. Since these are not part of the same group, the substitution
      shows as `m n` instead of `\frac{m}{n}`. Probably this should just be disallowed?
 
-149. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
+150. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
      When simplifying the LHS, I expect `P v_{c_P/c_v}` or something, but I actually get `P^{\left[c_{v}\right]} v^{\left[c_{P}\right]} = \mathrm{const}^{\frac{1}{c_{_v}}}` which is odd.
 
 ---- backlog ----

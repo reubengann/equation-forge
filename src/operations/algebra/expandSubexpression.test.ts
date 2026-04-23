@@ -326,4 +326,22 @@ describe("expandSubexpression", () => {
     const asJson = JSON.stringify(result.rootJson);
     expect(asJson).not.toContain('"Nothing"');
   });
+
+  it("expands rhs integral for cv/T dT + R/v dv form (issue 147)", () => {
+    const tree = treefromLatex(
+      String.raw`\Delta s = \int \left(\frac{c_{v}}{T} \, \mathrm{d}{T} + \frac{R}{v} \, \mathrm{d}{v}\right)`
+    );
+    const rhsId = (tree.childrenById[tree.rootId] ?? [])[1];
+    expect(rhsId).toBeTruthy();
+    if (!rhsId) return;
+
+    const result = expandSubexpression(tree, rhsId);
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    const latex = normalizeSpaces(result.latexPlain);
+    expect(latex).toContain(String.raw`\int \frac{c_{v}}{T} \,\mathrm{d}{T}`);
+    expect(latex).toContain(String.raw`\int \frac{R}{v} \,\mathrm{d}{v}`);
+  });
+
 });

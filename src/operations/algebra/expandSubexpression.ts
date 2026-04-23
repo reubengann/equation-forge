@@ -485,7 +485,6 @@ export function expandSubexpression(
       target = getAtPath(tree.rootJson, effectivePath) as MJ;
     }
   }
-
   // Step 1: custom bilinear/distributive passes in our dialect.
   const distributedDot = distributeDotProduct(target);
   const distributedMul = distributeInvisibleOperator(distributedDot);

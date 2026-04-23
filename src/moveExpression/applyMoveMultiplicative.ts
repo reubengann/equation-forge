@@ -365,6 +365,36 @@ function extractFromDivide(
     if (movedId === denominatorId) {
       extractedExpr = ["Divide", 1, denominatorExpr] as MJNode;
       nextDenominator = 1;
+    } else if (
+      Array.isArray(denominatorExpr) &&
+      (denominatorExpr[0] === "Delimiter" || denominatorExpr[0] === "List")
+    ) {
+      const denominatorKids = tree.childrenById[denominatorId] ?? [];
+      const innerId = denominatorKids[0];
+      if (!innerId || !isAncestorOrSelf(tree, innerId, movedId)) return null;
+      const innerPath = tree.pathById[innerId];
+      if (!innerPath) return null;
+      const innerExpr = getAtPath(tree.rootJson, innerPath) as MJ;
+
+      if (movedId === innerId) {
+        extractedExpr = ["Divide", 1, innerExpr] as MJNode;
+        nextDenominator = 1;
+      } else if (
+        Array.isArray(innerExpr) &&
+        (innerExpr[0] === "InvisibleOperator" || innerExpr[0] === "Multiply")
+      ) {
+        const innerKids = tree.childrenById[innerId] ?? [];
+        const factorId = childUnderAncestor(tree, innerId, movedId) ?? movedId;
+        const idx = innerKids.indexOf(factorId);
+        if (idx < 0) return null;
+        const factors = innerExpr.slice(1) as MJ[];
+        const extractedDenFactor = factors[idx] as MJ;
+        extractedExpr = ["Divide", 1, extractedDenFactor] as MJNode;
+        nextDenominator = normalizeMul(factors.filter((_, i) => i !== idx));
+      } else {
+        extractedExpr = ["Divide", 1, innerExpr] as MJNode;
+        nextDenominator = 1;
+      }
     } else if (Array.isArray(denominatorExpr) && denominatorExpr[0] === "Add") {
       const denominatorKids = tree.childrenById[denominatorId] ?? [];
       if (denominatorKids.length !== 1) return null;
@@ -1277,79 +1307,80 @@ export function applyMoveMultiplicative(
     const delimKids = tree.childrenById[delimiterId] ?? [];
     if (delimKids.length < 1) return null;
     const innerId = delimKids[0];
-    if (!isAncestorOrSelf(tree, innerId, movedId)) return null;
+    if (isAncestorOrSelf(tree, innerId, movedId)) {
 
-    // Pull a factor out of an inner fraction inside the delimiter.
-    const divideAncestorWithinDelimiter = (() => {
-      let cur: string | null = movedId;
-      while (cur && cur !== delimiterId) {
-        const parentId = tree.parentById[cur] ?? null;
-        if (!parentId || parentId === delimiterId) return null;
-        if (tree.nodesById[parentId]?.op === "Divide") return parentId;
-        cur = parentId;
+      // Pull a factor out of an inner fraction inside the delimiter.
+      const divideAncestorWithinDelimiter = (() => {
+        let cur: string | null = movedId;
+        while (cur && cur !== delimiterId) {
+          const parentId = tree.parentById[cur] ?? null;
+          if (!parentId || parentId === delimiterId) return null;
+          if (tree.nodesById[parentId]?.op === "Divide") return parentId;
+          cur = parentId;
+        }
+        return null;
+      })();
+      if (divideAncestorWithinDelimiter) {
+        const delimiterPath = tree.pathById[delimiterId];
+        const dividePath = tree.pathById[divideAncestorWithinDelimiter];
+        if (!delimiterPath || !dividePath) return null;
+
+        const extraction = extractFromDivide(tree, divideAncestorWithinDelimiter, movedId);
+        if (!extraction) return null;
+        const { extractedExpr, updatedDivide } = extraction;
+
+        let nextRoot = setAtPath(tree.rootJson, dividePath, updatedDivide);
+        const updatedDelimiterExpr = getAtPath(nextRoot, delimiterPath) as MJ;
+        const nextExpr =
+          targetSlot === 0
+            ? normalizeMul([extractedExpr, updatedDelimiterExpr])
+            : normalizeMul([updatedDelimiterExpr, extractedExpr]);
+        nextRoot = setAtPath(nextRoot, delimiterPath, nextExpr);
+        return ExpressionTree.create(nextRoot);
       }
-      return null;
-    })();
-    if (divideAncestorWithinDelimiter) {
-      const delimiterPath = tree.pathById[delimiterId];
-      const dividePath = tree.pathById[divideAncestorWithinDelimiter];
-      if (!delimiterPath || !dividePath) return null;
 
-      const extraction = extractFromDivide(tree, divideAncestorWithinDelimiter, movedId);
-      if (!extraction) return null;
-      const { extractedExpr, updatedDivide } = extraction;
+      // Find multiplicative container inside the delimiter that owns movedId.
+      let mulId: string | null = tree.parentById[movedId] ?? null;
+      while (
+        mulId &&
+        !isMulOp(tree.nodesById[mulId]?.op) &&
+        isAncestorOrSelf(tree, innerId, mulId)
+      ) {
+        mulId = tree.parentById[mulId] ?? null;
+      }
+      if (!mulId || !isMulOp(tree.nodesById[mulId]?.op)) return null;
 
-      let nextRoot = setAtPath(tree.rootJson, dividePath, updatedDivide);
+      const mulPath = tree.pathById[mulId];
+      if (!mulPath) return null;
+      const mulExpr = getAtPath(tree.rootJson, mulPath) as MJNode;
+      if (
+        !Array.isArray(mulExpr) ||
+        (mulExpr[0] !== "InvisibleOperator" && mulExpr[0] !== "Multiply")
+      ) {
+        return null;
+      }
+
+      const mulKids = tree.childrenById[mulId] ?? [];
+      const movedIndex = mulKids.indexOf(movedId);
+      if (movedIndex < 0) return null;
+
+      const factors = mulExpr.slice(1) as MJ[];
+      const movedExpr = factors[movedIndex];
+      if (movedExpr === undefined) return null;
+
+      const remainingFactors = factors.filter((_, i) => i !== movedIndex);
+      const nextInner = normalizeMul(remainingFactors);
+      let nextRoot = setAtPath(tree.rootJson, mulPath, nextInner);
+
       const updatedDelimiterExpr = getAtPath(nextRoot, delimiterPath) as MJ;
       const nextExpr =
         targetSlot === 0
-          ? normalizeMul([extractedExpr, updatedDelimiterExpr])
-          : normalizeMul([updatedDelimiterExpr, extractedExpr]);
+          ? normalizeMul([movedExpr, updatedDelimiterExpr])
+          : normalizeMul([updatedDelimiterExpr, movedExpr]);
+
       nextRoot = setAtPath(nextRoot, delimiterPath, nextExpr);
       return ExpressionTree.create(nextRoot);
     }
-
-    // Find multiplicative container inside the delimiter that owns movedId.
-    let mulId: string | null = tree.parentById[movedId] ?? null;
-    while (
-      mulId &&
-      !isMulOp(tree.nodesById[mulId]?.op) &&
-      isAncestorOrSelf(tree, innerId, mulId)
-    ) {
-      mulId = tree.parentById[mulId] ?? null;
-    }
-    if (!mulId || !isMulOp(tree.nodesById[mulId]?.op)) return null;
-
-    const mulPath = tree.pathById[mulId];
-    if (!mulPath) return null;
-    const mulExpr = getAtPath(tree.rootJson, mulPath) as MJNode;
-    if (
-      !Array.isArray(mulExpr) ||
-      (mulExpr[0] !== "InvisibleOperator" && mulExpr[0] !== "Multiply")
-    ) {
-      return null;
-    }
-
-    const mulKids = tree.childrenById[mulId] ?? [];
-    const movedIndex = mulKids.indexOf(movedId);
-    if (movedIndex < 0) return null;
-
-    const factors = mulExpr.slice(1) as MJ[];
-    const movedExpr = factors[movedIndex];
-    if (movedExpr === undefined) return null;
-
-    const remainingFactors = factors.filter((_, i) => i !== movedIndex);
-    const nextInner = normalizeMul(remainingFactors);
-    let nextRoot = setAtPath(tree.rootJson, mulPath, nextInner);
-
-    const updatedDelimiterExpr = getAtPath(nextRoot, delimiterPath) as MJ;
-    const nextExpr =
-      targetSlot === 0
-        ? normalizeMul([movedExpr, updatedDelimiterExpr])
-        : normalizeMul([updatedDelimiterExpr, movedExpr]);
-
-    nextRoot = setAtPath(nextRoot, delimiterPath, nextExpr);
-    return ExpressionTree.create(nextRoot);
   }
 
   // Lift a scalar out of a DotProduct operand onto the dot (before/after) on the same side.
