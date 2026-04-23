@@ -263,6 +263,31 @@ describe("expandSubexpression", () => {
     );
   });
 
+  it("expands T(aT + phi(v)) on rhs when phi(v) is an Apply node (issue 145)", () => {
+    const tree = ExpressionTree.create([
+      "Equal",
+      "P",
+      [
+        "InvisibleOperator",
+        "T",
+        ["Delimiter", ["Add", ["InvisibleOperator", "a", "T"], ["Apply", "phi", "v"]]],
+      ],
+    ] as MJ);
+    const rhsId = (tree.childrenById[tree.rootId] ?? [])[1];
+    expect(rhsId).toBeTruthy();
+    if (!rhsId) return;
+
+    expect(mathPadFacade.canExpand(tree, { kind: "node", nodeId: rhsId })).toBe(true);
+    const result = expandSubexpression(tree, rhsId);
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    const latex = normalizeSpaces(result.latexPlain);
+    expect(latex).toContain(String.raw`T \phi\left(v\right)`);
+    expect(latex).toContain(String.raw`+`);
+    expect(latex).not.toContain(String.raw`T \left(a T + \phi\left(v\right)\right)`);
+  });
+
   it("expands rhs without retaining HorizontalSpacing wrappers (issue 143)", () => {
     const tree = treefromLatex(
       String.raw`\mathrm{d}{S} = \frac{\mathrm{d}{U} + Y_{1} \, \mathrm{d}{X_{1}} + Y_{2} \, \mathrm{d}{X_{2}}}{T}`

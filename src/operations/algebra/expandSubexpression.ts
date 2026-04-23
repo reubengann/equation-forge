@@ -27,6 +27,37 @@ function normalizeRoundTripAliases(expr: MJ): MJ {
     const diffInner = (kids[0] as MJ[])[1] as MJ;
     return ["InvisibleOperator", "DifferentialD", ["Subscript", diffInner, kids[1] as MJ]] as MJ;
   }
+  if (
+    (op === "InvisibleOperator" || op === "Multiply") &&
+    kids.length === 2 &&
+    typeof kids[0] === "string" &&
+    Array.isArray(kids[1]) &&
+    ((kids[1] as MJ[])[0] === "Delimiter" || (kids[1] as MJ[])[0] === "List") &&
+    (kids[1] as MJ[]).length >= 2
+  ) {
+    // Treat fn(arg) reparsed as implicit product the same as Apply(fn,arg).
+    return ["Apply", kids[0] as MJ, ((kids[1] as MJ[])[1] as MJ)] as MJ;
+  }
+  if (op === "InvisibleOperator" || op === "Multiply") {
+    const collapsed: MJ[] = [];
+    for (let i = 0; i < kids.length; i += 1) {
+      const cur = kids[i] as MJ;
+      const next = i + 1 < kids.length ? (kids[i + 1] as MJ) : null;
+      if (
+        typeof cur === "string" &&
+        next &&
+        Array.isArray(next) &&
+        (next[0] === "Delimiter" || next[0] === "List") &&
+        next.length >= 2
+      ) {
+        collapsed.push(["Apply", cur, next[1] as MJ] as MJ);
+        i += 1;
+        continue;
+      }
+      collapsed.push(cur);
+    }
+    return [op, ...collapsed] as MJ;
+  }
   return [op, ...kids] as MJ;
 }
 

@@ -186,6 +186,13 @@ describe("computeEngine custom dictionary", () => {
     ]);
   });
 
+  it("parses and renders primed function calls in multiplicative denominators (issue 146)", () => {
+    const mj = parse(String.raw`\kappa(T)=-\frac{1}{v}\frac{1}{T\phi^{\prime}(v)}`);
+    expect(mj).not.toBeNull();
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toContain(String.raw`\phi'\left(v\right)`);
+  });
+
   it("parses explicit vector macro", () => {
     expect(parse(String.raw`\vec{v}`)).toEqual(["Vector", "v"]);
     expect(parse(String.raw`\vec w`)).toEqual([

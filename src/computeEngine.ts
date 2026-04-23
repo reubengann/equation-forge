@@ -356,24 +356,26 @@ export function normalizeMathJson(mj: MJ | null): MJ | null {
     normalizeAssociativeAdd(
       collapseSingletonAdd(
         fixBlankIntegrals(
-          normalizeTimeDerivatives(
-            normalizeSubscriptLikeSymbols(
-              normalizeSequenceEquationTail(
-                normalizeSymbolHeadApplication(
-                  normalizeDotProducts(
-                    normalizePrimeDifferentials(
-                      rewriteNegateToFrontOfProduct(
-                        normalizeDivideSigns(
-                        normalizeDeltaOfQuantity(
-                          normalizeHorizontalSpacing(
-                            normalizeDifferentialOperands(
-                              normalizePrimeDifferentials(
-                                normalizeIntegrateEmbeddedDifferentials(
-                                  normalizePlainDifferentials(
-                                    normalizeIntegralTrailingDifferentialFactor(
-                                      normalizeTrailingDerivativeSubscriptBinding(
-                                        normalizePartialDerivativeForms(
-                                          normalizeProducts(normalizeVectors(mj))
+          normalizePrimeFunctionDerivatives(
+            normalizeTimeDerivatives(
+              normalizeSubscriptLikeSymbols(
+                normalizeSequenceEquationTail(
+                  normalizeSymbolHeadApplication(
+                    normalizeDotProducts(
+                      normalizePrimeDifferentials(
+                        rewriteNegateToFrontOfProduct(
+                          normalizeDivideSigns(
+                          normalizeDeltaOfQuantity(
+                            normalizeHorizontalSpacing(
+                              normalizeDifferentialOperands(
+                                normalizePrimeDifferentials(
+                                  normalizeIntegrateEmbeddedDifferentials(
+                                    normalizePlainDifferentials(
+                                      normalizeIntegralTrailingDifferentialFactor(
+                                        normalizeTrailingDerivativeSubscriptBinding(
+                                          normalizePartialDerivativeForms(
+                                            normalizeProducts(normalizeVectors(mj))
+                                          )
                                         )
                                       )
                                     )
@@ -382,7 +384,7 @@ export function normalizeMathJson(mj: MJ | null): MJ | null {
                               )
                             )
                           )
-                        )
+                          )
                         )
                       )
                     )
@@ -539,6 +541,44 @@ function normalizeTimeDerivatives(mj: MJ | null): MJ | null {
   ) {
     return ["OverDot", kids[1] as MJ, 1] as MJ;
   }
+  return [op, ...kids] as MJ;
+}
+
+function normalizePrimeFunctionDerivatives(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+  const op = mj[0];
+  const kids = mj
+    .slice(1)
+    .map((child) => normalizePrimeFunctionDerivatives(child as MJ)) as MJ[];
+
+  const asBareCallApply = (expr: MJ): MJ | null => {
+    if (!Array.isArray(expr) || expr.length < 2 || typeof expr[0] !== "string") {
+      return null;
+    }
+    const head = expr[0] as string;
+    // CE can emit bare lower-case call heads as arrays, e.g. ["phi","v"].
+    if (!/^[a-z]+$/.test(head)) return null;
+    return ["Apply", head, ...(expr.slice(1) as MJ[])] as MJ;
+  };
+
+  if (op === "D" && kids.length >= 2 && kids[1] !== "t") {
+    const subject = kids[0] as MJ;
+    const variable = kids[1] as MJ;
+    const asApply =
+      (Array.isArray(subject) && subject[0] === "Apply" ? subject : asBareCallApply(subject)) as
+        | MJ[]
+        | null;
+
+    if (asApply && asApply.length >= 3) {
+      const args = asApply.slice(2) as MJ[];
+      if (args.length === 1 && deepEqualMJ(args[0] as MJ, variable)) {
+        return ["Apply", ["Prime", asApply[1] as MJ], args[0] as MJ] as MJ;
+      }
+      return ["D", asApply as MJ, ...kids.slice(1)] as MJ;
+    }
+  }
+
   return [op, ...kids] as MJ;
 }
 

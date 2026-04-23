@@ -528,9 +528,21 @@
       The tree we get from compiling this statement no longer has nothing as a variable, since it's a fully formed integral.
       I put the MJ trees for each case in dump.txt
 
+145.  `P = T \left(a T + \phi\left(v\right)\right)` where `\phi\left(v\right)\right)` is declared as a function. The tree is
+      ['Equal',
+      'P',
+      ['InvisibleOperator',
+      'T',
+      ['Delimiter',
+      ['Add', ['InvisibleOperator', 'a', 'T'], ['Apply', 'phi', 'v']]]]]
+      If I try to expand the RHS, nothing happens. I expect to get
+      `P = \left(a T^2 + T \phi\left(v\right)\right)`
+
 ---- undone ----
 
-145. `v = \frac{R T}{P}`
+146. `\kappa(T)=-\frac{1}{v}\frac{1}{T\phi^{\prime}(v)}` This produces an error.
+
+147. `v = \frac{R T}{P}`
      When doing apply to both sides `\frac{\partial eqn}{\partial P}`
      Uncaught Error: The first element of an array should be a string (the function name): [
      [
@@ -546,10 +558,10 @@
      ]
      This does not happen if eqn is outside the partial (`\frac{\partial}{\partial P} eqn`)
 
-146. `v = \frac{m}{n \rho}` Choose m and n and hit substitute. Since these are not part of the same group, the substitution
+148. `v = \frac{m}{n \rho}` Choose m and n and hit substitute. Since these are not part of the same group, the substitution
      shows as `m n` instead of `\frac{m}{n}`. Probably this should just be disallowed?
 
-147. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
+149. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
      When simplifying the LHS, I expect `P v_{c_P/c_v}` or something, but I actually get `P^{\left[c_{v}\right]} v^{\left[c_{P}\right]} = \mathrm{const}^{\frac{1}{c_{_v}}}` which is odd.
 
 ---- backlog ----
