@@ -1,107 +1,109 @@
-Tree before pulling out T
+Tree before expanding RHS integral
 [
   "Equal",
   [
-    "Differential",
-    "S"
+    "Integrate",
+    1,
+    "s"
   ],
   [
-    "Divide",
+    "Integrate",
     [
-      "Add",
+      "Delimiter",
       [
-        "Differential",
-        "U"
-      ],
-      [
-        "InvisibleOperator",
+        "Sequence",
         [
-          "Subscript",
-          "Y",
-          1
-        ],
-        [
-          "Differential",
+          "Add",
           [
-            "Subscript",
-            "X",
-            1
-          ]
-        ]
-      ],
-      [
-        "InvisibleOperator",
-        [
-          "Subscript",
-          "Y",
-          2
-        ],
-        [
-          "Differential",
+            "InvisibleOperator",
+            2,
+            "a",
+            "v",
+            [
+              "Differential",
+              "T"
+            ]
+          ],
           [
-            "Subscript",
-            "X",
-            2
+            "InvisibleOperator",
+            [
+              "Delimiter",
+              [
+                "Add",
+                [
+                  "InvisibleOperator",
+                  "T",
+                  "a"
+                ],
+                [
+                  "Divide",
+                  "P",
+                  "T"
+                ]
+              ]
+            ],
+            [
+              "Differential",
+              "v"
+            ]
           ]
         ]
       ]
     ],
-    "T"
+    "Nothing"
   ]
 ]
 
-Tree after pulling out T
-t1 = [
+Tree after expanding RHS integral
+[
   "Equal",
   [
-    "Differential",
-    "S"
+    "Integrate",
+    1,
+    "s"
   ],
   [
-    "InvisibleOperator",
+    "Add",
     [
-      "Divide",
-      1,
-      "T"
+      "Integrate",
+      [
+        "InvisibleOperator",
+        2,
+        "a",
+        "v",
+        [
+          "Differential",
+          "T"
+        ]
+      ],
+      "Nothing"
     ],
     [
-      "Add",
-      [
-        "Differential",
-        "U"
-      ],
+      "Integrate",
       [
         "InvisibleOperator",
         [
-          "Subscript",
-          "Y",
-          1
+          "Delimiter",
+          [
+            "Add",
+            [
+              "InvisibleOperator",
+              "T",
+              "a"
+            ],
+            [
+              "Divide",
+              "P",
+              "T"
+            ]
+          ]
         ],
         [
           "Differential",
-          [
-            "Subscript",
-            "X",
-            1
-          ]
+          "v"
         ]
       ],
-      [
-        "InvisibleOperator",
-        [
-          "Subscript",
-          "Y",
-          2
-        ],
-        [
-          "Differential",
-          [
-            "Subscript",
-            "X",
-            2
-          ]
-        ]
-      ]
+      "Nothing"
     ]
   ]
 ]
@@ -110,57 +112,41 @@ Tree when evaluating the latex
 [
   "Equal",
   [
-    "Differential",
-    "S"
+    "Integrate",
+    1,
+    "s"
   ],
   [
-    "InvisibleOperator",
+    "Add",
     [
-      "Divide",
-      1,
+      "Integrate",
+      [
+        "InvisibleOperator",
+        2,
+        "a",
+        "v"
+      ],
       "T"
     ],
     [
-      "Delimiter",
+      "Integrate",
       [
-        "Add",
+        "Delimiter",
         [
-          "Differential",
-          "U"
-        ],
-        [
-          "InvisibleOperator",
+          "Add",
           [
-            "Subscript",
-            "Y",
-            1
+            "InvisibleOperator",
+            "T",
+            "a"
           ],
           [
-            "Differential",
-            [
-              "Subscript",
-              "X",
-              1
-            ]
-          ]
-        ],
-        [
-          "InvisibleOperator",
-          [
-            "Subscript",
-            "Y",
-            2
-          ],
-          [
-            "Differential",
-            [
-              "Subscript",
-              "X",
-              2
-            ]
+            "Divide",
+            "P",
+            "T"
           ]
         ]
-      ]
+      ],
+      "v"
     ]
   ]
 ]

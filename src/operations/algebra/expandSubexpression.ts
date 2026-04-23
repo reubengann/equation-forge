@@ -1,4 +1,4 @@
-import { box, normalizeMathJson } from "../../computeEngine";
+import { box, normalizeMathJson, parse } from "../../computeEngine";
 import { ExpressionTree, type MJ } from "../../ExpressionTree";
 import { getAtPath, setAtPath } from "../../movePath";
 
@@ -11,6 +11,49 @@ function deepEqualMJ(a: MJ, b: MJ): boolean {
     return true;
   }
   return a === b;
+}
+
+function normalizeRoundTripAliases(expr: MJ): MJ {
+  if (expr === "d_upright") return "DifferentialD";
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((child) => normalizeRoundTripAliases(child as MJ));
+  if (
+    op === "Subscript" &&
+    kids.length >= 2 &&
+    Array.isArray(kids[0]) &&
+    (kids[0] as MJ[])[0] === "Differential"
+  ) {
+    const diffInner = (kids[0] as MJ[])[1] as MJ;
+    return ["InvisibleOperator", "DifferentialD", ["Subscript", diffInner, kids[1] as MJ]] as MJ;
+  }
+  return [op, ...kids] as MJ;
+}
+
+function assertExpandRoundTripInvariant(next: ExpressionTree): void {
+  if (process.env.NODE_ENV === "production") return;
+  const reparsed = parse(next.latexPlain);
+  if (!reparsed) {
+    throw new Error(
+      `Round-trip parse failed for expand result latex: ${next.latexPlain}`
+    );
+  }
+
+  const canonicalize = (root: MJ): MJ =>
+    normalizeRoundTripAliases((normalizeMathJson(root) ?? root) as MJ);
+
+  const canonicalCurrent = canonicalize(next.rootJson);
+  const canonicalReparsed = canonicalize(reparsed);
+  if (!deepEqualMJ(canonicalCurrent, canonicalReparsed)) {
+    throw new Error(
+      [
+        "Expand result failed round-trip tree invariant.",
+        `latex: ${next.latexPlain}`,
+        `current: ${JSON.stringify(canonicalCurrent)}`,
+        `reparsed: ${JSON.stringify(canonicalReparsed)}`,
+      ].join("\n")
+    );
+  }
 }
 
 function toComputeEngine(expr: MJ): MJ {
@@ -460,9 +503,12 @@ export function expandSubexpression(
   if (deepEqualMJ(normalized, target)) return null;
 
   const nextRoot = setAtPath(tree.rootJson, effectivePath, normalized) as MJ;
+  let next: ExpressionTree;
   try {
-    return ExpressionTree.create(nextRoot);
+    next = ExpressionTree.create(nextRoot);
   } catch {
     return null;
   }
+  assertExpandRoundTripInvariant(next);
+  return next;
 }

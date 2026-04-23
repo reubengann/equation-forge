@@ -368,11 +368,13 @@ export function normalizeMathJson(mj: MJ | null): MJ | null {
                           normalizeHorizontalSpacing(
                             normalizeDifferentialOperands(
                               normalizePrimeDifferentials(
-                                normalizePlainDifferentials(
-                                  normalizeIntegralTrailingDifferentialFactor(
-                                    normalizeTrailingDerivativeSubscriptBinding(
-                                      normalizePartialDerivativeForms(
-                                        normalizeProducts(normalizeVectors(mj))
+                                normalizeIntegrateEmbeddedDifferentials(
+                                  normalizePlainDifferentials(
+                                    normalizeIntegralTrailingDifferentialFactor(
+                                      normalizeTrailingDerivativeSubscriptBinding(
+                                        normalizePartialDerivativeForms(
+                                          normalizeProducts(normalizeVectors(mj))
+                                        )
                                       )
                                     )
                                   )
@@ -1090,6 +1092,94 @@ function normalizeIntegralTrailingDifferentialFactor(mj: MJ | null): MJ | null {
   if (factors.length === 0) return 1;
   if (factors.length === 1) return factors[0] as MJ;
   return ["InvisibleOperator", ...factors] as MJ;
+}
+
+function normalizeIntegrateEmbeddedDifferentials(mj: MJ | null): MJ | null {
+  if (mj === null || mj === undefined) return mj;
+  if (!Array.isArray(mj)) return mj;
+  const op = mj[0];
+  const kids = mj
+    .slice(1)
+    .map((child) => normalizeIntegrateEmbeddedDifferentials(child as MJ)) as MJ[];
+
+  if (op !== "Integrate" || kids.length < 2) {
+    return [op, ...kids] as MJ;
+  }
+
+  const normalizeMulFactors = (factors: MJ[]): MJ => {
+    const flattened: MJ[] = [];
+    for (const factor of factors) {
+      if (
+        Array.isArray(factor) &&
+        (factor[0] === "InvisibleOperator" || factor[0] === "Multiply")
+      ) {
+        flattened.push(...(factor.slice(1) as MJ[]));
+      } else if (factor !== 1 && factor !== "1") {
+        flattened.push(factor);
+      }
+    }
+    if (flattened.length === 0) return 1;
+    if (flattened.length === 1) return flattened[0] as MJ;
+    return ["InvisibleOperator", ...flattened] as MJ;
+  };
+
+  const integrand = kids[0] as MJ;
+  const domain = kids[1] as MJ;
+
+  const extractTrailingDifferential = (
+    expr: MJ
+  ): { nextIntegrand: MJ; operand: MJ } | null => {
+    if (
+      Array.isArray(expr) &&
+      expr[0] === "Differential" &&
+      expr.length >= 2
+    ) {
+      return { nextIntegrand: 1, operand: expr[1] as MJ };
+    }
+
+    if (
+      Array.isArray(expr) &&
+      (expr[0] === "InvisibleOperator" || expr[0] === "Multiply")
+    ) {
+      const factors = expr.slice(1) as MJ[];
+      if (factors.length === 0) return null;
+      const trailing = factors[factors.length - 1] as MJ;
+      if (
+        Array.isArray(trailing) &&
+        trailing[0] === "Differential" &&
+        trailing.length >= 2
+      ) {
+        return {
+          nextIntegrand: normalizeMulFactors(factors.slice(0, -1)),
+          operand: trailing[1] as MJ,
+        };
+      }
+    }
+
+    return null;
+  };
+
+  const extracted = extractTrailingDifferential(integrand);
+  if (!extracted) {
+    return ["Integrate", ...kids] as MJ;
+  }
+
+  if (domain === "Nothing") {
+    return ["Integrate", extracted.nextIntegrand, extracted.operand] as MJ;
+  }
+
+  if (Array.isArray(domain) && domain[0] === "Tuple") {
+    const tupleVar = domain[1] as MJ | undefined;
+    if (tupleVar === undefined || tupleVar === "Nothing") {
+      return [
+        "Integrate",
+        extracted.nextIntegrand,
+        ["Tuple", extracted.operand, ...(domain.slice(2) as MJ[])] as MJ,
+      ] as MJ;
+    }
+  }
+
+  return ["Integrate", ...kids] as MJ;
 }
 
 const inexactDifferentialEntry: LatexDictionaryEntry = {

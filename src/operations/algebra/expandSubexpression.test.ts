@@ -213,14 +213,13 @@ describe("expandSubexpression", () => {
     const integralId = tree.rootId;
     expect(integralId).toBeTruthy();
     if (!integralId) return;
-
     const result = expandSubexpression(tree, integralId);
     expect(result).not.toBeNull();
     if (!result) return;
 
     const latex = normalizeSpaces(result.latexPlain);
     expect(latex).toContain(
-      String.raw`\int \frac{c_{P}}{T} \mathrm{d}{T} - \int \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \mathrm{d}{P}`
+      String.raw`\int \frac{c_{P}}{T} \,\mathrm{d}{T} - \int \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \,\mathrm{d}{P}`
     );
   });
 
@@ -231,15 +230,14 @@ describe("expandSubexpression", () => {
     const integralId = tree.rootId;
     expect(integralId).toBeTruthy();
     if (!integralId) return;
-
     const result = expandSubexpression(tree, integralId);
     expect(result).not.toBeNull();
     if (!result) return;
 
     const latex = normalizeSpaces(result.latexPlain);
-    expect(latex).toContain(String.raw`\int c_{P} \mathrm{d}{T}`);
+    expect(latex).toContain(String.raw`\int c_{P} \,\mathrm{d}{T}`);
     expect(latex).toContain(
-      String.raw`\int \left[v - T \left(\frac{\partial{v}}{\partial{T}}\right)_{P}\right] \mathrm{d}{P}`
+      String.raw`\int \left[v - T \left(\frac{\partial{v}}{\partial{T}}\right)_{P}\right] \,\mathrm{d}{P}`
     );
     expect(latex).not.toContain(String.raw`\int v \mathrm{d}{P}`);
     expect(latex).not.toContain(
@@ -283,5 +281,24 @@ describe("expandSubexpression", () => {
     expect(reparsed).not.toBeNull();
     if (!reparsed) return;
     expect(containsHorizontalSpacing(reparsed)).toBe(false);
+  });
+
+  it("expands rhs integral and emits fully formed integral variables (issue 144)", () => {
+    const tree = treefromLatex(
+      String.raw`\int \,\mathrm{d}{s} = \int \left(2 a v \, \mathrm{d}{T} + \left(T a + \frac{P}{T}\right) \, \mathrm{d}{v}\right)`
+    );
+    const rhsId = (tree.childrenById[tree.rootId] ?? [])[1];
+    expect(rhsId).toBeTruthy();
+    if (!rhsId) return;
+
+    const result = expandSubexpression(tree, rhsId);
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    expect(normalizeSpaces(result.latexPlain)).toBe(
+      String.raw`\int \,\mathrm{d}{s} = \int 2 a v \,\mathrm{d}{T} + \int \left(T a + \frac{P}{T}\right) \,\mathrm{d}{v}`
+    );
+    const asJson = JSON.stringify(result.rootJson);
+    expect(asJson).not.toContain('"Nothing"');
   });
 });

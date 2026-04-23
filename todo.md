@@ -516,13 +516,40 @@
 142.  `\int g \left(\theta\right) \,\mathrm{d}{\theta} = \ln\left(\left|\theta\right|\right)`
       Select `\left|\theta\right|` and unforce parentheses. Should remove the absolute value, but it doesn't.
 
+143.  `\mathrm{d}{S} = \frac{\mathrm{d}{U} + Y_{1} \, \mathrm{d}{X_{1}} + Y_{2} \, \mathrm{d}{X_{2}}}{T}`
+      Expand the RHS. The resulting tree does not match that if you compile the statement back, indicating that our assert is not
+      firing correctly. We get HorizontalSpacing in one of trees wrapping the differentials. See dump.txt.
+
+144.  Fix the assert around this. Start with
+      `\int \,\mathrm{d}{s} = \int \left(2 a v \, \mathrm{d}{T} + \left(T a + \frac{P}{T}\right) \, \mathrm{d}{v}\right) `
+      Select the RHS and expand
+      `\int \,\mathrm{d}{s} = \int 2 a v \, \mathrm{d}{T}  + \int \left(T a + \frac{P}{T}\right) \, \mathrm{d}{v} `
+      but this tree doesn't match the one you get from compiling that statement.
+      The tree we get from compiling this statement no longer has nothing as a variable, since it's a fully formed integral.
+      I put the MJ trees for each case in dump.txt
+
 ---- undone ----
 
-143. `\mathrm{d}{S} = \frac{\mathrm{d}{U} + Y_{1} \, \mathrm{d}{X_{1}} + Y_{2} \, \mathrm{d}{X_{2}}}{T}`
-     Expand the RHS. The resulting tree does not match that if you compile the statement back, indicating that our assert is not
-     firing correctly. We get HorizontalSpacing in one of trees wrapping the differentials. See dump.txt.
+145. `v = \frac{R T}{P}`
+     When doing apply to both sides `\frac{\partial eqn}{\partial P}`
+     Uncaught Error: The first element of an array should be a string (the function name): [
+     [
+     "Divide",
+     [
+     "InvisibleOperator",
+     "R",
+     "T"
+     ],
+     "P"
+     ],
+     "Nothing"
+     ]
+     This does not happen if eqn is outside the partial (`\frac{\partial}{\partial P} eqn`)
 
-144. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
+146. `v = \frac{m}{n \rho}` Choose m and n and hit substitute. Since these are not part of the same group, the substitution
+     shows as `m n` instead of `\frac{m}{n}`. Probably this should just be disallowed?
+
+147. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
      When simplifying the LHS, I expect `P v_{c_P/c_v}` or something, but I actually get `P^{\left[c_{v}\right]} v^{\left[c_{P}\right]} = \mathrm{const}^{\frac{1}{c_{_v}}}` which is odd.
 
 ---- backlog ----
