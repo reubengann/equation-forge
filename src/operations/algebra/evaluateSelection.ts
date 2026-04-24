@@ -79,7 +79,9 @@ function assertEvaluationRoundTripInvariant(next: ExpressionTree): void {
 }
 
 function buildEvaluatedTree(nextRoot: MJ): ExpressionTree {
-  const next = ExpressionTree.create(nextRoot);
+  const normalizedRoot =
+    ensureGroupingDelimiters(normalizeMathJson(nextRoot) ?? nextRoot);
+  const next = ExpressionTree.create(normalizedRoot);
   assertEvaluationRoundTripInvariant(next);
   return next;
 }
@@ -455,16 +457,19 @@ function evaluateExpression(expr: MJ, mode: EvalMode): MJ | null {
       const normalizedPowerProducts =
         normalizeMathJson(simplifySymbolPowerProducts(normalized)) ??
         simplifySymbolPowerProducts(normalized);
-      if (containsSyntheticDelimiterSymbol(normalizedPowerProducts)) continue;
-      if (containsDifferentialAlias(normalizedPowerProducts)) continue;
+      const normalizedEulerPowerLogs =
+        normalizeMathJson(simplifyEulerPowerLogs(normalizedPowerProducts)) ??
+        simplifyEulerPowerLogs(normalizedPowerProducts);
+      if (containsSyntheticDelimiterSymbol(normalizedEulerPowerLogs)) continue;
+      if (containsDifferentialAlias(normalizedEulerPowerLogs)) continue;
       try {
-        ExpressionTree.create(normalizedPowerProducts);
+        ExpressionTree.create(normalizedEulerPowerLogs);
       } catch {
         continue;
       }
-      if (!deepEqualMJ(normalizedPowerProducts, expr)) {
-        debugEval("result", normalizedPowerProducts);
-        return normalizedPowerProducts;
+      if (!deepEqualMJ(normalizedEulerPowerLogs, expr)) {
+        debugEval("result", normalizedEulerPowerLogs);
+        return normalizedEulerPowerLogs;
       }
     }
 
@@ -506,6 +511,14 @@ function evaluateExpression(expr: MJ, mode: EvalMode): MJ | null {
     if (!deepEqualMJ(powerProductSimplified, expr)) {
       debugEval("result", powerProductSimplified);
       return powerProductSimplified;
+    }
+
+    const ePowerLogSimplified =
+      normalizeMathJson(simplifyEulerPowerLogs(expr)) ??
+      simplifyEulerPowerLogs(expr);
+    if (!deepEqualMJ(ePowerLogSimplified, expr)) {
+      debugEval("result", ePowerLogSimplified);
+      return ePowerLogSimplified;
     }
 
     const zeroProductSimplified = simplifyZeroProducts(expr);
@@ -705,6 +718,36 @@ function simplifySymbolPowerProducts(expr: MJ): MJ {
   }
 
   return changed ? rebuildGrouped("InvisibleOperator", rebuilt) : ([op, ...kids] as MJ);
+}
+
+function simplifyEulerPowerLogs(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((c) => simplifyEulerPowerLogs(c as MJ));
+
+  if (op === "Power" && kids.length >= 2) {
+    const base = kids[0] as MJ;
+    const exponent = kids[1] as MJ;
+    const isEulerBase = base === "e" || base === "ExponentialE";
+    if (isEulerBase) {
+      if (Array.isArray(exponent) && exponent[0] === "Ln" && exponent.length >= 2) {
+        return exponent[1] as MJ;
+      }
+      if (
+        Array.isArray(exponent) &&
+        exponent[0] === "Negate" &&
+        exponent.length >= 2 &&
+        Array.isArray(exponent[1]) &&
+        (exponent[1] as MJ[])[0] === "Ln" &&
+        (exponent[1] as MJ[]).length >= 2
+      ) {
+        return ["Divide", 1, ((exponent[1] as MJ[])[1] as MJ)] as MJ;
+      }
+    }
+    return ["Power", base, exponent] as MJ;
+  }
+
+  return [op, ...kids] as MJ;
 }
 
 function simplifyZeroProducts(expr: MJ): MJ {
@@ -1031,6 +1074,17 @@ function normalizeNegativeAddTerm(expr: MJ): MJ {
 
   if (!Array.isArray(expr)) return expr;
   const op = expr[0];
+  if (op === "Divide" && expr.length >= 3) {
+    const numerator = expr[1] as MJ;
+    const denominator = expr[2] as MJ;
+    const absNumerator = absoluteNumericMJ(numerator);
+    if (absNumerator !== null) {
+      return ["Negate", ["Divide", absNumerator, denominator] as MJ] as MJ;
+    }
+    if (Array.isArray(numerator) && numerator[0] === "Negate" && numerator.length >= 2) {
+      return ["Negate", ["Divide", numerator[1] as MJ, denominator] as MJ] as MJ;
+    }
+  }
   if (op !== "InvisibleOperator" && op !== "Multiply") return expr;
 
   const factors = expr.slice(1) as MJ[];

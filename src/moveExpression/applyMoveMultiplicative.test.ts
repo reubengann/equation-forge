@@ -384,6 +384,34 @@ describe("applyMoveMultiplicative executor", () => {
     );
   });
 
+  it("moves selected product A v across '=' and cancels on rhs (issue 150)", () => {
+    const next = runMove({
+      latex: String.raw`1 = A v \left(\frac{\partial{P}}{\partial{T}}\right)_{v}`,
+      select: (tree) => {
+        const rhsId = tree.childrenById[tree.rootId!]?.[1];
+        if (!rhsId) throw new Error("Missing RHS");
+        const rhsKids = tree.childrenById[rhsId] ?? [];
+        if (rhsKids.length < 2) throw new Error("Missing A v factors");
+        return [rhsKids[0], rhsKids[1]];
+      },
+      hover: (tree) => {
+        const lhsId = tree.childrenById[tree.rootId!]?.[0];
+        if (!lhsId) throw new Error("Missing LHS");
+        return lhsId;
+      },
+      targetSlot: null,
+    });
+
+    expect(next).not.toBeNull();
+    if (!next) return;
+    const latex = next.latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toContain(String.raw`\frac{1}{A v} =`);
+    expect(latex).toContain(String.raw`\left(\frac{\partial{P}}{\partial{T}}\right)_{v}`);
+    expect(latex).not.toContain(
+      String.raw`\frac{A v \left(\frac{\partial{P}}{\partial{T}}\right)_{v}}{A v}`
+    );
+  });
+
   it("folds moved denominator beta under matching beta sibling, not adjacent derivative fraction (issue 120)", () => {
     const next = runMove({
       latex: String.raw`-\beta \frac{c_{P}}{\beta v} \frac{\mathrm{d}{v_{s}}}{\mathrm{d}{P_{s}}} = \kappa c_{v}`,

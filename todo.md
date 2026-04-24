@@ -540,40 +540,68 @@
 
 146.  `\kappa(T)=-\frac{1}{v}\frac{1}{T\phi^{\prime}(v)}` This produces an error.
 
+147.  `\frac{R T}{v} = \left(P + b\right)`
+      Cannot move `v` multiplicatively to the RHS.
+
+148.  `f_1+Tf_{1}^{\prime}\left(v\right)\left(\dfrac{\partial v}{\partial T}\right)_{P}`
+      Results in an error because of the prime.
+
+149.  `e^{\ln\left(v\right)} = e^{-\ln\left(f_{1}\right) + A_{1}}`
+      I can't simplify the LHS to get `v`. I thought we had already implemented this.
+
+150.  `1 = A v \left(\frac{\partial{P}}{\partial{T}}\right)_{v}`
+      Select `A v` via ctrl+click, move multiplicatively to the LHS. Result is
+      `\frac{1}{A v} = \frac{A v \left(\frac{\partial{P}}{\partial{T}}\right)_{v}}{A v}`
+      but it should be
+      `\frac{1}{A v} = \left(\frac{\partial{P}}{\partial{T}}\right)_{v}`
+
+151.  `\left(\frac{\partial{h}}{\partial{v}}\right)_{T} = v \left(-\frac{1}{\kappa v}\right) - T \frac{\beta}{\kappa}`
+      Simplify the RHS. The result is
+      `\left(\frac{\partial{h}}{\partial{v}}\right)_{T} = -\frac{T \beta}{\kappa} + \frac{-1}{\kappa}`
+      instead of
+      `\left(\frac{\partial{h}}{\partial{v}}\right)_{T} = -\frac{T \beta}{\kappa} - \frac{1}{\kappa}`
+
+152.  `\left(\frac{\partial{h}}{\partial{v}}\right)_{T} = \frac{-T \beta - 1}{\kappa}`
+      When the negate command is used on the RHS, it gives an incorrect answer. It gives
+      `\left(\frac{\partial{h}}{\partial{v}}\right)_{T} = -\frac{-T \beta - 1}{\kappa}`
+      which is not correct. It should give
+      `\left(\frac{\partial{h}}{\partial{v}}\right)_{T} = -\frac{T \beta + 1}{\kappa}`
+
+153.  `\frac{1}{T} \frac{\partial^{2}{h}}{\partial{T} \partial{v}} - \frac{1}{T} v \frac{\partial^{2}{P}}{\partial{T} \partial{v}} - \frac{1}{T^{2}} \left(\frac{\partial{h}}{\partial{v}}\right)_{T} + \frac{1}{T^{2}} v \left(\frac{\partial{P}}{\partial{v}}\right)_{T} = \frac{1}{T} \left(\frac{\partial^{2}{h}}{\partial{v} \partial{T}} - \left(\left(\frac{\partial{P}}{\partial{T}}\right)_{v} + v \frac{\partial^{2}{P}}{\partial{v} \partial{T}}\right)\right)`
+      When expanding `\frac{1}{T} \frac{\partial^{2}{h}}{\partial{T} \partial{v}} - \frac{1}{T} v \frac{\partial^{2}{P}}{\partial{T} \partial{v}} - \frac{1}{T^{2}} \left(\frac{\partial{h}}{\partial{v}}\right)_{T} + \frac{1}{T^{2}} v \left(\frac{\partial{P}}{\partial{v}}\right)_{T} = \frac{1}{T} \left(\frac{\partial^{2}{h}}{\partial{v} \partial{T}} - \left(\left(\frac{\partial{P}}{\partial{T}}\right)_{v} + v \frac{\partial^{2}{P}}{\partial{v} \partial{T}}\right)\right)`
+      Uncaught Error: Expand result failed round-trip tree invariant.
+      latex: \frac{1}{T} \frac{\partial^{2}{h}}{\partial{T} \partial{v}} - \frac{1}{T} v \frac{\partial^{2}{P}}{\partial{T} \partial{v}} - \frac{1}{T^{2}} \left(\frac{\partial{h}}{\partial{v}}\right)_{T} + \frac{1}{T^{2}} v \left(\frac{\partial{P}}{\partial{v}}\right)_{T} = \frac{1}{T} \frac{\partial^{2}{h}}{\partial{v} \partial{T}} + \frac{1}{T} \left(-\left(\frac{\partial{P}}{\partial{T}}\right)\_{v} - v \frac{\partial^{2}{P}}{\partial{v} \partial{T}}\right)
+      current: ["Equal",["Add",["InvisibleOperator",["Divide",1,"T"],["FractionPartialDerivative",["Partial",["Partial","h"]],["InvisibleOperator",["Partial","T"],["Partial","v"]]]],["Negate",["InvisibleOperator",["Divide",1,"T"],"v",["FractionPartialDerivative",["Partial",["Partial","P"]],["InvisibleOperator",["Partial","T"],["Partial","v"]]]]],["Negate",["InvisibleOperator",["Divide",1,["Power","T",2]],["Subscript",["Delimiter",["FractionPartialDerivative",["Partial","h"],["Partial","v"]]],"T"]]],["InvisibleOperator",["Divide",1,["Power","T",2]],"v",["Subscript",["Delimiter",["FractionPartialDerivative",["Partial","P"],["Partial","v"]]],"T"]]],["Add",["InvisibleOperator",["Divide",1,"T"],["FractionPartialDerivative",["Partial",["Partial","h"]],["InvisibleOperator",["Partial","v"],["Partial","T"]]]],["InvisibleOperator",["Divide",1,"T"],["Add",["Negate",["Subscript",["Delimiter",["FractionPartialDerivative",["Partial","P"],["Partial","T"]]],"v"]],["Negate",["InvisibleOperator","v",["FractionPartialDerivative",["Partial",["Partial","P"]],["InvisibleOperator",["Partial","v"],["Partial","T"]]]]]]]]]
+      reparsed: ["Equal",["Add",["InvisibleOperator",["Divide",1,"T"],["FractionPartialDerivative",["Partial",["Partial","h"]],["InvisibleOperator",["Partial","T"],["Partial","v"]]]],["Negate",["InvisibleOperator",["Divide",1,"T"],"v",["FractionPartialDerivative",["Partial",["Partial","P"]],["InvisibleOperator",["Partial","T"],["Partial","v"]]]]],["Negate",["InvisibleOperator",["Divide",1,["Power","T",2]],["Subscript",["Delimiter",["FractionPartialDerivative",["Partial","h"],["Partial","v"]]],"T"]]],["InvisibleOperator",["Divide",1,["Power","T",2]],"v",["Subscript",["Delimiter",["FractionPartialDerivative",["Partial","P"],["Partial","v"]]],"T"]]],["Add",["InvisibleOperator",["Divide",1,"T"],["FractionPartialDerivative",["Partial",["Partial","h"]],["InvisibleOperator",["Partial","v"],["Partial","T"]]]],["InvisibleOperator",["Divide",1,"T"],["Delimiter",["Add",["Negate",["Subscript",["Delimiter",["FractionPartialDerivative",["Partial","P"],["Partial","T"]]],"v"]],["Negate",["InvisibleOperator","v",["FractionPartialDerivative",["Partial",["Partial","P"]],["InvisibleOperator",["Partial","v"],["Partial","T"]]]]]]]]]]
+
+154.  `\left(\frac{\partial{h}}{\partial{P}}\right)_{T} = -T \left(-\left(\frac{\partial{s}}{\partial{P}}\right)_{T}\right) + v`
+      Select the parentheses and force negate. The result is
+      `\left(\frac{\partial{h}}{\partial{P}}\right)_{T} = --T \left(-\left(\frac{\partial{s}}{\partial{P}}\right)_{T}\right) + v`
+      Even worse, select `-T \left(-\left(\frac{\partial{s}}{\partial{P}}\right)_{T}\right)` and force negate. The result is
+      `\left(\frac{\partial{h}}{\partial{P}}\right)_{T} = T \left(-\left(\frac{\partial{s}}{\partial{P}}\right)_{T}\right) + v`
+      which is actually mathematically incorrect.
+
 ---- undone ----
 
-147. `\frac{R T}{v} = \left(P + b\right)`
-     Cannot move `v` multiplicatively to the RHS.
-
-148. `v = \frac{R T}{P}`
+155. `v = \frac{R T}{P}`
      When doing apply to both sides `\frac{\partial eqn}{\partial P}`
      Uncaught Error: The first element of an array should be a string (the function name): [
-     [
-     "Divide",
-     [
-     "InvisibleOperator",
-     "R",
-     "T"
-     ],
-     "P"
-     ],
-     "Nothing"
-     ]
+     ["Divide", [ "InvisibleOperator", "R", "T" ], "P" ], "Nothing" ]
      This does not happen if eqn is outside the partial (`\frac{\partial}{\partial P} eqn`)
 
-149. `v = \frac{m}{n \rho}` Choose m and n and hit substitute. Since these are not part of the same group, the substitution
+156. `v = \frac{m}{n \rho}` Choose m and n and hit substitute. Since these are not part of the same group, the substitution
      shows as `m n` instead of `\frac{m}{n}`. Probably this should just be disallowed?
 
-150. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
+157. `\left(P^{c_{v}} v^{c_{P}}\right)^{\frac{1}{c_{_v}}} = \mathrm{const}^{\frac{1}{c_{_v}}}`
      When simplifying the LHS, I expect `P v_{c_P/c_v}` or something, but I actually get `P^{\left[c_{v}\right]} v^{\left[c_{P}\right]} = \mathrm{const}^{\frac{1}{c_{_v}}}` which is odd.
 
 ---- backlog ----
 
 Add new pad should jump to the bottom.
 
-When entering substitute modal (and others), focus should automatically be given to the edit component, so that we don't have to click.
+When entering substitute modal (and others), focus should automatically be given to the edit component, so that we don't have to click. Also all modals should accept on pressing enter. Also the "Are you sure you want to ..." popup should accept enter to dismiss.
 
-Maybe not.
+Maybe we shouldn't do this item.
 Active item. Only one equation should be active for editing at a time. When a mathlive entry is active, no other interactions should be possible
 on another equation. An equation becomes active when clicked on it. Only then does the toolbar appear and items can be chosen. If another equation is
 selected, editing is disabled on this one and the toolbar vanishes. It would be nice if the items that are non-editable are more compact vertically; to do this,

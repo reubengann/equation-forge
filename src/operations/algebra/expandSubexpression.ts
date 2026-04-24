@@ -58,6 +58,13 @@ function normalizeRoundTripAliases(expr: MJ): MJ {
     }
     return [op, ...collapsed] as MJ;
   }
+  if (op === "Negate" && kids.length >= 1) {
+    const inner = kids[0] as MJ;
+    if (Array.isArray(inner) && inner[0] === "Negate" && inner.length >= 2) {
+      return inner[1] as MJ;
+    }
+    return ["Negate", inner] as MJ;
+  }
   return [op, ...kids] as MJ;
 }
 
@@ -263,6 +270,78 @@ function distributeNegateOverAdd(expr: MJ): MJ {
   return [op, ...kids] as MJ;
 }
 
+function collapseNegatePairs(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map(collapseNegatePairs) as MJ[];
+  if (op === "Negate" && kids.length >= 1) {
+    const inner = kids[0] as MJ;
+    if (Array.isArray(inner) && inner[0] === "Negate" && inner.length >= 2) {
+      return inner[1] as MJ;
+    }
+    return ["Negate", inner] as MJ;
+  }
+  return [op, ...kids] as MJ;
+}
+
+function normalizeSignStructure(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map(normalizeSignStructure) as MJ[];
+
+  if (op === "Add") {
+    const flattenedTerms: MJ[] = [];
+    for (const term of kids) {
+      if (Array.isArray(term) && term[0] === "Add") {
+        flattenedTerms.push(...(term.slice(1) as MJ[]));
+      } else {
+        flattenedTerms.push(term);
+      }
+    }
+    if (flattenedTerms.length === 0) return 0;
+    if (flattenedTerms.length === 1) return flattenedTerms[0];
+    return ["Add", ...flattenedTerms] as MJ;
+  }
+
+  if (op === "Divide" && kids.length >= 2) {
+    const numerator = kids[0] as MJ;
+    const denominator = kids[1] as MJ;
+    if (Array.isArray(numerator) && numerator[0] === "Negate" && numerator.length >= 2) {
+      return ["Negate", ["Divide", numerator[1] as MJ, denominator] as MJ] as MJ;
+    }
+    if (typeof numerator === "number" && numerator < 0) {
+      return ["Negate", ["Divide", Math.abs(numerator), denominator] as MJ] as MJ;
+    }
+    return ["Divide", numerator, denominator] as MJ;
+  }
+
+  if (op === "InvisibleOperator" || op === "Multiply") {
+    let negate = false;
+    const factors: MJ[] = [];
+    for (const factor of kids) {
+      if (Array.isArray(factor) && factor[0] === "Negate" && factor.length >= 2) {
+        negate = !negate;
+        factors.push(factor[1] as MJ);
+        continue;
+      }
+      if (typeof factor === "number" && factor < 0) {
+        negate = !negate;
+        factors.push(Math.abs(factor));
+        continue;
+      }
+      factors.push(factor);
+    }
+    const product = normalizeMul(factors);
+    return negate ? (["Negate", product] as MJ) : product;
+  }
+
+  if (op === "Negate" && kids.length >= 1) {
+    return ["Negate", kids[0] as MJ] as MJ;
+  }
+
+  return [op, ...kids] as MJ;
+}
+
 function normalizeMul(factors: MJ[]): MJ {
   const flattened: MJ[] = [];
   for (const factor of factors) {
@@ -278,6 +357,35 @@ function normalizeMul(factors: MJ[]): MJ {
   if (flattened.length === 0) return 1;
   if (flattened.length === 1) return flattened[0];
   return ["InvisibleOperator", ...flattened] as MJ;
+}
+
+function ensureGroupingDelimiters(expr: MJ): MJ {
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((c) => ensureGroupingDelimiters(c as MJ));
+  if ((op === "InvisibleOperator" || op === "Multiply") && kids.length > 0) {
+    const wrapped = kids.map((k) =>
+      Array.isArray(k) && k[0] === "Add" ? (["Delimiter", k] as MJ) : (k as MJ)
+    );
+    return [op, ...wrapped] as MJ;
+  }
+  if (op === "Negate" && kids.length >= 1) {
+    const inner = kids[0] as MJ;
+    if (Array.isArray(inner) && inner[0] === "Add") {
+      return ["Negate", ["Delimiter", inner] as MJ] as MJ;
+    }
+  }
+  if (op === "Power" && kids.length >= 2) {
+    const base = kids[0] as MJ;
+    const exponent = kids[1] as MJ;
+    const wrappedBase = Array.isArray(base) && base[0] === "Add" ? (["Delimiter", base] as MJ) : base;
+    const wrappedExponent =
+      Array.isArray(exponent) && exponent[0] === "Add"
+        ? (["Delimiter", exponent] as MJ)
+        : exponent;
+    return ["Power", wrappedBase, wrappedExponent] as MJ;
+  }
+  return [op, ...kids] as MJ;
 }
 
 function distributeIntegrateOverAdd(expr: MJ): MJ {
@@ -387,6 +495,19 @@ function distributeExpOverAdd(expr: MJ): MJ {
     }
     return ["Exp", argRaw] as MJ;
   }
+  if (op === "Power" && kids.length >= 2) {
+    const baseRaw = kids[0] as MJ;
+    const exponentRaw = kids[1] as MJ;
+    const exponent = unwrapDelimiter(exponentRaw);
+    const isEulerPowerBase = baseRaw === "e" || baseRaw === "ExponentialE";
+    if (isEulerPowerBase && isAdd(exponent)) {
+      const terms = (exponent as [string, ...MJ[]]).slice(1) as MJ[];
+      return normalizeMul(
+        terms.map((term) => ["Power", baseRaw, term] as MJ)
+      );
+    }
+    return ["Power", baseRaw, exponentRaw] as MJ;
+  }
 
   return [op, ...kids] as MJ;
 }
@@ -489,11 +610,13 @@ export function expandSubexpression(
   const distributedDot = distributeDotProduct(target);
   const distributedMul = distributeInvisibleOperator(distributedDot);
   const distributedNegate = distributeNegateOverAdd(distributedMul);
-  const distributedPower = distributePowerOverMulDiv(distributedNegate);
+  const collapsedNegates = collapseNegatePairs(distributedNegate);
+  const distributedPower = distributePowerOverMulDiv(collapsedNegates);
   const distributedDivide = distributeDivideOverAdd(distributedPower);
   const distributedExp = distributeExpOverAdd(distributedDivide);
   const distributedDifferential = distributeDifferential(distributedExp);
-  const distributed = distributeIntegrateOverAdd(distributedDifferential);
+  const distributedIntegrals = distributeIntegrateOverAdd(distributedDifferential);
+  const distributed = collapseNegatePairs(distributedIntegrals);
   const customChanged = !deepEqualMJ(distributed, target);
 
   // Step 2: let the Compute Engine do standard expansion where safe.
@@ -528,11 +651,20 @@ export function expandSubexpression(
   if (!normalized) {
     return null;
   }
+  normalized = ensureGroupingDelimiters(
+    collapseNegatePairs(normalizeSignStructure(normalized))
+  );
 
   // If nothing changed, treat as no-op.
   if (deepEqualMJ(normalized, target)) return null;
 
-  const nextRoot = setAtPath(tree.rootJson, effectivePath, normalized) as MJ;
+  const rawNextRoot = setAtPath(tree.rootJson, effectivePath, normalized) as MJ;
+  const normalizedNextRoot = (
+    normalizeMathJson(rawNextRoot) ?? rawNextRoot
+  ) as MJ;
+  const nextRoot = ensureGroupingDelimiters(
+    collapseNegatePairs(normalizeSignStructure(normalizedNextRoot))
+  );
   let next: ExpressionTree;
   try {
     next = ExpressionTree.create(nextRoot);

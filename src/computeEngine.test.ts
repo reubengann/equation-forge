@@ -193,6 +193,15 @@ describe("computeEngine custom dictionary", () => {
     expect(latex).toContain(String.raw`\phi'\left(v\right)`);
   });
 
+  it("parses and renders subscripted primed function calls (issue 148)", () => {
+    const mj = parse(
+      String.raw`f_1+Tf_{1}^{\prime}\left(v\right)\left(\dfrac{\partial v}{\partial T}\right)_{P}`
+    );
+    expect(mj).not.toBeNull();
+    const latex = ExpressionTree.create(mj!).latexPlain.replace(/\s+/g, " ").trim();
+    expect(latex).toContain(String.raw`f_{1}'\left(v\right)`);
+  });
+
   it("parses explicit vector macro", () => {
     expect(parse(String.raw`\vec{v}`)).toEqual(["Vector", "v"]);
     expect(parse(String.raw`\vec w`)).toEqual([

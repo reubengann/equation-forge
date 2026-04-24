@@ -1,5 +1,5 @@
 import { ExpressionTree, type MJ } from "../../ExpressionTree";
-import { normalizeMathJson } from "../../computeEngine";
+import { normalizeMathJson, parse } from "../../computeEngine";
 import { getAtPath, setAtPath } from "../../movePath";
 import type { ExprSelection } from "../../selectionSemantics";
 
@@ -12,7 +12,13 @@ function forceOrUnforceDelimiter(expr: MJ): MJ | null {
       (inner[0] === "Delimiter" || inner[0] === "List") &&
       inner.length >= 2
     ) {
-      return ["Negate", (inner[1] as MJ)] as MJ;
+      const unwrapped = inner[1] as MJ;
+      if (Array.isArray(unwrapped) && unwrapped[0] === "Add" && unwrapped.length >= 2) {
+        const terms = (unwrapped.slice(1) as MJ[]).map((term) => ["Negate", term] as MJ);
+        if (terms.length === 1) return terms[0] as MJ;
+        return ["Add", ...terms] as MJ;
+      }
+      return ["Negate", unwrapped] as MJ;
     }
   }
   if (expr[0] === "Delimiter" || expr[0] === "List") {
@@ -26,6 +32,58 @@ function forceOrUnforceDelimiter(expr: MJ): MJ | null {
     return inner;
   }
   return ["Delimiter", expr] as MJ;
+}
+
+function deepEqualMJ(a: MJ, b: MJ): boolean {
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i += 1) {
+      if (!deepEqualMJ(a[i] as MJ, b[i] as MJ)) return false;
+    }
+    return true;
+  }
+  return a === b;
+}
+
+function normalizeRoundTripAliases(expr: MJ): MJ {
+  if (expr === "d_upright") return "DifferentialD";
+  if (!Array.isArray(expr)) return expr;
+  const op = expr[0];
+  const kids = expr.slice(1).map((child) => normalizeRoundTripAliases(child as MJ));
+  if (
+    op === "Subscript" &&
+    kids.length >= 2 &&
+    Array.isArray(kids[0]) &&
+    (kids[0] as MJ[])[0] === "Differential"
+  ) {
+    const diffInner = (kids[0] as MJ[])[1] as MJ;
+    return ["InvisibleOperator", "DifferentialD", ["Subscript", diffInner, kids[1] as MJ]] as MJ;
+  }
+  return [op, ...kids] as MJ;
+}
+
+function assertForceDelimiterRoundTripInvariant(next: ExpressionTree): void {
+  if (process.env.NODE_ENV === "production") return;
+  const reparsed = parse(next.latexPlain);
+  if (!reparsed) {
+    throw new Error(
+      `Round-trip parse failed for force-delimiter result latex: ${next.latexPlain}`
+    );
+  }
+  const canonicalize = (root: MJ): MJ =>
+    normalizeRoundTripAliases((normalizeMathJson(root) ?? root) as MJ);
+  const canonicalCurrent = canonicalize(next.rootJson);
+  const canonicalReparsed = canonicalize(reparsed as MJ);
+  if (!deepEqualMJ(canonicalCurrent, canonicalReparsed)) {
+    throw new Error(
+      [
+        "Force delimiter result failed strict round-trip tree invariant.",
+        `latex: ${next.latexPlain}`,
+        `current: ${JSON.stringify(canonicalCurrent)}`,
+        `reparsed: ${JSON.stringify(canonicalReparsed)}`,
+      ].join("\n")
+    );
+  }
 }
 
 function normalizedRoot(root: MJ): MJ {
@@ -144,7 +202,9 @@ export function forceDelimiter(
     const next = forceOrUnforceDelimiter(node);
     if (!next) return null;
     const nextRoot = normalizedRoot(setAtPath(tree.rootJson, path, next) as MJ);
-    return ExpressionTree.create(nextRoot);
+    const nextTree = ExpressionTree.create(nextRoot);
+    assertForceDelimiterRoundTripInvariant(nextTree);
+    return nextTree;
   }
 
   const span =
@@ -172,7 +232,9 @@ export function forceDelimiter(
   ] as MJ[];
   const nextParent = [parentOp, ...nextKids] as MJ;
   const nextRoot = normalizedRoot(setAtPath(tree.rootJson, parentPath, nextParent) as MJ);
-  return ExpressionTree.create(nextRoot);
+  const nextTree = ExpressionTree.create(nextRoot);
+  assertForceDelimiterRoundTripInvariant(nextTree);
+  return nextTree;
 }
 
 function multiSelectionAsSpan(

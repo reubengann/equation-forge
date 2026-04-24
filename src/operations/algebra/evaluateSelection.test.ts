@@ -483,6 +483,26 @@ describe("evaluateSelection", () => {
     );
   });
 
+  it("simplifies negative unit numerator fractions as subtraction (issue 151)", () => {
+    const latex = String.raw`\left(\frac{\partial{h}}{\partial{v}}\right)_{T} = v \left(-\frac{1}{\kappa v}\right) - T \frac{\beta}{\kappa}`;
+    const tree = buildTree(latex);
+    const rhsId = tree.childrenById[tree.rootId]?.[1];
+    expect(rhsId).toBeTruthy();
+    if (!rhsId) return;
+
+    const next = simplifySelection(tree, { kind: "node", nodeId: rhsId });
+    expect(next).not.toBeNull();
+    if (!next) return;
+
+    const out = normalizeLatex(next.latexPlain);
+    expect(out).not.toContain("+ \\frac{-1}{\\kappa}");
+    expect(out).toContain(
+      normalizeLatex(
+        String.raw`\left(\frac{\partial{h}}{\partial{v}}\right)_{T} = -\frac{T \beta}{\kappa} - \frac{1}{\kappa}`
+      )
+    );
+  });
+
   it("renders simplified negative product as subtraction in Add context (issue 83 follow-up)", () => {
     const latex = String.raw`1 + 2 a \left(-\left(v - b\right)^{2}\right)`;
     const tree = buildTree(latex);
@@ -613,6 +633,33 @@ describe("evaluateSelection", () => {
     expect(out).not.toContain(String.raw`\ln`);
     expect(out).toContain(String.raw`T`);
     expect(out).toContain(String.raw`v^{\frac{R}{c_{v}}}`);
+  });
+
+  it("simplifies e^ln(v) on equation lhs even with unrelated rhs exponentials (issue 149)", () => {
+    const tree = buildTree(
+      String.raw`e^{\ln\left(v\right)} = e^{-\ln\left(f_{1}\right) + A_{1}}`
+    );
+    const lhsId = tree.childrenById[tree.rootId]?.[0];
+    expect(lhsId).toBeTruthy();
+    if (!lhsId) return;
+
+    const next = simplifySelection(tree, { kind: "node", nodeId: lhsId });
+    expect(next).not.toBeNull();
+    if (!next) return;
+    const out = normalizeLatex(next.latexPlain);
+    expect(out).toContain(normalizeLatex(String.raw`v = e^{`));
+    expect(out).toContain(normalizeLatex(String.raw`\ln\left(f_{1}\right)`));
+    expect(out).toContain(normalizeLatex(String.raw`A_{1}`));
+  });
+
+  it("simplifies e^ln(1/f1) to reciprocal form (issue 149 follow-up)", () => {
+    const tree = buildTree(String.raw`e^{\ln\left(\frac{1}{f_{1}}\right)}`);
+    const next = simplifySelection(tree, { kind: "node", nodeId: tree.rootId });
+    expect(next).not.toBeNull();
+    if (!next) return;
+    const out = normalizeLatex(next.latexPlain);
+    expect(out).toContain(normalizeLatex(String.raw`\frac{1}{f_{1}}`));
+    expect(out).not.toContain(normalizeLatex(String.raw`\ln`));
   });
 
   it("simplify preserves denominator scaling for nested fractions (issue 63)", () => {

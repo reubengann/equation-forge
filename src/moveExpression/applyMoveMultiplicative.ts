@@ -111,6 +111,35 @@ function deepEqualMJ(a: MJ, b: MJ): boolean {
   return a === b;
 }
 
+function removeFactorSubsetFromProduct(productExpr: MJ, factorExpr: MJ): MJ | null {
+  if (
+    !Array.isArray(productExpr) ||
+    (productExpr[0] !== "InvisibleOperator" && productExpr[0] !== "Multiply")
+  ) {
+    return null;
+  }
+
+  const originalFactors = productExpr.slice(1) as MJ[];
+  const normalizedProductFactors = originalFactors.map(unwrapDelimiter);
+  const normalizedFactorTerms =
+    Array.isArray(factorExpr) &&
+    (factorExpr[0] === "InvisibleOperator" || factorExpr[0] === "Multiply")
+      ? ((factorExpr.slice(1) as MJ[]).map(unwrapDelimiter) as MJ[])
+      : ([unwrapDelimiter(factorExpr)] as MJ[]);
+
+  const used = new Array(originalFactors.length).fill(false);
+  for (const factorTerm of normalizedFactorTerms) {
+    const idx = normalizedProductFactors.findIndex(
+      (candidate, i) => !used[i] && deepEqualMJ(candidate, factorTerm)
+    );
+    if (idx < 0) return null;
+    used[idx] = true;
+  }
+
+  const remaining = originalFactors.filter((_, i) => !used[i]);
+  return normalizeMul(remaining);
+}
+
 function divideTermByFactor(term: MJ, factor: MJ): MJ {
   if (Array.isArray(term) && term[0] === "Negate" && term.length >= 2) {
     return ["Negate", divideTermByFactor(term[1] as MJ, factor)] as MJNode;
@@ -124,12 +153,10 @@ function divideTermByFactor(term: MJ, factor: MJ): MJ {
     Array.isArray(bareTerm) &&
     (bareTerm[0] === "InvisibleOperator" || bareTerm[0] === "Multiply")
   ) {
-    const factors = (bareTerm.slice(1) as MJ[]).map(unwrapDelimiter);
     const originalFactors = bareTerm.slice(1) as MJ[];
-    const idx = factors.findIndex((f) => deepEqualMJ(f, bareFactor));
-    if (idx >= 0) {
-      const remaining = originalFactors.filter((_, i) => i !== idx);
-      return normalizeMul(remaining);
+    const reduced = removeFactorSubsetFromProduct(bareTerm, bareFactor);
+    if (reduced) {
+      return reduced;
     }
 
     // Try canceling through one nested factor (e.g. Divide(...), Power(...), etc)
@@ -159,13 +186,8 @@ function divideTermByFactor(term: MJ, factor: MJ): MJ {
       Array.isArray(denominator) &&
       (denominator[0] === "InvisibleOperator" || denominator[0] === "Multiply")
     ) {
-      const denFactors = (denominator.slice(1) as MJ[]).map(unwrapDelimiter);
-      const idx = denFactors.findIndex((f) => deepEqualMJ(f, bareFactor));
-      if (idx >= 0) {
-        const originalDenFactors = denominator.slice(1) as MJ[];
-        const nextDenominator = normalizeMul(
-          originalDenFactors.filter((_, i) => i !== idx)
-        );
+      const nextDenominator = removeFactorSubsetFromProduct(denominator, bareFactor);
+      if (nextDenominator) {
         return isOneTerm(nextDenominator)
           ? numerator
           : ([quotientOp, numerator, nextDenominator] as MJNode);
@@ -180,13 +202,8 @@ function divideTermByFactor(term: MJ, factor: MJ): MJ {
       Array.isArray(numerator) &&
       (numerator[0] === "InvisibleOperator" || numerator[0] === "Multiply")
     ) {
-      const numFactors = (numerator.slice(1) as MJ[]).map(unwrapDelimiter);
-      const idx = numFactors.findIndex((f) => deepEqualMJ(f, bareFactor));
-      if (idx >= 0) {
-        const originalNumFactors = numerator.slice(1) as MJ[];
-        const nextNumerator = normalizeMul(
-          originalNumFactors.filter((_, i) => i !== idx)
-        );
+      const nextNumerator = removeFactorSubsetFromProduct(numerator, bareFactor);
+      if (nextNumerator) {
         return isOneTerm(denominator)
           ? nextNumerator
           : ([quotientOp, nextNumerator, denominator] as MJNode);

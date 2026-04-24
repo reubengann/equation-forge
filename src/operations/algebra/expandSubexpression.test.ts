@@ -263,6 +263,20 @@ describe("expandSubexpression", () => {
     );
   });
 
+  it("expands e^(a+b) into e^a e^b on equation RHS", () => {
+    const tree = treefromLatex(String.raw`T = e^{a+b}`);
+    const rhsId = (tree.childrenById[tree.rootId] ?? [])[1];
+    expect(rhsId).toBeTruthy();
+    if (!rhsId) return;
+
+    expect(mathPadFacade.canExpand(tree, { kind: "node", nodeId: rhsId })).toBe(true);
+    const result = expandSubexpression(tree, rhsId);
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    expect(normalizeSpaces(result.latexPlain)).toBe(String.raw`T = e^{a} e^{b}`);
+  });
+
   it("expands T(aT + phi(v)) on rhs when phi(v) is an Apply node (issue 145)", () => {
     const tree = ExpressionTree.create([
       "Equal",
@@ -342,6 +356,48 @@ describe("expandSubexpression", () => {
     const latex = normalizeSpaces(result.latexPlain);
     expect(latex).toContain(String.raw`\int \frac{c_{v}}{T} \,\mathrm{d}{T}`);
     expect(latex).toContain(String.raw`\int \frac{R}{v} \,\mathrm{d}{v}`);
+  });
+
+  it("expands grouped reciprocal term without round-trip invariant crash (issue 152)", () => {
+    const tree = treefromLatex(
+      String.raw`\frac{\partial^{2}{h}}{\partial{T} \partial{v}} - v \frac{\partial^{2}{P}}{\partial{T} \partial{v}} - \frac{1}{T} \left(\left(\frac{\partial{h}}{\partial{v}}\right)_{T} - v \left(\frac{\partial{P}}{\partial{v}}\right)_{T}\right) = \frac{\partial^{2}{h}}{\partial{v} \partial{T}} - \left(\left(\frac{\partial{P}}{\partial{T}}\right)_{v} + v \frac{\partial^{2}{P}}{\partial{v} \partial{T}}\right)`
+    );
+    const targetId = findNodeId(
+      tree,
+      (n) =>
+        n.op === "InvisibleOperator" &&
+        n.latex.includes(String.raw`\frac{1}{T}`) &&
+        n.latex.includes(String.raw`\left(\left(\frac{\partial{h}}{\partial{v}}\right)_{T}`)
+    );
+    expect(targetId).toBeTruthy();
+    if (!targetId) return;
+
+    const result = expandSubexpression(tree, targetId);
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    const latex = normalizeSpaces(result.latexPlain);
+    expect(latex).not.toContain("+ -");
+    expect(latex).not.toContain("- -");
+    expect(latex).toContain(String.raw`\frac{\partial^{2}{h}}{\partial{T} \partial{v}}`);
+  });
+
+  it("expands reciprocal rhs group with grouped additive factor under 1/T (issue 153)", () => {
+    const tree = treefromLatex(
+      String.raw`\frac{1}{T} \frac{\partial^{2}{h}}{\partial{T} \partial{v}} - \frac{1}{T} v \frac{\partial^{2}{P}}{\partial{T} \partial{v}} - \frac{1}{T^{2}} \left(\frac{\partial{h}}{\partial{v}}\right)_{T} + \frac{1}{T^{2}} v \left(\frac{\partial{P}}{\partial{v}}\right)_{T} = \frac{1}{T} \left(\frac{\partial^{2}{h}}{\partial{v} \partial{T}} - \left(\left(\frac{\partial{P}}{\partial{T}}\right)_{v} + v \frac{\partial^{2}{P}}{\partial{v} \partial{T}}\right)\right)`
+    );
+    const rhsId = (tree.childrenById[tree.rootId] ?? [])[1];
+    expect(rhsId).toBeTruthy();
+    if (!rhsId) return;
+
+    const result = expandSubexpression(tree, rhsId);
+    expect(result).not.toBeNull();
+    if (!result) return;
+
+    const asJson = JSON.stringify(result.rootJson);
+    expect(asJson).toContain(
+      String.raw`"InvisibleOperator",["Divide",1,"T"],["Delimiter",["Add"`
+    );
   });
 
 });

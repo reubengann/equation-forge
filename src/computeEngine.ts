@@ -557,8 +557,9 @@ function normalizePrimeFunctionDerivatives(mj: MJ | null): MJ | null {
       return null;
     }
     const head = expr[0] as string;
-    // CE can emit bare lower-case call heads as arrays, e.g. ["phi","v"].
-    if (!/^[a-z]+$/.test(head)) return null;
+    // CE can emit bare call heads as arrays, e.g. ["phi","v"] or ["f_1","v"].
+    // Accept symbol-like heads (including simple subscripts) and canonicalize to Apply.
+    if (!/^[A-Za-z]+(?:_(?:\{[^}]+\}|[A-Za-z0-9]+))?$/.test(head)) return null;
     return ["Apply", head, ...(expr.slice(1) as MJ[])] as MJ;
   };
 

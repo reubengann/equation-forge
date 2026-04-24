@@ -136,5 +136,27 @@ describe("forceDelimiter", () => {
       String.raw`\int g \left(\theta\right) \,\mathrm{d}{\theta} = \ln\left(\theta\right)`
     );
   });
+
+  it("unforcing negated grouped additive term distributes sign (issue 153)", () => {
+    const tree = treefromLatex(
+      String.raw`\frac{\partial^{2}{h}}{\partial{T} \partial{v}} - v \frac{\partial^{2}{P}}{\partial{T} \partial{v}} - \frac{1}{T} \left(\frac{\partial{h}}{\partial{v}}\right)_{T} + \frac{1}{T} v \left(\frac{\partial{P}}{\partial{v}}\right)_{T} = \frac{\partial^{2}{h}}{\partial{v} \partial{T}} - \left(\left(\frac{\partial{P}}{\partial{T}}\right)_{v} + v \frac{\partial^{2}{P}}{\partial{v} \partial{T}}\right)`
+    );
+    const negatedGroupId = findNodeId(
+      tree,
+      (n) =>
+        n.op === "Negate" &&
+        n.latex.includes(String.raw`\left(\left(\frac{\partial{P}}{\partial{T}}\right)_{v}`) &&
+        n.latex.includes(String.raw`v \frac{\partial^{2}{P}}{\partial{v} \partial{T}}`)
+    );
+    const result = forceDelimiter(tree, {
+      kind: "node",
+      nodeId: negatedGroupId,
+    });
+
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe(
+      String.raw`\frac{\partial^{2}{h}}{\partial{T} \partial{v}} - v \frac{\partial^{2}{P}}{\partial{T} \partial{v}} - \frac{1}{T} \left(\frac{\partial{h}}{\partial{v}}\right)_{T} + \frac{1}{T} v \left(\frac{\partial{P}}{\partial{v}}\right)_{T} = \frac{\partial^{2}{h}}{\partial{v} \partial{T}} - \left(\frac{\partial{P}}{\partial{T}}\right)_{v} - v \frac{\partial^{2}{P}}{\partial{v} \partial{T}}`
+    );
+  });
 });
 

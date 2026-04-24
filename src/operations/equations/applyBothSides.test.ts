@@ -127,8 +127,8 @@ describe("applyOperationToBothSides", () => {
 
     expect(Array.isArray(lhs) && (lhs as any[])[0] === "Integrate").toBe(true);
     expect(Array.isArray(rhs) && (rhs as any[])[0] === "Integrate").toBe(true);
-    expect((lhs as any[])[2]).toEqual(["Tuple", "Nothing"]);
-    expect((rhs as any[])[2]).toEqual(["Tuple", "Nothing"]);
+    expect((lhs as any[])[2]).toEqual("Nothing");
+    expect((rhs as any[])[2]).toEqual("Nothing");
 
     const latex = ExpressionTree.create(result).latexPlain.replace(/\s+/g, " ").trim();
     expect(latex).toContain(String.raw`\int h`);
@@ -142,7 +142,7 @@ describe("applyOperationToBothSides", () => {
 
     expect(Array.isArray(rhs)).toBe(true);
     expect((rhs as any[])[0]).toBe("Integrate");
-    expect((rhs as any[])[2]).toEqual(["Tuple", "Nothing"]);
+    expect((rhs as any[])[2]).toEqual("Nothing");
 
     const latex = ExpressionTree.create(result).latexPlain;
     expect(latex).toContain(String.raw`\int`);
@@ -156,7 +156,7 @@ describe("applyOperationToBothSides", () => {
     const result = applyOperationToBothSides(eqn, String.raw`\int(eqn)`);
     const latex = ExpressionTree.create(result).latexPlain.replace(/\s+/g, " ").trim();
 
-    expect(latex).toContain(String.raw`\int \mathrm{d}{s}`);
+    expect(latex).toContain(String.raw`\int \,\mathrm{d}{s}`);
     expect(latex).toContain(
       String.raw`\int \left(\frac{c_{P}}{T} \mathrm{d}{T} - \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \mathrm{d}{P}\right)`
     );
@@ -169,7 +169,7 @@ describe("applyOperationToBothSides", () => {
     const result = applyOperationToBothSides(eqn, String.raw`\int eqn`);
     const latex = ExpressionTree.create(result).latexPlain.replace(/\s+/g, " ").trim();
 
-    expect(latex).toContain(String.raw`\int \mathrm{d}{s}`);
+    expect(latex).toContain(String.raw`\int \,\mathrm{d}{s}`);
     expect(latex).toContain(
       String.raw`\int \left(\frac{c_{P}}{T} \mathrm{d}{T} - \left(\frac{\partial{v}}{\partial{T}}\right)_{P} \mathrm{d}{P}\right)`
     );
@@ -201,6 +201,16 @@ describe("applyOperationToBothSides", () => {
     const result = applyOperationToBothSides(eqn, String.raw`\int eqn dP`);
     const latex = ExpressionTree.create(result).latexPlain.replace(/\s+/g, " ").trim();
     expect(latex).toBe(String.raw`\int a \,\mathrm{d}{P} = -\int b \,\mathrm{d}{P}`);
+  });
+
+  it("emits integral both-sides tree that matches reparsed latex (issue 151)", () => {
+    const eqn = makeMJfromLatex(
+      String.raw`\mathrm{d}{s} = \frac{c_{v}}{T} \, \mathrm{d}{T} + \frac{1}{A v} \, \mathrm{d}{v}`
+    );
+    const result = applyOperationToBothSides(eqn, String.raw`\int eqn`);
+    const latex = ExpressionTree.create(result).latexPlain;
+    const reparsed = makeMJfromLatex(latex);
+    expect(reparsed).toEqual(result);
   });
 
   it("treats \\frac{\\partial}{\\partial v}eqn as whole-side partial derivative (issue 86)", () => {
