@@ -125,5 +125,23 @@ describe("negateSelection", () => {
     expect(result).not.toBeNull();
     expect(normalizeSpaces(result!.latexPlain)).toBe(String.raw`x = T \left(s_{P}\right)`);
   });
+
+  it("moves negation to whole product when selecting negative grouped factor in a sum (issue 155)", () => {
+    const tree = treefromLatex(
+      String.raw`\mathrm{d}{s} = \frac{c_{v}}{T} \,\mathrm{d}{T} + \left(-\frac{1}{\rho^{2}} \,\mathrm{d}{\rho}\right) \left(\frac{\partial{P}}{\partial{T}}\right)_{v}`
+    );
+    const groupId = findNodeId(
+      tree,
+      (n) =>
+        n.op === "Delimiter" &&
+        n.latex.includes(String.raw`-\frac{1}{\rho^{2}}`) &&
+        n.latex.includes(String.raw`\mathrm{d}{\rho}`)
+    );
+    const result = negateSelection(tree, { kind: "node", nodeId: groupId });
+    expect(result).not.toBeNull();
+    expect(normalizeSpaces(result!.latexPlain)).toBe(
+      String.raw`\mathrm{d}{s} = \frac{c_{v}}{T} \mathrm{d}{T} - \left(\frac{1}{\rho^{2}} \mathrm{d}{\rho}\right) \left(\frac{\partial{P}}{\partial{T}}\right)_{v}`
+    );
+  });
 });
 

@@ -84,16 +84,6 @@ function transformSelectedExpr(expr: MJ): MJ {
     }
     return inner;
   }
-  if (
-    Array.isArray(expr) &&
-    (expr[0] === "Delimiter" || expr[0] === "List") &&
-    expr.length >= 2 &&
-    Array.isArray(expr[1]) &&
-    (expr[1] as MJ[])[0] === "Negate"
-  ) {
-    // Already explicitly negated inside grouping: keep value unchanged.
-    return expr;
-  }
   if (Array.isArray(expr) && expr[0] === "Delimiter" && expr.length >= 2) {
     const inner = expr[1] as MJ;
     if (Array.isArray(inner) && inner[0] === "Add" && inner.length >= 2) {
@@ -166,9 +156,7 @@ function negateNode(tree: ExpressionTree, nodeId: string): MJ | null {
       Array.isArray(parentExpr) &&
       (parentExpr[0] === "InvisibleOperator" || parentExpr[0] === "Multiply") &&
       grandParentExpr &&
-      Array.isArray(grandParentExpr) &&
-      grandParentExpr[0] === "Negate" &&
-      tree.childrenById[grandParentId]?.[0] === parentId
+      Array.isArray(grandParentExpr)
     ) {
       const parentKids = (parentExpr.slice(1) as MJ[]).map((kid) =>
         deepEqualMJ(kid, target)
@@ -176,7 +164,12 @@ function negateNode(tree: ExpressionTree, nodeId: string): MJ | null {
           : kid
       );
       const rebuiltParent = [parentExpr[0], ...parentKids] as MJ;
-      return setAtPath(tree.rootJson, grandParentPath, rebuiltParent) as MJ;
+      if (grandParentExpr[0] === "Negate" && tree.childrenById[grandParentId]?.[0] === parentId) {
+        // Negate[product(..., Delimiter[Negate[x]], ...)] -> product(..., Delimiter[x], ...)
+        return setAtPath(tree.rootJson, grandParentPath, rebuiltParent) as MJ;
+      }
+      // product(..., Delimiter[Negate[x]], ...) -> Negate[product(..., Delimiter[x], ...)]
+      return setAtPath(tree.rootJson, parentPath, ["Negate", rebuiltParent] as MJ) as MJ;
     }
   }
   const replacement = transformSelectedExpr(target);
