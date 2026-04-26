@@ -4,7 +4,7 @@ overview: Build v2 as an isolated Vite/React app under `v2/` with its own latest
 todos:
   - id: scaffold-v2-app
     content: Scaffold `v2/` as a standalone Vite app with its own latest dependencies, lockfile, TypeScript, lint, Vitest, and optional Playwright setup.
-    status: pending
+    status: completed
   - id: add-v2-host-page
     content: Add a minimal v1 `V2Page` and header entry that embeds or opens the separate v2 app via configured URL without importing v2 code.
     status: pending
