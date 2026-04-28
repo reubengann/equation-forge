@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import EditorEntryToggle from "./EditorEntryToggle";
+import { nextSelectedNodeIdFromEvent } from "./interaction/selectionController";
 import { TestRecorder, type TestRecorderEvent } from "./TestRecorder";
 
 type EventFixture = {
@@ -160,15 +161,13 @@ function App() {
         }}
         onPointerDownEvent={(payload) => {
           const previousNodeId = selectedNodeIdRef.current;
-          if (previousNodeId !== payload.nodeId) {
-            selectedNodeIdRef.current = payload.nodeId;
-            setSelectedNodeId(payload.nodeId);
-            if (isRecording) {
-              recorderRef.current.recordSelectionChanged({
-                previousNodeId,
-                nextNodeId: payload.nodeId,
-              });
-            }
+          const nextNodeId = nextSelectedNodeIdFromEvent(previousNodeId, {
+            type: "pointer_down",
+            nodeId: payload.nodeId,
+          });
+          if (previousNodeId !== nextNodeId) {
+            selectedNodeIdRef.current = nextNodeId;
+            setSelectedNodeId(nextNodeId);
           }
           if (isRecording) {
             recorderRef.current.recordPointerDown(payload);
@@ -197,15 +196,6 @@ function App() {
                       {event.type}: Click {event.nodeId} {event.clickKind} (
                       {event.clickCount}{" "}
                       {event.clickCount === 1 ? "time" : "times"})
-                    </div>
-                  );
-                case "selection_changed":
-                  return (
-                    <div key={`${event.ts}-${index}`}>
-                      {event.type}:{" "}
-                      {event.nextNodeId
-                        ? `Selection changed to ${event.nextNodeId}`
-                        : "Selection cleared"}
                     </div>
                   );
                 case "pointer_down":

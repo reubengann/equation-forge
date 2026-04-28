@@ -1,5 +1,9 @@
 type MathDivHost = HTMLElement & { shadowRoot?: ShadowRoot | null };
 
+export type SelectionEventLike =
+  | { type: "pointer_down"; nodeId: string | null }
+  | { type: string; nodeId?: string | null };
+
 function pickNodeIdAtPoint(
   shadowRoot: ShadowRoot,
   clientX: number,
@@ -34,4 +38,14 @@ export function resolveNodeIdFromMathDivAtPoint(
   const shadowRoot = host?.shadowRoot;
   if (!shadowRoot) return null;
   return pickNodeIdAtPoint(shadowRoot, clientX, clientY);
+}
+
+export function nextSelectedNodeIdFromEvent(
+  currentSelectedNodeId: string | null,
+  event: SelectionEventLike,
+): string | null {
+  if (event.type === "pointer_down") {
+    return event.nodeId ?? null;
+  }
+  return currentSelectedNodeId;
 }

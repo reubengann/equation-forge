@@ -19,13 +19,6 @@ export type NodeClickEvent = {
   ts: number;
 };
 
-export type SelectionChangedEvent = {
-  type: "selection_changed";
-  previousNodeId: string | null;
-  nextNodeId: string | null;
-  ts: number;
-};
-
 export type LatexAcceptedEvent = {
   type: "latex_accepted";
   previousLatex: string | null;
@@ -35,7 +28,6 @@ export type LatexAcceptedEvent = {
 
 export type TestRecorderEvent =
   | NodeClickEvent
-  | SelectionChangedEvent
   | PointerEventRecord
   | LatexAcceptedEvent;
 
@@ -58,18 +50,6 @@ export class TestRecorder {
       nodeId: payload.nodeId,
       clickCount: payload.clickCount,
       clickKind: toClickKind(payload.clickCount),
-      ts: Date.now(),
-    });
-  }
-
-  recordSelectionChanged(payload: {
-    previousNodeId: string | null;
-    nextNodeId: string | null;
-  }): void {
-    this.events.push({
-      type: "selection_changed",
-      previousNodeId: payload.previousNodeId,
-      nextNodeId: payload.nextNodeId,
       ts: Date.now(),
     });
   }
