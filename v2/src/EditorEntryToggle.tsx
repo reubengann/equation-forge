@@ -36,6 +36,7 @@ export function EditorEntryToggle({
   const [latex, setLatex] = useState(String.raw`a+b=c`);
   const [showMathDisplay, setShowMathDisplay] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const selectedNodeIdRef = useRef<string | null>(null);
   const mathDivRef = useRef<HTMLElement | null>(null);
   const slotRef = useRef<HTMLDivElement | null>(null);
   const tagged = useMemo(() => buildTaggedLatex(latex), [latex]);
@@ -59,13 +60,14 @@ export function EditorEntryToggle({
   };
 
   const handleSelectionChange = (nextNodeId: string | null) => {
-    setSelectedNodeId((prevNodeId) => {
-      onSelectionChanged({
-        previousNodeId: prevNodeId,
-        nextNodeId,
-      });
-      return nextNodeId;
+    const previousNodeId = selectedNodeIdRef.current;
+    if (previousNodeId === nextNodeId) return;
+    onSelectionChanged({
+      previousNodeId,
+      nextNodeId,
     });
+    selectedNodeIdRef.current = nextNodeId;
+    setSelectedNodeId(nextNodeId);
   };
 
   return (
