@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { EquationEditor } from "./EquationEditor";
+import { resolveNodeIdFromMathDivAtPoint } from "./interaction/selectionController";
 import { MathliveEditor } from "./MathliveEditor";
 import { buildTaggedLatex } from "./taggedLatex";
 
@@ -21,14 +22,13 @@ type PointerEventPayload = {
   buttons: number;
 };
 
+type RawPointerEventPayload = Omit<PointerEventPayload, "nodeId">;
+
 type EditorEntryToggleProps = {
+  selectedNodeId: string | null;
   onLatexAccepted: (payload: {
     previousLatex: string | null;
     nextLatex: string;
-  }) => void;
-  onSelectionChanged: (payload: {
-    previousNodeId: string | null;
-    nextNodeId: string | null;
   }) => void;
   onNodeClick: (nodeId: string | null, clickCount: number) => void;
   onPointerDownEvent: (payload: PointerEventPayload) => void;
@@ -36,8 +36,8 @@ type EditorEntryToggleProps = {
 };
 
 export function EditorEntryToggle({
+  selectedNodeId,
   onLatexAccepted,
-  onSelectionChanged,
   onNodeClick,
   onPointerDownEvent,
   onPointerUpEvent,
@@ -45,8 +45,6 @@ export function EditorEntryToggle({
   const [latex, setLatex] = useState(String.raw`a+b=c`);
   const [showMathDisplay, setShowMathDisplay] = useState(false);
   const lastAcceptedLatexRef = useRef<string | null>(null);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const selectedNodeIdRef = useRef<string | null>(null);
   const mathDivRef = useRef<HTMLElement | null>(null);
   const slotRef = useRef<HTMLDivElement | null>(null);
   const tagged = useMemo(() => buildTaggedLatex(latex), [latex]);
@@ -69,15 +67,41 @@ export function EditorEntryToggle({
     setLatex(nextValue);
   };
 
-  const handleSelectionChange = (nextNodeId: string | null) => {
-    const previousNodeId = selectedNodeIdRef.current;
-    if (previousNodeId === nextNodeId) return;
-    onSelectionChanged({
-      previousNodeId,
-      nextNodeId,
+  const handlePointerDown = (payload: RawPointerEventPayload) => {
+    const nodeId = resolveNodeIdFromMathDivAtPoint(
+      mathDivRef.current,
+      payload.x,
+      payload.y,
+    );
+    onPointerDownEvent({
+      ...payload,
+      nodeId,
     });
-    selectedNodeIdRef.current = nextNodeId;
-    setSelectedNodeId(nextNodeId);
+  };
+
+  const handlePointerUp = (payload: RawPointerEventPayload) => {
+    const nodeId = resolveNodeIdFromMathDivAtPoint(
+      mathDivRef.current,
+      payload.x,
+      payload.y,
+    );
+    onPointerUpEvent({
+      ...payload,
+      nodeId,
+    });
+  };
+
+  const handleNodeClick = (payload: {
+    x: number;
+    y: number;
+    clickCount: number;
+  }) => {
+    const nodeId = resolveNodeIdFromMathDivAtPoint(
+      mathDivRef.current,
+      payload.x,
+      payload.y,
+    );
+    onNodeClick(nodeId, payload.clickCount);
   };
 
   const handleAcceptToggle = () => {
@@ -122,10 +146,9 @@ export function EditorEntryToggle({
             mathDivRef={mathDivRef}
             latex={tagged.taggedLatex}
             selectedNodeId={selectedNodeId}
-            onSelectionChange={handleSelectionChange}
-            onNodeClick={onNodeClick}
-            onPointerDownEvent={onPointerDownEvent}
-            onPointerUpEvent={onPointerUpEvent}
+            onNodeClick={handleNodeClick}
+            onPointerDownEvent={handlePointerDown}
+            onPointerUpEvent={handlePointerUp}
           />
         ) : (
           <MathliveEditor
