@@ -1,15 +1,18 @@
 import { MathfieldElement } from "mathlive";
-import { type SyntheticEvent, useEffect, useRef, useState } from "react";
+import { type SyntheticEvent, useEffect, useMemo, useRef, useState } from "react";
 import { EquationEditor } from "./EquationEditor";
 import { MathliveEditor } from "./MathliveEditor";
+import { buildTaggedLatex } from "./taggedLatex";
 
 MathfieldElement.fontsDirectory = "/fonts";
 
 export function EditorEntryToggle() {
   const [latex, setLatex] = useState(String.raw`a+b=c`);
   const [showMathDisplay, setShowMathDisplay] = useState(false);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const mathDivRef = useRef<HTMLElement | null>(null);
   const slotRef = useRef<HTMLDivElement | null>(null);
+  const tagged = useMemo(() => buildTaggedLatex(latex), [latex]);
 
   useEffect(() => {
     if (!showMathDisplay) return;
@@ -17,11 +20,11 @@ export function EditorEntryToggle() {
       | (HTMLElement & { value?: string; render?: () => void })
       | null;
     if (!mathDiv) return;
-    // Current placeholder render pipeline is identity.
+    // Render tagged latex so each shallow piece gets data-node-id markup.
     mathDiv.setAttribute("virtual-keyboard-mode", "off");
-    mathDiv.value = latex;
-    mathDiv.textContent = latex;
-  }, [showMathDisplay, latex]);
+    mathDiv.value = tagged.taggedLatex;
+    mathDiv.textContent = tagged.taggedLatex;
+  }, [showMathDisplay, tagged.taggedLatex]);
 
   const updateMathFieldValue = (event: SyntheticEvent<HTMLElement>) => {
     const nextValue =
@@ -50,7 +53,13 @@ export function EditorEntryToggle() {
         }}
       >
         {showMathDisplay ? (
-          <EquationEditor slotRef={slotRef} mathDivRef={mathDivRef} latex={latex} />
+          <EquationEditor
+            slotRef={slotRef}
+            mathDivRef={mathDivRef}
+            latex={tagged.taggedLatex}
+            selectedNodeId={selectedNodeId}
+            onSelectionChange={setSelectedNodeId}
+          />
         ) : (
           <MathliveEditor
             slotRef={slotRef}
@@ -76,6 +85,15 @@ export function EditorEntryToggle() {
         >
           {showMathDisplay ? "Edit" : "✓"}
         </button>
+      </div>
+      <div
+        style={{
+          fontSize: "12px",
+          color: "rgba(255, 255, 255, 0.72)",
+        }}
+        data-testid="selected-node-id"
+      >
+        Selected node: {selectedNodeId ?? "none"}
       </div>
     </section>
   );
