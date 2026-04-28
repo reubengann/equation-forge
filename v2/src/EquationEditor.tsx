@@ -43,9 +43,7 @@ export function EquationEditor({
     for (const el of els) {
       const nodeId = el.dataset.nodeId;
       const isSelected = !!selectedNodeId && nodeId === selectedNodeId;
-      el.style.outline = isSelected ? "1px solid #64b5f6" : "";
-      el.style.outlineOffset = isSelected ? "1px" : "";
-      el.style.background = isSelected ? "rgba(100, 181, 246, 0.15)" : "";
+      el.style.color = isSelected ? "#ff9800" : "";
     }
   }, [mathDivRef, latex, selectedNodeId]);
 
