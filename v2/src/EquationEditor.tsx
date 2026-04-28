@@ -7,6 +7,23 @@ type EquationEditorProps = {
   latex: string;
   selectedNodeId: string | null;
   onSelectionChange: (nodeId: string | null) => void;
+  onNodeClick: (nodeId: string | null, clickCount: number) => void;
+  onPointerDownEvent: (payload: {
+    nodeId: string | null;
+    x: number;
+    y: number;
+    pointerType: string;
+    button: number;
+    buttons: number;
+  }) => void;
+  onPointerUpEvent: (payload: {
+    nodeId: string | null;
+    x: number;
+    y: number;
+    pointerType: string;
+    button: number;
+    buttons: number;
+  }) => void;
 };
 
 function pickNodeIdAtPoint(
@@ -28,7 +45,10 @@ function pickNodeIdAtPoint(
       clientY >= rect.top &&
       clientY <= rect.bottom;
     if (!contains) continue;
-    const area = Math.max(1, (rect.right - rect.left) * (rect.bottom - rect.top));
+    const area = Math.max(
+      1,
+      (rect.right - rect.left) * (rect.bottom - rect.top),
+    );
     if (!best || area < best.area) {
       best = { id: nodeId, area };
     }
@@ -42,6 +62,9 @@ export function EquationEditor({
   latex,
   selectedNodeId,
   onSelectionChange,
+  onNodeClick,
+  onPointerDownEvent,
+  onPointerUpEvent,
 }: EquationEditorProps) {
   useEffect(() => {
     const host = mathDivRef.current as
@@ -68,17 +91,66 @@ export function EquationEditor({
       | null;
     const shadowRoot = host?.shadowRoot;
     if (!shadowRoot) {
+      onPointerDownEvent({
+        nodeId: null,
+        x: event.clientX,
+        y: event.clientY,
+        pointerType: event.pointerType,
+        button: event.button,
+        buttons: event.buttons,
+      });
       onSelectionChange(null);
       return;
     }
     const nodeId = pickNodeIdAtPoint(shadowRoot, event.clientX, event.clientY);
+    onPointerDownEvent({
+      nodeId,
+      x: event.clientX,
+      y: event.clientY,
+      pointerType: event.pointerType,
+      button: event.button,
+      buttons: event.buttons,
+    });
     onSelectionChange(nodeId);
+  };
+
+  const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const host = mathDivRef.current as
+      | (HTMLElement & { shadowRoot?: ShadowRoot | null })
+      | null;
+    const shadowRoot = host?.shadowRoot;
+    const nodeId = shadowRoot
+      ? pickNodeIdAtPoint(shadowRoot, event.clientX, event.clientY)
+      : null;
+    onPointerUpEvent({
+      nodeId,
+      x: event.clientX,
+      y: event.clientY,
+      pointerType: event.pointerType,
+      button: event.button,
+      buttons: event.buttons,
+    });
+  };
+
+  const onClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const host = mathDivRef.current as
+      | (HTMLElement & { shadowRoot?: ShadowRoot | null })
+      | null;
+    const shadowRoot = host?.shadowRoot;
+    if (!shadowRoot) {
+      onNodeClick(null, event.detail || 1);
+      return;
+    }
+    const nodeId = pickNodeIdAtPoint(shadowRoot, event.clientX, event.clientY);
+    onNodeClick(nodeId, event.detail || 1);
   };
 
   return (
     <div
       ref={slotRef}
       onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
+      onClick={onClick}
       style={{
         flex: 1,
         boxSizing: "border-box",

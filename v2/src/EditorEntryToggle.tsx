@@ -6,7 +6,33 @@ import { buildTaggedLatex } from "./taggedLatex";
 
 MathfieldElement.fontsDirectory = "/fonts";
 
-export function EditorEntryToggle() {
+type PointerEventPayload = {
+  nodeId: string | null;
+  x: number;
+  y: number;
+  pointerType: string;
+  button: number;
+  buttons: number;
+};
+
+type EditorEntryToggleProps = {
+  recordedEventCount: number;
+  onSelectionChanged: (payload: {
+    previousNodeId: string | null;
+    nextNodeId: string | null;
+  }) => void;
+  onNodeClick: (nodeId: string | null, clickCount: number) => void;
+  onPointerDownEvent: (payload: PointerEventPayload) => void;
+  onPointerUpEvent: (payload: PointerEventPayload) => void;
+};
+
+export function EditorEntryToggle({
+  recordedEventCount,
+  onSelectionChanged,
+  onNodeClick,
+  onPointerDownEvent,
+  onPointerUpEvent,
+}: EditorEntryToggleProps) {
   const [latex, setLatex] = useState(String.raw`a+b=c`);
   const [showMathDisplay, setShowMathDisplay] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -30,6 +56,16 @@ export function EditorEntryToggle() {
     const nextValue =
       (event.currentTarget as HTMLElement & { value?: string }).value ?? "";
     setLatex(nextValue);
+  };
+
+  const handleSelectionChange = (nextNodeId: string | null) => {
+    setSelectedNodeId((prevNodeId) => {
+      onSelectionChanged({
+        previousNodeId: prevNodeId,
+        nextNodeId,
+      });
+      return nextNodeId;
+    });
   };
 
   return (
@@ -58,7 +94,10 @@ export function EditorEntryToggle() {
             mathDivRef={mathDivRef}
             latex={tagged.taggedLatex}
             selectedNodeId={selectedNodeId}
-            onSelectionChange={setSelectedNodeId}
+            onSelectionChange={handleSelectionChange}
+            onNodeClick={onNodeClick}
+            onPointerDownEvent={onPointerDownEvent}
+            onPointerUpEvent={onPointerUpEvent}
           />
         ) : (
           <MathliveEditor
@@ -85,6 +124,15 @@ export function EditorEntryToggle() {
         >
           {showMathDisplay ? "Edit" : "✓"}
         </button>
+      </div>
+      <div
+        style={{
+          fontSize: "12px",
+          color: "rgba(255, 255, 255, 0.72)",
+        }}
+        data-testid="recorded-event-count"
+      >
+        Recorded events: {recordedEventCount}
       </div>
       <div
         style={{
