@@ -7,7 +7,7 @@ todos:
     status: completed
   - id: add-v2-host-page
     content: Add a minimal v1 `V2Page` and header entry that embeds or opens the separate v2 app via configured URL without importing v2 code.
-    status: pending
+    status: completed
   - id: browser-faithful-test-engine
     content: Build a fast deterministic v2 interaction test engine that simulates pointer movement against browser-generated geometry fixtures.
     status: pending
