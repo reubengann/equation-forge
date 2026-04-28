@@ -26,10 +26,18 @@ export type SelectionChangedEvent = {
   ts: number;
 };
 
+export type LatexAcceptedEvent = {
+  type: "latex_accepted";
+  previousLatex: string | null;
+  nextLatex: string;
+  ts: number;
+};
+
 export type TestRecorderEvent =
   | NodeClickEvent
   | SelectionChangedEvent
-  | PointerEventRecord;
+  | PointerEventRecord
+  | LatexAcceptedEvent;
 
 function toClickKind(clickCount: number): ClickKind {
   if (clickCount <= 1) return "single";
@@ -100,6 +108,18 @@ export class TestRecorder {
       pointerType: payload.pointerType,
       button: payload.button,
       buttons: payload.buttons,
+      ts: Date.now(),
+    });
+  }
+
+  recordLatexAccepted(payload: {
+    previousLatex: string | null;
+    nextLatex: string;
+  }): void {
+    this.events.push({
+      type: "latex_accepted",
+      previousLatex: payload.previousLatex,
+      nextLatex: payload.nextLatex,
       ts: Date.now(),
     });
   }

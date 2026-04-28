@@ -53,6 +53,11 @@ function App() {
         </button>
       </div>
       <EditorEntryToggle
+        onLatexAccepted={(payload) => {
+          if (!isRecording) return;
+          recorderRef.current.recordLatexAccepted(payload);
+          syncRecordedEvents();
+        }}
         onSelectionChanged={(payload) => {
           if (!isRecording) return;
           recorderRef.current.recordSelectionChanged(payload);
@@ -115,6 +120,13 @@ function App() {
                     <div key={`${event.ts}-${index}`}>
                       {event.type}: Pointer up {event.nodeId}{" "}
                       {event.pointer.x}{" "}
+                    </div>
+                  );
+                case "latex_accepted":
+                  return (
+                    <div key={`${event.ts}-${index}`}>
+                      {event.type}: Latex changed from{" "}
+                      {event.previousLatex ?? "(none)"} to {event.nextLatex}
                     </div>
                   );
               }

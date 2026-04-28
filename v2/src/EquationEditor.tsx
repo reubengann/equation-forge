@@ -2,7 +2,6 @@ import type { RefObject } from "react";
 import { useEffect } from "react";
 
 type EquationEditorProps = {
-  slotRef: RefObject<HTMLDivElement | null>;
   mathDivRef: RefObject<HTMLElement | null>;
   latex: string;
   selectedNodeId: string | null;
@@ -57,7 +56,6 @@ function pickNodeIdAtPoint(
 }
 
 export function EquationEditor({
-  slotRef,
   mathDivRef,
   latex,
   selectedNodeId,
@@ -147,7 +145,6 @@ export function EquationEditor({
 
   return (
     <div
-      ref={slotRef}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
       onClick={onClick}

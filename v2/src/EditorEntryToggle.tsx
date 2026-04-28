@@ -22,6 +22,10 @@ type PointerEventPayload = {
 };
 
 type EditorEntryToggleProps = {
+  onLatexAccepted: (payload: {
+    previousLatex: string | null;
+    nextLatex: string;
+  }) => void;
   onSelectionChanged: (payload: {
     previousNodeId: string | null;
     nextNodeId: string | null;
@@ -32,6 +36,7 @@ type EditorEntryToggleProps = {
 };
 
 export function EditorEntryToggle({
+  onLatexAccepted,
   onSelectionChanged,
   onNodeClick,
   onPointerDownEvent,
@@ -39,6 +44,7 @@ export function EditorEntryToggle({
 }: EditorEntryToggleProps) {
   const [latex, setLatex] = useState(String.raw`a+b=c`);
   const [showMathDisplay, setShowMathDisplay] = useState(false);
+  const lastAcceptedLatexRef = useRef<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const selectedNodeIdRef = useRef<string | null>(null);
   const mathDivRef = useRef<HTMLElement | null>(null);
@@ -74,6 +80,23 @@ export function EditorEntryToggle({
     setSelectedNodeId(nextNodeId);
   };
 
+  const handleAcceptToggle = () => {
+    setShowMathDisplay((prev) => {
+      const nextShowMathDisplay = !prev;
+      if (!prev && nextShowMathDisplay) {
+        const previousLatex = lastAcceptedLatexRef.current;
+        if (previousLatex !== latex) {
+          onLatexAccepted({
+            previousLatex,
+            nextLatex: latex,
+          });
+          lastAcceptedLatexRef.current = latex;
+        }
+      }
+      return nextShowMathDisplay;
+    });
+  };
+
   return (
     <section
       className="equation-editor"
@@ -96,7 +119,6 @@ export function EditorEntryToggle({
       >
         {showMathDisplay ? (
           <EquationEditor
-            slotRef={slotRef}
             mathDivRef={mathDivRef}
             latex={tagged.taggedLatex}
             selectedNodeId={selectedNodeId}
@@ -115,7 +137,7 @@ export function EditorEntryToggle({
         <button
           type="button"
           data-testid="accept-equation"
-          onClick={() => setShowMathDisplay((prev) => !prev)}
+          onClick={handleAcceptToggle}
           style={{
             width: "40px",
             height: "40px",
@@ -131,13 +153,6 @@ export function EditorEntryToggle({
           {showMathDisplay ? "Edit" : "✓"}
         </button>
       </div>
-      <div
-        style={{
-          fontSize: "12px",
-          color: "rgba(255, 255, 255, 0.72)",
-        }}
-        data-testid="recorded-event-count"
-      ></div>
     </section>
   );
 }
