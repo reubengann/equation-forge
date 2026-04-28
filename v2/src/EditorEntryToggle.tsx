@@ -1,5 +1,11 @@
 import { MathfieldElement } from "mathlive";
-import { type SyntheticEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type SyntheticEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { EquationEditor } from "./EquationEditor";
 import { MathliveEditor } from "./MathliveEditor";
 import { buildTaggedLatex } from "./taggedLatex";
@@ -16,7 +22,6 @@ type PointerEventPayload = {
 };
 
 type EditorEntryToggleProps = {
-  recordedEventCount: number;
   onSelectionChanged: (payload: {
     previousNodeId: string | null;
     nextNodeId: string | null;
@@ -27,7 +32,6 @@ type EditorEntryToggleProps = {
 };
 
 export function EditorEntryToggle({
-  recordedEventCount,
   onSelectionChanged,
   onNodeClick,
   onPointerDownEvent,
@@ -133,18 +137,7 @@ export function EditorEntryToggle({
           color: "rgba(255, 255, 255, 0.72)",
         }}
         data-testid="recorded-event-count"
-      >
-        Recorded events: {recordedEventCount}
-      </div>
-      <div
-        style={{
-          fontSize: "12px",
-          color: "rgba(255, 255, 255, 0.72)",
-        }}
-        data-testid="selected-node-id"
-      >
-        Selected node: {selectedNodeId ?? "none"}
-      </div>
+      ></div>
     </section>
   );
 }

@@ -7,6 +7,7 @@ function App() {
   const [recordedEvents, setRecordedEvents] = useState<TestRecorderEvent[]>([]);
   const [recordedEventCount, setRecordedEventCount] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   const syncRecordedEvents = () => {
     const nextEvents = recorderRef.current.getEvents();
@@ -52,7 +53,6 @@ function App() {
         </button>
       </div>
       <EditorEntryToggle
-        recordedEventCount={recordedEventCount}
         onSelectionChanged={(payload) => {
           if (!isRecording) return;
           recorderRef.current.recordSelectionChanged(payload);
@@ -61,6 +61,7 @@ function App() {
         onNodeClick={(nodeId, clickCount) => {
           if (!isRecording) return;
           recorderRef.current.recordNodeClick({ nodeId, clickCount });
+          setSelectedNodeId(nodeId);
           syncRecordedEvents();
         }}
         onPointerDownEvent={(payload) => {
@@ -74,47 +75,51 @@ function App() {
           syncRecordedEvents();
         }}
       />
-      <div style={{ textAlign: "left" }}>
-        {recordedEvents
-          .slice()
-          .reverse()
-          .slice(0, 20)
-          .map((event: TestRecorderEvent, index) => {
-            switch (event.type) {
-              case "node_click":
-                return (
-                  <div key={`${event.ts}-${index}`}>
-                    {event.type}: Click {event.nodeId} {event.clickKind} (
-                    {event.clickCount}{" "}
-                    {event.clickCount === 1 ? "time" : "times"})
-                  </div>
-                );
-              case "selection_changed":
-                return (
-                  <div key={`${event.ts}-${index}`}>
-                    {event.type}:{" "}
-                    {event.nextNodeId
-                      ? `Selection changed to ${event.nextNodeId}`
-                      : "Selection cleared"}
-                  </div>
-                );
-              case "pointer_down":
-                return (
-                  <div key={`${event.ts}-${index}`}>
-                    {event.type}: Pointer down {event.nodeId} {event.pointer.x}{" "}
-                    {event.pointer.y} {event.pointerType} {event.button}{" "}
-                    {event.buttons}
-                  </div>
-                );
-              case "pointer_up":
-                return (
-                  <div key={`${event.ts}-${index}`}>
-                    {event.type}: Pointer up {event.nodeId}{" "}
-                    {event.pointer.x}{" "}
-                  </div>
-                );
-            }
-          })}
+      <div style={{ textAlign: "left", fontSize: "14px" }}>
+        <div>Selected node: {selectedNodeId ?? "none"}</div>
+        <div> Recorded events: {recordedEventCount} </div>
+        <div>
+          {recordedEvents
+            .slice()
+            .reverse()
+            .slice(0, 20)
+            .map((event: TestRecorderEvent, index) => {
+              switch (event.type) {
+                case "node_click":
+                  return (
+                    <div key={`${event.ts}-${index}`}>
+                      {event.type}: Click {event.nodeId} {event.clickKind} (
+                      {event.clickCount}{" "}
+                      {event.clickCount === 1 ? "time" : "times"})
+                    </div>
+                  );
+                case "selection_changed":
+                  return (
+                    <div key={`${event.ts}-${index}`}>
+                      {event.type}:{" "}
+                      {event.nextNodeId
+                        ? `Selection changed to ${event.nextNodeId}`
+                        : "Selection cleared"}
+                    </div>
+                  );
+                case "pointer_down":
+                  return (
+                    <div key={`${event.ts}-${index}`}>
+                      {event.type}: Pointer down {event.nodeId}{" "}
+                      {event.pointer.x} {event.pointer.y} {event.pointerType}{" "}
+                      {event.button} {event.buttons}
+                    </div>
+                  );
+                case "pointer_up":
+                  return (
+                    <div key={`${event.ts}-${index}`}>
+                      {event.type}: Pointer up {event.nodeId}{" "}
+                      {event.pointer.x}{" "}
+                    </div>
+                  );
+              }
+            })}
+        </div>
       </div>
     </main>
   );
