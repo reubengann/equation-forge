@@ -2,6 +2,7 @@ import { parseMath } from "@unified-latex/unified-latex-util-parse";
 import {
   add,
   call,
+  differential,
   displayGroup,
   divide,
   equation,
@@ -115,6 +116,57 @@ function mergeSubscript(tokens: Token[], i: number, node: UnifiedNode): number {
 
 function tokenize(nodes: UnifiedNode[]): Token[] {
   const tokens: Token[] = [];
+  const readInferredDifferential = (
+    startIndex: number,
+  ): { variable: UnifiedNode[]; consumedNodes: number } | null => {
+    const next = nodes[startIndex + 1];
+    if (!next || next.type === "whitespace") return null;
+
+    if (next.type === "group" && Array.isArray(next.content)) {
+      return { variable: next.content, consumedNodes: 1 };
+    }
+
+    if (next.type === "macro") {
+      return { variable: [next], consumedNodes: 1 };
+    }
+
+    if (next.type !== "string" || typeof next.content !== "string") return null;
+    const openToClose: Record<string, string> = {
+      "(": ")",
+      "[": "]",
+      "{": "}",
+    };
+    const close = openToClose[next.content];
+    if (close) {
+      const variableNodes: UnifiedNode[] = [];
+      let depth = 0;
+      let i = startIndex + 1;
+      while (i < nodes.length) {
+        const candidate = nodes[i];
+        if (!candidate || candidate.type === "whitespace") break;
+        variableNodes.push(candidate);
+        if (candidate.type === "string" && candidate.content === next.content) {
+          depth += 1;
+        } else if (candidate.type === "string" && candidate.content === close) {
+          depth -= 1;
+          if (depth === 0) {
+            return {
+              variable: variableNodes,
+              consumedNodes: i - startIndex,
+            };
+          }
+        }
+        i += 1;
+      }
+      return null;
+    }
+
+    if (/^[a-zA-Z0-9]$/.test(next.content)) {
+      return { variable: [next], consumedNodes: 1 };
+    }
+    return null;
+  };
+
   const getGroupContentAt = (index: number): UnifiedNode[] | null => {
     const groupNode = nodes[index];
     if (groupNode?.type !== "group") return null;
@@ -129,6 +181,14 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
     if (node.type === "string") {
       const stringContent =
         typeof node.content === "string" ? node.content : "";
+      if (stringContent === "d") {
+        const inferred = readInferredDifferential(i);
+        if (inferred) {
+          tokens.push({ kind: "differential", variable: inferred.variable });
+          i += inferred.consumedNodes;
+          continue;
+        }
+      }
       if (stringContent.endsWith("_")) {
         const next = nodes[i + 1];
         const nextGroupContent =
@@ -447,22 +507,6 @@ class TokenParser {
           differentialConsumedTokenCount = 1;
           continue;
         }
-        if (token.kind === "symbol" && token.name === "d") {
-          const nextToken = this.peek(1);
-          if (
-            nextToken &&
-            (nextToken.kind === "symbol" ||
-              nextToken.kind === "number" ||
-              nextToken.kind === "open_group")
-          ) {
-            this.next(); // consume "d"
-            this.next(); // consume variable token
-            variable = this.parseFromSlice([nextToken]);
-            differentialIdx = bodyTokens.length;
-            differentialConsumedTokenCount = 2;
-            continue;
-          }
-        }
       }
       this.next();
       if (token.kind === "open_group") depth += 1;
@@ -616,6 +660,10 @@ class TokenParser {
         upperBound,
         body.differentialSlot,
       );
+    }
+    if (token.kind === "differential") {
+      const variable = parseGroupNodes(token.variable) ?? sym("missing");
+      return differential(variable);
     }
     if (token.kind === "symbol") {
       const tokenName = token.name;

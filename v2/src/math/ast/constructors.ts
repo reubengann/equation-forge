@@ -45,6 +45,11 @@ export const integral = (
   differentialSlot,
 });
 
+export const differential = (variable: Expr): Expr => ({
+  kind: "differential",
+  variable,
+});
+
 export const partialDerivative = (quantity: Expr, variable: Expr): Expr => ({
   kind: "partial_derivative",
   quantity,

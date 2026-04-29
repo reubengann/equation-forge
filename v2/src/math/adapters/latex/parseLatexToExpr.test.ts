@@ -81,10 +81,52 @@ describe("parseLatexToExpr", () => {
     expect(bracketExpr.factors[1].delimiter).toBe("bracket");
   });
 
-  /*       
-      String.raw`\vec{e}_{x} \cdot \vec{F}_{g} = \vec{e}_{x} \cdot m \ddot{\vec{r}}`,
-      String.raw`s = \int_{T_{0}}^{T} \frac{c_{P}}{T} \,\mathrm{d}{T} - R \ln\left(\frac{\left|P\right|}{\left|P_{0}\right|}\right) + s_{0}`,
-      String.raw`\sum_{i=1}^{n} i = \frac{n\left(n+1\right)}{2}`, */
+  it("parses inferred differentials", () => {
+    const expr = parseLatexToExpr(String.raw`dx`);
+    expectExprKind(expr, "differential");
+    expectExprKind(expr.variable, "symbol");
+    expect(expr.variable.name).toBe("x");
+  });
+
+  it("does not assume differential when whitespace is present", () => {
+    const expr = parseLatexToExpr(String.raw`d x`);
+    expectExprKind(expr, "multiply");
+    expectExprKind(expr.factors[0]!, "symbol");
+    expect(expr.factors[0]!.name).toBe("d");
+  });
+
+  it("parses differential of an expression in parentheses", () => {
+    const expr = parseLatexToExpr(String.raw`d(x+y)`);
+    expectExprKind(expr, "differential");
+    expectExprKind(expr.variable, "display_group");
+    expectExprKind(expr.variable.expression, "add");
+  });
+
+  it("parses product that is not a differential", () => {
+    const expr = parseLatexToExpr(String.raw`d (x+y)`);
+    expectExprKind(expr, "multiply");
+  });
+
+  /*  
+      Integrals without limits
+      Uniterated Integrals with mixed differentials (\int (\mathrm{d}{x} + \mathrm{d}{y}))
+      Closed Integral (\oint)
+      Multiple Integrals (\iint, \int \int dx dy, etc)
+      Text (e.g. \text{some text})
+      Absolute value (||)
+      Vectors (\vec, \hat)
+      Dot product (\cdot)
+      Cross product (\times)
+      Dot (\dot{x}, \ddot{x}, etc)
+      Prime (', '', ''', Typically just a symbol but can sometimes indicate derivative.)
+      Script, Caligraphy, Blackboard (\mathscr, \mathcal, \mathbb)
+      Log (\log and \ln)
+      Exponentials (e and exp)
+      Big Sums, Products (similar to integrals, but often have equalities in the lower limit)
+      Multiple Equations (a = b = c)
+      Inequalities (e.g. a + b \geq c + d)
+      Square roots (\sqrt{x})
+      */
 
   it("parses second order partial derivatives", () => {
     const expr = parseLatexToExpr(

@@ -57,6 +57,11 @@ export type IntegralExpr = {
   differentialSlot: "prefix" | "suffix" | "middle" | "unknown";
 };
 
+export type DifferentialExpr = {
+  kind: "differential";
+  variable: Expr;
+};
+
 export type PartialDerivativeExpr = {
   kind: "partial_derivative";
   variable: Expr;
@@ -100,6 +105,7 @@ export type Expr =
   | EquationExpr
   | FunctionCallExpr
   | IntegralExpr
+  | DifferentialExpr
   | PartialDerivativeExpr
   | DisplayGroupExpr
   | RawMathJsonExpr

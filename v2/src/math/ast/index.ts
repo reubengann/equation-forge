@@ -2,6 +2,7 @@ export type { DelimiterKind, Expr } from "./expr";
 export {
   add,
   call,
+  differential,
   displayGroup,
   divide,
   equation,
