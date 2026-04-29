@@ -30,6 +30,11 @@ export const call = (callee: Expr, args: Expr[]): Expr => ({
   args,
 });
 
+export const text = (value: string): Expr => ({
+  kind: "text",
+  text: value,
+});
+
 export const integral = (
   integrand: Expr,
   variable: Expr | null,
@@ -48,6 +53,23 @@ export const integral = (
 export const uniteratedIntegral = (integrand: Expr, variable: Expr | null): Expr => ({
   kind: "uniterated_integral",
   integrand,
+  variable,
+});
+
+export const closedIntegral = (integrand: Expr, variable: Expr | null): Expr => ({
+  kind: "closed_integral",
+  integrand,
+  variable,
+});
+
+export const multipleIntegral = (
+  integrand: Expr,
+  order: number,
+  variable: Expr | null,
+): Expr => ({
+  kind: "multiple_integral",
+  integrand,
+  order,
   variable,
 });
 

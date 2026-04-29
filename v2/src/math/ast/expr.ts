@@ -48,6 +48,11 @@ export type FunctionCallExpr = {
   args: Expr[];
 };
 
+export type TextExpr = {
+  kind: "text";
+  text: string;
+};
+
 export type IntegralExpr = {
   kind: "integral";
   integrand: Expr;
@@ -60,6 +65,19 @@ export type IntegralExpr = {
 export type UniteratedIntegralExpr = {
   kind: "uniterated_integral";
   integrand: Expr;
+  variable: Expr | null;
+};
+
+export type ClosedIntegralExpr = {
+  kind: "closed_integral";
+  integrand: Expr;
+  variable: Expr | null;
+};
+
+export type MultipleIntegralExpr = {
+  kind: "multiple_integral";
+  integrand: Expr;
+  order: number;
   variable: Expr | null;
 };
 
@@ -110,8 +128,11 @@ export type Expr =
   | DivideExpr
   | EquationExpr
   | FunctionCallExpr
+  | TextExpr
   | IntegralExpr
   | UniteratedIntegralExpr
+  | ClosedIntegralExpr
+  | MultipleIntegralExpr
   | DifferentialExpr
   | PartialDerivativeExpr
   | DisplayGroupExpr

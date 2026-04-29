@@ -2,11 +2,13 @@ import { parseMath } from "@unified-latex/unified-latex-util-parse";
 import {
   add,
   call,
+  closedIntegral,
   differential,
   displayGroup,
   divide,
   equation,
   integral,
+  multipleIntegral,
   multiply,
   negate,
   num,
@@ -15,6 +17,7 @@ import {
   power,
   secondOrderPartialDerivative,
   sym,
+  text,
   uniteratedIntegral,
   type DelimiterKind,
   type Expr,
@@ -33,6 +36,7 @@ type UnifiedNode = {
 type Token =
   | { kind: "number"; value: number | string }
   | { kind: "symbol"; name: string }
+  | { kind: "text"; value: string }
   | { kind: "grouped_expr"; expression: Expr }
   | { kind: "operator"; value: "+" | "-" | "*" | "/" | "=" }
   | {
@@ -44,11 +48,38 @@ type Token =
   | { kind: "close_group"; value: string }
   | { kind: "subscript"; value: UnifiedNode[] }
   | { kind: "exponent"; value: UnifiedNode[] }
-  | { kind: "integral_symbol" }
+  | { kind: "integral_symbol"; variant: "normal" | "closed" | "multiple"; order: number }
   | { kind: "differential"; variable: UnifiedNode[] }
   | { kind: "fraction"; numerator: UnifiedNode[]; denominator: UnifiedNode[] };
 
 const FUNCTION_MACROS = new Set(["sin", "cos", "tan", "log", "ln", "exp", "sqrt"]);
+
+class UnsupportedLatexError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UnsupportedLatexError";
+  }
+}
+
+function parseTextArgument(content: UnifiedNode[] | undefined): string | null {
+  if (!content) return "";
+  let acc = "";
+  for (const node of content) {
+    if (!node?.type) continue;
+    if (node.type === "string" && typeof node.content === "string") {
+      if (node.content.includes("$")) return null;
+      acc += node.content;
+      continue;
+    }
+    if (node.type === "whitespace") {
+      acc += " ";
+      continue;
+    }
+    // Keep \text parsing strict for now.
+    return null;
+  }
+  return acc;
+}
 
 function parseGroupNodes(nodes: UnifiedNode[] | undefined): Expr | null {
   if (!nodes || nodes.length === 0) return null;
@@ -292,7 +323,17 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
     }
 
     if (macro === "int") {
-      tokens.push({ kind: "integral_symbol" });
+      tokens.push({ kind: "integral_symbol", variant: "normal", order: 1 });
+      continue;
+    }
+
+    if (macro === "oint") {
+      tokens.push({ kind: "integral_symbol", variant: "closed", order: 1 });
+      continue;
+    }
+
+    if (macro === "iint") {
+      tokens.push({ kind: "integral_symbol", variant: "multiple", order: 2 });
       continue;
     }
 
@@ -309,6 +350,15 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
         i += 1;
         continue;
       }
+    }
+
+    if (macro === "text") {
+      const textArg = parseTextArgument(node.args?.[0]?.content);
+      if (textArg === null) {
+        throw new UnsupportedLatexError("unsupported_text_content");
+      }
+      tokens.push({ kind: "text", value: textArg });
+      continue;
     }
 
     if (macro === ",") {
@@ -355,6 +405,7 @@ class TokenParser {
     if (
       token.kind === "number" ||
       token.kind === "symbol" ||
+      token.kind === "text" ||
       token.kind === "grouped_expr" ||
       token.kind === "fraction" ||
       token.kind === "differential" ||
@@ -587,6 +638,16 @@ class TokenParser {
     return { integrand: this.parseFromSlice(bodyTokens), variable: null };
   }
 
+  private integralFromUniterated(body: { integrand: Expr; variable: Expr | null }): Expr {
+    return integral(
+      body.integrand,
+      body.variable,
+      null,
+      null,
+      body.variable ? "suffix" : "unknown",
+    );
+  }
+
   parseEquation(): Expr {
     const sides: Expr[] = [this.parseAdditive()];
     while (this.consumeOperator("=")) {
@@ -709,6 +770,34 @@ class TokenParser {
       }
       const hasBounds = lowerBound !== null || upperBound !== null;
       if (!hasBounds) {
+        if (token.variant === "multiple") {
+          const body = this.consumeUniteratedIntegralBody();
+          return multipleIntegral(body.integrand, token.order, body.variable);
+        }
+        if (token.variant === "closed") {
+          const body = this.consumeUniteratedIntegralBody();
+          return closedIntegral(body.integrand, body.variable);
+        }
+        if (this.peek()?.kind === "integral_symbol") {
+          const nestedRaw = this.parsePrimary();
+          const nested =
+            nestedRaw.kind === "uniterated_integral"
+              ? this.integralFromUniterated(nestedRaw)
+              : nestedRaw;
+          let variable: Expr | null = null;
+          const trailing = this.peek();
+          if (trailing?.kind === "differential") {
+            this.next();
+            variable = parseGroupNodes(trailing.variable) ?? null;
+          }
+          return integral(
+            nested,
+            variable,
+            null,
+            null,
+            variable ? "suffix" : "unknown",
+          );
+        }
         const body = this.consumeUniteratedIntegralBody();
         return uniteratedIntegral(body.integrand, body.variable);
       }
@@ -724,6 +813,9 @@ class TokenParser {
     if (token.kind === "differential") {
       const variable = parseGroupNodes(token.variable) ?? sym("missing");
       return differential(variable);
+    }
+    if (token.kind === "text") {
+      return text(token.value);
     }
     if (token.kind === "symbol") {
       const tokenName = token.name;
@@ -742,8 +834,13 @@ class TokenParser {
 }
 
 export function parseLatexToExprWithUnifiedLatex(latex: string): Expr | null {
-  const nodes = parseMath(latex) as UnifiedNode[];
-  if (!Array.isArray(nodes) || nodes.length === 0) return null;
-  const parsed = parseGroupNodes(nodes);
-  return parsed;
+  try {
+    const nodes = parseMath(latex) as UnifiedNode[];
+    if (!Array.isArray(nodes) || nodes.length === 0) return null;
+    const parsed = parseGroupNodes(nodes);
+    return parsed;
+  } catch (error) {
+    if (error instanceof UnsupportedLatexError) return null;
+    throw error;
+  }
 }

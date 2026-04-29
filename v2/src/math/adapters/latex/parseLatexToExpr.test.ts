@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Expr } from "../../ast";
-import { parseLatexToExpr, parseLatexToMathJson } from "./parseLatexToExpr";
+import { parseLatexToExpr } from "./parseLatexToExpr";
 
 function expectExprKind<K extends Expr["kind"]>(
   expr: Expr,
@@ -17,12 +17,11 @@ describe("parseLatexToExpr", () => {
     expect(expr.sides[0]?.kind).toBe("add");
   });
 
-  it("keeps mathjson at the adapter boundary", () => {
-    const mathJson = parseLatexToMathJson(String.raw`x^2`);
-    expect(Array.isArray(mathJson)).toBe(true);
+  it("stays on internal AST at the adapter boundary", () => {
     const expr = parseLatexToExpr(String.raw`x^2`);
     expectExprKind(expr, "power");
-    expect(expr.kind).not.toBe("raw_mathjson");
+    expectExprKind(expr.base, "symbol");
+    expect(expr.base.name).toBe("x");
   });
 
   it("parses sum on both sides", () => {
@@ -126,12 +125,39 @@ describe("parseLatexToExpr", () => {
     expectExprKind(expr, "uniterated_integral");
     expectExprKind(expr.integrand, "add");
   });
+
+  it("Handles closed integrals", () => {
+    const expr = parseLatexToExpr(String.raw`\oint ds`);
+    expectExprKind(expr, "closed_integral");
+  });
+
+  it("Handles multiple integrals", () => {
+    const expr = parseLatexToExpr(String.raw`\iint ds`);
+    expectExprKind(expr, "multiple_integral");
+    expectExprKind(expr.integrand, "differential");
+    expect(expr.order).toBe(2);
+  });
+
+  it("Handles multiple integrals of product", () => {
+    const expr = parseLatexToExpr(String.raw`\int \int dx dy`);
+    expectExprKind(expr, "integral");
+    expectExprKind(expr.integrand, "integral");
+  });
+
+  it("Handles text", () => {
+    const expr = parseLatexToExpr(String.raw`x = \text{some text}`);
+    expectExprKind(expr, "equation");
+    expect(expr.sides).toHaveLength(2);
+    expectExprKind(expr.sides[1], "text");
+    expect(expr.sides[1].text).toBe("some text");
+  });
+
+  it("falls back to symbol when text contains embedded math delimiters", () => {
+    const expr = parseLatexToExpr(String.raw`a + \text{some $x + y$ stuff}`);
+    expectExprKind(expr, "symbol");
+  });
+
   /*  
-      Integrals without limits
-      Uniterated Integrals with mixed differentials (\int (\mathrm{d}{x} + \mathrm{d}{y}))
-      Closed Integral (\oint)
-      Multiple Integrals (\iint, \int \int dx dy, etc)
-      Text (e.g. \text{some text})
       Absolute value (||)
       Vectors (\vec, \hat)
       Dot product (\cdot)

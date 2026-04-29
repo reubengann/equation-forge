@@ -1,2 +1,1 @@
-export { parseLatexToExpr, parseLatexToMathJson } from "./parseLatexToExpr";
-export type { ParseLatexToExprOptions } from "./parseLatexToExpr";
+export { parseLatexToExpr } from "./parseLatexToExpr";
