@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: browser-faithful-test-engine
     content: Build a fast deterministic v2 interaction test engine that simulates pointer movement against browser-generated geometry fixtures.
-    status: pending
+    status: completed
   - id: round-trip-invariants
     content: Require every v2 rewrite to render LaTeX, reparse it, and validate semantic equivalence before accepting the new state.
     status: pending
