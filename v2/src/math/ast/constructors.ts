@@ -35,6 +35,44 @@ export const text = (value: string): Expr => ({
   text: value,
 });
 
+export const absoluteValue = (value: Expr): Expr => ({
+  kind: "absolute_value",
+  value,
+});
+
+export const vector = (value: Expr): Expr => ({
+  kind: "vector",
+  value,
+});
+
+export const hat = (value: Expr): Expr => ({
+  kind: "hat",
+  value,
+});
+
+export const innerProduct = (factors: Expr[]): Expr => ({
+  kind: "inner_product",
+  factors,
+});
+
+export const outerProduct = (factors: Expr[]): Expr => ({
+  kind: "outer_product",
+  factors,
+});
+
+export const dottedExpr = (value: Expr, order: number): Expr => ({
+  kind: "dotted_expr",
+  value,
+  order,
+});
+
+export const primed = (value: Expr, order: number): Expr => ({
+  kind: "primed",
+  value,
+  order,
+  ...(value.kind === "symbol" ? { name: value.name } : {}),
+});
+
 export const integral = (
   integrand: Expr,
   variable: Expr | null,

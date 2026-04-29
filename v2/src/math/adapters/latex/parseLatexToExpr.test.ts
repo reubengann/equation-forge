@@ -157,14 +157,89 @@ describe("parseLatexToExpr", () => {
     expectExprKind(expr, "symbol");
   });
 
+  it("parses absolute value", () => {
+    const expr = parseLatexToExpr(String.raw`|x + b|`);
+    expectExprKind(expr, "absolute_value");
+    expectExprKind(expr.value, "add");
+  });
+
+  it("parses vectors", () => {
+    const expr = parseLatexToExpr(String.raw`\vec{x}`);
+    expectExprKind(expr, "vector");
+    expectExprKind(expr.value, "symbol");
+    expect(expr.value.name).toBe("x");
+  });
+
+  it("parses hat", () => {
+    const expr = parseLatexToExpr(String.raw`\hat{x}`);
+    expectExprKind(expr, "hat");
+    expectExprKind(expr.value, "symbol");
+    expect(expr.value.name).toBe("x");
+  });
+
+  it("parses dot product", () => {
+    const expr = parseLatexToExpr(String.raw`\vec{v} \cdot b \vec{w}`);
+    expectExprKind(expr, "inner_product");
+    expectExprKind(expr.factors[0], "vector");
+    expectExprKind(expr.factors[1], "multiply");
+  });
+
+  it("parses cross product", () => {
+    const expr = parseLatexToExpr(String.raw`a \vec{v} \times \vec{w}`);
+    expectExprKind(expr, "outer_product");
+    expectExprKind(expr.factors[0], "multiply");
+    expectExprKind(expr.factors[1], "vector");
+  });
+
+  it("parses dotted symbols", () => {
+    const expr = parseLatexToExpr(String.raw`\dot{x}`);
+    expectExprKind(expr, "dotted_expr");
+    expectExprKind(expr.value, "symbol");
+    expect(expr.value.name).toBe("x");
+    expect(expr.order).toBe(1);
+  });
+
+  it("parses multiple dotted symbols", () => {
+    const expr = parseLatexToExpr(String.raw`\ddot{x}`);
+    expectExprKind(expr, "dotted_expr");
+    expectExprKind(expr.value, "symbol");
+    expect(expr.value.name).toBe("x");
+    expect(expr.order).toBe(2);
+  });
+
+  it("parses double dotted vector", () => {
+    const expr = parseLatexToExpr(String.raw`\ddot{\vec{x}}`);
+    expectExprKind(expr, "dotted_expr");
+    expectExprKind(expr.value, "vector");
+    expect(expr.order).toBe(2);
+  });
+
+  it("parses primed symbols", () => {
+    const expr = parseLatexToExpr(String.raw`x'`);
+    expectExprKind(expr, "primed");
+    expectExprKind(expr.value, "symbol");
+    expect(expr.value.name).toBe("x");
+    expect(expr.order).toBe(1);
+  });
+
+  it("parses multiple primed symbols", () => {
+    const expr = parseLatexToExpr(String.raw`x''`);
+    expectExprKind(expr, "primed");
+    expectExprKind(expr.value, "symbol");
+    expect(expr.value.name).toBe("x");
+    expect(expr.order).toBe(2);
+  });
+
+  it("parses primed symbols with product", () => {
+    const expr = parseLatexToExpr(String.raw`a x'`);
+    expectExprKind(expr, "multiply");
+    expectExprKind(expr.factors[1], "primed");
+    expect(expr.factors[1].name).toBe("x");
+    expect(expr.factors[1].order).toBe(1);
+  });
+
   /*  
-      Absolute value (||)
-      Vectors (\vec, \hat)
-      Dot product (\cdot)
-      Cross product (\times)
-      Dot (\dot{x}, \ddot{x}, etc)
-      Prime (', '', ''', Typically just a symbol but can sometimes indicate derivative.)
-      Script, Caligraphy, Blackboard (\mathscr, \mathcal, \mathbb)
+      Script, Caligraphy, Blackboard (\mathscr, \mathcal, \mathbb including d\mathscr)
       Log (\log and \ln)
       Exponentials (e and exp)
       Big Sums, Products (similar to integrals, but often have equalities in the lower limit)

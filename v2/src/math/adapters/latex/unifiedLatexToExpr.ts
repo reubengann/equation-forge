@@ -1,24 +1,31 @@
 import { parseMath } from "@unified-latex/unified-latex-util-parse";
 import {
   add,
+  absoluteValue,
   call,
   closedIntegral,
   differential,
+  dottedExpr,
   displayGroup,
   divide,
   equation,
+  hat,
+  innerProduct,
   integral,
   multipleIntegral,
   multiply,
   negate,
   num,
+  outerProduct,
   partialAtConstQuantity,
   partialDerivative,
+  primed,
   power,
   secondOrderPartialDerivative,
   sym,
   text,
   uniteratedIntegral,
+  vector,
   type DelimiterKind,
   type Expr,
 } from "../../ast";
@@ -37,8 +44,13 @@ type Token =
   | { kind: "number"; value: number | string }
   | { kind: "symbol"; name: string }
   | { kind: "text"; value: string }
+  | { kind: "absolute_bar" }
+  | { kind: "vector"; value: UnifiedNode[] }
+  | { kind: "hat"; value: UnifiedNode[] }
+  | { kind: "dotted"; value: UnifiedNode[]; order: number }
+  | { kind: "prime"; order: number }
   | { kind: "grouped_expr"; expression: Expr }
-  | { kind: "operator"; value: "+" | "-" | "*" | "/" | "=" }
+  | { kind: "operator"; value: "+" | "-" | "*" | "/" | "=" | "dot" | "cross" }
   | {
       kind: "open_group";
       delimiter: DelimiterKind;
@@ -117,6 +129,12 @@ function tokenFromStringContent(value: string): Token | null {
   }
   if (value === ")" || value === "]" || value === "}") {
     return { kind: "close_group", value };
+  }
+  if (value === "|") {
+    return { kind: "absolute_bar" };
+  }
+  if (/^'+$/.test(value)) {
+    return { kind: "prime", order: value.length };
   }
   if (/^\d+(?:\.\d+)?$/.test(value)) {
     return { kind: "number", value: parseNumberString(value) };
@@ -213,6 +231,13 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
     if (node.type === "string") {
       const stringContent =
         typeof node.content === "string" ? node.content : "";
+      const trailingPrimeMatch = /^([A-Za-z0-9]+)('+)$/.exec(stringContent);
+      if (trailingPrimeMatch) {
+        const baseToken = tokenFromStringContent(trailingPrimeMatch[1]);
+        if (baseToken) tokens.push(baseToken);
+        tokens.push({ kind: "prime", order: trailingPrimeMatch[2].length });
+        continue;
+      }
       if (stringContent === "d") {
         const inferred = readInferredDifferential(i);
         if (inferred) {
@@ -361,6 +386,65 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
       continue;
     }
 
+    if (macro === "vec") {
+      const argNodes = node.args?.[0]?.content;
+      if (argNodes) {
+        tokens.push({ kind: "vector", value: argNodes });
+        continue;
+      }
+      const nextGroup = getGroupContentAt(i + 1);
+      if (nextGroup) {
+        tokens.push({ kind: "vector", value: nextGroup });
+        i += 1;
+        continue;
+      }
+      tokens.push({ kind: "vector", value: [] });
+      continue;
+    }
+
+    if (macro === "hat") {
+      const argNodes = node.args?.[0]?.content;
+      if (argNodes) {
+        tokens.push({ kind: "hat", value: argNodes });
+        continue;
+      }
+      const nextGroup = getGroupContentAt(i + 1);
+      if (nextGroup) {
+        tokens.push({ kind: "hat", value: nextGroup });
+        i += 1;
+        continue;
+      }
+      tokens.push({ kind: "hat", value: [] });
+      continue;
+    }
+
+    if (macro === "dot" || macro === "ddot") {
+      const order = macro === "dot" ? 1 : 2;
+      const argNodes = node.args?.[0]?.content;
+      if (argNodes) {
+        tokens.push({ kind: "dotted", value: argNodes, order });
+        continue;
+      }
+      const nextGroup = getGroupContentAt(i + 1);
+      if (nextGroup) {
+        tokens.push({ kind: "dotted", value: nextGroup, order });
+        i += 1;
+        continue;
+      }
+      tokens.push({ kind: "dotted", value: [], order });
+      continue;
+    }
+
+    if (macro === "cdot") {
+      tokens.push({ kind: "operator", value: "dot" });
+      continue;
+    }
+
+    if (macro === "times") {
+      tokens.push({ kind: "operator", value: "cross" });
+      continue;
+    }
+
     if (macro === ",") {
       continue;
     }
@@ -393,7 +477,9 @@ class TokenParser {
     return token;
   }
 
-  private consumeOperator(value: "+" | "-" | "*" | "/" | "="): boolean {
+  private consumeOperator(
+    value: "+" | "-" | "*" | "/" | "=" | "dot" | "cross",
+  ): boolean {
     const token = this.peek();
     if (!token || token.kind !== "operator" || token.value !== value) return false;
     this.idx += 1;
@@ -406,6 +492,10 @@ class TokenParser {
       token.kind === "number" ||
       token.kind === "symbol" ||
       token.kind === "text" ||
+      token.kind === "absolute_bar" ||
+      token.kind === "vector" ||
+      token.kind === "hat" ||
+      token.kind === "dotted" ||
       token.kind === "grouped_expr" ||
       token.kind === "fraction" ||
       token.kind === "differential" ||
@@ -683,6 +773,12 @@ class TokenParser {
         expr = divide(expr, this.parseUnary());
         continue;
       }
+      if (this.consumeOperator("dot")) {
+        return innerProduct([expr, this.parseMultiplicative()]);
+      }
+      if (this.consumeOperator("cross")) {
+        return outerProduct([expr, this.parseMultiplicative()]);
+      }
       const token = this.peek();
       if (this.canStartPrimary(token) && !(token?.kind === "operator" && token.value === "=")) {
         expr = this.mergeMultiply(expr, this.parseUnary());
@@ -717,6 +813,14 @@ class TokenParser {
         if (subExpr) {
           expr = this.applyPostfixSubscript(expr, subExpr);
         }
+        continue;
+      }
+      if (next.kind === "prime") {
+        this.next();
+        expr =
+          expr.kind === "primed"
+            ? primed(expr.value, expr.order + next.order)
+            : primed(expr, next.order);
         continue;
       }
       break;
@@ -814,8 +918,41 @@ class TokenParser {
       const variable = parseGroupNodes(token.variable) ?? sym("missing");
       return differential(variable);
     }
+    if (token.kind === "absolute_bar") {
+      const innerTokens: Token[] = [];
+      let depth = 0;
+      while (true) {
+        const nextToken = this.peek();
+        if (!nextToken) break;
+        this.next();
+        if (nextToken.kind === "absolute_bar" && depth === 0) {
+          break;
+        }
+        if (nextToken.kind === "open_group") {
+          depth += 1;
+        } else if (nextToken.kind === "close_group") {
+          depth = Math.max(0, depth - 1);
+        }
+        innerTokens.push(nextToken);
+      }
+      const value =
+        innerTokens.length > 0 ? this.parseFromSlice(innerTokens) : sym("missing");
+      return absoluteValue(value);
+    }
     if (token.kind === "text") {
       return text(token.value);
+    }
+    if (token.kind === "vector") {
+      const value = parseGroupNodes(token.value) ?? sym("missing");
+      return vector(value);
+    }
+    if (token.kind === "hat") {
+      const value = parseGroupNodes(token.value) ?? sym("missing");
+      return hat(value);
+    }
+    if (token.kind === "dotted") {
+      const value = parseGroupNodes(token.value) ?? sym("missing");
+      return dottedExpr(value, token.order);
     }
     if (token.kind === "symbol") {
       const tokenName = token.name;

@@ -53,6 +53,44 @@ export type TextExpr = {
   text: string;
 };
 
+export type AbsoluteValueExpr = {
+  kind: "absolute_value";
+  value: Expr;
+};
+
+export type VectorExpr = {
+  kind: "vector";
+  value: Expr;
+};
+
+export type HatExpr = {
+  kind: "hat";
+  value: Expr;
+};
+
+export type InnerProductExpr = {
+  kind: "inner_product";
+  factors: Expr[];
+};
+
+export type OuterProductExpr = {
+  kind: "outer_product";
+  factors: Expr[];
+};
+
+export type DottedExpr = {
+  kind: "dotted_expr";
+  value: Expr;
+  order: number;
+};
+
+export type PrimedExpr = {
+  kind: "primed";
+  value: Expr;
+  order: number;
+  name?: string;
+};
+
 export type IntegralExpr = {
   kind: "integral";
   integrand: Expr;
@@ -129,6 +167,13 @@ export type Expr =
   | EquationExpr
   | FunctionCallExpr
   | TextExpr
+  | AbsoluteValueExpr
+  | VectorExpr
+  | HatExpr
+  | InnerProductExpr
+  | OuterProductExpr
+  | DottedExpr
+  | PrimedExpr
   | IntegralExpr
   | UniteratedIntegralExpr
   | ClosedIntegralExpr
