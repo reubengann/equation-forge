@@ -1,32 +1,34 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import EditorEntryToggle from "./EditorEntryToggle";
+import type { EventFixture, ExportedEvent } from "./interaction/eventFixture";
 import { nextSelectedNodeIdFromEvent } from "./interaction/selectionController";
 import { TestRecorder, type TestRecorderEvent } from "./TestRecorder";
 
-type EventFixture = {
-  schemaVersion: 1;
-  exportedAtIso: string;
-  events: TestRecorderEvent[];
-  expected: {
-    selectedNodeId?: string | null;
-    latex?: string;
-  };
-};
-
 async function saveFixtureJson(fixture: EventFixture): Promise<void> {
   const json = `${JSON.stringify(fixture, null, 2)}\n`;
-  const fileName = `interaction-events-${Date.now()}.json`;
+  const defaultFileName = `interaction-events-${Date.now()}.json`;
 
-  const filePickerHost = window as Window & {
+  const pickerHost = globalThis as typeof globalThis & {
     showSaveFilePicker?: (options?: {
+      id?: string;
+      startIn?: "downloads" | "documents" | "desktop" | "pictures" | "music" | "videos";
+      excludeAcceptAllOption?: boolean;
       suggestedName?: string;
       types?: Array<{ description: string; accept: Record<string, string[]> }>;
-    }) => Promise<{ createWritable: () => Promise<{ write: (data: string) => Promise<void>; close: () => Promise<void> }> }>;
+    }) => Promise<{
+      createWritable: () => Promise<{
+        write: (data: string) => Promise<void>;
+        close: () => Promise<void>;
+      }>;
+    }>;
   };
 
-  if (filePickerHost.showSaveFilePicker) {
-    const handle = await filePickerHost.showSaveFilePicker({
-      suggestedName: fileName,
+  if (pickerHost.showSaveFilePicker) {
+    const handle = await pickerHost.showSaveFilePicker({
+      id: "interaction-fixture-export",
+      startIn: "downloads",
+      excludeAcceptAllOption: false,
+      suggestedName: defaultFileName,
       types: [
         {
           description: "JSON",
@@ -44,7 +46,14 @@ async function saveFixtureJson(fixture: EventFixture): Promise<void> {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = fileName;
+  const enteredName = window.prompt(
+    "Save As filename",
+    defaultFileName,
+  );
+  const normalizedName = enteredName?.trim() || defaultFileName;
+  a.download = normalizedName.toLowerCase().endsWith(".json")
+    ? normalizedName
+    : `${normalizedName}.json`;
   document.body.append(a);
   a.click();
   a.remove();
@@ -54,6 +63,7 @@ async function saveFixtureJson(fixture: EventFixture): Promise<void> {
 function App() {
   const recorderRef = useRef<TestRecorder>(new TestRecorder());
   const selectedNodeIdRef = useRef<string | null>(null);
+  const lastDomSnapshotKeyRef = useRef<string | null>(null);
   const [recordedEvents, setRecordedEvents] = useState<TestRecorderEvent[]>([]);
   const [recordedEventCount, setRecordedEventCount] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
@@ -65,14 +75,84 @@ function App() {
     setRecordedEventCount(nextEvents.length);
   };
 
+  const buildCompactExport = (
+    events: TestRecorderEvent[],
+  ): Pick<EventFixture, "domSnapshots" | "events"> => {
+    const domSnapshots: EventFixture["domSnapshots"] = {};
+    const snapshotIdByKey = new Map<string, string>();
+    let snapshotCounter = 0;
+
+    const compactEvents: ExportedEvent[] = events.map((event) => {
+      switch (event.type) {
+        case "pointer_down":
+        case "pointer_up": {
+          if (!event.domSnapshot) {
+            return {
+              type: event.type,
+              nodeId: event.nodeId,
+              pointer: event.pointer,
+              domSnapshotId: null,
+              pointerType: event.pointerType,
+              button: event.button,
+              buttons: event.buttons,
+              ts: event.ts,
+            };
+          }
+
+          const key = JSON.stringify(event.domSnapshot);
+          let snapshotId = snapshotIdByKey.get(key);
+          if (!snapshotId) {
+            snapshotCounter += 1;
+            snapshotId = `s${snapshotCounter}`;
+            snapshotIdByKey.set(key, snapshotId);
+            domSnapshots[snapshotId] = event.domSnapshot;
+          }
+
+          return {
+            type: event.type,
+            nodeId: event.nodeId,
+            pointer: event.pointer,
+            domSnapshotId: snapshotId,
+            pointerType: event.pointerType,
+            button: event.button,
+            buttons: event.buttons,
+            ts: event.ts,
+          };
+        }
+        case "dom_changed": {
+          const key = JSON.stringify(event.domSnapshot);
+          let snapshotId = snapshotIdByKey.get(key);
+          if (!snapshotId) {
+            snapshotCounter += 1;
+            snapshotId = `s${snapshotCounter}`;
+            snapshotIdByKey.set(key, snapshotId);
+            domSnapshots[snapshotId] = event.domSnapshot;
+          }
+          return {
+            type: "dom_changed",
+            source: event.source,
+            domSnapshotId: snapshotId,
+            ts: event.ts,
+          };
+        }
+        default:
+          return event;
+      }
+    });
+
+    return { domSnapshots, events: compactEvents };
+  };
+
   const exportEventsAsJson = async () => {
     const lastLatexAcceptedEvent = [...recordedEvents]
       .reverse()
       .find((event) => event.type === "latex_accepted");
+    const compact = buildCompactExport(recordedEvents);
     const fixture: EventFixture = {
       schemaVersion: 1,
       exportedAtIso: new Date().toISOString(),
-      events: recordedEvents,
+      domSnapshots: compact.domSnapshots,
+      events: compact.events,
       expected: {
         selectedNodeId: selectedNodeIdRef.current,
         latex:
@@ -88,6 +168,71 @@ function App() {
       console.error("Failed to export fixture JSON", error);
     }
   };
+
+  const maybeRecordDomChanged = useCallback(
+    (
+      source: "accept",
+      domSnapshot: {
+        mathDivRect: {
+          left: number;
+          top: number;
+          right: number;
+          bottom: number;
+          width: number;
+          height: number;
+        };
+        nodeRects: Array<{
+          nodeId: string;
+          left: number;
+          top: number;
+          right: number;
+          bottom: number;
+          width: number;
+          height: number;
+        }>;
+      } | null,
+    ) => {
+      if (!isRecording || !domSnapshot) return false;
+      const nextKey = JSON.stringify(domSnapshot);
+      if (lastDomSnapshotKeyRef.current === nextKey) return false;
+      lastDomSnapshotKeyRef.current = nextKey;
+      recorderRef.current.recordDomChanged({
+        source,
+        domSnapshot,
+      });
+      return true;
+    },
+    [isRecording],
+  );
+
+  const handleDomSnapshotObserved = useCallback(
+    (
+      domSnapshot: {
+        mathDivRect: {
+          left: number;
+          top: number;
+          right: number;
+          bottom: number;
+          width: number;
+          height: number;
+        };
+        nodeRects: Array<{
+          nodeId: string;
+          left: number;
+          top: number;
+          right: number;
+          bottom: number;
+          width: number;
+          height: number;
+        }>;
+      } | null,
+    ) => {
+      if (maybeRecordDomChanged("accept", domSnapshot)) {
+        syncRecordedEvents();
+      }
+    },
+    [maybeRecordDomChanged],
+  );
 
   return (
     <main
@@ -109,6 +254,7 @@ function App() {
               return;
             }
             recorderRef.current.startSession();
+            lastDomSnapshotKeyRef.current = null;
             setIsRecording(true);
             setRecordedEvents([]);
             setRecordedEventCount(0);
@@ -149,6 +295,7 @@ function App() {
       </div>
       <EditorEntryToggle
         selectedNodeId={selectedNodeId}
+        onDomSnapshotObserved={handleDomSnapshotObserved}
         onLatexAccepted={(payload) => {
           if (!isRecording) return;
           recorderRef.current.recordLatexAccepted(payload);
@@ -203,14 +350,16 @@ function App() {
                     <div key={`${event.ts}-${index}`}>
                       {event.type}: Pointer down {event.nodeId}{" "}
                       {event.pointer.x} {event.pointer.y} {event.pointerType}{" "}
-                      {event.button} {event.buttons}
+                      {event.button} {event.buttons} rects=
+                      {event.domSnapshot?.nodeRects.length ?? 0}
                     </div>
                   );
                 case "pointer_up":
                   return (
                     <div key={`${event.ts}-${index}`}>
                       {event.type}: Pointer up {event.nodeId}{" "}
-                      {event.pointer.x}{" "}
+                      {event.pointer.x} rects=
+                      {event.domSnapshot?.nodeRects.length ?? 0}{" "}
                     </div>
                   );
                 case "latex_accepted":
@@ -218,6 +367,13 @@ function App() {
                     <div key={`${event.ts}-${index}`}>
                       {event.type}: Latex changed from{" "}
                       {event.previousLatex ?? "(none)"} to {event.nextLatex}
+                    </div>
+                  );
+                case "dom_changed":
+                  return (
+                    <div key={`${event.ts}-${index}`}>
+                      {event.type}: source={event.source} rects=
+                      {event.domSnapshot.nodeRects.length}
                     </div>
                   );
               }

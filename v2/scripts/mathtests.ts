@@ -1,17 +1,11 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { nextSelectedNodeIdFromEvent } from "../src/interaction/selectionController";
-import type { TestRecorderEvent } from "../src/TestRecorder";
-
-type EventFixture = {
-  schemaVersion: number;
-  exportedAtIso: string;
-  events: TestRecorderEvent[];
-  expected: {
-    selectedNodeId?: string | null;
-    latex?: string;
-  };
-};
+import {
+  DomRectSnapshot,
+  nextSelectedNodeIdFromEvent,
+  resolveNodeIdFromDomSnapshotAtPoint,
+} from "../src/interaction/selectionController";
+import type { EventFixture } from "../src/interaction/eventFixture";
 
 const ROOT_DIR = process.cwd();
 const FIXTURE_DIR = path.join(ROOT_DIR, "mathtests", "fixtures");
@@ -45,25 +39,104 @@ function resolveCandidateFiles(files: string[], rawFilter: string) {
   );
 }
 
-function replayEvents(events: TestRecorderEvent[]) {
+function replayEvents(fixture: EventFixture) {
   const state = {
     selectedNodeId: null as string | null,
     latex: null as string | null,
   };
+  const replayFailures: string[] = [];
+  let currentDomSnapshotId: string | null = null;
+  let currentDomSnapshot: DomRectSnapshot | null = null;
 
-  for (const event of events) {
-    state.selectedNodeId = nextSelectedNodeIdFromEvent(state.selectedNodeId, event);
-    if (event.type === "latex_accepted") {
-      state.latex = event.nextLatex ?? null;
+  for (const event of fixture.events) {
+    switch (event.type) {
+      case "latex_accepted":
+        state.latex = event.nextLatex ?? null;
+        break;
+      case "dom_changed": {
+        if (!event.domSnapshotId) {
+          currentDomSnapshotId = null;
+          currentDomSnapshot = null;
+          break;
+        }
+        const snapshot = fixture.domSnapshots[event.domSnapshotId];
+        if (!snapshot) {
+          replayFailures.push(
+            `${event.type} references missing domSnapshotId=${event.domSnapshotId}`,
+          );
+          break;
+        }
+        currentDomSnapshotId = event.domSnapshotId;
+        currentDomSnapshot = snapshot;
+        break;
+      }
+      case "pointer_up": {
+        if (!currentDomSnapshot) {
+          replayFailures.push(
+            "pointer_up occurred before dom_changed established current DOM snapshot",
+          );
+        }
+        if (
+          event.domSnapshotId &&
+          event.domSnapshotId !== currentDomSnapshotId
+        ) {
+          replayFailures.push(
+            `pointer_up domSnapshotId mismatch: event=${event.domSnapshotId} current=${currentDomSnapshotId}`,
+          );
+        }
+        break;
+      }
+      case "pointer_down": {
+        if (!currentDomSnapshot) {
+          replayFailures.push(
+            "pointer_down occurred before dom_changed established current DOM snapshot",
+          );
+        }
+        if (
+          event.domSnapshotId &&
+          event.domSnapshotId !== currentDomSnapshotId
+        ) {
+          replayFailures.push(
+            `pointer_down domSnapshotId mismatch: event=${event.domSnapshotId} current=${currentDomSnapshotId}`,
+          );
+        }
+
+        const resolvedNodeId = resolveNodeIdFromDomSnapshotAtPoint(
+          currentDomSnapshot,
+          event.pointer.x,
+          event.pointer.y,
+        );
+        if (event.nodeId && resolvedNodeId && event.nodeId !== resolvedNodeId) {
+          replayFailures.push(
+            `pointer_down node mismatch: event=${event.nodeId} snapshot=${resolvedNodeId}`,
+          );
+        }
+
+        state.selectedNodeId = nextSelectedNodeIdFromEvent(
+          state.selectedNodeId,
+          {
+            type: "pointer_down",
+            nodeId: resolvedNodeId ?? event.nodeId ?? null,
+          },
+        );
+        break;
+      }
+      case "node_click":
+        break;
     }
   }
 
-  return state;
+  return { state, replayFailures };
 }
 
-function buildAssertions(fixture: EventFixture, finalState: ReturnType<typeof replayEvents>) {
+function buildAssertions(
+  fixture: EventFixture,
+  replayResult: ReturnType<typeof replayEvents>,
+) {
   const failures: string[] = [];
+  failures.push(...replayResult.replayFailures);
   const expected = fixture.expected ?? {};
+  const finalState = replayResult.state;
 
   if ("selectedNodeId" in expected) {
     if (finalState.selectedNodeId !== expected.selectedNodeId) {
@@ -92,6 +165,9 @@ async function parseFixture(filePath: string): Promise<EventFixture> {
   }
   if (!Array.isArray(fixture.events)) {
     throw new Error("Fixture must include an events array.");
+  }
+  if (!fixture.domSnapshots || typeof fixture.domSnapshots !== "object") {
+    throw new Error("Fixture must include a domSnapshots object.");
   }
   if (!fixture.expected || typeof fixture.expected !== "object") {
     throw new Error("Fixture must include an expected object.");
@@ -130,8 +206,8 @@ async function main() {
     const relativePath = path.relative(ROOT_DIR, filePath);
     try {
       const fixture = await parseFixture(filePath);
-      const finalState = replayEvents(fixture.events);
-      const failures = buildAssertions(fixture, finalState);
+      const replayResult = replayEvents(fixture);
+      const failures = buildAssertions(fixture, replayResult);
       if (failures.length === 0) {
         passed += 1;
         console.log(`PASS ${relativePath}`);

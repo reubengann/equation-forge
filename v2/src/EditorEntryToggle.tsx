@@ -7,7 +7,10 @@ import {
   useState,
 } from "react";
 import { EquationEditor } from "./EquationEditor";
-import { resolveNodeIdFromMathDivAtPoint } from "./interaction/selectionController";
+import {
+  resolveDomRectSnapshot,
+  resolveNodeIdFromMathDivAtPoint,
+} from "./interaction/selectionController";
 import { MathliveEditor } from "./MathliveEditor";
 import { buildTaggedLatex } from "./taggedLatex";
 
@@ -17,12 +20,37 @@ type PointerEventPayload = {
   nodeId: string | null;
   x: number;
   y: number;
+  domSnapshot: {
+    mathDivRect: {
+      left: number;
+      top: number;
+      right: number;
+      bottom: number;
+      width: number;
+      height: number;
+    };
+    nodeRects: Array<{
+      nodeId: string;
+      left: number;
+      top: number;
+      right: number;
+      bottom: number;
+      width: number;
+      height: number;
+    }>;
+  } | null;
   pointerType: string;
   button: number;
   buttons: number;
 };
 
-type RawPointerEventPayload = Omit<PointerEventPayload, "nodeId">;
+type RawPointerEventPayload = {
+  x: number;
+  y: number;
+  pointerType: string;
+  button: number;
+  buttons: number;
+};
 
 type EditorEntryToggleProps = {
   selectedNodeId: string | null;
@@ -33,6 +61,7 @@ type EditorEntryToggleProps = {
   onNodeClick: (nodeId: string | null, clickCount: number) => void;
   onPointerDownEvent: (payload: PointerEventPayload) => void;
   onPointerUpEvent: (payload: PointerEventPayload) => void;
+  onDomSnapshotObserved: (payload: PointerEventPayload["domSnapshot"]) => void;
 };
 
 export function EditorEntryToggle({
@@ -41,6 +70,7 @@ export function EditorEntryToggle({
   onNodeClick,
   onPointerDownEvent,
   onPointerUpEvent,
+  onDomSnapshotObserved,
 }: EditorEntryToggleProps) {
   const [latex, setLatex] = useState(String.raw`a+b=c`);
   const [showMathDisplay, setShowMathDisplay] = useState(false);
@@ -59,7 +89,27 @@ export function EditorEntryToggle({
     mathDiv.setAttribute("virtual-keyboard-mode", "off");
     mathDiv.value = tagged.taggedLatex;
     mathDiv.textContent = tagged.taggedLatex;
-  }, [showMathDisplay, tagged.taggedLatex]);
+    let rafId = 0;
+    let attempts = 0;
+    const maxAttempts = 4;
+    const captureSnapshotWhenReady = () => {
+      attempts += 1;
+      const snapshot = resolveDomRectSnapshot(mathDivRef.current);
+      const hasRenderableDom =
+        !!snapshot &&
+        snapshot.mathDivRect.height > 0 &&
+        snapshot.nodeRects.length > 0;
+      if (hasRenderableDom || attempts >= maxAttempts) {
+        onDomSnapshotObserved(snapshot);
+        return;
+      }
+      rafId = requestAnimationFrame(captureSnapshotWhenReady);
+    };
+    rafId = requestAnimationFrame(captureSnapshotWhenReady);
+    return () => {
+      cancelAnimationFrame(rafId);
+    };
+  }, [showMathDisplay, tagged.taggedLatex, onDomSnapshotObserved]);
 
   const updateMathFieldValue = (event: SyntheticEvent<HTMLElement>) => {
     const nextValue =
@@ -73,9 +123,11 @@ export function EditorEntryToggle({
       payload.x,
       payload.y,
     );
+    const domSnapshot = resolveDomRectSnapshot(mathDivRef.current);
     onPointerDownEvent({
       ...payload,
       nodeId,
+      domSnapshot,
     });
   };
 
@@ -85,9 +137,11 @@ export function EditorEntryToggle({
       payload.x,
       payload.y,
     );
+    const domSnapshot = resolveDomRectSnapshot(mathDivRef.current);
     onPointerUpEvent({
       ...payload,
       nodeId,
+      domSnapshot,
     });
   };
 
@@ -105,20 +159,15 @@ export function EditorEntryToggle({
   };
 
   const handleAcceptToggle = () => {
-    setShowMathDisplay((prev) => {
-      const nextShowMathDisplay = !prev;
-      if (!prev && nextShowMathDisplay) {
-        const previousLatex = lastAcceptedLatexRef.current;
-        if (previousLatex !== latex) {
-          onLatexAccepted({
-            previousLatex,
-            nextLatex: latex,
-          });
-          lastAcceptedLatexRef.current = latex;
-        }
-      }
-      return nextShowMathDisplay;
-    });
+    if (!showMathDisplay) {
+      const previousLatex = lastAcceptedLatexRef.current;
+      onLatexAccepted({
+        previousLatex,
+        nextLatex: latex,
+      });
+      lastAcceptedLatexRef.current = latex;
+    }
+    setShowMathDisplay((prev) => !prev);
   };
 
   return (
