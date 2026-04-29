@@ -30,6 +30,49 @@ export const call = (callee: Expr, args: Expr[]): Expr => ({
   args,
 });
 
+export const integral = (
+  integrand: Expr,
+  variable: Expr | null,
+  lowerBound: Expr | null,
+  upperBound: Expr | null,
+  differentialSlot: "prefix" | "suffix" | "middle" | "unknown",
+): Expr => ({
+  kind: "integral",
+  integrand,
+  variable,
+  lowerBound,
+  upperBound,
+  differentialSlot,
+});
+
+export const partialDerivative = (quantity: Expr, variable: Expr): Expr => ({
+  kind: "partial_derivative",
+  quantity,
+  variable,
+});
+
+export const secondOrderPartialDerivative = (
+  dependentVariable: Expr,
+  independentVariables: Expr[],
+  degree = 2,
+): Expr => ({
+  kind: "second_order_partial_derivative",
+  degree,
+  dependentVariable,
+  independentVariables,
+});
+
+export const partialAtConstQuantity = (
+  quantity: Expr,
+  variable: Expr,
+  constantQuantity: Expr,
+): Expr => ({
+  kind: "partial_at_const_quantity",
+  quantity,
+  variable,
+  constantQuantity,
+});
+
 export const displayGroup = (delimiter: DelimiterKind, expression: Expr): Expr => ({
   kind: "display_group",
   delimiter,

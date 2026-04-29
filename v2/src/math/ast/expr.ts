@@ -48,16 +48,45 @@ export type FunctionCallExpr = {
   args: Expr[];
 };
 
+export type IntegralExpr = {
+  kind: "integral";
+  integrand: Expr;
+  variable: Expr | null;
+  lowerBound: Expr | null;
+  upperBound: Expr | null;
+  differentialSlot: "prefix" | "suffix" | "middle" | "unknown";
+};
+
+export type PartialDerivativeExpr = {
+  kind: "partial_derivative";
+  variable: Expr;
+  quantity: Expr;
+};
+
 export type DisplayGroupExpr = {
   kind: "display_group";
   delimiter: DelimiterKind;
   expression: Expr;
 };
 
+export type SecondOrderPartialDerivativeExpr = {
+  kind: "second_order_partial_derivative";
+  degree: number;
+  dependentVariable: Expr;
+  independentVariables: Expr[];
+};
+
 export type RawMathJsonExpr = {
   kind: "raw_mathjson";
   reason: string;
   value: unknown;
+};
+
+export type PartialAtConstQuantityExpr = {
+  kind: "partial_at_const_quantity";
+  variable: Expr;
+  quantity: Expr;
+  constantQuantity: Expr;
 };
 
 export type Expr =
@@ -70,5 +99,9 @@ export type Expr =
   | DivideExpr
   | EquationExpr
   | FunctionCallExpr
+  | IntegralExpr
+  | PartialDerivativeExpr
   | DisplayGroupExpr
-  | RawMathJsonExpr;
+  | RawMathJsonExpr
+  | PartialAtConstQuantityExpr
+  | SecondOrderPartialDerivativeExpr;

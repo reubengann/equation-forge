@@ -80,4 +80,89 @@ describe("parseLatexToExpr", () => {
     expect(parenExpr.factors[1].delimiter).toBe("paren");
     expect(bracketExpr.factors[1].delimiter).toBe("bracket");
   });
+
+  /*       
+      String.raw`\vec{e}_{x} \cdot \vec{F}_{g} = \vec{e}_{x} \cdot m \ddot{\vec{r}}`,
+      String.raw`s = \int_{T_{0}}^{T} \frac{c_{P}}{T} \,\mathrm{d}{T} - R \ln\left(\frac{\left|P\right|}{\left|P_{0}\right|}\right) + s_{0}`,
+      String.raw`\sum_{i=1}^{n} i = \frac{n\left(n+1\right)}{2}`, */
+
+  it("parses second order partial derivatives", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\frac{\partial^{2}{s}}{\partial{P}^2}`,
+    );
+    expectExprKind(expr, "second_order_partial_derivative");
+    expect(expr.degree).toBe(2);
+    expectExprKind(expr.dependentVariable, "symbol");
+    expect(expr.dependentVariable.name).toBe("s");
+    expect(expr.independentVariables).toHaveLength(1);
+    expectExprKind(expr.independentVariables[0], "symbol");
+    expect(expr.independentVariables[0].name).toBe("P");
+  });
+
+  it("parses mixed second order partial derivatives", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\frac{\partial^{2}{s}}{\partial{P} \partial{T}}`,
+    );
+    expectExprKind(expr, "second_order_partial_derivative");
+    expect(expr.degree).toBe(2);
+    expectExprKind(expr.dependentVariable, "symbol");
+    expect(expr.dependentVariable.name).toBe("s");
+    expect(expr.independentVariables).toHaveLength(2);
+    expectExprKind(expr.independentVariables[0], "symbol");
+    expect(expr.independentVariables[0].name).toBe("P");
+    expectExprKind(expr.independentVariables[1], "symbol");
+    expect(expr.independentVariables[1].name).toBe("T");
+  });
+
+  it("parses partials at constant quantity", () => {
+    for (const latex of [
+      String.raw`\left(\frac{\partial{s}}{\partial{T}}\right)_{P} = \frac{c_{P}}{T}`,
+      String.raw`\left(\dfrac{\partial{s}}{\partial{T}}\right)_{P} = \frac{c_{P}}{T}`,
+    ]) {
+      const expr = parseLatexToExpr(latex);
+      expectExprKind(expr, "equation");
+      expect(expr.sides).toHaveLength(2);
+      const lhs = expr.sides[0];
+      expectExprKind(lhs, "partial_at_const_quantity");
+    }
+  });
+
+  it("parses regular partial derivatives", () => {
+    const expr = parseLatexToExpr(String.raw`\frac{\partial{s}}{\partial{T}}`);
+    expectExprKind(expr, "partial_derivative");
+    expectExprKind(expr.quantity, "symbol");
+    expect(expr.quantity.name).toBe("s");
+    expectExprKind(expr.variable, "symbol");
+    expect(expr.variable.name).toBe("T");
+  });
+
+  it("parses integrals", () => {
+    const expr = parseLatexToExpr(
+      String.raw`v_{0}^{2} = \int_{0}^{x_{0}} 2 g \sin\left(\theta\right) \,\mathrm{d}{x}`,
+    );
+    expectExprKind(expr, "equation");
+    expect(expr.sides).toHaveLength(2);
+    const rhs = expr.sides[1];
+    expectExprKind(rhs, "integral");
+    expectExprKind(rhs.lowerBound!, "number");
+    expectExprKind(rhs.upperBound!, "symbol");
+    expect(rhs.upperBound.name).toBe("x_0");
+    expectExprKind(rhs.variable!, "symbol");
+    expect(rhs.variable.name).toBe("x");
+    expect(rhs.differentialSlot).toBe("suffix");
+    expectExprKind(rhs.integrand, "multiply");
+  });
+
+  it("tracks differential slot for prefix differential integrals", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\int_{0}^{2\pi} d\theta \sin\left(\theta\right)`,
+    );
+    expectExprKind(expr, "integral");
+    expectExprKind(expr.variable!, "symbol");
+    expect(expr.variable.name).toBe("theta");
+    expect(expr.differentialSlot).toBe("prefix");
+    expectExprKind(expr.integrand, "call");
+    expectExprKind(expr.integrand.callee, "symbol");
+    expect(expr.integrand.callee.name).toBe("sin");
+  });
 });

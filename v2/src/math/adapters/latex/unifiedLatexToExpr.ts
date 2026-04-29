@@ -5,10 +5,14 @@ import {
   displayGroup,
   divide,
   equation,
+  integral,
   multiply,
   negate,
   num,
+  partialAtConstQuantity,
+  partialDerivative,
   power,
+  secondOrderPartialDerivative,
   sym,
   type DelimiterKind,
   type Expr,
@@ -20,13 +24,14 @@ type UnifiedArgument = {
 
 type UnifiedNode = {
   type?: string;
-  content?: string;
+  content?: string | UnifiedNode[];
   args?: UnifiedArgument[];
 };
 
 type Token =
   | { kind: "number"; value: number | string }
   | { kind: "symbol"; name: string }
+  | { kind: "grouped_expr"; expression: Expr }
   | { kind: "operator"; value: "+" | "-" | "*" | "/" | "=" }
   | {
       kind: "open_group";
@@ -35,7 +40,10 @@ type Token =
       explicitLeftRight: boolean;
     }
   | { kind: "close_group"; value: string }
+  | { kind: "subscript"; value: UnifiedNode[] }
   | { kind: "exponent"; value: UnifiedNode[] }
+  | { kind: "integral_symbol" }
+  | { kind: "differential"; variable: UnifiedNode[] }
   | { kind: "fraction"; numerator: UnifiedNode[]; denominator: UnifiedNode[] };
 
 const FUNCTION_MACROS = new Set(["sin", "cos", "tan", "log", "ln", "exp", "sqrt"]);
@@ -87,7 +95,10 @@ function mergeSubscript(tokens: Token[], i: number, node: UnifiedNode): number {
   const previous = tokens[tokens.length - 1];
   const argNodes = node.args?.[0]?.content;
   const subExpr = parseGroupNodes(argNodes);
-  if (!previous || previous.kind !== "symbol" || !subExpr) return i;
+  if (!previous || previous.kind !== "symbol" || !subExpr) {
+    tokens.push({ kind: "subscript", value: argNodes ?? [] });
+    return i;
+  }
 
   if (subExpr.kind === "symbol") {
     tokens[tokens.length - 1] = { kind: "symbol", name: `${previous.name}_${subExpr.name}` };
@@ -104,6 +115,11 @@ function mergeSubscript(tokens: Token[], i: number, node: UnifiedNode): number {
 
 function tokenize(nodes: UnifiedNode[]): Token[] {
   const tokens: Token[] = [];
+  const getGroupContentAt = (index: number): UnifiedNode[] | null => {
+    const groupNode = nodes[index];
+    if (groupNode?.type !== "group") return null;
+    return Array.isArray(groupNode.content) ? groupNode.content : null;
+  };
   for (let i = 0; i < nodes.length; i += 1) {
     const node = nodes[i];
     if (!node || typeof node.type !== "string") continue;
@@ -111,13 +127,49 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
     if (node.type === "whitespace") continue;
 
     if (node.type === "string") {
-      const token = tokenFromStringContent(node.content ?? "");
+      const stringContent =
+        typeof node.content === "string" ? node.content : "";
+      if (stringContent.endsWith("_")) {
+        const next = nodes[i + 1];
+        const nextGroupContent =
+          next?.type === "group" && Array.isArray(next.content)
+            ? next.content
+            : undefined;
+        const nextIsGroup = !!nextGroupContent;
+        if (nextIsGroup) {
+          const subExpr = parseGroupNodes(nextGroupContent);
+          const base = stringContent.slice(0, -1);
+          if (subExpr?.kind === "symbol") {
+            tokens.push({ kind: "symbol", name: `${base}_${subExpr.name}` });
+            i += 1;
+            continue;
+          }
+          if (subExpr?.kind === "number") {
+            tokens.push({
+              kind: "symbol",
+              name: `${base}_${String(subExpr.value)}`,
+            });
+            i += 1;
+            continue;
+          }
+        }
+      }
+      const token = tokenFromStringContent(stringContent);
       if (token) tokens.push(token);
       continue;
     }
 
+    if (node.type === "group") {
+      const groupedContent = Array.isArray(node.content) ? node.content : [];
+      const groupedExpr = parseGroupNodes(groupedContent);
+      if (groupedExpr) {
+        tokens.push({ kind: "grouped_expr", expression: groupedExpr });
+      }
+      continue;
+    }
+
     if (node.type !== "macro") continue;
-    const macro = node.content ?? "";
+    const macro = typeof node.content === "string" ? node.content : "";
 
     if (macro === "left") {
       const next = nodes[i + 1];
@@ -154,12 +206,51 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
       continue;
     }
 
-    if (macro === "frac" && node.args?.[0]?.content && node.args?.[1]?.content) {
-      tokens.push({
-        kind: "fraction",
-        numerator: node.args[0].content ?? [],
-        denominator: node.args[1].content ?? [],
-      });
+    if (macro === "frac" || macro === "dfrac") {
+      if (node.args?.[0]?.content && node.args?.[1]?.content) {
+        tokens.push({
+          kind: "fraction",
+          numerator: node.args[0].content ?? [],
+          denominator: node.args[1].content ?? [],
+        });
+        continue;
+      }
+
+      const group1 = getGroupContentAt(i + 1);
+      const group2 = getGroupContentAt(i + 2);
+
+      if (group1 && group2) {
+        tokens.push({
+          kind: "fraction",
+          numerator: group1,
+          denominator: group2,
+        });
+        i += 2;
+        continue;
+      }
+    }
+
+    if (macro === "int") {
+      tokens.push({ kind: "integral_symbol" });
+      continue;
+    }
+
+    if (macro === "mathrm") {
+      const arg = node.args?.[0]?.content;
+      const argIsPlainD =
+        !!arg &&
+        arg.length === 1 &&
+        arg[0]?.type === "string" &&
+        arg[0]?.content === "d";
+      const nextNode = nodes[i + 1];
+      if (argIsPlainD && nextNode?.type === "group" && Array.isArray(nextNode.content)) {
+        tokens.push({ kind: "differential", variable: nextNode.content });
+        i += 1;
+        continue;
+      }
+    }
+
+    if (macro === ",") {
       continue;
     }
 
@@ -200,11 +291,201 @@ class TokenParser {
 
   private canStartPrimary(token: Token | null): boolean {
     if (!token) return false;
-    if (token.kind === "number" || token.kind === "symbol" || token.kind === "fraction") {
+    if (
+      token.kind === "number" ||
+      token.kind === "symbol" ||
+      token.kind === "grouped_expr" ||
+      token.kind === "fraction" ||
+      token.kind === "integral_symbol"
+    ) {
       return true;
     }
     if (token.kind === "open_group") return true;
     return false;
+  }
+
+  private parseFromSlice(tokens: Token[]): Expr {
+    return new TokenParser(tokens).parseEquation();
+  }
+
+  private parseSubscriptExpr(token: Token): Expr | null {
+    if (token.kind !== "subscript") return null;
+    return parseGroupNodes(token.value);
+  }
+
+  private parsePositiveInteger(expr: Expr): number | null {
+    if (expr.kind !== "number") return null;
+    const value =
+      typeof expr.value === "number"
+        ? expr.value
+        : /^\d+$/.test(expr.value)
+          ? Number(expr.value)
+          : NaN;
+    if (!Number.isInteger(value) || value <= 0) return null;
+    return value;
+  }
+
+  private factorList(expr: Expr): Expr[] {
+    return expr.kind === "multiply" ? expr.factors : [expr];
+  }
+
+  private extractSecondOrderNumerator(numerator: Expr): {
+    dependentVariable: Expr;
+    degree: number;
+  } | null {
+    const factors = this.factorList(numerator);
+    if (factors.length < 2) return null;
+    const head = factors[0];
+    if (head?.kind !== "power") return null;
+    if (head.base.kind !== "symbol" || head.base.name !== "partial") return null;
+    const degree = this.parsePositiveInteger(head.exponent);
+    if (!degree || degree < 2) return null;
+    const dependentVariable =
+      factors.length === 2 ? factors[1] : multiply(factors.slice(1));
+    return { dependentVariable, degree };
+  }
+
+  private extractSecondOrderDenominator(denominator: Expr): {
+    independentVariables: Expr[];
+    degree: number;
+  } | null {
+    const factors = this.factorList(denominator);
+    if (factors.length < 2) return null;
+    const independentVariables: Expr[] = [];
+    let degree = 0;
+    let idx = 0;
+    while (idx < factors.length) {
+      const partialToken = factors[idx];
+      if (
+        !partialToken ||
+        partialToken.kind !== "symbol" ||
+        partialToken.name !== "partial"
+      ) {
+        return null;
+      }
+      const variableTerm = factors[idx + 1];
+      if (!variableTerm) return null;
+      if (variableTerm.kind === "power") {
+        const exponent = this.parsePositiveInteger(variableTerm.exponent);
+        if (!exponent) return null;
+        independentVariables.push(variableTerm.base);
+        degree += exponent;
+      } else {
+        independentVariables.push(variableTerm);
+        degree += 1;
+      }
+      idx += 2;
+    }
+    if (degree < 2 || independentVariables.length === 0) return null;
+    return { independentVariables, degree };
+  }
+
+  private extractSecondOrderPartialDerivative(
+    numerator: Expr,
+    denominator: Expr,
+  ): Expr | null {
+    const numeratorData = this.extractSecondOrderNumerator(numerator);
+    if (!numeratorData) return null;
+    const denominatorData = this.extractSecondOrderDenominator(denominator);
+    if (!denominatorData) return null;
+    if (numeratorData.degree !== denominatorData.degree) return null;
+    return secondOrderPartialDerivative(
+      numeratorData.dependentVariable,
+      denominatorData.independentVariables,
+      numeratorData.degree,
+    );
+  }
+
+  private extractPartialOperand(expr: Expr): Expr | null {
+    if (expr.kind === "symbol" && expr.name === "partial") return null;
+    if (expr.kind === "multiply" && expr.factors.length === 2) {
+      const first = expr.factors[0];
+      const second = expr.factors[1];
+      if (first?.kind === "symbol" && first.name === "partial") {
+        return second;
+      }
+    }
+    return null;
+  }
+
+  private applyPostfixSubscript(base: Expr, subscript: Expr): Expr {
+    const unwrappedBase =
+      base.kind === "display_group" ? base.expression : base;
+    if (unwrappedBase.kind === "partial_derivative") {
+      return partialAtConstQuantity(
+        unwrappedBase.quantity,
+        unwrappedBase.variable,
+        subscript,
+      );
+    }
+    if (unwrappedBase.kind === "symbol" && subscript.kind === "symbol") {
+      return sym(`${unwrappedBase.name}_${subscript.name}`);
+    }
+    return multiply([unwrappedBase, subscript]);
+  }
+
+  private consumeIntegralBody(): {
+    integrand: Expr;
+    variable: Expr | null;
+    differentialSlot: "prefix" | "suffix" | "middle" | "unknown";
+  } {
+    const bodyTokens: Token[] = [];
+    let depth = 0;
+    let variable: Expr | null = null;
+    let differentialIdx = -1;
+    let differentialConsumedTokenCount = 0;
+
+    while (true) {
+      const token = this.peek();
+      if (!token) break;
+      if (depth === 0) {
+        if (token.kind === "operator" && token.value === "=") break;
+        if (token.kind === "differential") {
+          this.next();
+          variable = parseGroupNodes(token.variable) ?? null;
+          differentialIdx = bodyTokens.length;
+          differentialConsumedTokenCount = 1;
+          continue;
+        }
+        if (token.kind === "symbol" && token.name === "d") {
+          const nextToken = this.peek(1);
+          if (
+            nextToken &&
+            (nextToken.kind === "symbol" ||
+              nextToken.kind === "number" ||
+              nextToken.kind === "open_group")
+          ) {
+            this.next(); // consume "d"
+            this.next(); // consume variable token
+            variable = this.parseFromSlice([nextToken]);
+            differentialIdx = bodyTokens.length;
+            differentialConsumedTokenCount = 2;
+            continue;
+          }
+        }
+      }
+      this.next();
+      if (token.kind === "open_group") depth += 1;
+      if (token.kind === "close_group") depth = Math.max(0, depth - 1);
+      bodyTokens.push(token);
+    }
+
+    const integrand = bodyTokens.length > 0 ? this.parseFromSlice(bodyTokens) : num(1);
+
+    let differentialSlot: "prefix" | "suffix" | "middle" | "unknown" = "unknown";
+    if (variable !== null && differentialIdx === 0) {
+      differentialSlot = "prefix";
+    } else if (
+      variable !== null &&
+      differentialIdx >= 0 &&
+      differentialIdx + differentialConsumedTokenCount >= bodyTokens.length + differentialConsumedTokenCount
+    ) {
+      differentialSlot = "suffix";
+    } else if (variable !== null && differentialIdx > 0) {
+      differentialSlot = "middle";
+    }
+
+    return { integrand, variable, differentialSlot };
   }
 
   parseEquation(): Expr {
@@ -263,10 +544,22 @@ class TokenParser {
     let expr = this.parsePrimary();
     while (true) {
       const next = this.peek();
-      if (!next || next.kind !== "exponent") break;
-      this.next();
-      const exponent = parseGroupNodes(next.value) ?? sym("missing");
-      expr = power(expr, exponent);
+      if (!next) break;
+      if (next.kind === "exponent") {
+        this.next();
+        const exponent = parseGroupNodes(next.value) ?? sym("missing");
+        expr = power(expr, exponent);
+        continue;
+      }
+      if (next.kind === "subscript") {
+        this.next();
+        const subExpr = this.parseSubscriptExpr(next);
+        if (subExpr) {
+          expr = this.applyPostfixSubscript(expr, subExpr);
+        }
+        continue;
+      }
+      break;
     }
     return expr;
   }
@@ -279,7 +572,20 @@ class TokenParser {
     if (token.kind === "fraction") {
       const numerator = parseGroupNodes(token.numerator) ?? sym("missing");
       const denominator = parseGroupNodes(token.denominator) ?? sym("missing");
+      const secondOrder = this.extractSecondOrderPartialDerivative(
+        numerator,
+        denominator,
+      );
+      if (secondOrder) return secondOrder;
+      const partialQuantity = this.extractPartialOperand(numerator);
+      const partialVariable = this.extractPartialOperand(denominator);
+      if (partialQuantity && partialVariable) {
+        return partialDerivative(partialQuantity, partialVariable);
+      }
       return divide(numerator, denominator);
+    }
+    if (token.kind === "grouped_expr") {
+      return token.expression;
     }
     if (token.kind === "open_group") {
       const inner = this.parseAdditive();
@@ -288,6 +594,28 @@ class TokenParser {
         this.next();
       }
       return displayGroup(token.delimiter, inner);
+    }
+    if (token.kind === "integral_symbol") {
+      let lowerBound: Expr | null = null;
+      let upperBound: Expr | null = null;
+      const lowerToken = this.peek();
+      if (lowerToken?.kind === "subscript") {
+        this.next();
+        lowerBound = parseGroupNodes(lowerToken.value) ?? null;
+      }
+      const upperToken = this.peek();
+      if (upperToken?.kind === "exponent") {
+        this.next();
+        upperBound = parseGroupNodes(upperToken.value) ?? null;
+      }
+      const body = this.consumeIntegralBody();
+      return integral(
+        body.integrand,
+        body.variable,
+        lowerBound,
+        upperBound,
+        body.differentialSlot,
+      );
     }
     if (token.kind === "symbol") {
       const tokenName = token.name;
