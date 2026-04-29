@@ -55,6 +55,16 @@ describe("parseLatexToExpr", () => {
     expectExprKind(rhs.factors[0], "symbol");
     expect(rhs.factors[0].name).toBe("g");
     expectExprKind(rhs.factors[1], "display_group");
+    expect(rhs.factors[1].delimiter).toBe("paren");
+    expectExprKind(rhs.factors[1].expression, "add");
+    const addTerms = rhs.factors[1].expression.terms;
+    expect(addTerms).toHaveLength(2);
+    expectExprKind(addTerms[0], "call");
+    expectExprKind(addTerms[0].callee, "symbol");
+    expect(addTerms[0].callee.name).toBe("sin");
+    expectExprKind(addTerms[1], "negate");
+    expectExprKind(addTerms[1].value, "multiply");
+    expect(addTerms[1].value.factors).toHaveLength(2);
   });
 
   it("distinguishes parenthesis and bracket grouping", () => {

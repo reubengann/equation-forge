@@ -175,8 +175,11 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
 
 class TokenParser {
   private idx = 0;
+  private readonly tokens: Token[];
 
-  constructor(private readonly tokens: Token[]) {}
+  constructor(tokens: Token[]) {
+    this.tokens = tokens;
+  }
 
   private peek(offset = 0): Token | null {
     return this.tokens[this.idx + offset] ?? null;
