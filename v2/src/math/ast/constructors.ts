@@ -45,6 +45,12 @@ export const integral = (
   differentialSlot,
 });
 
+export const uniteratedIntegral = (integrand: Expr, variable: Expr | null): Expr => ({
+  kind: "uniterated_integral",
+  integrand,
+  variable,
+});
+
 export const differential = (variable: Expr): Expr => ({
   kind: "differential",
   variable,

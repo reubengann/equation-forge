@@ -57,6 +57,12 @@ export type IntegralExpr = {
   differentialSlot: "prefix" | "suffix" | "middle" | "unknown";
 };
 
+export type UniteratedIntegralExpr = {
+  kind: "uniterated_integral";
+  integrand: Expr;
+  variable: Expr | null;
+};
+
 export type DifferentialExpr = {
   kind: "differential";
   variable: Expr;
@@ -105,6 +111,7 @@ export type Expr =
   | EquationExpr
   | FunctionCallExpr
   | IntegralExpr
+  | UniteratedIntegralExpr
   | DifferentialExpr
   | PartialDerivativeExpr
   | DisplayGroupExpr

@@ -13,6 +13,7 @@ export {
   partialAtConstQuantity,
   partialDerivative,
   secondOrderPartialDerivative,
+  uniteratedIntegral,
   power,
   rawMathJson,
   sym,

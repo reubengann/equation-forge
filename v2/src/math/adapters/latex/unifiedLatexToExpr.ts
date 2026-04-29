@@ -15,6 +15,7 @@ import {
   power,
   secondOrderPartialDerivative,
   sym,
+  uniteratedIntegral,
   type DelimiterKind,
   type Expr,
 } from "../../ast";
@@ -356,6 +357,7 @@ class TokenParser {
       token.kind === "symbol" ||
       token.kind === "grouped_expr" ||
       token.kind === "fraction" ||
+      token.kind === "differential" ||
       token.kind === "integral_symbol"
     ) {
       return true;
@@ -532,6 +534,59 @@ class TokenParser {
     return { integrand, variable, differentialSlot };
   }
 
+  private consumeUntilEquationBoundary(): Token[] {
+    const bodyTokens: Token[] = [];
+    let depth = 0;
+    while (true) {
+      const token = this.peek();
+      if (!token) break;
+      if (depth === 0 && token.kind === "operator" && token.value === "=") break;
+      this.next();
+      if (token.kind === "open_group") depth += 1;
+      if (token.kind === "close_group") depth = Math.max(0, depth - 1);
+      bodyTokens.push(token);
+    }
+    return bodyTokens;
+  }
+
+  private shouldExtractTrailingDifferential(tokens: Token[]): boolean {
+    if (tokens.length < 2) return false;
+    const last = tokens[tokens.length - 1];
+    if (!last || last.kind !== "differential") return false;
+    const leading = tokens.slice(0, -1);
+    const parsed = this.parseFromSlice(leading);
+    if (parsed.kind !== "display_group") return false;
+    const unwrapped = parsed.expression;
+    return (
+      unwrapped.kind === "add" &&
+      unwrapped.terms.length > 0 &&
+      unwrapped.terms.every((term) => term.kind === "differential")
+    );
+  }
+
+  private consumeUniteratedIntegralBody(): { integrand: Expr; variable: Expr | null } {
+    const bodyTokens = this.consumeUntilEquationBoundary();
+    if (bodyTokens.length === 0) {
+      return { integrand: num(1), variable: null };
+    }
+
+    if (this.shouldExtractTrailingDifferential(bodyTokens)) {
+      const trailingDifferential = bodyTokens[bodyTokens.length - 1];
+      if (trailingDifferential?.kind === "differential") {
+        const variable = parseGroupNodes(trailingDifferential.variable) ?? null;
+        const leading = bodyTokens.slice(0, -1);
+        const leadingExpr = this.parseFromSlice(leading);
+        const integrand =
+          leadingExpr.kind === "display_group"
+            ? leadingExpr.expression
+            : leadingExpr;
+        return { integrand, variable };
+      }
+    }
+
+    return { integrand: this.parseFromSlice(bodyTokens), variable: null };
+  }
+
   parseEquation(): Expr {
     const sides: Expr[] = [this.parseAdditive()];
     while (this.consumeOperator("=")) {
@@ -651,6 +706,11 @@ class TokenParser {
       if (upperToken?.kind === "exponent") {
         this.next();
         upperBound = parseGroupNodes(upperToken.value) ?? null;
+      }
+      const hasBounds = lowerBound !== null || upperBound !== null;
+      if (!hasBounds) {
+        const body = this.consumeUniteratedIntegralBody();
+        return uniteratedIntegral(body.integrand, body.variable);
       }
       const body = this.consumeIntegralBody();
       return integral(

@@ -107,6 +107,25 @@ describe("parseLatexToExpr", () => {
     expectExprKind(expr, "multiply");
   });
 
+  it("Handles uniterated integrals", () => {
+    const expr = parseLatexToExpr(String.raw`\int ds`);
+    expectExprKind(expr, "uniterated_integral");
+    expectExprKind(expr.integrand, "differential");
+  });
+
+  it("Handles uniterated integrals of product", () => {
+    const expr = parseLatexToExpr(String.raw`\int (x + y) ds`);
+    expectExprKind(expr, "uniterated_integral");
+    expectExprKind(expr.integrand, "multiply");
+  });
+
+  it("Handles uniterated integrals of product with mixed differentials", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\int (\mathrm{d}{x} + \mathrm{d}{y}) ds`,
+    );
+    expectExprKind(expr, "uniterated_integral");
+    expectExprKind(expr.integrand, "add");
+  });
   /*  
       Integrals without limits
       Uniterated Integrals with mixed differentials (\int (\mathrm{d}{x} + \mathrm{d}{y}))
