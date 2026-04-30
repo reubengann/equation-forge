@@ -248,6 +248,32 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
     if (node.type === "string") {
       const stringContent =
         typeof node.content === "string" ? node.content : "";
+      if (/^\d$/.test(stringContent)) {
+        let literal = stringContent;
+        let dotCount = 0;
+        let j = i + 1;
+        while (j < nodes.length) {
+          const nextNode = nodes[j];
+          if (nextNode?.type !== "string" || typeof nextNode.content !== "string") break;
+          if (/^\d$/.test(nextNode.content)) {
+            literal += nextNode.content;
+            j += 1;
+            continue;
+          }
+          if (nextNode.content === "." && dotCount === 0) {
+            literal += nextNode.content;
+            dotCount += 1;
+            j += 1;
+            continue;
+          }
+          break;
+        }
+        if (/^\d+(?:\.\d+)?$/.test(literal)) {
+          tokens.push({ kind: "number", value: parseNumberString(literal) });
+          i = j - 1;
+          continue;
+        }
+      }
       const trailingPrimeMatch = /^([A-Za-z0-9]+)('+)$/.exec(stringContent);
       if (trailingPrimeMatch) {
         const baseToken = tokenFromStringContent(trailingPrimeMatch[1]);

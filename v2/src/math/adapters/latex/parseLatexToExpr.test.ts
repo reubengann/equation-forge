@@ -468,4 +468,16 @@ describe("parseLatexToExpr", () => {
     expectExprKind(expr.integrand.callee, "symbol");
     expect(expr.integrand.callee.name).toBe("sin");
   });
+
+  it("parses multi-digit numbers", () => {
+    const expr = parseLatexToExpr(String.raw`10`);
+    expectExprKind(expr, "number");
+    expect(expr.value).toBe(10);
+  });
+
+  it("parses multi-digit numbers with decimal point", () => {
+    const expr = parseLatexToExpr(String.raw`24.7`);
+    expectExprKind(expr, "number");
+    expect(expr.value).toBe(24.7);
+  });
 });
