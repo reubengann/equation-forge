@@ -24,6 +24,17 @@ export const divide = (numerator: Expr, denominator: Expr): Expr => ({
 
 export const equation = (sides: Expr[]): Expr => ({ kind: "equation", sides });
 
+export const inequality = (
+  lhs: Expr,
+  operator: "geq" | "leq" | "gt" | "lt",
+  rhs: Expr,
+): Expr => ({
+  kind: "inequality",
+  operator,
+  lhs,
+  rhs,
+});
+
 export const call = (callee: Expr, args: Expr[]): Expr => ({
   kind: "call",
   callee,
@@ -80,6 +91,28 @@ export const specialFont = (
   kind: "special_font",
   value,
   font,
+});
+
+export const bigSum = (
+  summand: Expr,
+  lowerBound: Expr | null,
+  upperBound: Expr | null,
+): Expr => ({
+  kind: "big_sum",
+  summand,
+  lowerBound,
+  upperBound,
+});
+
+export const bigProd = (
+  muliplicand: Expr,
+  lowerBound: Expr | null,
+  upperBound: Expr | null,
+): Expr => ({
+  kind: "big_prod",
+  muliplicand,
+  lowerBound,
+  upperBound,
 });
 
 export const integral = (
@@ -163,4 +196,9 @@ export const rawMathJson = (reason: string, value: unknown): Expr => ({
   kind: "raw_mathjson",
   reason,
   value,
+});
+
+export const immutableExpression = (latex: string): Expr => ({
+  kind: "immutable_expression",
+  latex,
 });

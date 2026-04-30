@@ -42,6 +42,13 @@ export type EquationExpr = {
   sides: Expr[];
 };
 
+export type InequalityExpr = {
+  kind: "inequality";
+  operator: "geq" | "leq" | "gt" | "lt";
+  lhs: Expr;
+  rhs: Expr;
+};
+
 /*
 Note: although callee will always be symbol for an normal parsed function call, it's possible
 to define a call of the form (f+g)(x) or f(x)(y) that would not adhere to this.
@@ -99,6 +106,20 @@ export type SpecialFontExpr = {
   kind: "special_font";
   value: Expr;
   font: "script" | "calligraphic" | "blackboard";
+};
+
+export type BigSumExpr = {
+  kind: "big_sum";
+  summand: Expr;
+  lowerBound: Expr | null;
+  upperBound: Expr | null;
+};
+
+export type BigProdExpr = {
+  kind: "big_prod";
+  muliplicand: Expr;
+  lowerBound: Expr | null;
+  upperBound: Expr | null;
 };
 
 export type IntegralExpr = {
@@ -166,6 +187,11 @@ export type PartialAtConstQuantityExpr = {
   constantQuantity: Expr;
 };
 
+export type ImmutableExpressionExpr = {
+  kind: "immutable_expression";
+  latex: string;
+};
+
 export type Expr =
   | NumberExpr
   | SymbolExpr
@@ -175,6 +201,7 @@ export type Expr =
   | NegateExpr
   | DivideExpr
   | EquationExpr
+  | InequalityExpr
   | FunctionCallExpr
   | TextExpr
   | AbsoluteValueExpr
@@ -185,6 +212,8 @@ export type Expr =
   | DottedExpr
   | PrimedExpr
   | SpecialFontExpr
+  | BigSumExpr
+  | BigProdExpr
   | IntegralExpr
   | UniteratedIntegralExpr
   | ClosedIntegralExpr
@@ -194,4 +223,5 @@ export type Expr =
   | DisplayGroupExpr
   | RawMathJsonExpr
   | PartialAtConstQuantityExpr
-  | SecondOrderPartialDerivativeExpr;
+  | SecondOrderPartialDerivativeExpr
+  | ImmutableExpressionExpr;

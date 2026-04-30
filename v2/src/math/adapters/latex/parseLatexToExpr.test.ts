@@ -6,7 +6,21 @@ function expectExprKind<K extends Expr["kind"]>(
   expr: Expr,
   kind: K,
 ): asserts expr is Extract<Expr, { kind: K }> {
-  expect(expr.kind).toBe(kind);
+  if (expr.kind !== kind) {
+    const error = new Error(
+      `Expected expr.kind to be "${kind}" but received "${expr.kind}"`,
+    );
+    const ErrorWithCapture = Error as typeof Error & {
+      captureStackTrace?: (
+        targetObject: object,
+        constructorOpt?: Function,
+      ) => void;
+    };
+    if (ErrorWithCapture.captureStackTrace) {
+      ErrorWithCapture.captureStackTrace(error, expectExprKind);
+    }
+    throw error;
+  }
 }
 
 describe("parseLatexToExpr", () => {
@@ -152,9 +166,14 @@ describe("parseLatexToExpr", () => {
     expect(expr.sides[1].text).toBe("some text");
   });
 
-  it("falls back to symbol when text contains embedded math delimiters", () => {
+  it("parses text containing embedded math delimiters as text", () => {
     const expr = parseLatexToExpr(String.raw`a + \text{some $x + y$ stuff}`);
-    expectExprKind(expr, "symbol");
+    expectExprKind(expr, "add");
+    expect(expr.terms).toHaveLength(2);
+    expectExprKind(expr.terms[0], "symbol");
+    expect(expr.terms[0].name).toBe("a");
+    expectExprKind(expr.terms[1], "text");
+    expect(expr.terms[1].text).toBe("some $x + y$ stuff");
   });
 
   it("parses absolute value", () => {
@@ -283,10 +302,87 @@ describe("parseLatexToExpr", () => {
     expect(expr.callee.name).toBe("exp");
   });
 
+  it("parses big sum", () => {
+    const expr = parseLatexToExpr(String.raw`\sum_{i=1}^{n} x_{i}`);
+    expectExprKind(expr, "big_sum");
+    expectExprKind(expr.summand, "symbol");
+    expect(expr.summand.name).toBe("x_i");
+    expectExprKind(expr.lowerBound, "number");
+    expect(expr.lowerBound.value).toBe(1);
+    expectExprKind(expr.upperBound!, "symbol");
+    expect(expr.upperBound!.name).toBe("n");
+  });
+
+  it("parses big sum", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\sum_{i \neq j} \left(\frac{x_{i}}{2}\right)`,
+    );
+    expectExprKind(expr, "big_sum");
+    expectExprKind(expr.summand, "divide");
+    expectExprKind(expr.lowerBound, "immutable_expression");
+    expect(expr.lowerBound.latex).toBe("i \\neq j");
+    expect(expr.upperBound).toBe(null);
+  });
+
+  it("parses big sum no limits", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\sum \left(\frac{x_{i}}{2}\right)`,
+    );
+    expectExprKind(expr, "big_sum");
+    expectExprKind(expr.summand, "divide");
+    expect(expr.lowerBound).toBe(null);
+    expect(expr.upperBound).toBe(null);
+  });
+
+  it("parses big prod", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\prod_{i \neq j} \left(\frac{x_{i}}{2}\right)`,
+    );
+    expectExprKind(expr, "big_prod");
+    expectExprKind(expr.muliplicand, "divide");
+    expectExprKind(expr.lowerBound, "immutable_expression");
+    expect(expr.lowerBound.latex).toBe("i \\neq j");
+    expect(expr.upperBound).toBe(null);
+  });
+
+  it("parses big prod with no limits", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\prod \left(\frac{x_{i}}{2}\right)`,
+    );
+    expectExprKind(expr, "big_prod");
+    expectExprKind(expr.muliplicand, "divide");
+    expect(expr.lowerBound).toBe(null);
+    expect(expr.upperBound).toBe(null);
+  });
+
+  it("handles equalities with more than two sides", () => {
+    const expr = parseLatexToExpr(String.raw`a = b = c`);
+    expectExprKind(expr, "equation");
+    expect(expr.sides).toHaveLength(3);
+    expectExprKind(expr.sides[0], "symbol");
+    expect(expr.sides[0].name).toBe("a");
+    expectExprKind(expr.sides[1], "symbol");
+    expect(expr.sides[1].name).toBe("b");
+    expectExprKind(expr.sides[2], "symbol");
+    expect(expr.sides[2].name).toBe("c");
+  });
+
+  it("handles inequalities", () => {
+    for (const [latex, operator] of [
+      [String.raw`a + b \geq c + d`, "geq"],
+      [String.raw`a + b \leq c + d`, "leq"],
+      [String.raw`a + b > c + d`, "gt"],
+      [String.raw`a + b < c + d`, "lt"],
+    ]) {
+      const expr = parseLatexToExpr(latex);
+      expectExprKind(expr, "inequality");
+      expect(expr.operator).toBe(operator);
+      expectExprKind(expr.lhs, "add");
+      expectExprKind(expr.rhs, "add");
+    }
+  });
+
   /*  
-      Big Sums, Products (similar to integrals, but often have equalities in the lower limit)
-      Multiple Equations (a = b = c)
-      Inequalities (e.g. a + b \geq c + d)
       Square roots (\sqrt{x})
       */
 

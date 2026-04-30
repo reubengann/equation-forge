@@ -1,7 +1,10 @@
 import { parseMath } from "@unified-latex/unified-latex-util-parse";
+import { printRaw } from "@unified-latex/unified-latex-util-print-raw";
 import {
   add,
   absoluteValue,
+  bigProd,
+  bigSum,
   call,
   closedIntegral,
   differential,
@@ -11,6 +14,8 @@ import {
   equation,
   hat,
   innerProduct,
+  immutableExpression,
+  inequality,
   integral,
   multipleIntegral,
   multiply,
@@ -56,7 +61,21 @@ type Token =
       font: "script" | "calligraphic" | "blackboard";
     }
   | { kind: "grouped_expr"; expression: Expr }
-  | { kind: "operator"; value: "+" | "-" | "*" | "/" | "=" | "dot" | "cross" }
+  | {
+      kind: "operator";
+      value:
+        | "+"
+        | "-"
+        | "*"
+        | "/"
+        | "="
+        | "dot"
+        | "cross"
+        | "geq"
+        | "leq"
+        | "gt"
+        | "lt";
+    }
   | {
       kind: "open_group";
       delimiter: DelimiterKind;
@@ -67,6 +86,8 @@ type Token =
   | { kind: "subscript"; value: UnifiedNode[] }
   | { kind: "exponent"; value: UnifiedNode[] }
   | { kind: "integral_symbol"; variant: "normal" | "closed" | "multiple"; order: number }
+  | { kind: "sum_symbol" }
+  | { kind: "prod_symbol" }
   | { kind: "differential"; variable: UnifiedNode[] }
   | { kind: "fraction"; numerator: UnifiedNode[]; denominator: UnifiedNode[] };
 
@@ -81,22 +102,8 @@ class UnsupportedLatexError extends Error {
 
 function parseTextArgument(content: UnifiedNode[] | undefined): string | null {
   if (!content) return "";
-  let acc = "";
-  for (const node of content) {
-    if (!node?.type) continue;
-    if (node.type === "string" && typeof node.content === "string") {
-      if (node.content.includes("$")) return null;
-      acc += node.content;
-      continue;
-    }
-    if (node.type === "whitespace") {
-      acc += " ";
-      continue;
-    }
-    // Keep \text parsing strict for now.
-    return null;
-  }
-  return acc;
+  const printable = content as unknown as Parameters<typeof printRaw>[0];
+  return printRaw(printable);
 }
 
 function parseGroupNodes(nodes: UnifiedNode[] | undefined): Expr | null {
@@ -124,6 +131,8 @@ function tokenFromStringContent(value: string): Token | null {
   if (value === "+" || value === "-" || value === "*" || value === "/" || value === "=") {
     return { kind: "operator", value };
   }
+  if (value === ">") return { kind: "operator", value: "gt" };
+  if (value === "<") return { kind: "operator", value: "lt" };
   if (value === "(" || value === "[" || value === "{") {
     const close = value === "(" ? ")" : value === "[" ? "]" : "}";
     return {
@@ -368,6 +377,16 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
       continue;
     }
 
+    if (macro === "sum") {
+      tokens.push({ kind: "sum_symbol" });
+      continue;
+    }
+
+    if (macro === "prod") {
+      tokens.push({ kind: "prod_symbol" });
+      continue;
+    }
+
     if (macro === "mathrm") {
       const arg = node.args?.[0]?.content;
       const argIsPlainD =
@@ -473,6 +492,16 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
       continue;
     }
 
+    if (macro === "geq") {
+      tokens.push({ kind: "operator", value: "geq" });
+      continue;
+    }
+
+    if (macro === "leq") {
+      tokens.push({ kind: "operator", value: "leq" });
+      continue;
+    }
+
     if (macro === ",") {
       continue;
     }
@@ -506,7 +535,18 @@ class TokenParser {
   }
 
   private consumeOperator(
-    value: "+" | "-" | "*" | "/" | "=" | "dot" | "cross",
+    value:
+      | "+"
+      | "-"
+      | "*"
+      | "/"
+      | "="
+      | "dot"
+      | "cross"
+      | "geq"
+      | "leq"
+      | "gt"
+      | "lt",
   ): boolean {
     const token = this.peek();
     if (!token || token.kind !== "operator" || token.value !== value) return false;
@@ -528,7 +568,9 @@ class TokenParser {
       token.kind === "grouped_expr" ||
       token.kind === "fraction" ||
       token.kind === "differential" ||
-      token.kind === "integral_symbol"
+      token.kind === "integral_symbol" ||
+      token.kind === "sum_symbol" ||
+      token.kind === "prod_symbol"
     ) {
       return true;
     }
@@ -772,7 +814,14 @@ class TokenParser {
     while (this.consumeOperator("=")) {
       sides.push(this.parseAdditive());
     }
-    return sides.length === 1 ? sides[0] : equation(sides);
+    if (sides.length > 1) return equation(sides);
+
+    const lhs = sides[0];
+    if (this.consumeOperator("geq")) return inequality(lhs, "geq", this.parseAdditive());
+    if (this.consumeOperator("leq")) return inequality(lhs, "leq", this.parseAdditive());
+    if (this.consumeOperator("gt")) return inequality(lhs, "gt", this.parseAdditive());
+    if (this.consumeOperator("lt")) return inequality(lhs, "lt", this.parseAdditive());
+    return lhs;
   }
 
   private parseAdditive(): Expr {
@@ -942,6 +991,76 @@ class TokenParser {
         upperBound,
         body.differentialSlot,
       );
+    }
+    if (token.kind === "sum_symbol") {
+      let lowerBound: Expr | null = null;
+      let upperBound: Expr | null = null;
+
+      const lowerToken = this.peek();
+      if (lowerToken?.kind === "subscript") {
+        this.next();
+        const lowerExpr = parseGroupNodes(lowerToken.value);
+        if (
+          lowerExpr?.kind === "equation" &&
+          lowerExpr.sides.length === 2 &&
+          lowerExpr.sides[0]?.kind === "symbol"
+        ) {
+          lowerBound = lowerExpr.sides[1] ?? null;
+        } else {
+          const printable = lowerToken.value as unknown as Parameters<typeof printRaw>[0];
+          lowerBound = immutableExpression(printRaw(printable));
+        }
+      }
+
+      const upperToken = this.peek();
+      if (upperToken?.kind === "exponent") {
+        this.next();
+        upperBound = parseGroupNodes(upperToken.value) ?? null;
+      }
+
+      const summandTokens = this.consumeUntilEquationBoundary();
+      const rawSummand =
+        summandTokens.length > 0 ? this.parseFromSlice(summandTokens) : sym("missing");
+      const summand =
+        rawSummand.kind === "display_group" ? rawSummand.expression : rawSummand;
+      return bigSum(summand, lowerBound, upperBound);
+    }
+    if (token.kind === "prod_symbol") {
+      let lowerBound: Expr | null = null;
+      let upperBound: Expr | null = null;
+
+      const lowerToken = this.peek();
+      if (lowerToken?.kind === "subscript") {
+        this.next();
+        const lowerExpr = parseGroupNodes(lowerToken.value);
+        if (
+          lowerExpr?.kind === "equation" &&
+          lowerExpr.sides.length === 2 &&
+          lowerExpr.sides[0]?.kind === "symbol"
+        ) {
+          lowerBound = lowerExpr.sides[1] ?? null;
+        } else {
+          const printable = lowerToken.value as unknown as Parameters<typeof printRaw>[0];
+          lowerBound = immutableExpression(printRaw(printable));
+        }
+      }
+
+      const upperToken = this.peek();
+      if (upperToken?.kind === "exponent") {
+        this.next();
+        upperBound = parseGroupNodes(upperToken.value) ?? null;
+      }
+
+      const multiplicandTokens = this.consumeUntilEquationBoundary();
+      const rawMultiplicand =
+        multiplicandTokens.length > 0
+          ? this.parseFromSlice(multiplicandTokens)
+          : sym("missing");
+      const muliplicand =
+        rawMultiplicand.kind === "display_group"
+          ? rawMultiplicand.expression
+          : rawMultiplicand;
+      return bigProd(muliplicand, lowerBound, upperBound);
     }
     if (token.kind === "differential") {
       const variable = parseGroupNodes(token.variable) ?? sym("missing");

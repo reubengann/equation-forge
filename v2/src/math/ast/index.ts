@@ -2,6 +2,8 @@ export type { DelimiterKind, Expr } from "./expr";
 export {
   add,
   absoluteValue,
+  bigProd,
+  bigSum,
   call,
   closedIntegral,
   differential,
@@ -11,6 +13,8 @@ export {
   equation,
   hat,
   innerProduct,
+  immutableExpression,
+  inequality,
   integral,
   multipleIntegral,
   multiply,
