@@ -11,8 +11,9 @@ import {
   resolveDomRectSnapshot,
   resolveNodeIdFromMathDivAtPoint,
 } from "./interaction/selectionController";
+import { exprToLatex } from "./math/adapters/latex/exprToLatex";
+import { parseLatexToExpr } from "./math/adapters/latex/parseLatexToExpr";
 import { MathliveEditor } from "./MathliveEditor";
-import { buildTaggedLatex } from "./taggedLatex";
 
 MathfieldElement.fontsDirectory = "/fonts";
 
@@ -77,7 +78,9 @@ export function EditorEntryToggle({
   const lastAcceptedLatexRef = useRef<string | null>(null);
   const mathDivRef = useRef<HTMLElement | null>(null);
   const slotRef = useRef<HTMLDivElement | null>(null);
-  const tagged = useMemo(() => buildTaggedLatex(latex), [latex]);
+  const parsedExpr = useMemo(() => parseLatexToExpr(latex), [latex]);
+  const plainLatex = useMemo(() => exprToLatex(parsedExpr, false), [parsedExpr]);
+  const taggedLatex = useMemo(() => exprToLatex(parsedExpr, true), [parsedExpr]);
 
   useEffect(() => {
     if (!showMathDisplay) return;
@@ -85,10 +88,10 @@ export function EditorEntryToggle({
       | (HTMLElement & { value?: string; render?: () => void })
       | null;
     if (!mathDiv) return;
-    // Render tagged latex so each shallow piece gets data-node-id markup.
+    // Render AST-generated tagged latex so every serializable node has a stable id.
     mathDiv.setAttribute("virtual-keyboard-mode", "off");
-    mathDiv.value = tagged.taggedLatex;
-    mathDiv.textContent = tagged.taggedLatex;
+    mathDiv.value = taggedLatex;
+    mathDiv.textContent = taggedLatex;
     let rafId = 0;
     let attempts = 0;
     const maxAttempts = 4;
@@ -109,7 +112,7 @@ export function EditorEntryToggle({
     return () => {
       cancelAnimationFrame(rafId);
     };
-  }, [showMathDisplay, tagged.taggedLatex, onDomSnapshotObserved]);
+  }, [showMathDisplay, taggedLatex, onDomSnapshotObserved]);
 
   const updateMathFieldValue = (event: SyntheticEvent<HTMLElement>) => {
     const nextValue =
@@ -161,11 +164,12 @@ export function EditorEntryToggle({
   const handleAcceptToggle = () => {
     if (!showMathDisplay) {
       const previousLatex = lastAcceptedLatexRef.current;
+      setLatex(plainLatex);
       onLatexAccepted({
         previousLatex,
-        nextLatex: latex,
+        nextLatex: plainLatex,
       });
-      lastAcceptedLatexRef.current = latex;
+      lastAcceptedLatexRef.current = plainLatex;
     }
     setShowMathDisplay((prev) => !prev);
   };
@@ -193,7 +197,7 @@ export function EditorEntryToggle({
         {showMathDisplay ? (
           <EquationEditor
             mathDivRef={mathDivRef}
-            latex={tagged.taggedLatex}
+            latex={taggedLatex}
             selectedNodeId={selectedNodeId}
             onNodeClick={handleNodeClick}
             onPointerDownEvent={handlePointerDown}
