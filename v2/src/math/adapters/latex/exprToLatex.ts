@@ -10,18 +10,28 @@ class LatexGenerator {
     this.tags = tags;
   }
 
-  wrap(latex: string): string {
+  wrap(latex: string, id: string): string {
     if (!this.tags) return latex;
-    const id = `n${this.nextId++}`;
     return String.raw`\htmlData{node-id="${id}"}{${latex}}`;
   }
 
-  generate(): string {
-    switch (this.expr.kind) {
+  newId(): string {
+    return `n${this.nextId++}`;
+  }
+
+  generate(expr?: Expr): string {
+    expr = expr ?? this.expr;
+    switch (expr.kind) {
       case "number":
-        return this.wrap(this.expr.value.toString());
+        return this.wrap(expr.value.toString(), this.newId());
       case "symbol":
+        return this.wrap(expr.name, this.newId());
       case "add":
+        const id = this.newId();
+        return this.wrap(
+          expr.terms.map((term) => this.generate(term)).join(" + "),
+          id,
+        );
       case "multiply":
       case "power":
       case "negate":

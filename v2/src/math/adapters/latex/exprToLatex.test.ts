@@ -14,4 +14,18 @@ describe("exprToLatex", () => {
     const latex = exprToLatex(expr, true);
     expect(latex).toBe('\\htmlData{node-id="n1"}{24.7}');
   });
+
+  it("wraps symbol in tags", () => {
+    const expr = parseLatexToExpr("x");
+    const latex = exprToLatex(expr, true);
+    expect(latex).toBe('\\htmlData{node-id="n1"}{x}');
+  });
+
+  it("wraps sum", () => {
+    const expr = parseLatexToExpr("a + b");
+    const latex = exprToLatex(expr, true);
+    expect(latex).toBe(
+      '\\htmlData{node-id="n1"}{\\htmlData{node-id="n2"}{a} + \\htmlData{node-id="n3"}{b}}',
+    );
+  });
 });
