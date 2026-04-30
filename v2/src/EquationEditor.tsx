@@ -12,14 +12,12 @@ import type { EquationEditorRecordingHooks } from "./TestRecorder";
 
 type EquationEditorProps = {
   latex: string;
-  onSelectionChanged: (nodeId: string | null) => void;
   onCanonicalLatexChanged: (nextLatex: string) => void;
   recordingHooks?: EquationEditorRecordingHooks;
 };
 
 export function EquationEditor({
   latex,
-  onSelectionChanged,
   onCanonicalLatexChanged,
   recordingHooks,
 }: EquationEditorProps) {
@@ -41,7 +39,6 @@ export function EquationEditor({
       | (HTMLElement & { value?: string; render?: () => void })
       | null;
     if (!mathDiv) return;
-    mathDiv.setAttribute("virtual-keyboard-mode", "off");
     mathDiv.value = compiledDoc.taggedLatex;
     mathDiv.textContent = compiledDoc.taggedLatex;
 
@@ -122,7 +119,7 @@ export function EquationEditor({
     if (lastSelectedNodeIdRef.current !== nextSelectedNodeId) {
       lastSelectedNodeIdRef.current = nextSelectedNodeId;
       setSelectedNodeId(nextSelectedNodeId);
-      onSelectionChanged(nextSelectedNodeId);
+      recordingHooks?.onSelectionChanged?.(nextSelectedNodeId);
     }
     recordingHooks?.onPointerDownEvent?.({
       x: event.clientX,

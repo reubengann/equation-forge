@@ -36,9 +36,10 @@ export type TestRecorderEvent =
   | DomChangedEvent;
 
 export type EquationEditorRecordingHooks = {
-  onDomSnapshotObserved?: (payload: DomSnapshotObservedPayload) => void;
-  onPointerDownEvent?: (payload: PointerEventPayload) => void;
-  onPointerUpEvent?: (payload: PointerEventPayload) => void;
+  onDomSnapshotObserved: (payload: DomSnapshotObservedPayload) => void;
+  onPointerDownEvent: (payload: PointerEventPayload) => void;
+  onPointerUpEvent: (payload: PointerEventPayload) => void;
+  onSelectionChanged: (nodeId: string | null) => void;
 };
 
 export class TestRecorder {
@@ -120,4 +121,3 @@ export class TestRecorder {
     return [...this.events];
   }
 }
-

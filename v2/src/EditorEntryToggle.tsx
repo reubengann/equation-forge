@@ -7,7 +7,6 @@ import type { EquationEditorRecordingHooks } from "./TestRecorder";
 MathfieldElement.fontsDirectory = "/fonts";
 
 type EditorEntryToggleProps = {
-  onSelectionChanged: (nodeId: string | null) => void;
   onLatexAccepted: (payload: {
     previousLatex: string | null;
     nextLatex: string;
@@ -16,7 +15,6 @@ type EditorEntryToggleProps = {
 };
 
 export function EditorEntryToggle({
-  onSelectionChanged,
   onLatexAccepted,
   recordingHooks,
 }: EditorEntryToggleProps) {
@@ -69,8 +67,8 @@ export function EditorEntryToggle({
         {showMathDisplay ? (
           <EquationEditor
             latex={latex}
-            onSelectionChanged={onSelectionChanged}
             recordingHooks={recordingHooks}
+            // Needed so that we can show the mathlive again with the existing latex.
             onCanonicalLatexChanged={(nextLatex) => {
               canonicalLatexRef.current = nextLatex;
             }}

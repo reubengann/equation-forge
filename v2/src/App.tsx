@@ -270,14 +270,6 @@ function App() {
         </button>
       </div>
       <EditorEntryToggle
-        onSelectionChanged={(nodeId) => {
-          // We do not store selectionchanged events into the recording. This is just for
-          // Showing on the UI for debugging purposes.
-          if (selectedNodeIdRef.current !== nodeId) {
-            selectedNodeIdRef.current = nodeId;
-            setSelectedNodeId(nodeId);
-          }
-        }}
         onLatexAccepted={(payload) => {
           // We can record this ourselves, since we are the actor
           if (!isRecording) return;
@@ -290,7 +282,7 @@ function App() {
             onPointerDownEvent: (payload: PointerEventPayload) => {
               if (!isRecording) return;
               const domSnapshot = payload.domSnapshotId
-                ? snapshotByIdRef.current[payload.domSnapshotId] ?? null
+                ? (snapshotByIdRef.current[payload.domSnapshotId] ?? null)
                 : null;
               recorderRef.current.recordPointerDown({
                 x: payload.x,
@@ -305,7 +297,7 @@ function App() {
             onPointerUpEvent: (payload: PointerEventPayload) => {
               if (!isRecording) return;
               const domSnapshot = payload.domSnapshotId
-                ? snapshotByIdRef.current[payload.domSnapshotId] ?? null
+                ? (snapshotByIdRef.current[payload.domSnapshotId] ?? null)
                 : null;
               recorderRef.current.recordPointerUp({
                 x: payload.x,
@@ -316,6 +308,14 @@ function App() {
                 buttons: payload.buttons,
               });
               syncRecordedEvents();
+            },
+            onSelectionChanged: (nodeId: string) => {
+              // We do not store selectionchanged events into the recording. This is just for
+              // Showing on the UI for debugging purposes.
+              if (selectedNodeIdRef.current !== nodeId) {
+                selectedNodeIdRef.current = nodeId;
+                setSelectedNodeId(nodeId);
+              }
             },
           } satisfies EquationEditorRecordingHooks
         }
