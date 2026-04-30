@@ -4,11 +4,11 @@ import {
   displayGroup,
   divide,
   equation,
+  invalidInput,
   multiply,
   negate,
   num,
   power,
-  rawMathJson,
   sym,
   type DelimiterKind,
   type Expr,
@@ -28,6 +28,20 @@ function normalizeDelimiterKind(open: string, close: string): DelimiterKind {
   if (open === "{" && close === "}") return "brace";
   if (open === "<" && close === ">") return "angle";
   return "other";
+}
+
+function fallbackInvalid(reason: string, value: unknown): Expr {
+  const payload =
+    typeof value === "string"
+      ? value
+      : (() => {
+          try {
+            return JSON.stringify(value);
+          } catch {
+            return String(value);
+          }
+        })();
+  return invalidInput(`Unsupported MathJSON: ${reason}`, payload);
 }
 
 function fromMathJsonRecord(record: MathJsonRecord): Expr {
@@ -51,7 +65,7 @@ function fromMathJsonRecord(record: MathJsonRecord): Expr {
     return fromMathJson(fnValue);
   }
 
-  return rawMathJson("unsupported_mathjson_record", record);
+  return fallbackInvalid("unsupported_mathjson_record", record);
 }
 
 function mapHeadCall(head: string, args: MathJsonValue[]): Expr {
@@ -61,16 +75,16 @@ function mapHeadCall(head: string, args: MathJsonValue[]): Expr {
     case "Multiply":
       return multiply(args.map(fromMathJson));
     case "Power":
-      if (args.length !== 2) return rawMathJson("power_arity_mismatch", [head, ...args]);
+      if (args.length !== 2) return fallbackInvalid("power_arity_mismatch", [head, ...args]);
       return power(fromMathJson(args[0]), fromMathJson(args[1]));
     case "Negate":
-      if (args.length !== 1) return rawMathJson("negate_arity_mismatch", [head, ...args]);
+      if (args.length !== 1) return fallbackInvalid("negate_arity_mismatch", [head, ...args]);
       return negate(fromMathJson(args[0]));
     case "Divide":
-      if (args.length !== 2) return rawMathJson("divide_arity_mismatch", [head, ...args]);
+      if (args.length !== 2) return fallbackInvalid("divide_arity_mismatch", [head, ...args]);
       return divide(fromMathJson(args[0]), fromMathJson(args[1]));
     case "Subtract":
-      if (args.length !== 2) return rawMathJson("subtract_arity_mismatch", [head, ...args]);
+      if (args.length !== 2) return fallbackInvalid("subtract_arity_mismatch", [head, ...args]);
       return add([fromMathJson(args[0]), negate(fromMathJson(args[1]))]);
     case "Equal":
       return equation(args.map(fromMathJson));
@@ -85,7 +99,7 @@ function mapHeadCall(head: string, args: MathJsonValue[]): Expr {
           fromMathJson(args[1]),
         );
       }
-      return rawMathJson("delimiter_shape_mismatch", [head, ...args]);
+      return fallbackInvalid("delimiter_shape_mismatch", [head, ...args]);
     default:
       return call(sym(head), args.map(fromMathJson));
   }
@@ -95,11 +109,11 @@ export function fromMathJson(value: MathJsonValue): Expr {
   if (typeof value === "number") return num(value);
   if (typeof value === "string") return sym(value);
   if (value === null || typeof value === "boolean") {
-    return rawMathJson("non_expression_atom", value);
+    return fallbackInvalid("non_expression_atom", value);
   }
 
   if (Array.isArray(value)) {
-    if (value.length === 0) return rawMathJson("empty_mathjson_array", value);
+    if (value.length === 0) return fallbackInvalid("empty_mathjson_array", value);
     const [head, ...args] = value;
     if (typeof head === "string") {
       return mapHeadCall(head, args);
@@ -108,6 +122,6 @@ export function fromMathJson(value: MathJsonValue): Expr {
   }
 
   const record = asRecord(value);
-  if (!record) return rawMathJson("invalid_mathjson_value", value);
+  if (!record) return fallbackInvalid("invalid_mathjson_value", value);
   return fromMathJsonRecord(record);
 }

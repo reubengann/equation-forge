@@ -203,12 +203,6 @@ export const displayGroup = (delimiter: DelimiterKind, expression: Expr): Expr =
   expression,
 });
 
-export const rawMathJson = (reason: string, value: unknown): Expr => ({
-  kind: "raw_mathjson",
-  reason,
-  value,
-});
-
 export const immutableExpression = (latex: string): Expr => ({
   kind: "immutable_expression",
   latex,

@@ -234,8 +234,6 @@ class LatexGenerator {
             .join(" ")}}`,
           id,
         );
-      case "raw_mathjson":
-        return this.wrap(`\\text{raw_mathjson:${expr.reason}}`, id);
       case "partial_at_const_quantity":
         return this.wrap(
           `\\left(${this.generate({
@@ -248,7 +246,7 @@ class LatexGenerator {
       case "immutable_expression":
         return this.wrap(expr.latex, id);
       case "invalid_input":
-        return this.wrap(expr.latex, id);
+        throw new Error(`Invalid input: ${expr.latex}`);
     }
   }
 }

@@ -299,10 +299,12 @@ describe("exprToLatex", () => {
     );
   });
 
-  it("passes through immutable and invalid input without tags", () => {
+  it("passes through immutable input and rejects invalid input", () => {
     const immutable = parseLatexToExpr("");
     const invalid = parseLatexToExpr(String.raw`\frac{a + b}{c + d`);
     expect(exprToLatex(immutable, false)).toBe("");
-    expect(exprToLatex(invalid, false)).toBe(String.raw`\frac{a + b}{c + d`);
+    expect(() => exprToLatex(invalid, false)).toThrow(
+      String.raw`Invalid input: \frac{a + b}{c + d`,
+    );
   });
 });

@@ -32,12 +32,9 @@ describe("fromMathJson", () => {
     });
   });
 
-  it("wraps unsupported forms in raw_mathjson nodes instead of leaking MathJSON", () => {
+  it("maps unsupported forms to invalid_input", () => {
     const expr = fromMathJson({ something: "unknown" });
-    expect(expr).toEqual({
-      kind: "raw_mathjson",
-      reason: "unsupported_mathjson_record",
-      value: { something: "unknown" },
-    });
+    expect(expr.kind).toBe("invalid_input");
+    expect(expr.error).toContain("Unsupported MathJSON: unsupported_mathjson_record");
   });
 });

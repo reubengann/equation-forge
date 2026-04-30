@@ -181,12 +181,6 @@ export type SecondOrderPartialDerivativeExpr = {
   independentVariables: Expr[];
 };
 
-export type RawMathJsonExpr = {
-  kind: "raw_mathjson";
-  reason: string;
-  value: unknown;
-};
-
 export type PartialAtConstQuantityExpr = {
   kind: "partial_at_const_quantity";
   variable: Expr;
@@ -238,7 +232,6 @@ type ExprCore =
   | DifferentialExpr
   | PartialDerivativeExpr
   | DisplayGroupExpr
-  | RawMathJsonExpr
   | PartialAtConstQuantityExpr
   | SecondOrderPartialDerivativeExpr
   | ImmutableExpressionExpr

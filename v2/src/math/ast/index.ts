@@ -32,6 +32,5 @@ export {
   uniteratedIntegral,
   vector,
   power,
-  rawMathJson,
   sym,
 } from "./constructors";
