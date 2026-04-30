@@ -9,7 +9,7 @@ import {
 import { EquationEditor } from "./EquationEditor";
 import {
   resolveDomRectSnapshot,
-  resolveNodeIdFromMathDivAtPoint,
+  resolveSelectedNodeIdFromEvent,
 } from "./interaction/selectionController";
 import { exprToLatex } from "./math/adapters/latex/exprToLatex";
 import { parseLatexToExpr } from "./math/adapters/latex/parseLatexToExpr";
@@ -121,10 +121,10 @@ export function EditorEntryToggle({
   };
 
   const handlePointerDown = (payload: RawPointerEventPayload) => {
-    const nodeId = resolveNodeIdFromMathDivAtPoint(
-      mathDivRef.current,
-      payload.x,
-      payload.y,
+    const nodeId = resolveSelectedNodeIdFromEvent(
+      null,
+      { type: "pointer_down", pointer: { x: payload.x, y: payload.y } },
+      { kind: "mathDiv", mathDiv: mathDivRef.current },
     );
     const domSnapshot = resolveDomRectSnapshot(mathDivRef.current);
     onPointerDownEvent({
@@ -135,10 +135,10 @@ export function EditorEntryToggle({
   };
 
   const handlePointerUp = (payload: RawPointerEventPayload) => {
-    const nodeId = resolveNodeIdFromMathDivAtPoint(
-      mathDivRef.current,
-      payload.x,
-      payload.y,
+    const nodeId = resolveSelectedNodeIdFromEvent(
+      null,
+      { type: "pointer_down", pointer: { x: payload.x, y: payload.y } },
+      { kind: "mathDiv", mathDiv: mathDivRef.current },
     );
     const domSnapshot = resolveDomRectSnapshot(mathDivRef.current);
     onPointerUpEvent({
@@ -153,10 +153,10 @@ export function EditorEntryToggle({
     y: number;
     clickCount: number;
   }) => {
-    const nodeId = resolveNodeIdFromMathDivAtPoint(
-      mathDivRef.current,
-      payload.x,
-      payload.y,
+    const nodeId = resolveSelectedNodeIdFromEvent(
+      null,
+      { type: "pointer_down", pointer: { x: payload.x, y: payload.y } },
+      { kind: "mathDiv", mathDiv: mathDivRef.current },
     );
     onNodeClick(nodeId, payload.clickCount);
   };

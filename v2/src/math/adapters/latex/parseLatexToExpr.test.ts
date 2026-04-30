@@ -307,7 +307,7 @@ describe("parseLatexToExpr", () => {
     expectExprKind(expr, "big_sum");
     expectExprKind(expr.summand, "symbol");
     expect(expr.summand.name).toBe("x_i");
-    expectExprKind(expr.lowerBound, "number");
+    expectExprKind(expr.lowerBound!, "number");
     expect(expr.lowerBound.value).toBe(1);
     expectExprKind(expr.upperBound!, "symbol");
     expect(expr.upperBound!.name).toBe("n");
@@ -319,7 +319,7 @@ describe("parseLatexToExpr", () => {
     );
     expectExprKind(expr, "big_sum");
     expectExprKind(expr.summand, "divide");
-    expectExprKind(expr.lowerBound, "immutable_expression");
+    expectExprKind(expr.lowerBound!, "immutable_expression");
     expect(expr.lowerBound.latex).toBe("i \\neq j");
     expect(expr.upperBound).toBe(null);
   });
@@ -340,7 +340,7 @@ describe("parseLatexToExpr", () => {
     );
     expectExprKind(expr, "big_prod");
     expectExprKind(expr.muliplicand, "divide");
-    expectExprKind(expr.lowerBound, "immutable_expression");
+    expectExprKind(expr.lowerBound!, "immutable_expression");
     expect(expr.lowerBound.latex).toBe("i \\neq j");
     expect(expr.upperBound).toBe(null);
   });

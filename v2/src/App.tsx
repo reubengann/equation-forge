@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import EditorEntryToggle from "./EditorEntryToggle";
 import type { EventFixture, ExportedEvent } from "./interaction/eventFixture";
-import { nextSelectedNodeIdFromEvent } from "./interaction/selectionController";
+import { resolveSelectedNodeIdFromEvent } from "./interaction/selectionController";
 import { TestRecorder, type TestRecorderEvent } from "./TestRecorder";
 
 async function saveFixtureJson(fixture: EventFixture): Promise<void> {
@@ -308,7 +308,7 @@ function App() {
         }}
         onPointerDownEvent={(payload) => {
           const previousNodeId = selectedNodeIdRef.current;
-          const nextNodeId = nextSelectedNodeIdFromEvent(previousNodeId, {
+          const nextNodeId = resolveSelectedNodeIdFromEvent(previousNodeId, {
             type: "pointer_down",
             nodeId: payload.nodeId,
           });

@@ -2,8 +2,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import {
   DomRectSnapshot,
-  nextSelectedNodeIdFromEvent,
-  resolveNodeIdFromDomSnapshotAtPoint,
+  resolveSelectedNodeIdFromEvent,
 } from "../src/interaction/selectionController";
 import type { EventFixture } from "../src/interaction/eventFixture";
 
@@ -101,10 +100,13 @@ function replayEvents(fixture: EventFixture) {
           );
         }
 
-        const resolvedNodeId = resolveNodeIdFromDomSnapshotAtPoint(
-          currentDomSnapshot,
-          event.pointer.x,
-          event.pointer.y,
+        const resolvedNodeId = resolveSelectedNodeIdFromEvent(
+          null,
+          {
+            type: "pointer_down",
+            pointer: { x: event.pointer.x, y: event.pointer.y },
+          },
+          { kind: "snapshot", snapshot: currentDomSnapshot },
         );
         if (event.nodeId && resolvedNodeId && event.nodeId !== resolvedNodeId) {
           replayFailures.push(
@@ -112,7 +114,7 @@ function replayEvents(fixture: EventFixture) {
           );
         }
 
-        state.selectedNodeId = nextSelectedNodeIdFromEvent(
+        state.selectedNodeId = resolveSelectedNodeIdFromEvent(
           state.selectedNodeId,
           {
             type: "pointer_down",
