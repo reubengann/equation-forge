@@ -575,4 +575,27 @@ describe("parseLatexToExpr", () => {
       "function call sin started with delimiter ( but ends with ]. This is not supported.",
     );
   });
+
+  it("parses Delta x as a single symbol", () => {
+    const expr = parseLatexToExpr(String.raw`\Delta x`);
+    expectExprKind(expr, "symbol");
+    expect(expr.name).toBe(String.raw`\Delta x`);
+  });
+
+  it("parses full derivative operator with bare differential denominator", () => {
+    const expr = parseLatexToExpr(String.raw`\frac{d}{dx} f g`);
+    expectExprKind(expr, "full_derivative_operator");
+    expectExprKind(expr.variable, "symbol");
+    expect(expr.variable.name).toBe("x");
+    expectExprKind(expr.operand, "multiply");
+  });
+
+  it("parses partial derivative operator", () => {
+    const expr = parseLatexToExpr(String.raw`\frac{\partial}{\partial x} f`);
+    expectExprKind(expr, "partial_derivative_operator");
+    expectExprKind(expr.variable, "symbol");
+    expect(expr.variable.name).toBe("x");
+    expectExprKind(expr.operand, "symbol");
+    expect(expr.operand.name).toBe("f");
+  });
 });

@@ -12,6 +12,7 @@ import {
   displayGroup,
   divide,
   equation,
+  fullDerivativeOperator,
   hat,
   innerProduct,
   immutableExpression,
@@ -24,6 +25,7 @@ import {
   outerProduct,
   partialAtConstQuantity,
   partialDerivative,
+  partialDerivativeOperator,
   primed,
   power,
   root,
@@ -590,6 +592,28 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
       continue;
     }
 
+    if (macro === "Delta") {
+      let lookahead = i + 1;
+      while (nodes[lookahead]?.type === "whitespace") {
+        lookahead += 1;
+      }
+      const nextNode = nodes[lookahead];
+      if (nextNode?.type === "string" && typeof nextNode.content === "string") {
+        if (/^[a-zA-Z0-9]$/.test(nextNode.content)) {
+          tokens.push({ kind: "symbol", name: `\\Delta ${nextNode.content}` });
+          i = lookahead;
+          continue;
+        }
+      }
+      if (nextNode?.type === "macro" && typeof nextNode.content === "string") {
+        tokens.push({ kind: "symbol", name: `\\Delta ${nextNode.content}` });
+        i = lookahead;
+        continue;
+      }
+      tokens.push({ kind: "symbol", name: "\\Delta" });
+      continue;
+    }
+
     if (macro === ",") {
       continue;
     }
@@ -813,6 +837,47 @@ class TokenParser {
       }
     }
     return null;
+  }
+
+  private isFullDerivativeMarker(expr: Expr): boolean {
+    return expr.kind === "symbol" && expr.name === "d";
+  }
+
+  private isPartialDerivativeMarker(expr: Expr): boolean {
+    return expr.kind === "symbol" && expr.name === "partial";
+  }
+
+  private isBoundaryOperator(
+    value: "+" | "-" | "*" | "/" | "=" | "dot" | "cross" | "geq" | "leq" | "gt" | "lt",
+  ): boolean {
+    return (
+      value === "+" ||
+      value === "-" ||
+      value === "=" ||
+      value === "geq" ||
+      value === "leq" ||
+      value === "gt" ||
+      value === "lt"
+    );
+  }
+
+  private consumeDerivativeOperatorOperand(): Expr {
+    const operandTokens: Token[] = [];
+    let depth = 0;
+    while (true) {
+      const token = this.peek();
+      if (!token) break;
+      if (depth === 0) {
+        if (token.kind === "operator" && this.isBoundaryOperator(token.value)) break;
+        if (token.kind === "close_group") break;
+      }
+      this.next();
+      if (token.kind === "open_group") depth += 1;
+      if (token.kind === "close_group") depth = Math.max(0, depth - 1);
+      operandTokens.push(token);
+    }
+    if (operandTokens.length === 0) return sym("missing");
+    return this.parseFromSlice(operandTokens);
   }
 
   private applyPostfixSubscript(base: Expr, subscript: Expr): Expr {
@@ -1110,6 +1175,24 @@ class TokenParser {
     if (token.kind === "fraction") {
       const numerator = parseGroupNodes(token.numerator) ?? sym("missing");
       const denominator = parseGroupNodes(token.denominator) ?? sym("missing");
+      if (
+        this.isFullDerivativeMarker(numerator) &&
+        denominator.kind === "differential"
+      ) {
+        return fullDerivativeOperator(
+          denominator.variable,
+          this.consumeDerivativeOperatorOperand(),
+        );
+      }
+      if (this.isPartialDerivativeMarker(numerator)) {
+        const partialVariable = this.extractPartialOperand(denominator);
+        if (partialVariable) {
+          return partialDerivativeOperator(
+            partialVariable,
+            this.consumeDerivativeOperatorOperand(),
+          );
+        }
+      }
       const secondOrder = this.extractSecondOrderPartialDerivative(
         numerator,
         denominator,

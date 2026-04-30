@@ -307,4 +307,23 @@ describe("exprToLatex", () => {
       String.raw`Invalid input: \frac{a + b}{c + d`,
     );
   });
+
+  it("converts derivative operators without tags", () => {
+    const full = parseLatexToExpr(String.raw`\frac{d}{dx} f g`);
+    const partial = parseLatexToExpr(
+      String.raw`\frac{\partial}{\partial x} f`,
+    );
+    expect(exprToLatex(full, false)).toBe(
+      String.raw`\frac{\mathrm{d}}{\mathrm{d}{x}} f g`,
+    );
+    expect(exprToLatex(partial, false)).toBe(
+      String.raw`\frac{\partial}{\partial{x}} f`,
+    );
+  });
+
+  it("round-trips Delta x symbol without tags", () => {
+    const expr = parseLatexToExpr(String.raw`\Delta x`);
+    const latex = exprToLatex(expr, false);
+    expect(latex).toBe(String.raw`\Delta x`);
+  });
 });

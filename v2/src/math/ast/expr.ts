@@ -168,6 +168,18 @@ export type PartialDerivativeExpr = {
   quantity: Expr;
 };
 
+export type FullDerivativeOperatorExpr = {
+  kind: "full_derivative_operator";
+  variable: Expr;
+  operand: Expr;
+};
+
+export type PartialDerivativeOperatorExpr = {
+  kind: "partial_derivative_operator";
+  variable: Expr;
+  operand: Expr;
+};
+
 export type DisplayGroupExpr = {
   kind: "display_group";
   delimiter: DelimiterKind;
@@ -231,6 +243,8 @@ type ExprCore =
   | MultipleIntegralExpr
   | DifferentialExpr
   | PartialDerivativeExpr
+  | FullDerivativeOperatorExpr
+  | PartialDerivativeOperatorExpr
   | DisplayGroupExpr
   | PartialAtConstQuantityExpr
   | SecondOrderPartialDerivativeExpr

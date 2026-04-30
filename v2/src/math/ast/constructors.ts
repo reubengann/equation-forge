@@ -175,6 +175,18 @@ export const partialDerivative = (quantity: Expr, variable: Expr): Expr => ({
   variable,
 });
 
+export const fullDerivativeOperator = (variable: Expr, operand: Expr): Expr => ({
+  kind: "full_derivative_operator",
+  variable,
+  operand,
+});
+
+export const partialDerivativeOperator = (variable: Expr, operand: Expr): Expr => ({
+  kind: "partial_derivative_operator",
+  variable,
+  operand,
+});
+
 export const secondOrderPartialDerivative = (
   dependentVariable: Expr,
   independentVariables: Expr[],

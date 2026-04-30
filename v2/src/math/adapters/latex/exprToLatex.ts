@@ -220,6 +220,16 @@ class LatexGenerator {
           `\\frac{\\partial{${this.generate(expr.quantity)}}}{\\partial{${this.generate(expr.variable)}}}`,
           id,
         );
+      case "full_derivative_operator":
+        return this.wrap(
+          `\\frac{\\mathrm{d}}{\\mathrm{d}{${this.generate(expr.variable)}}} ${this.generate(expr.operand)}`,
+          id,
+        );
+      case "partial_derivative_operator":
+        return this.wrap(
+          `\\frac{\\partial}{\\partial{${this.generate(expr.variable)}}} ${this.generate(expr.operand)}`,
+          id,
+        );
       case "display_group": {
         const [open, close] = this.delimiterPair(expr.delimiter);
         return this.wrap(
