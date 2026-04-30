@@ -1,7 +1,7 @@
-import type { Expr } from "../../ast";
+import type { DelimiterKind, Expr } from "../../ast";
 
 class LatexGenerator {
-  expr: Expr;
+  readonly expr: Expr;
   nextId: number;
   tags: boolean;
   constructor(expr: Expr, tags: boolean) {
@@ -17,6 +17,21 @@ class LatexGenerator {
 
   newId(): string {
     return `n${this.nextId++}`;
+  }
+
+  delimiterPair(delimiter: DelimiterKind): [string, string] {
+    switch (delimiter) {
+      case "paren":
+        return ["(", ")"];
+      case "bracket":
+        return ["[", "]"];
+      case "brace":
+        return ["\\{", "\\}"];
+      case "angle":
+        return ["\\langle", "\\rangle"];
+      case "other":
+        return [".", "."];
+    }
   }
 
   generate(expr?: Expr): string {
@@ -76,9 +91,13 @@ class LatexGenerator {
               id,
             );
           case "geq":
+            return this.wrap(
+              `${this.generate(expr.lhs)} \\geq ${this.generate(expr.rhs)}`,
+              id,
+            );
           case "leq":
             return this.wrap(
-              `${this.generate(expr.lhs)} \${expr.operator} ${this.generate(expr.rhs)}`,
+              `${this.generate(expr.lhs)} \\leq ${this.generate(expr.rhs)}`,
               id,
             );
         }
@@ -108,28 +127,128 @@ class LatexGenerator {
       case "text":
         return this.wrap(`\\text{${expr.text}}`, id);
       case "absolute_value":
+        return this.wrap(`|${this.generate(expr.value)}|`, id);
       case "vector":
+        return this.wrap(`\\vec{${this.generate(expr.value)}}`, id);
       case "hat":
+        return this.wrap(`\\hat{${this.generate(expr.value)}}`, id);
       case "inner_product":
+        return this.wrap(
+          `${this.generate(expr.factors[0])} \\cdot ${this.generate(expr.factors[1])}`,
+          id,
+        );
       case "outer_product":
+        return this.wrap(
+          `${this.generate(expr.factors[0])} \\times ${this.generate(expr.factors[1])}`,
+          id,
+        );
       case "dotted_expr":
+        if (expr.order !== 1 && expr.order !== 2)
+          throw new Error(`Unsupported order: ${expr.order}`);
+        const dot = expr.order === 1 ? "\\dot" : "\\ddot";
+        return this.wrap(`${dot}{${this.generate(expr.value)}}`, id);
       case "primed":
+        const primes = "'".repeat(expr.order);
+        return this.wrap(`${this.generate(expr.value)}${primes}`, id);
       case "special_font":
+        switch (expr.font) {
+          case "script":
+            return this.wrap(`\\mathscr{${this.generate(expr.value)}}`, id);
+          case "calligraphic":
+            return this.wrap(`\\mathcal{${this.generate(expr.value)}}`, id);
+          case "blackboard":
+            return this.wrap(`\\mathbb{${this.generate(expr.value)}}`, id);
+        }
       case "big_sum":
+        return this.wrap(
+          `\\sum${
+            expr.lowerBound ? `_{${this.generate(expr.lowerBound)}}` : ""
+          }${expr.upperBound ? `^{${this.generate(expr.upperBound)}}` : ""} ${this.generate(expr.summand)}`,
+          id,
+        );
       case "big_prod":
+        return this.wrap(
+          `\\prod${
+            expr.lowerBound ? `_{${this.generate(expr.lowerBound)}}` : ""
+          }${expr.upperBound ? `^{${this.generate(expr.upperBound)}}` : ""} ${this.generate(expr.muliplicand)}`,
+          id,
+        );
       case "integral":
+        return this.wrap(
+          `\\int${
+            expr.lowerBound ? `_{${this.generate(expr.lowerBound)}}` : ""
+          }${expr.upperBound ? `^{${this.generate(expr.upperBound)}}` : ""} ${
+            expr.variable && expr.differentialSlot === "prefix"
+              ? `\\mathrm{d}{${this.generate(expr.variable)}} ${this.generate(expr.integrand)}`
+              : expr.variable
+                ? `${this.generate(expr.integrand)} \\,\\mathrm{d}{${this.generate(expr.variable)}}`
+                : this.generate(expr.integrand)
+          }`,
+          id,
+        );
       case "uniterated_integral":
+        return this.wrap(
+          `\\int ${this.generate(expr.integrand)}${
+            expr.variable
+              ? ` \\,\\mathrm{d}{${this.generate(expr.variable)}}`
+              : ""
+          }`,
+          id,
+        );
       case "closed_integral":
+        return this.wrap(
+          `\\oint ${this.generate(expr.integrand)}${
+            expr.variable
+              ? ` \\,\\mathrm{d}{${this.generate(expr.variable)}}`
+              : ""
+          }`,
+          id,
+        );
       case "multiple_integral":
+        return this.wrap(
+          `${"\\int".repeat(expr.order)} ${this.generate(expr.integrand)}${
+            expr.variable
+              ? ` \\,\\mathrm{d}{${this.generate(expr.variable)}}`
+              : ""
+          }`,
+          id,
+        );
       case "differential":
+        return this.wrap(`\\mathrm{d}{${this.generate(expr.variable)}}`, id);
       case "partial_derivative":
-      case "display_group":
+        return this.wrap(
+          `\\frac{\\partial{${this.generate(expr.quantity)}}}{\\partial{${this.generate(expr.variable)}}}`,
+          id,
+        );
+      case "display_group": {
+        const [open, close] = this.delimiterPair(expr.delimiter);
+        return this.wrap(
+          `\\left${open}${this.generate(expr.expression)}\\right${close}`,
+          id,
+        );
+      }
       case "second_order_partial_derivative":
+        return this.wrap(
+          `\\frac{\\partial^{${expr.degree}}{${this.generate(expr.dependentVariable)}}}{${expr.independentVariables
+            .map((variable) => `\\partial{${this.generate(variable)}}`)
+            .join(" ")}}`,
+          id,
+        );
       case "raw_mathjson":
+        return this.wrap(`\\text{raw_mathjson:${expr.reason}}`, id);
       case "partial_at_const_quantity":
+        return this.wrap(
+          `\\left(${this.generate({
+            kind: "partial_derivative",
+            quantity: expr.quantity,
+            variable: expr.variable,
+          })}\\right)_{${this.generate(expr.constantQuantity)}}`,
+          id,
+        );
       case "immutable_expression":
+        return this.wrap(expr.latex, id);
       case "invalid_input":
-        throw new Error(`Unsupported expression kind: ${this.expr.kind}`);
+        return this.wrap(expr.latex, id);
     }
   }
 }

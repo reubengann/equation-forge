@@ -149,4 +149,160 @@ describe("exprToLatex", () => {
       '\\htmlData{node-id="n1"}{\\htmlData{node-id="n2"}{a} = \\htmlData{node-id="n3"}{\\text{const.}}}',
     );
   });
+
+  it("converts absolute value", () => {
+    const expr = parseLatexToExpr(String.raw`|a|`);
+    const latex = exprToLatex(expr, true);
+    expect(latex).toBe(
+      '\\htmlData{node-id="n1"}{|\\htmlData{node-id="n2"}{a}|}',
+    );
+  });
+
+  it("converts vector", () => {
+    const expr = parseLatexToExpr(String.raw`\vec{a}`);
+    const latex = exprToLatex(expr, true);
+    expect(latex).toBe(
+      '\\htmlData{node-id="n1"}{\\vec{\\htmlData{node-id="n2"}{a}}}',
+    );
+  });
+
+  it("converts hat", () => {
+    const expr = parseLatexToExpr(String.raw`\hat{a}`);
+    const latex = exprToLatex(expr, true);
+    expect(latex).toBe(
+      '\\htmlData{node-id="n1"}{\\hat{\\htmlData{node-id="n2"}{a}}}',
+    );
+  });
+
+  it("converts dot product", () => {
+    const expr = parseLatexToExpr(String.raw`\vec{v} \cdot b \vec{w}`);
+    const latex = exprToLatex(expr, true);
+    expect(latex).toBe(
+      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{\vec{\htmlData{node-id="n3"}{v}}} \cdot \htmlData{node-id="n4"}{\htmlData{node-id="n5"}{b} \htmlData{node-id="n6"}{\vec{\htmlData{node-id="n7"}{w}}}}}`,
+    );
+  });
+
+  it("converts cross product", () => {
+    const expr = parseLatexToExpr(String.raw`\vec{v} \times b \vec{w}`);
+    const latex = exprToLatex(expr, true);
+    expect(latex).toBe(
+      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{\vec{\htmlData{node-id="n3"}{v}}} \times \htmlData{node-id="n4"}{\htmlData{node-id="n5"}{b} \htmlData{node-id="n6"}{\vec{\htmlData{node-id="n7"}{w}}}}}`,
+    );
+  });
+
+  it("converts dotted expression", () => {
+    const expr = parseLatexToExpr(String.raw`\dot{x}`);
+    const latex = exprToLatex(expr, true);
+    expect(latex).toBe(
+      String.raw`\htmlData{node-id="n1"}{\dot{\htmlData{node-id="n2"}{x}}}`,
+    );
+  });
+
+  it("convert primed expression", () => {
+    const expr = parseLatexToExpr(String.raw`x'`);
+    const latex = exprToLatex(expr, true);
+    expect(latex).toBe(
+      String.raw`\htmlData{node-id="n1"}{\htmlData{node-id="n2"}{x}'}`,
+    );
+  });
+
+  it("converts script font", () => {
+    const expr = parseLatexToExpr(String.raw`\mathscr{A}`);
+    const latex = exprToLatex(expr, true);
+    expect(latex).toBe(
+      String.raw`\htmlData{node-id="n1"}{\mathscr{\htmlData{node-id="n2"}{A}}}`,
+    );
+  });
+
+  it("converts calligraphic font", () => {
+    const expr = parseLatexToExpr(String.raw`\mathcal{A}`);
+    const latex = exprToLatex(expr, true);
+    expect(latex).toBe(
+      String.raw`\htmlData{node-id="n1"}{\mathcal{\htmlData{node-id="n2"}{A}}}`,
+    );
+  });
+
+  it("converts blackboard font", () => {
+    const expr = parseLatexToExpr(String.raw`\mathbb{A}`);
+    const latex = exprToLatex(expr, true);
+    expect(latex).toBe(
+      String.raw`\htmlData{node-id="n1"}{\mathbb{\htmlData{node-id="n2"}{A}}}`,
+    );
+  });
+
+  it("converts big sum without tags", () => {
+    const expr = parseLatexToExpr(String.raw`\sum_{i=1}^{n} x_i`);
+    const latex = exprToLatex(expr, false);
+    expect(latex).toBe(String.raw`\sum_{1}^{n} x_i`);
+  });
+
+  it("converts big product without tags", () => {
+    const expr = parseLatexToExpr(String.raw`\prod_{i=1}^{n} x_i`);
+    const latex = exprToLatex(expr, false);
+    expect(latex).toBe(String.raw`\prod_{1}^{n} x_i`);
+  });
+
+  it("converts integral with bounds without tags", () => {
+    const expr = parseLatexToExpr(String.raw`\int_{0}^{x} a \,\mathrm{d}{x}`);
+    const latex = exprToLatex(expr, false);
+    expect(latex).toBe(String.raw`\int_{0}^{x} a \,\mathrm{d}{x}`);
+  });
+
+  it("converts uniterated integral without tags", () => {
+    const expr = parseLatexToExpr(String.raw`\int ds`);
+    const latex = exprToLatex(expr, false);
+    expect(latex).toBe(String.raw`\int \mathrm{d}{s}`);
+  });
+
+  it("converts closed and multiple integrals without tags", () => {
+    const closedExpr = parseLatexToExpr(String.raw`\oint ds`);
+    const multipleExpr = parseLatexToExpr(String.raw`\iint ds`);
+    expect(exprToLatex(closedExpr, false)).toBe(
+      String.raw`\oint \mathrm{d}{s}`,
+    );
+    expect(exprToLatex(multipleExpr, false)).toBe(
+      String.raw`\int\int \mathrm{d}{s}`,
+    );
+  });
+
+  it("converts differential and partial derivative without tags", () => {
+    const differentialExpr = parseLatexToExpr(String.raw`dx`);
+    const partialExpr = parseLatexToExpr(
+      String.raw`\frac{\partial{s}}{\partial{T}}`,
+    );
+    expect(exprToLatex(differentialExpr, false)).toBe(
+      String.raw`\mathrm{d}{x}`,
+    );
+    expect(exprToLatex(partialExpr, false)).toBe(
+      String.raw`\frac{\partial{s}}{\partial{T}}`,
+    );
+  });
+
+  it("converts display groups without tags", () => {
+    const expr = parseLatexToExpr(String.raw`(a+b)`);
+    const latex = exprToLatex(expr, false);
+    expect(latex).toBe(String.raw`\left(a + b\right)`);
+  });
+
+  it("converts second-order partial and partial-at-constant without tags", () => {
+    const secondOrderExpr = parseLatexToExpr(
+      String.raw`\frac{\partial^{2}{s}}{\partial{P} \partial{T}}`,
+    );
+    const atConstExpr = parseLatexToExpr(
+      String.raw`\left(\frac{\partial{s}}{\partial{T}}\right)_{P}`,
+    );
+    expect(exprToLatex(secondOrderExpr, false)).toBe(
+      String.raw`\frac{\partial^{2}{s}}{\partial{P} \partial{T}}`,
+    );
+    expect(exprToLatex(atConstExpr, false)).toBe(
+      String.raw`\left(\frac{\partial{s}}{\partial{T}}\right)_{P}`,
+    );
+  });
+
+  it("passes through immutable and invalid input without tags", () => {
+    const immutable = parseLatexToExpr("");
+    const invalid = parseLatexToExpr(String.raw`\frac{a + b}{c + d`);
+    expect(exprToLatex(immutable, false)).toBe("");
+    expect(exprToLatex(invalid, false)).toBe(String.raw`\frac{a + b}{c + d`);
+  });
 });
