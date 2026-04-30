@@ -120,4 +120,33 @@ describe("exprToLatex", () => {
       '\\htmlData{node-id="n1"}{\\htmlData{node-id="n2"}{a} < \\htmlData{node-id="n3"}{b}}',
     );
   });
+
+  it("converts call with proper delimiter", () => {
+    for (const [input, expected] of [
+      [
+        String.raw`\sin(x)`,
+        String.raw`\htmlData{node-id="n1"}{\sin\left(\htmlData{node-id="n2"}{x}\right)}`,
+      ],
+      [
+        String.raw`\cos x`,
+        String.raw`\htmlData{node-id="n1"}{\cos \htmlData{node-id="n2"}{x}} `,
+      ],
+      [
+        String.raw`\tan[x]`,
+        String.raw`\htmlData{node-id="n1"}{\tan\left[\htmlData{node-id="n2"}{x}\right]}`,
+      ],
+    ]) {
+      const expr = parseLatexToExpr(input);
+      const latex = exprToLatex(expr, true);
+      expect(latex).toBe(expected);
+    }
+  });
+
+  it("converts text", () => {
+    const expr = parseLatexToExpr(String.raw`a = \text{const.}`);
+    const latex = exprToLatex(expr, true);
+    expect(latex).toBe(
+      '\\htmlData{node-id="n1"}{\\htmlData{node-id="n2"}{a} = \\htmlData{node-id="n3"}{\\text{const.}}}',
+    );
+  });
 });

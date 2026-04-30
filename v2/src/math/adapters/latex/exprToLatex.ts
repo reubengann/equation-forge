@@ -83,7 +83,30 @@ class LatexGenerator {
             );
         }
       case "call":
+        if (expr.callee.kind !== "symbol") {
+          throw new Error(`Unsupported callee kind: ${expr.callee.kind}`);
+        }
+        switch (expr.delimiter) {
+          case "paren":
+            return this.wrap(
+              `\\${expr.callee.name}\\left(${expr.args.map((x) => this.generate(x)).join(", ")}\\right)`,
+              id,
+            );
+          case "bracket":
+            return this.wrap(
+              `\\${expr.callee.name}\\left[${expr.args.map((x) => this.generate(x)).join(", ")}\\right]`,
+              id,
+            );
+          case "bare":
+            return (
+              this.wrap(
+                `\\${expr.callee.name} ${expr.args.map((x) => this.generate(x)).join(", ")}`,
+                id,
+              ) + " "
+            );
+        }
       case "text":
+        return this.wrap(`\\text{${expr.text}}`, id);
       case "absolute_value":
       case "vector":
       case "hat":
