@@ -63,6 +63,7 @@ export type FunctionCallExpr = {
   kind: "call";
   callee: Expr;
   args: Expr[];
+  delimiter: "paren" | "bracket" | "bare";
 };
 
 export type TextExpr = {

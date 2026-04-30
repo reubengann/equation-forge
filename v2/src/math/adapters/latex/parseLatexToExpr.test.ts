@@ -542,4 +542,37 @@ describe("parseLatexToExpr", () => {
     expectExprKind(expr, "invalid_input");
     expect(expr.error).toBe('Unclosed fraction started at "\\frac{a + ...)');
   });
+
+  it("preserves call argument delimiter", () => {
+    for (const [latex, delimiter] of [
+      [String.raw`\sin(x)`, "paren"],
+      [String.raw`\cos x`, "bare"],
+      [String.raw`\tan[x]`, "bracket"],
+    ] as const) {
+      const expr = parseLatexToExpr(latex);
+      expectExprKind(expr, "call");
+      expect(expr.delimiter).toBe(delimiter);
+    }
+  });
+
+  it("correctly parses callee macro", () => {
+    const expr = parseLatexToExpr(String.raw`\exp \mathscr{H}`);
+    expectExprKind(expr, "call");
+    expectExprKind(expr.callee, "symbol");
+    expect(expr.callee.name).toBe("exp");
+    expect(expr.delimiter).toBe("bare");
+    expect(expr.args).toHaveLength(1);
+    expectExprKind(expr.args[0], "special_font");
+    expect(expr.args[0].font).toBe("script");
+    expectExprKind(expr.args[0].value, "symbol");
+    expect(expr.args[0].value.name).toBe("H");
+  });
+
+  it("rejects calls with mismatched delimiters", () => {
+    const expr = parseLatexToExpr(String.raw`\sin(x]`);
+    expectExprKind(expr, "immutable_expression");
+    expect(expr.error).toBe(
+      "function call sin started with delimiter ( but ends with ]. This is not supported.",
+    );
+  });
 });

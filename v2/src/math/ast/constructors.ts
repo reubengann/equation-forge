@@ -41,10 +41,15 @@ export const inequality = (
   rhs,
 });
 
-export const call = (callee: Expr, args: Expr[]): Expr => ({
+export const call = (
+  callee: Expr,
+  args: Expr[],
+  delimiter: "paren" | "bracket" | "bare" = "bare",
+): Expr => ({
   kind: "call",
   callee,
   args,
+  delimiter,
 });
 
 export const text = (value: string): Expr => ({

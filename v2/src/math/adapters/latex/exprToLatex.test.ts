@@ -112,4 +112,12 @@ describe("exprToLatex", () => {
       '\\htmlData{node-id="n1"}{\\htmlData{node-id="n2"}{a} = \\htmlData{node-id="n3"}{b}}',
     );
   });
+
+  it("wraps inequality", () => {
+    const expr = parseLatexToExpr(String.raw`a < b`);
+    const latex = exprToLatex(expr, true);
+    expect(latex).toBe(
+      '\\htmlData{node-id="n1"}{\\htmlData{node-id="n2"}{a} < \\htmlData{node-id="n3"}{b}}',
+    );
+  });
 });

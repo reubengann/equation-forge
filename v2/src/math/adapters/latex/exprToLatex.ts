@@ -64,6 +64,24 @@ class LatexGenerator {
           id,
         );
       case "inequality":
+        switch (expr.operator) {
+          case "lt":
+            return this.wrap(
+              `${this.generate(expr.lhs)} < ${this.generate(expr.rhs)}`,
+              id,
+            );
+          case "gt":
+            return this.wrap(
+              `${this.generate(expr.lhs)} > ${this.generate(expr.rhs)}`,
+              id,
+            );
+          case "geq":
+          case "leq":
+            return this.wrap(
+              `${this.generate(expr.lhs)} \${expr.operator} ${this.generate(expr.rhs)}`,
+              id,
+            );
+        }
       case "call":
       case "text":
       case "absolute_value":

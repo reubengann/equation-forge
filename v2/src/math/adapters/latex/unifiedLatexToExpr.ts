@@ -679,6 +679,13 @@ class TokenParser {
     return false;
   }
 
+  private delimiterFromArgExpr(expr: Expr): "paren" | "bracket" | "bare" {
+    if (expr.kind !== "display_group") return "bare";
+    if (expr.delimiter === "paren") return "paren";
+    if (expr.delimiter === "bracket") return "bracket";
+    return "bare";
+  }
+
   private parseFromSlice(tokens: Token[]): Expr {
     return new TokenParser(tokens, this.sourceLatex).parseEquation();
   }
@@ -697,6 +704,15 @@ class TokenParser {
     const previewStart = startIndex >= 0 ? startIndex : 0;
     const preview = source.slice(previewStart, previewStart + 5);
     return `Unclosed delimiter ${open} started at "${preview}...)`;
+  }
+
+  private functionCallDelimiterMismatchMessage(
+    functionName: string,
+    expectedClose: string,
+    actualClose: string,
+  ): string {
+    const open = this.openDelimiterFromClose(expectedClose);
+    return `function call ${functionName} started with delimiter ${open} but ends with ${actualClose}. This is not supported.`;
   }
 
   private parseSubscriptExpr(token: Token): Expr | null {
@@ -1299,11 +1315,38 @@ class TokenParser {
     if (token.kind === "symbol") {
       const tokenName = token.name;
       const next = this.peek();
-      if (FUNCTION_MACROS.has(tokenName) && next?.kind === "open_group") {
-        const argExpr = this.parsePrimary();
-        const arg =
-          argExpr.kind === "display_group" ? argExpr.expression : argExpr;
-        return call(sym(tokenName), [arg]);
+      if (FUNCTION_MACROS.has(tokenName)) {
+        if (next?.kind === "open_group") {
+          const groupToken = this.next();
+          if (!groupToken || groupToken.kind !== "open_group") return sym("missing");
+          const inner = this.parseAdditive();
+          const maybeClose = this.peek();
+          if (maybeClose?.kind === "close_group") {
+            if (maybeClose.value === groupToken.close) {
+              this.next();
+            } else {
+              throw new UnsupportedLatexError(
+                this.functionCallDelimiterMismatchMessage(
+                  tokenName,
+                  groupToken.close,
+                  maybeClose.value,
+                ),
+              );
+            }
+          } else {
+            throw new UnsupportedLatexError(
+              this.unclosedDelimiterErrorMessage(groupToken.close),
+            );
+          }
+          const delimiter = this.delimiterFromArgExpr(
+            displayGroup(groupToken.delimiter, inner),
+          );
+          return call(sym(tokenName), [inner], delimiter);
+        }
+        if (this.canStartPrimary(next)) {
+          const argExpr = this.parseUnary();
+          return call(sym(tokenName), [argExpr], "bare");
+        }
       }
       return sym(tokenName);
     }
