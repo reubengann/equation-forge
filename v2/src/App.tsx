@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import EditorEntryToggle from "./EditorEntryToggle";
 import type { EventFixture, ExportedEvent } from "./interaction/eventFixture";
 import type { SelectionGeometry } from "./interaction/selectionController";
+import type { CompiledMathDocument } from "./math/compile/compileMathDocument";
 import { TestRecorder, type TestRecorderEvent } from "./TestRecorder";
 
 async function saveFixtureJson(fixture: EventFixture): Promise<void> {
@@ -62,6 +63,7 @@ async function saveFixtureJson(fixture: EventFixture): Promise<void> {
 
 function App() {
   const recorderRef = useRef<TestRecorder>(new TestRecorder());
+  const compiledDocumentRef = useRef<CompiledMathDocument | null>(null);
   const selectedNodeIdRef = useRef<string | null>(null);
   const lastDomSnapshotKeyRef = useRef<string | null>(null);
   const [recordedEvents, setRecordedEvents] = useState<TestRecorderEvent[]>([]);
@@ -260,6 +262,9 @@ function App() {
             selectedNodeIdRef.current = nodeId;
             setSelectedNodeId(nodeId);
           }
+        }}
+        onCompiledDocumentChanged={(doc) => {
+          compiledDocumentRef.current = doc;
         }}
         onDomSnapshotObserved={handleDomSnapshotObserved}
         onLatexAccepted={(payload) => {

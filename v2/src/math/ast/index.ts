@@ -1,4 +1,6 @@
 export type { DelimiterKind, Expr } from "./expr";
+export type { CompiledExprIndex } from "./compiledIndex";
+export { buildCompiledExprIndex } from "./compiledIndex";
 export {
   add,
   absoluteValue,

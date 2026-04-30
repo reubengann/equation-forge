@@ -246,11 +246,7 @@ class LatexGenerator {
         );
       case "partial_at_const_quantity":
         return this.wrap(
-          `\\left(${this.generate({
-            kind: "partial_derivative",
-            quantity: expr.quantity,
-            variable: expr.variable,
-          })}\\right)_{${this.generate(expr.constantQuantity)}}`,
+          `\\left(\\frac{\\partial{${this.generate(expr.quantity)}}}{\\partial{${this.generate(expr.variable)}}}\\right)_{${this.generate(expr.constantQuantity)}}`,
           id,
         );
       case "immutable_expression":
