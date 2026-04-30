@@ -1,8 +1,10 @@
 import { useCallback, useRef, useState } from "react";
 import EditorEntryToggle from "./EditorEntryToggle";
 import type { EventFixture, ExportedEvent } from "./interaction/eventFixture";
-import type { SelectionGeometry } from "./interaction/selectionController";
-import type { CompiledMathDocument } from "./math/compile/compileMathDocument";
+import type {
+  DomSnapshotObservedPayload,
+  SelectionGeometry,
+} from "./interaction/selectionController";
 import { TestRecorder, type TestRecorderEvent } from "./TestRecorder";
 
 async function saveFixtureJson(fixture: EventFixture): Promise<void> {
@@ -12,7 +14,13 @@ async function saveFixtureJson(fixture: EventFixture): Promise<void> {
   const pickerHost = globalThis as typeof globalThis & {
     showSaveFilePicker?: (options?: {
       id?: string;
-      startIn?: "downloads" | "documents" | "desktop" | "pictures" | "music" | "videos";
+      startIn?:
+        | "downloads"
+        | "documents"
+        | "desktop"
+        | "pictures"
+        | "music"
+        | "videos";
       excludeAcceptAllOption?: boolean;
       suggestedName?: string;
       types?: Array<{ description: string; accept: Record<string, string[]> }>;
@@ -47,10 +55,7 @@ async function saveFixtureJson(fixture: EventFixture): Promise<void> {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  const enteredName = window.prompt(
-    "Save As filename",
-    defaultFileName,
-  );
+  const enteredName = window.prompt("Save As filename", defaultFileName);
   const normalizedName = enteredName?.trim() || defaultFileName;
   a.download = normalizedName.toLowerCase().endsWith(".json")
     ? normalizedName
@@ -63,9 +68,9 @@ async function saveFixtureJson(fixture: EventFixture): Promise<void> {
 
 function App() {
   const recorderRef = useRef<TestRecorder>(new TestRecorder());
-  const compiledDocumentRef = useRef<CompiledMathDocument | null>(null);
   const selectedNodeIdRef = useRef<string | null>(null);
-  const lastDomSnapshotKeyRef = useRef<string | null>(null);
+  const lastDomSnapshotIdRef = useRef<string | null>(null);
+  const snapshotByIdRef = useRef<Record<string, SelectionGeometry>>({});
   const [recordedEvents, setRecordedEvents] = useState<TestRecorderEvent[]>([]);
   const [recordedEventCount, setRecordedEventCount] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
@@ -172,12 +177,12 @@ function App() {
   const maybeRecordDomChanged = useCallback(
     (
       source: "accept",
+      domSnapshotId: string | null,
       domSnapshot: SelectionGeometry | null,
     ) => {
       if (!isRecording || !domSnapshot) return false;
-      const nextKey = JSON.stringify(domSnapshot);
-      if (lastDomSnapshotKeyRef.current === nextKey) return false;
-      lastDomSnapshotKeyRef.current = nextKey;
+      if (domSnapshotId === lastDomSnapshotIdRef.current) return false;
+      lastDomSnapshotIdRef.current = domSnapshotId;
       recorderRef.current.recordDomChanged({
         source,
         domSnapshot,
@@ -188,8 +193,11 @@ function App() {
   );
 
   const handleDomSnapshotObserved = useCallback(
-    (domSnapshot: SelectionGeometry | null) => {
-      if (maybeRecordDomChanged("accept", domSnapshot)) {
+    ({ domSnapshotId, domSnapshot }: DomSnapshotObservedPayload) => {
+      if (domSnapshotId && domSnapshot) {
+        snapshotByIdRef.current[domSnapshotId] = domSnapshot;
+      }
+      if (maybeRecordDomChanged("accept", domSnapshotId, domSnapshot)) {
         syncRecordedEvents();
       }
     },
@@ -216,7 +224,8 @@ function App() {
               return;
             }
             recorderRef.current.startSession();
-            lastDomSnapshotKeyRef.current = null;
+            lastDomSnapshotIdRef.current = null;
+            snapshotByIdRef.current = {};
             setIsRecording(true);
             setRecordedEvents([]);
             setRecordedEventCount(0);
@@ -258,34 +267,49 @@ function App() {
       <EditorEntryToggle
         selectedNodeId={selectedNodeId}
         onSelectionChanged={(nodeId) => {
+          // We do not store selectionchanged events into the recording. This is just for
+          // Showing on the UI for debugging purposes.
           if (selectedNodeIdRef.current !== nodeId) {
             selectedNodeIdRef.current = nodeId;
             setSelectedNodeId(nodeId);
           }
         }}
-        onCompiledDocumentChanged={(doc) => {
-          compiledDocumentRef.current = doc;
-        }}
-        onDomSnapshotObserved={handleDomSnapshotObserved}
+        onDomSnapshotObserved={handleDomSnapshotObserved} // From modifications
         onLatexAccepted={(payload) => {
+          // We can record this ourselves, since we are the actor
           if (!isRecording) return;
           recorderRef.current.recordLatexAccepted(payload);
           syncRecordedEvents();
         }}
-        onNodeClick={(nodeId, clickCount) => {
-          if (!isRecording) return;
-          recorderRef.current.recordNodeClick({ nodeId, clickCount });
-          syncRecordedEvents();
-        }}
         onPointerDownEvent={(payload) => {
           if (isRecording) {
-            recorderRef.current.recordPointerDown(payload);
+            const domSnapshot = payload.domSnapshotId
+              ? snapshotByIdRef.current[payload.domSnapshotId] ?? null
+              : null;
+            recorderRef.current.recordPointerDown({
+              x: payload.x,
+              y: payload.y,
+              domSnapshot,
+              pointerType: payload.pointerType,
+              button: payload.button,
+              buttons: payload.buttons,
+            });
             syncRecordedEvents();
           }
         }}
         onPointerUpEvent={(payload) => {
           if (!isRecording) return;
-          recorderRef.current.recordPointerUp(payload);
+          const domSnapshot = payload.domSnapshotId
+            ? snapshotByIdRef.current[payload.domSnapshotId] ?? null
+            : null;
+          recorderRef.current.recordPointerUp({
+            x: payload.x,
+            y: payload.y,
+            domSnapshot,
+            pointerType: payload.pointerType,
+            button: payload.button,
+            buttons: payload.buttons,
+          });
           syncRecordedEvents();
         }}
       />
@@ -294,33 +318,24 @@ function App() {
         <div> Recorded events: {recordedEventCount} </div>
         <div>
           {recordedEvents
-            .slice()
+            .slice() // Seems goofy, but I need to take the 20 most recent *in reverse order*, so slice(-20, 0) doesn't work
             .reverse()
             .slice(0, 20)
             .map((event: TestRecorderEvent, index) => {
               switch (event.type) {
-                case "node_click":
-                  return (
-                    <div key={`${event.ts}-${index}`}>
-                      {event.type}: Click {event.nodeId} {event.clickKind} (
-                      {event.clickCount}{" "}
-                      {event.clickCount === 1 ? "time" : "times"})
-                    </div>
-                  );
                 case "pointer_down":
                   return (
                     <div key={`${event.ts}-${index}`}>
-                      {event.type}: Pointer down{" "}
-                      {event.pointer.x} {event.pointer.y} {event.pointerType}{" "}
-                      {event.button} {event.buttons} rects=
+                      {event.type}: Pointer down {event.pointer.x}{" "}
+                      {event.pointer.y} {event.pointerType} {event.button}{" "}
+                      {event.buttons} rects=
                       {event.domSnapshot?.nodeRects.length ?? 0}
                     </div>
                   );
                 case "pointer_up":
                   return (
                     <div key={`${event.ts}-${index}`}>
-                      {event.type}: Pointer up{" "}
-                      {event.pointer.x} rects=
+                      {event.type}: Pointer up {event.pointer.x} rects=
                       {event.domSnapshot?.nodeRects.length ?? 0}{" "}
                     </div>
                   );

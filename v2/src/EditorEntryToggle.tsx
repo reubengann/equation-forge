@@ -1,43 +1,13 @@
 import { MathfieldElement } from "mathlive";
-import {
-  type SyntheticEvent,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type SyntheticEvent, useRef, useState } from "react";
 import { EquationEditor } from "./EquationEditor";
-import {
-  collectNodeRectsFromMathDiv,
-  resolveSelectionGeometry,
-  resolveSelectedNodeIdFromEvent,
-  type SelectionGeometry,
+import type {
+  DomSnapshotObservedPayload,
+  PointerEventPayload,
 } from "./interaction/selectionController";
-import {
-  compileMathDocument,
-  type CompiledMathDocument,
-  resolveCompiledNodeId,
-} from "./math/compile/compileMathDocument";
 import { MathliveEditor } from "./MathliveEditor";
 
 MathfieldElement.fontsDirectory = "/fonts";
-
-type PointerEventPayload = {
-  x: number;
-  y: number;
-  domSnapshot: SelectionGeometry | null;
-  pointerType: string;
-  button: number;
-  buttons: number;
-};
-
-type RawPointerEventPayload = {
-  x: number;
-  y: number;
-  pointerType: string;
-  button: number;
-  buttons: number;
-};
 
 type EditorEntryToggleProps = {
   selectedNodeId: string | null;
@@ -46,11 +16,9 @@ type EditorEntryToggleProps = {
     previousLatex: string | null;
     nextLatex: string;
   }) => void;
-  onNodeClick: (nodeId: string | null, clickCount: number) => void;
   onPointerDownEvent: (payload: PointerEventPayload) => void;
   onPointerUpEvent: (payload: PointerEventPayload) => void;
-  onDomSnapshotObserved: (payload: PointerEventPayload["domSnapshot"]) => void;
-  onCompiledDocumentChanged?: (doc: CompiledMathDocument) => void;
+  onDomSnapshotObserved: (payload: DomSnapshotObservedPayload) => void;
 };
 
 export function EditorEntryToggle({
@@ -60,50 +28,12 @@ export function EditorEntryToggle({
   onPointerDownEvent,
   onPointerUpEvent,
   onDomSnapshotObserved,
-  onCompiledDocumentChanged,
 }: EditorEntryToggleProps) {
   const [latex, setLatex] = useState(String.raw`a+b=c`);
   const [showMathDisplay, setShowMathDisplay] = useState(false);
   const lastAcceptedLatexRef = useRef<string | null>(null);
-  const mathDivRef = useRef<HTMLElement | null>(null);
+  const canonicalLatexRef = useRef(latex);
   const slotRef = useRef<HTMLDivElement | null>(null);
-  const compiledDoc = useMemo(() => compileMathDocument(latex), [latex]);
-
-  useEffect(() => {
-    onCompiledDocumentChanged?.(compiledDoc);
-  }, [compiledDoc, onCompiledDocumentChanged]);
-
-  useEffect(() => {
-    if (!showMathDisplay) return;
-    const mathDiv = mathDivRef.current as
-      | (HTMLElement & { value?: string; render?: () => void })
-      | null;
-    if (!mathDiv) return;
-    // Render AST-generated tagged latex so every serializable node has a stable id.
-    mathDiv.setAttribute("virtual-keyboard-mode", "off");
-    mathDiv.value = compiledDoc.taggedLatex;
-    mathDiv.textContent = compiledDoc.taggedLatex;
-    let rafId = 0;
-    let attempts = 0;
-    const maxAttempts = 4;
-    const captureSnapshotWhenReady = () => {
-      attempts += 1;
-      const snapshot = resolveSelectionGeometry(mathDivRef.current);
-      const hasRenderableDom =
-        !!snapshot &&
-        snapshot.hostRect.height > 0 &&
-        snapshot.nodeRects.length > 0;
-      if (hasRenderableDom || attempts >= maxAttempts) {
-        onDomSnapshotObserved(snapshot);
-        return;
-      }
-      rafId = requestAnimationFrame(captureSnapshotWhenReady);
-    };
-    rafId = requestAnimationFrame(captureSnapshotWhenReady);
-    return () => {
-      cancelAnimationFrame(rafId);
-    };
-  }, [showMathDisplay, compiledDoc, onDomSnapshotObserved]);
 
   const updateMathFieldValue = (event: SyntheticEvent<HTMLElement>) => {
     const nextValue =
@@ -111,39 +41,16 @@ export function EditorEntryToggle({
     setLatex(nextValue);
   };
 
-  const handlePointerDown = (payload: RawPointerEventPayload) => {
-    const nodeRects = collectNodeRectsFromMathDiv(mathDivRef.current);
-    const rawNodeId = resolveSelectedNodeIdFromEvent(
-      null,
-      { type: "pointer_down", pointer: { x: payload.x, y: payload.y } },
-      nodeRects,
-    );
-    const nodeId = resolveCompiledNodeId(compiledDoc, rawNodeId);
-    const domSnapshot = resolveSelectionGeometry(mathDivRef.current);
-    onPointerDownEvent({
-      ...payload,
-      domSnapshot,
-    });
-    onSelectionChanged(nodeId);
-  };
-
-  const handlePointerUp = (payload: RawPointerEventPayload) => {
-    const domSnapshot = resolveSelectionGeometry(mathDivRef.current);
-    onPointerUpEvent({
-      ...payload,
-      domSnapshot,
-    });
-  };
-
   const handleAcceptToggle = () => {
     if (!showMathDisplay) {
       const previousLatex = lastAcceptedLatexRef.current;
-      setLatex(compiledDoc.plainLatex);
+      const nextLatex = canonicalLatexRef.current;
+      setLatex(nextLatex);
       onLatexAccepted({
         previousLatex,
-        nextLatex: compiledDoc.plainLatex,
+        nextLatex,
       });
-      lastAcceptedLatexRef.current = compiledDoc.plainLatex;
+      lastAcceptedLatexRef.current = nextLatex;
     }
     setShowMathDisplay((prev) => !prev);
   };
@@ -170,11 +77,15 @@ export function EditorEntryToggle({
       >
         {showMathDisplay ? (
           <EquationEditor
-            mathDivRef={mathDivRef}
-            latex={compiledDoc.taggedLatex}
+            latex={latex}
             selectedNodeId={selectedNodeId}
-            onPointerDownEvent={handlePointerDown}
-            onPointerUpEvent={handlePointerUp}
+            onSelectionChanged={onSelectionChanged}
+            onPointerDownEvent={onPointerDownEvent}
+            onPointerUpEvent={onPointerUpEvent}
+            onDomSnapshotObserved={onDomSnapshotObserved}
+            onCanonicalLatexChanged={(nextLatex) => {
+              canonicalLatexRef.current = nextLatex;
+            }}
           />
         ) : (
           <MathliveEditor

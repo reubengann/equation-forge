@@ -1,6 +1,5 @@
 import type { SelectionGeometry } from "./interaction/selectionController";
 
-export type ClickKind = "single" | "double" | "multi";
 export type PointerPhase = "pointer_down" | "pointer_up";
 
 export type PointerEventRecord = {
@@ -10,14 +9,6 @@ export type PointerEventRecord = {
   pointerType: string;
   button: number;
   buttons: number;
-  ts: number;
-};
-
-export type NodeClickEvent = {
-  type: "node_click";
-  nodeId: string | null;
-  clickCount: number;
-  clickKind: ClickKind;
   ts: number;
 };
 
@@ -36,16 +27,9 @@ export type DomChangedEvent = {
 };
 
 export type TestRecorderEvent =
-  | NodeClickEvent
   | PointerEventRecord
   | LatexAcceptedEvent
   | DomChangedEvent;
-
-function toClickKind(clickCount: number): ClickKind {
-  if (clickCount <= 1) return "single";
-  if (clickCount === 2) return "double";
-  return "multi";
-}
 
 export class TestRecorder {
   private events: TestRecorderEvent[] = [];
@@ -54,16 +38,6 @@ export class TestRecorder {
   startSession(): void {
     this.events = [];
     this.lastAcceptedLatex = null;
-  }
-
-  recordNodeClick(payload: { nodeId: string | null; clickCount: number }): void {
-    this.events.push({
-      type: "node_click",
-      nodeId: payload.nodeId,
-      clickCount: payload.clickCount,
-      clickKind: toClickKind(payload.clickCount),
-      ts: Date.now(),
-    });
   }
 
   recordPointerDown(payload: {

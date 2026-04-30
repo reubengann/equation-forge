@@ -32,6 +32,20 @@ export type NodeResolutionSource = {
   nodeRects: NodeRect[] | null;
 };
 
+export type PointerEventPayload = {
+  x: number;
+  y: number;
+  domSnapshotId: string | null;
+  pointerType: string;
+  button: number;
+  buttons: number;
+};
+
+export type DomSnapshotObservedPayload = {
+  domSnapshotId: string | null;
+  domSnapshot: SelectionGeometry | null;
+};
+
 /*
  * Selects the smallest node containing the point.
  * In the future, we may wish to use the AST to distinguish between different

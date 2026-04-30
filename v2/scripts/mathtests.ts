@@ -111,7 +111,7 @@ function replayEvents(fixture: EventFixture) {
         state.selectedNodeId = nextSelectedNodeId;
         break;
       }
-      case "node_click":
+      default:
         break;
     }
   }
