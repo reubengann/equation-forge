@@ -1,9 +1,8 @@
 import type { TestRecorderEvent } from "../TestRecorder";
-import type { DomRectSnapshot } from "./selectionController";
+import type { SelectionGeometry } from "./selectionController";
 
 export type ExportedPointerEvent = {
   type: "pointer_down" | "pointer_up";
-  nodeId: string | null;
   pointer: { x: number; y: number };
   domSnapshotId: string | null;
   pointerType: string;
@@ -27,7 +26,7 @@ export type ExportedEvent =
 export type EventFixture = {
   schemaVersion: number;
   exportedAtIso: string;
-  domSnapshots: Record<string, DomRectSnapshot>;
+  domSnapshots: Record<string, SelectionGeometry>;
   events: ExportedEvent[];
   expected: {
     selectedNodeId?: string | null;

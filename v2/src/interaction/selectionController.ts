@@ -3,33 +3,14 @@ type MathDivHost = HTMLElement & { shadowRoot?: ShadowRoot | null };
 export type SelectionEventLike =
   | {
       type: "pointer_down";
-      nodeId?: string | null;
       pointer?: { x: number; y: number };
     }
-  | { type: string; nodeId?: string | null; pointer?: { x: number; y: number } };
+  | {
+      type: string;
+      pointer?: { x: number; y: number };
+    };
 
-export type DomRectSnapshot = {
-  mathDivRect: {
-    left: number;
-    top: number;
-    right: number;
-    bottom: number;
-    width: number;
-    height: number;
-  };
-  nodeRects: Array<{
-    nodeId: string;
-    left: number;
-    top: number;
-    right: number;
-    bottom: number;
-    width: number;
-    height: number;
-  }>;
-};
-
-type RectLike = {
-  nodeId: string;
+export type RectBounds = {
   left: number;
   top: number;
   right: number;
@@ -38,12 +19,21 @@ type RectLike = {
   height: number;
 };
 
-export type NodeResolutionSource =
-  | { kind: "mathDiv"; mathDiv: HTMLElement | null }
-  | { kind: "snapshot"; snapshot: DomRectSnapshot | null };
+export type NodeRect = RectBounds & {
+  nodeId: string;
+};
+
+export type SelectionGeometry = {
+  hostRect: RectBounds;
+  nodeRects: NodeRect[];
+};
+
+export type NodeResolutionSource = {
+  nodeRects: NodeRect[] | null;
+};
 
 function pickNodeIdAtPointFromRects(
-  rects: RectLike[],
+  rects: NodeRect[],
   clientX: number,
   clientY: number,
 ): string | null {
@@ -55,10 +45,7 @@ function pickNodeIdAtPointFromRects(
       clientY >= rect.top &&
       clientY <= rect.bottom;
     if (!contains) continue;
-    const area = Math.max(
-      1,
-      rect.width * rect.height,
-    );
+    const area = Math.max(1, rect.width * rect.height);
     if (!best || area < best.area) {
       best = { id: rect.nodeId, area };
     }
@@ -66,13 +53,17 @@ function pickNodeIdAtPointFromRects(
   return best?.id ?? null;
 }
 
-function collectNodeRectsFromMathDiv(mathDiv: HTMLElement | null): RectLike[] {
+/**
+ * Collects per-node layout rectangles from a rendered math div.
+ * Use this for point-based node resolution (selection hit-testing).
+ */
+export function collectNodeRectsFromMathDiv(
+  mathDiv: HTMLElement | null,
+): NodeRect[] {
   const host = mathDiv as MathDivHost | null;
   const shadowRoot = host?.shadowRoot;
   if (!shadowRoot) return [];
-  return Array.from(
-    shadowRoot.querySelectorAll<HTMLElement>("[data-node-id]"),
-  )
+  return Array.from(shadowRoot.querySelectorAll<HTMLElement>("[data-node-id]"))
     .map((el) => {
       const nodeId = el.dataset.nodeId;
       if (!nodeId) return null;
@@ -90,9 +81,14 @@ function collectNodeRectsFromMathDiv(mathDiv: HTMLElement | null): RectLike[] {
     .filter((item): item is NonNullable<typeof item> => item !== null);
 }
 
-export function resolveDomRectSnapshot(
+/**
+ * Captures full geometry for a rendered math div:
+ * the host bounds plus all node rectangles.
+ * Useful for recording/replay fixtures and diagnostics.
+ */
+export function resolveSelectionGeometry(
   mathDiv: HTMLElement | null,
-): DomRectSnapshot | null {
+): SelectionGeometry | null {
   if (!mathDiv) return null;
   const host = mathDiv as MathDivHost;
   const shadowRoot = host.shadowRoot;
@@ -102,7 +98,7 @@ export function resolveDomRectSnapshot(
   const nodeRects = collectNodeRectsFromMathDiv(mathDiv);
 
   return {
-    mathDivRect: {
+    hostRect: {
       left: rect.left,
       top: rect.top,
       right: rect.right,
@@ -114,30 +110,23 @@ export function resolveDomRectSnapshot(
   };
 }
 
-function resolveNodeIdAtPoint(
-  source: NodeResolutionSource,
-  clientX: number,
-  clientY: number,
-): string | null {
-  if (source.kind === "snapshot") {
-    return pickNodeIdAtPointFromRects(source.snapshot?.nodeRects ?? [], clientX, clientY);
-  }
-  return pickNodeIdAtPointFromRects(
-    collectNodeRectsFromMathDiv(source.mathDiv),
-    clientX,
-    clientY,
-  );
-}
-
+/**
+ * Computes the next selected node id for a UI event.
+ * For pointer_down, resolves from pointer coordinates against provided node
+ * rectangles.
+ */
 export function resolveSelectedNodeIdFromEvent(
   currentSelectedNodeId: string | null,
   event: SelectionEventLike,
-  source?: NodeResolutionSource,
+  nodeRects: NodeRect[],
 ): string | null {
   if (event.type === "pointer_down") {
-    if (event.nodeId !== undefined) return event.nodeId ?? null;
-    if (event.pointer && source) {
-      return resolveNodeIdAtPoint(source, event.pointer.x, event.pointer.y);
+    if (event.pointer) {
+      return pickNodeIdAtPointFromRects(
+        nodeRects,
+        event.pointer.x,
+        event.pointer.y,
+      );
     }
     return null;
   }

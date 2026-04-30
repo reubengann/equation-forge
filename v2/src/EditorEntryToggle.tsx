@@ -8,8 +8,10 @@ import {
 } from "react";
 import { EquationEditor } from "./EquationEditor";
 import {
-  resolveDomRectSnapshot,
+  collectNodeRectsFromMathDiv,
+  resolveSelectionGeometry,
   resolveSelectedNodeIdFromEvent,
+  type SelectionGeometry,
 } from "./interaction/selectionController";
 import { exprToLatex } from "./math/adapters/latex/exprToLatex";
 import { parseLatexToExpr } from "./math/adapters/latex/parseLatexToExpr";
@@ -18,28 +20,9 @@ import { MathliveEditor } from "./MathliveEditor";
 MathfieldElement.fontsDirectory = "/fonts";
 
 type PointerEventPayload = {
-  nodeId: string | null;
   x: number;
   y: number;
-  domSnapshot: {
-    mathDivRect: {
-      left: number;
-      top: number;
-      right: number;
-      bottom: number;
-      width: number;
-      height: number;
-    };
-    nodeRects: Array<{
-      nodeId: string;
-      left: number;
-      top: number;
-      right: number;
-      bottom: number;
-      width: number;
-      height: number;
-    }>;
-  } | null;
+  domSnapshot: SelectionGeometry | null;
   pointerType: string;
   button: number;
   buttons: number;
@@ -55,6 +38,7 @@ type RawPointerEventPayload = {
 
 type EditorEntryToggleProps = {
   selectedNodeId: string | null;
+  onSelectionChanged: (nodeId: string | null) => void;
   onLatexAccepted: (payload: {
     previousLatex: string | null;
     nextLatex: string;
@@ -67,6 +51,7 @@ type EditorEntryToggleProps = {
 
 export function EditorEntryToggle({
   selectedNodeId,
+  onSelectionChanged,
   onLatexAccepted,
   onNodeClick,
   onPointerDownEvent,
@@ -79,8 +64,14 @@ export function EditorEntryToggle({
   const mathDivRef = useRef<HTMLElement | null>(null);
   const slotRef = useRef<HTMLDivElement | null>(null);
   const parsedExpr = useMemo(() => parseLatexToExpr(latex), [latex]);
-  const plainLatex = useMemo(() => exprToLatex(parsedExpr, false), [parsedExpr]);
-  const taggedLatex = useMemo(() => exprToLatex(parsedExpr, true), [parsedExpr]);
+  const plainLatex = useMemo(
+    () => exprToLatex(parsedExpr, false),
+    [parsedExpr],
+  );
+  const taggedLatex = useMemo(
+    () => exprToLatex(parsedExpr, true),
+    [parsedExpr],
+  );
 
   useEffect(() => {
     if (!showMathDisplay) return;
@@ -97,10 +88,10 @@ export function EditorEntryToggle({
     const maxAttempts = 4;
     const captureSnapshotWhenReady = () => {
       attempts += 1;
-      const snapshot = resolveDomRectSnapshot(mathDivRef.current);
+      const snapshot = resolveSelectionGeometry(mathDivRef.current);
       const hasRenderableDom =
         !!snapshot &&
-        snapshot.mathDivRect.height > 0 &&
+        snapshot.hostRect.height > 0 &&
         snapshot.nodeRects.length > 0;
       if (hasRenderableDom || attempts >= maxAttempts) {
         onDomSnapshotObserved(snapshot);
@@ -121,29 +112,24 @@ export function EditorEntryToggle({
   };
 
   const handlePointerDown = (payload: RawPointerEventPayload) => {
+    const nodeRects = collectNodeRectsFromMathDiv(mathDivRef.current);
     const nodeId = resolveSelectedNodeIdFromEvent(
       null,
       { type: "pointer_down", pointer: { x: payload.x, y: payload.y } },
-      { kind: "mathDiv", mathDiv: mathDivRef.current },
+      nodeRects,
     );
-    const domSnapshot = resolveDomRectSnapshot(mathDivRef.current);
+    const domSnapshot = resolveSelectionGeometry(mathDivRef.current);
     onPointerDownEvent({
       ...payload,
-      nodeId,
       domSnapshot,
     });
+    onSelectionChanged(nodeId);
   };
 
   const handlePointerUp = (payload: RawPointerEventPayload) => {
-    const nodeId = resolveSelectedNodeIdFromEvent(
-      null,
-      { type: "pointer_down", pointer: { x: payload.x, y: payload.y } },
-      { kind: "mathDiv", mathDiv: mathDivRef.current },
-    );
-    const domSnapshot = resolveDomRectSnapshot(mathDivRef.current);
+    const domSnapshot = resolveSelectionGeometry(mathDivRef.current);
     onPointerUpEvent({
       ...payload,
-      nodeId,
       domSnapshot,
     });
   };
@@ -153,12 +139,14 @@ export function EditorEntryToggle({
     y: number;
     clickCount: number;
   }) => {
+    const nodeRects = collectNodeRectsFromMathDiv(mathDivRef.current);
     const nodeId = resolveSelectedNodeIdFromEvent(
       null,
       { type: "pointer_down", pointer: { x: payload.x, y: payload.y } },
-      { kind: "mathDiv", mathDiv: mathDivRef.current },
+      nodeRects,
     );
     onNodeClick(nodeId, payload.clickCount);
+    onSelectionChanged(nodeId);
   };
 
   const handleAcceptToggle = () => {

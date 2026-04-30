@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import EditorEntryToggle from "./EditorEntryToggle";
 import type { EventFixture, ExportedEvent } from "./interaction/eventFixture";
-import { resolveSelectedNodeIdFromEvent } from "./interaction/selectionController";
+import type { SelectionGeometry } from "./interaction/selectionController";
 import { TestRecorder, type TestRecorderEvent } from "./TestRecorder";
 
 async function saveFixtureJson(fixture: EventFixture): Promise<void> {
@@ -89,7 +89,6 @@ function App() {
           if (!event.domSnapshot) {
             return {
               type: event.type,
-              nodeId: event.nodeId,
               pointer: event.pointer,
               domSnapshotId: null,
               pointerType: event.pointerType,
@@ -110,7 +109,6 @@ function App() {
 
           return {
             type: event.type,
-            nodeId: event.nodeId,
             pointer: event.pointer,
             domSnapshotId: snapshotId,
             pointerType: event.pointerType,
@@ -172,25 +170,7 @@ function App() {
   const maybeRecordDomChanged = useCallback(
     (
       source: "accept",
-      domSnapshot: {
-        mathDivRect: {
-          left: number;
-          top: number;
-          right: number;
-          bottom: number;
-          width: number;
-          height: number;
-        };
-        nodeRects: Array<{
-          nodeId: string;
-          left: number;
-          top: number;
-          right: number;
-          bottom: number;
-          width: number;
-          height: number;
-        }>;
-      } | null,
+      domSnapshot: SelectionGeometry | null,
     ) => {
       if (!isRecording || !domSnapshot) return false;
       const nextKey = JSON.stringify(domSnapshot);
@@ -206,27 +186,7 @@ function App() {
   );
 
   const handleDomSnapshotObserved = useCallback(
-    (
-      domSnapshot: {
-        mathDivRect: {
-          left: number;
-          top: number;
-          right: number;
-          bottom: number;
-          width: number;
-          height: number;
-        };
-        nodeRects: Array<{
-          nodeId: string;
-          left: number;
-          top: number;
-          right: number;
-          bottom: number;
-          width: number;
-          height: number;
-        }>;
-      } | null,
-    ) => {
+    (domSnapshot: SelectionGeometry | null) => {
       if (maybeRecordDomChanged("accept", domSnapshot)) {
         syncRecordedEvents();
       }
@@ -295,6 +255,12 @@ function App() {
       </div>
       <EditorEntryToggle
         selectedNodeId={selectedNodeId}
+        onSelectionChanged={(nodeId) => {
+          if (selectedNodeIdRef.current !== nodeId) {
+            selectedNodeIdRef.current = nodeId;
+            setSelectedNodeId(nodeId);
+          }
+        }}
         onDomSnapshotObserved={handleDomSnapshotObserved}
         onLatexAccepted={(payload) => {
           if (!isRecording) return;
@@ -307,15 +273,6 @@ function App() {
           syncRecordedEvents();
         }}
         onPointerDownEvent={(payload) => {
-          const previousNodeId = selectedNodeIdRef.current;
-          const nextNodeId = resolveSelectedNodeIdFromEvent(previousNodeId, {
-            type: "pointer_down",
-            nodeId: payload.nodeId,
-          });
-          if (previousNodeId !== nextNodeId) {
-            selectedNodeIdRef.current = nextNodeId;
-            setSelectedNodeId(nextNodeId);
-          }
           if (isRecording) {
             recorderRef.current.recordPointerDown(payload);
             syncRecordedEvents();
@@ -348,7 +305,7 @@ function App() {
                 case "pointer_down":
                   return (
                     <div key={`${event.ts}-${index}`}>
-                      {event.type}: Pointer down {event.nodeId}{" "}
+                      {event.type}: Pointer down{" "}
                       {event.pointer.x} {event.pointer.y} {event.pointerType}{" "}
                       {event.button} {event.buttons} rects=
                       {event.domSnapshot?.nodeRects.length ?? 0}
@@ -357,7 +314,7 @@ function App() {
                 case "pointer_up":
                   return (
                     <div key={`${event.ts}-${index}`}>
-                      {event.type}: Pointer up {event.nodeId}{" "}
+                      {event.type}: Pointer up{" "}
                       {event.pointer.x} rects=
                       {event.domSnapshot?.nodeRects.length ?? 0}{" "}
                     </div>

@@ -1,29 +1,12 @@
+import type { SelectionGeometry } from "./interaction/selectionController";
+
 export type ClickKind = "single" | "double" | "multi";
 export type PointerPhase = "pointer_down" | "pointer_up";
 
 export type PointerEventRecord = {
   type: PointerPhase;
-  nodeId: string | null;
   pointer: { x: number; y: number };
-  domSnapshot: {
-    mathDivRect: {
-      left: number;
-      top: number;
-      right: number;
-      bottom: number;
-      width: number;
-      height: number;
-    };
-    nodeRects: Array<{
-      nodeId: string;
-      left: number;
-      top: number;
-      right: number;
-      bottom: number;
-      width: number;
-      height: number;
-    }>;
-  } | null;
+  domSnapshot: SelectionGeometry | null;
   pointerType: string;
   button: number;
   buttons: number;
@@ -48,25 +31,7 @@ export type LatexAcceptedEvent = {
 export type DomChangedEvent = {
   type: "dom_changed";
   source: "accept";
-  domSnapshot: {
-    mathDivRect: {
-      left: number;
-      top: number;
-      right: number;
-      bottom: number;
-      width: number;
-      height: number;
-    };
-    nodeRects: Array<{
-      nodeId: string;
-      left: number;
-      top: number;
-      right: number;
-      bottom: number;
-      width: number;
-      height: number;
-    }>;
-  };
+  domSnapshot: SelectionGeometry;
   ts: number;
 };
 
@@ -102,35 +67,15 @@ export class TestRecorder {
   }
 
   recordPointerDown(payload: {
-    nodeId: string | null;
     x: number;
     y: number;
-    domSnapshot: {
-      mathDivRect: {
-        left: number;
-        top: number;
-        right: number;
-        bottom: number;
-        width: number;
-        height: number;
-      };
-      nodeRects: Array<{
-        nodeId: string;
-        left: number;
-        top: number;
-        right: number;
-        bottom: number;
-        width: number;
-        height: number;
-      }>;
-    } | null;
+    domSnapshot: SelectionGeometry | null;
     pointerType: string;
     button: number;
     buttons: number;
   }): void {
     this.events.push({
       type: "pointer_down",
-      nodeId: payload.nodeId,
       pointer: { x: payload.x, y: payload.y },
       domSnapshot: payload.domSnapshot,
       pointerType: payload.pointerType,
@@ -141,35 +86,15 @@ export class TestRecorder {
   }
 
   recordPointerUp(payload: {
-    nodeId: string | null;
     x: number;
     y: number;
-    domSnapshot: {
-      mathDivRect: {
-        left: number;
-        top: number;
-        right: number;
-        bottom: number;
-        width: number;
-        height: number;
-      };
-      nodeRects: Array<{
-        nodeId: string;
-        left: number;
-        top: number;
-        right: number;
-        bottom: number;
-        width: number;
-        height: number;
-      }>;
-    } | null;
+    domSnapshot: SelectionGeometry | null;
     pointerType: string;
     button: number;
     buttons: number;
   }): void {
     this.events.push({
       type: "pointer_up",
-      nodeId: payload.nodeId,
       pointer: { x: payload.x, y: payload.y },
       domSnapshot: payload.domSnapshot,
       pointerType: payload.pointerType,
@@ -197,25 +122,7 @@ export class TestRecorder {
 
   recordDomChanged(payload: {
     source: "accept";
-    domSnapshot: {
-      mathDivRect: {
-        left: number;
-        top: number;
-        right: number;
-        bottom: number;
-        width: number;
-        height: number;
-      };
-      nodeRects: Array<{
-        nodeId: string;
-        left: number;
-        top: number;
-        right: number;
-        bottom: number;
-        width: number;
-        height: number;
-      }>;
-    };
+    domSnapshot: SelectionGeometry;
   }): void {
     this.events.push({
       type: "dom_changed",

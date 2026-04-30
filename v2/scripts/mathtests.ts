@@ -1,7 +1,7 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import {
-  DomRectSnapshot,
+  SelectionGeometry,
   resolveSelectedNodeIdFromEvent,
 } from "../src/interaction/selectionController";
 import type { EventFixture } from "../src/interaction/eventFixture";
@@ -45,7 +45,7 @@ function replayEvents(fixture: EventFixture) {
   };
   const replayFailures: string[] = [];
   let currentDomSnapshotId: string | null = null;
-  let currentDomSnapshot: DomRectSnapshot | null = null;
+  let currentDomSnapshot: SelectionGeometry | null = null;
 
   for (const event of fixture.events) {
     switch (event.type) {
@@ -100,27 +100,15 @@ function replayEvents(fixture: EventFixture) {
           );
         }
 
-        const resolvedNodeId = resolveSelectedNodeIdFromEvent(
-          null,
+        const nextSelectedNodeId = resolveSelectedNodeIdFromEvent(
+          state.selectedNodeId,
           {
             type: "pointer_down",
             pointer: { x: event.pointer.x, y: event.pointer.y },
           },
-          { kind: "snapshot", snapshot: currentDomSnapshot },
+          currentDomSnapshot?.nodeRects ?? [],
         );
-        if (event.nodeId && resolvedNodeId && event.nodeId !== resolvedNodeId) {
-          replayFailures.push(
-            `pointer_down node mismatch: event=${event.nodeId} snapshot=${resolvedNodeId}`,
-          );
-        }
-
-        state.selectedNodeId = resolveSelectedNodeIdFromEvent(
-          state.selectedNodeId,
-          {
-            type: "pointer_down",
-            nodeId: resolvedNodeId ?? event.nodeId ?? null,
-          },
-        );
+        state.selectedNodeId = nextSelectedNodeId;
         break;
       }
       case "node_click":
