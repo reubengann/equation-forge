@@ -238,10 +238,52 @@ describe("parseLatexToExpr", () => {
     expect(expr.factors[1].order).toBe(1);
   });
 
+  it("parses script", () => {
+    const expr = parseLatexToExpr(String.raw`\mathscr{H}`);
+    expectExprKind(expr, "special_font");
+    expectExprKind(expr.value, "symbol");
+    expect(expr.value.name).toBe("H");
+    expect(expr.font).toBe("script");
+  });
+
+  it("parses calligraphic", () => {
+    const expr = parseLatexToExpr(String.raw`\mathcal{H}`);
+    expectExprKind(expr, "special_font");
+    expectExprKind(expr.value, "symbol");
+    expect(expr.font).toBe("calligraphic");
+    expect(expr.value.name).toBe("H");
+  });
+
+  it("parses bb", () => {
+    const expr = parseLatexToExpr(String.raw`\mathbb{H}`);
+    expectExprKind(expr, "special_font");
+    expectExprKind(expr.value, "symbol");
+    expect(expr.font).toBe("blackboard");
+    expect(expr.value.name).toBe("H");
+  });
+
+  it("parses logarithm", () => {
+    const expr = parseLatexToExpr(String.raw`\log(x)`);
+    expectExprKind(expr, "call");
+    expectExprKind(expr.callee, "symbol");
+    expect(expr.callee.name).toBe("log");
+  });
+
+  it("parses natural logarithm", () => {
+    const expr = parseLatexToExpr(String.raw`\ln(x)`);
+    expectExprKind(expr, "call");
+    expectExprKind(expr.callee, "symbol");
+    expect(expr.callee.name).toBe("ln");
+  });
+
+  it("parses exp", () => {
+    const expr = parseLatexToExpr(String.raw`\exp(x)`);
+    expectExprKind(expr, "call");
+    expectExprKind(expr.callee, "symbol");
+    expect(expr.callee.name).toBe("exp");
+  });
+
   /*  
-      Script, Caligraphy, Blackboard (\mathscr, \mathcal, \mathbb including d\mathscr)
-      Log (\log and \ln)
-      Exponentials (e and exp)
       Big Sums, Products (similar to integrals, but often have equalities in the lower limit)
       Multiple Equations (a = b = c)
       Inequalities (e.g. a + b \geq c + d)

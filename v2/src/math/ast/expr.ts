@@ -42,6 +42,10 @@ export type EquationExpr = {
   sides: Expr[];
 };
 
+/*
+Note: although callee will always be symbol for an normal parsed function call, it's possible
+to define a call of the form (f+g)(x) or f(x)(y) that would not adhere to this.
+*/
 export type FunctionCallExpr = {
   kind: "call";
   callee: Expr;
@@ -89,6 +93,12 @@ export type PrimedExpr = {
   value: Expr;
   order: number;
   name?: string;
+};
+
+export type SpecialFontExpr = {
+  kind: "special_font";
+  value: Expr;
+  font: "script" | "calligraphic" | "blackboard";
 };
 
 export type IntegralExpr = {
@@ -174,6 +184,7 @@ export type Expr =
   | OuterProductExpr
   | DottedExpr
   | PrimedExpr
+  | SpecialFontExpr
   | IntegralExpr
   | UniteratedIntegralExpr
   | ClosedIntegralExpr

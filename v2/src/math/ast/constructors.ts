@@ -73,6 +73,15 @@ export const primed = (value: Expr, order: number): Expr => ({
   ...(value.kind === "symbol" ? { name: value.name } : {}),
 });
 
+export const specialFont = (
+  value: Expr,
+  font: "script" | "calligraphic" | "blackboard",
+): Expr => ({
+  kind: "special_font",
+  value,
+  font,
+});
+
 export const integral = (
   integrand: Expr,
   variable: Expr | null,

@@ -21,6 +21,7 @@ export {
   partialDerivative,
   primed,
   secondOrderPartialDerivative,
+  specialFont,
   text,
   uniteratedIntegral,
   vector,

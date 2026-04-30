@@ -22,6 +22,7 @@ import {
   primed,
   power,
   secondOrderPartialDerivative,
+  specialFont,
   sym,
   text,
   uniteratedIntegral,
@@ -49,6 +50,11 @@ type Token =
   | { kind: "hat"; value: UnifiedNode[] }
   | { kind: "dotted"; value: UnifiedNode[]; order: number }
   | { kind: "prime"; order: number }
+  | {
+      kind: "special_font";
+      value: UnifiedNode[];
+      font: "script" | "calligraphic" | "blackboard";
+    }
   | { kind: "grouped_expr"; expression: Expr }
   | { kind: "operator"; value: "+" | "-" | "*" | "/" | "=" | "dot" | "cross" }
   | {
@@ -435,6 +441,28 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
       continue;
     }
 
+    if (macro === "mathscr" || macro === "mathcal" || macro === "mathbb") {
+      const font =
+        macro === "mathscr"
+          ? "script"
+          : macro === "mathcal"
+            ? "calligraphic"
+            : "blackboard";
+      const argNodes = node.args?.[0]?.content;
+      if (argNodes) {
+        tokens.push({ kind: "special_font", value: argNodes, font });
+        continue;
+      }
+      const nextGroup = getGroupContentAt(i + 1);
+      if (nextGroup) {
+        tokens.push({ kind: "special_font", value: nextGroup, font });
+        i += 1;
+        continue;
+      }
+      tokens.push({ kind: "special_font", value: [], font });
+      continue;
+    }
+
     if (macro === "cdot") {
       tokens.push({ kind: "operator", value: "dot" });
       continue;
@@ -496,6 +524,7 @@ class TokenParser {
       token.kind === "vector" ||
       token.kind === "hat" ||
       token.kind === "dotted" ||
+      token.kind === "special_font" ||
       token.kind === "grouped_expr" ||
       token.kind === "fraction" ||
       token.kind === "differential" ||
@@ -953,6 +982,10 @@ class TokenParser {
     if (token.kind === "dotted") {
       const value = parseGroupNodes(token.value) ?? sym("missing");
       return dottedExpr(value, token.order);
+    }
+    if (token.kind === "special_font") {
+      const value = parseGroupNodes(token.value) ?? sym("missing");
+      return specialFont(value, token.font);
     }
     if (token.kind === "symbol") {
       const tokenName = token.name;
