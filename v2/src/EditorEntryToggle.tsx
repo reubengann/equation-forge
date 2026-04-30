@@ -57,7 +57,6 @@ export function EditorEntryToggle({
   selectedNodeId,
   onSelectionChanged,
   onLatexAccepted,
-  onNodeClick,
   onPointerDownEvent,
   onPointerUpEvent,
   onDomSnapshotObserved,
@@ -136,22 +135,6 @@ export function EditorEntryToggle({
     });
   };
 
-  const handleNodeClick = (payload: {
-    x: number;
-    y: number;
-    clickCount: number;
-  }) => {
-    const nodeRects = collectNodeRectsFromMathDiv(mathDivRef.current);
-    const rawNodeId = resolveSelectedNodeIdFromEvent(
-      null,
-      { type: "pointer_down", pointer: { x: payload.x, y: payload.y } },
-      nodeRects,
-    );
-    const nodeId = resolveCompiledNodeId(compiledDoc, rawNodeId);
-    onNodeClick(nodeId, payload.clickCount);
-    onSelectionChanged(nodeId);
-  };
-
   const handleAcceptToggle = () => {
     if (!showMathDisplay) {
       const previousLatex = lastAcceptedLatexRef.current;
@@ -190,7 +173,6 @@ export function EditorEntryToggle({
             mathDivRef={mathDivRef}
             latex={compiledDoc.taggedLatex}
             selectedNodeId={selectedNodeId}
-            onNodeClick={handleNodeClick}
             onPointerDownEvent={handlePointerDown}
             onPointerUpEvent={handlePointerUp}
           />

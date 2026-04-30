@@ -5,7 +5,6 @@ type EquationEditorProps = {
   mathDivRef: RefObject<HTMLElement | null>;
   latex: string;
   selectedNodeId: string | null;
-  onNodeClick: (payload: { x: number; y: number; clickCount: number }) => void;
   onPointerDownEvent: (payload: {
     x: number;
     y: number;
@@ -26,7 +25,6 @@ export function EquationEditor({
   mathDivRef,
   latex,
   selectedNodeId,
-  onNodeClick,
   onPointerDownEvent,
   onPointerUpEvent,
 }: EquationEditorProps) {
@@ -67,19 +65,10 @@ export function EquationEditor({
     });
   };
 
-  const onClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    onNodeClick({
-      x: event.clientX,
-      y: event.clientY,
-      clickCount: event.detail || 1,
-    });
-  };
-
   return (
     <div
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
-      onClick={onClick}
       style={{
         flex: 1,
         boxSizing: "border-box",
