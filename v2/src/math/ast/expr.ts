@@ -198,6 +198,11 @@ export type ImmutableExpressionExpr = {
   latex: string;
 };
 
+export type InvalidInputExpr = {
+  kind: "invalid_input";
+  latex: string;
+};
+
 type ExprMeta = {
   error?: string | null;
 };
@@ -235,6 +240,7 @@ type ExprCore =
   | RawMathJsonExpr
   | PartialAtConstQuantityExpr
   | SecondOrderPartialDerivativeExpr
-  | ImmutableExpressionExpr;
+  | ImmutableExpressionExpr
+  | InvalidInputExpr;
 
 export type Expr = ExprCore & ExprMeta;

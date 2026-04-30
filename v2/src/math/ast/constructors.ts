@@ -208,3 +208,9 @@ export const immutableExpression = (latex: string): Expr => ({
   kind: "immutable_expression",
   latex,
 });
+
+export const invalidInput = (message: string, latex: string): Expr => ({
+  kind: "invalid_input",
+  latex,
+  error: message,
+});

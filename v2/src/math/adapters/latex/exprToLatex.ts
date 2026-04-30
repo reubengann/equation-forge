@@ -87,6 +87,7 @@ class LatexGenerator {
       case "raw_mathjson":
       case "partial_at_const_quantity":
       case "immutable_expression":
+      case "invalid_input":
         throw new Error(`Unsupported expression kind: ${this.expr.kind}`);
     }
   }

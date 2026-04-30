@@ -14,6 +14,7 @@ export {
   hat,
   innerProduct,
   immutableExpression,
+  invalidInput,
   inequality,
   integral,
   multipleIntegral,

@@ -536,4 +536,10 @@ describe("parseLatexToExpr", () => {
       "Equation and inequality found in expression. This is not supported.",
     );
   });
+
+  it("returns invalid input when unclosed fraction is present", () => {
+    const expr = parseLatexToExpr(String.raw`\frac{a + b}{c + d`);
+    expectExprKind(expr, "invalid_input");
+    expect(expr.error).toBe('Unclosed fraction started at "\\frac{a + ...)');
+  });
 });

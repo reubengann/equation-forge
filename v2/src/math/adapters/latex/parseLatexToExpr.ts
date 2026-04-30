@@ -1,4 +1,4 @@
-import { immutableExpression, type Expr } from "../../ast";
+import { immutableExpression, invalidInput, type Expr } from "../../ast";
 import { parseLatexToExprWithUnifiedLatexResult } from "./unifiedLatexToExpr";
 
 type ParseLatexOnError = "immutable_expression" | "null" | "throw";
@@ -32,6 +32,9 @@ export function parseLatexToExpr(
   if (onError === "throw") {
     const reason = error?.message ?? "Unknown parse failure.";
     throw new Error(`Unable to parse LaTeX "${latex}": ${reason}`);
+  }
+  if (error?.code === "invalid_input") {
+    return invalidInput(error.message, latex.trim());
   }
   return {
     ...immutableExpression(latex.trim()),

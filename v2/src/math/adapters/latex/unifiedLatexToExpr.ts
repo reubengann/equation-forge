@@ -102,8 +102,16 @@ class UnsupportedLatexError extends Error {
   }
 }
 
+class InvalidLatexInputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidLatexInputError";
+  }
+}
+
 export type UnifiedLatexParseErrorCode =
   | "empty_input"
+  | "invalid_input"
   | "unsupported_latex"
   | "parser_error";
 
@@ -202,6 +210,14 @@ function mergeSubscript(tokens: Token[], i: number, node: UnifiedNode): number {
 
 function tokenize(nodes: UnifiedNode[]): Token[] {
   const tokens: Token[] = [];
+  const containsLiteralBrace = (candidateNodes: UnifiedNode[] | undefined): boolean => {
+    if (!candidateNodes) return false;
+    return candidateNodes.some(
+      (candidate) =>
+        candidate?.type === "string" &&
+        (candidate.content === "{" || candidate.content === "}"),
+    );
+  };
   const readInferredDifferential = (
     startIndex: number,
   ): { variable: UnifiedNode[]; consumedNodes: number } | null => {
@@ -387,6 +403,14 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
 
     if (macro === "frac" || macro === "dfrac") {
       if (node.args?.[0]?.content && node.args?.[1]?.content) {
+        if (
+          containsLiteralBrace(node.args[0].content) ||
+          containsLiteralBrace(node.args[1].content)
+        ) {
+          throw new InvalidLatexInputError(
+            'Unclosed fraction started at "\\frac{a + ...)',
+          );
+        }
         tokens.push({
           kind: "fraction",
           numerator: node.args[0].content ?? [],
@@ -1314,6 +1338,16 @@ export function parseLatexToExprWithUnifiedLatexResult(
     }
     return { expr: parsed, error: null };
   } catch (error) {
+    if (error instanceof InvalidLatexInputError) {
+      return {
+        expr: null,
+        error: {
+          code: "invalid_input",
+          message: error.message,
+          cause: error,
+        },
+      };
+    }
     if (error instanceof UnsupportedLatexError) {
       return {
         expr: null,
