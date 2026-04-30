@@ -32,6 +32,11 @@ export type NodeResolutionSource = {
   nodeRects: NodeRect[] | null;
 };
 
+/*
+ * Selects the smallest node containing the point.
+ * In the future, we may wish to use the AST to distinguish between different
+ * rectangles based on their ancestor relationship.
+ */
 function pickNodeIdAtPointFromRects(
   rects: NodeRect[],
   clientX: number,
