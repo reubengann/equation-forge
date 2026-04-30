@@ -1,33 +1,24 @@
 import { MathfieldElement } from "mathlive";
 import { type SyntheticEvent, useRef, useState } from "react";
 import { EquationEditor } from "./EquationEditor";
-import type {
-  DomSnapshotObservedPayload,
-  PointerEventPayload,
-} from "./interaction/selectionController";
 import { MathliveEditor } from "./MathliveEditor";
+import type { EquationEditorRecordingHooks } from "./TestRecorder";
 
 MathfieldElement.fontsDirectory = "/fonts";
 
 type EditorEntryToggleProps = {
-  selectedNodeId: string | null;
   onSelectionChanged: (nodeId: string | null) => void;
   onLatexAccepted: (payload: {
     previousLatex: string | null;
     nextLatex: string;
   }) => void;
-  onPointerDownEvent: (payload: PointerEventPayload) => void;
-  onPointerUpEvent: (payload: PointerEventPayload) => void;
-  onDomSnapshotObserved: (payload: DomSnapshotObservedPayload) => void;
+  recordingHooks?: EquationEditorRecordingHooks;
 };
 
 export function EditorEntryToggle({
-  selectedNodeId,
   onSelectionChanged,
   onLatexAccepted,
-  onPointerDownEvent,
-  onPointerUpEvent,
-  onDomSnapshotObserved,
+  recordingHooks,
 }: EditorEntryToggleProps) {
   const [latex, setLatex] = useState(String.raw`a+b=c`);
   const [showMathDisplay, setShowMathDisplay] = useState(false);
@@ -78,11 +69,8 @@ export function EditorEntryToggle({
         {showMathDisplay ? (
           <EquationEditor
             latex={latex}
-            selectedNodeId={selectedNodeId}
             onSelectionChanged={onSelectionChanged}
-            onPointerDownEvent={onPointerDownEvent}
-            onPointerUpEvent={onPointerUpEvent}
-            onDomSnapshotObserved={onDomSnapshotObserved}
+            recordingHooks={recordingHooks}
             onCanonicalLatexChanged={(nextLatex) => {
               canonicalLatexRef.current = nextLatex;
             }}

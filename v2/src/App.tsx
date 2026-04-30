@@ -3,9 +3,14 @@ import EditorEntryToggle from "./EditorEntryToggle";
 import type { EventFixture, ExportedEvent } from "./interaction/eventFixture";
 import type {
   DomSnapshotObservedPayload,
+  PointerEventPayload,
   SelectionGeometry,
 } from "./interaction/selectionController";
-import { TestRecorder, type TestRecorderEvent } from "./TestRecorder";
+import {
+  TestRecorder,
+  type EquationEditorRecordingHooks,
+  type TestRecorderEvent,
+} from "./TestRecorder";
 
 async function saveFixtureJson(fixture: EventFixture): Promise<void> {
   const json = `${JSON.stringify(fixture, null, 2)}\n`;
@@ -265,7 +270,6 @@ function App() {
         </button>
       </div>
       <EditorEntryToggle
-        selectedNodeId={selectedNodeId}
         onSelectionChanged={(nodeId) => {
           // We do not store selectionchanged events into the recording. This is just for
           // Showing on the UI for debugging purposes.
@@ -274,44 +278,47 @@ function App() {
             setSelectedNodeId(nodeId);
           }
         }}
-        onDomSnapshotObserved={handleDomSnapshotObserved} // From modifications
         onLatexAccepted={(payload) => {
           // We can record this ourselves, since we are the actor
           if (!isRecording) return;
           recorderRef.current.recordLatexAccepted(payload);
           syncRecordedEvents();
         }}
-        onPointerDownEvent={(payload) => {
-          if (isRecording) {
-            const domSnapshot = payload.domSnapshotId
-              ? snapshotByIdRef.current[payload.domSnapshotId] ?? null
-              : null;
-            recorderRef.current.recordPointerDown({
-              x: payload.x,
-              y: payload.y,
-              domSnapshot,
-              pointerType: payload.pointerType,
-              button: payload.button,
-              buttons: payload.buttons,
-            });
-            syncRecordedEvents();
-          }
-        }}
-        onPointerUpEvent={(payload) => {
-          if (!isRecording) return;
-          const domSnapshot = payload.domSnapshotId
-            ? snapshotByIdRef.current[payload.domSnapshotId] ?? null
-            : null;
-          recorderRef.current.recordPointerUp({
-            x: payload.x,
-            y: payload.y,
-            domSnapshot,
-            pointerType: payload.pointerType,
-            button: payload.button,
-            buttons: payload.buttons,
-          });
-          syncRecordedEvents();
-        }}
+        recordingHooks={
+          {
+            onDomSnapshotObserved: handleDomSnapshotObserved,
+            onPointerDownEvent: (payload: PointerEventPayload) => {
+              if (!isRecording) return;
+              const domSnapshot = payload.domSnapshotId
+                ? snapshotByIdRef.current[payload.domSnapshotId] ?? null
+                : null;
+              recorderRef.current.recordPointerDown({
+                x: payload.x,
+                y: payload.y,
+                domSnapshot,
+                pointerType: payload.pointerType,
+                button: payload.button,
+                buttons: payload.buttons,
+              });
+              syncRecordedEvents();
+            },
+            onPointerUpEvent: (payload: PointerEventPayload) => {
+              if (!isRecording) return;
+              const domSnapshot = payload.domSnapshotId
+                ? snapshotByIdRef.current[payload.domSnapshotId] ?? null
+                : null;
+              recorderRef.current.recordPointerUp({
+                x: payload.x,
+                y: payload.y,
+                domSnapshot,
+                pointerType: payload.pointerType,
+                button: payload.button,
+                buttons: payload.buttons,
+              });
+              syncRecordedEvents();
+            },
+          } satisfies EquationEditorRecordingHooks
+        }
       />
       <div style={{ textAlign: "left", fontSize: "14px" }}>
         <div>Selected node: {selectedNodeId ?? "none"}</div>

@@ -1,54 +1,32 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type NodeRect,
   resolveSelectionGeometry,
   resolveSelectedNodeIdFromEvent,
-  type SelectionGeometry,
 } from "./interaction/selectionController";
 import {
   compileMathDocument,
   resolveCompiledNodeId,
 } from "./math/compile/compileMathDocument";
+import type { EquationEditorRecordingHooks } from "./TestRecorder";
 
 type EquationEditorProps = {
   latex: string;
-  selectedNodeId: string | null;
   onSelectionChanged: (nodeId: string | null) => void;
-  onDomSnapshotObserved: (payload: {
-    domSnapshotId: string | null;
-    domSnapshot: SelectionGeometry | null;
-  }) => void;
   onCanonicalLatexChanged: (nextLatex: string) => void;
-  onPointerDownEvent: (payload: {
-    x: number;
-    y: number;
-    domSnapshotId: string | null;
-    pointerType: string;
-    button: number;
-    buttons: number;
-  }) => void;
-  onPointerUpEvent: (payload: {
-    x: number;
-    y: number;
-    domSnapshotId: string | null;
-    pointerType: string;
-    button: number;
-    buttons: number;
-  }) => void;
+  recordingHooks?: EquationEditorRecordingHooks;
 };
 
 export function EquationEditor({
   latex,
-  selectedNodeId,
   onSelectionChanged,
-  onDomSnapshotObserved,
   onCanonicalLatexChanged,
-  onPointerDownEvent,
-  onPointerUpEvent,
+  recordingHooks,
 }: EquationEditorProps) {
   const mathDivRef = useRef<HTMLElement | null>(null);
   const nodeRectsRef = useRef<NodeRect[]>([]);
-  const lastSelectedNodeIdRef = useRef<string | null>(selectedNodeId);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const lastSelectedNodeIdRef = useRef<string | null>(null);
   const snapshotCounterRef = useRef(0);
   const lastSnapshotKeyRef = useRef<string | null>(null);
   const currentDomSnapshotIdRef = useRef<string | null>(null);
@@ -82,7 +60,10 @@ export function EquationEditor({
         if (!snapshot) {
           lastSnapshotKeyRef.current = null;
           currentDomSnapshotIdRef.current = null;
-          onDomSnapshotObserved({ domSnapshotId: null, domSnapshot: null });
+          recordingHooks?.onDomSnapshotObserved?.({
+            domSnapshotId: null,
+            domSnapshot: null,
+          });
           return;
         }
 
@@ -93,7 +74,7 @@ export function EquationEditor({
           lastSnapshotKeyRef.current = snapshotKey;
         }
 
-        onDomSnapshotObserved({
+        recordingHooks?.onDomSnapshotObserved?.({
           domSnapshotId: currentDomSnapshotIdRef.current,
           domSnapshot: snapshot,
         });
@@ -105,11 +86,7 @@ export function EquationEditor({
     return () => {
       cancelAnimationFrame(rafId);
     };
-  }, [compiledDoc, onDomSnapshotObserved]);
-
-  useEffect(() => {
-    lastSelectedNodeIdRef.current = selectedNodeId;
-  }, [selectedNodeId]);
+  }, [compiledDoc, recordingHooks]);
 
   useEffect(() => {
     const host = mathDivRef.current as
@@ -138,12 +115,16 @@ export function EquationEditor({
   };
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    const selectedNode = resolveSelectedNodeAtPoint(event.clientX, event.clientY);
-    if (lastSelectedNodeIdRef.current !== selectedNode) {
-      lastSelectedNodeIdRef.current = selectedNode;
-      onSelectionChanged(selectedNode);
+    const nextSelectedNodeId = resolveSelectedNodeAtPoint(
+      event.clientX,
+      event.clientY,
+    );
+    if (lastSelectedNodeIdRef.current !== nextSelectedNodeId) {
+      lastSelectedNodeIdRef.current = nextSelectedNodeId;
+      setSelectedNodeId(nextSelectedNodeId);
+      onSelectionChanged(nextSelectedNodeId);
     }
-    onPointerDownEvent({
+    recordingHooks?.onPointerDownEvent?.({
       x: event.clientX,
       y: event.clientY,
       domSnapshotId: currentDomSnapshotIdRef.current,
@@ -154,7 +135,7 @@ export function EquationEditor({
   };
 
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    onPointerUpEvent({
+    recordingHooks?.onPointerUpEvent?.({
       x: event.clientX,
       y: event.clientY,
       domSnapshotId: currentDomSnapshotIdRef.current,

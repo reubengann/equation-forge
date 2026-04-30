@@ -1,4 +1,8 @@
-import type { SelectionGeometry } from "./interaction/selectionController";
+import type {
+  DomSnapshotObservedPayload,
+  PointerEventPayload,
+  SelectionGeometry,
+} from "./interaction/selectionController";
 
 export type PointerPhase = "pointer_down" | "pointer_up";
 
@@ -30,6 +34,12 @@ export type TestRecorderEvent =
   | PointerEventRecord
   | LatexAcceptedEvent
   | DomChangedEvent;
+
+export type EquationEditorRecordingHooks = {
+  onDomSnapshotObserved?: (payload: DomSnapshotObservedPayload) => void;
+  onPointerDownEvent?: (payload: PointerEventPayload) => void;
+  onPointerUpEvent?: (payload: PointerEventPayload) => void;
+};
 
 export class TestRecorder {
   private events: TestRecorderEvent[] = [];
