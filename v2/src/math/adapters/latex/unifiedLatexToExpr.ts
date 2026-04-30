@@ -124,11 +124,14 @@ function parseTextArgument(content: UnifiedNode[] | undefined): string | null {
   return printRaw(printable);
 }
 
-function parseGroupNodes(nodes: UnifiedNode[] | undefined): Expr | null {
+function parseGroupNodes(
+  nodes: UnifiedNode[] | undefined,
+  sourceLatex?: string,
+): Expr | null {
   if (!nodes || nodes.length === 0) return null;
   const tokens = tokenize(nodes);
   if (tokens.length === 0) return null;
-  return new TokenParser(tokens).parseEquation();
+  return new TokenParser(tokens, sourceLatex).parseEquation();
 }
 
 function delimiterFromOpen(open: string): DelimiterKind {
@@ -580,9 +583,11 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
 class TokenParser {
   private idx = 0;
   private readonly tokens: Token[];
+  private readonly sourceLatex?: string;
 
-  constructor(tokens: Token[]) {
+  constructor(tokens: Token[], sourceLatex?: string) {
     this.tokens = tokens;
+    this.sourceLatex = sourceLatex;
   }
 
   private peek(offset = 0): Token | null {
@@ -615,6 +620,16 @@ class TokenParser {
     return true;
   }
 
+  private isInequalityOperator(token: Token | null): boolean {
+    return (
+      token?.kind === "operator" &&
+      (token.value === "geq" ||
+        token.value === "leq" ||
+        token.value === "gt" ||
+        token.value === "lt")
+    );
+  }
+
   private canStartPrimary(token: Token | null): boolean {
     if (!token) return false;
     if (
@@ -641,7 +656,23 @@ class TokenParser {
   }
 
   private parseFromSlice(tokens: Token[]): Expr {
-    return new TokenParser(tokens).parseEquation();
+    return new TokenParser(tokens, this.sourceLatex).parseEquation();
+  }
+
+  private openDelimiterFromClose(close: string): string {
+    if (close === ")") return "(";
+    if (close === "]") return "[";
+    if (close === "}") return "{";
+    return close;
+  }
+
+  private unclosedDelimiterErrorMessage(close: string): string {
+    const open = this.openDelimiterFromClose(close);
+    const source = this.sourceLatex ?? "";
+    const startIndex = source.indexOf(open);
+    const previewStart = startIndex >= 0 ? startIndex : 0;
+    const preview = source.slice(previewStart, previewStart + 5);
+    return `Unclosed delimiter ${open} started at "${preview}...)`;
   }
 
   private parseSubscriptExpr(token: Token): Expr | null {
@@ -876,13 +907,76 @@ class TokenParser {
     while (this.consumeOperator("=")) {
       sides.push(this.parseAdditive());
     }
-    if (sides.length > 1) return equation(sides);
+    if (sides.length > 1) {
+      if (this.isInequalityOperator(this.peek())) {
+        throw new UnsupportedLatexError(
+          "Equation and inequality found in expression. This is not supported.",
+        );
+      }
+      return equation(sides);
+    }
 
     const lhs = sides[0];
-    if (this.consumeOperator("geq")) return inequality(lhs, "geq", this.parseAdditive());
-    if (this.consumeOperator("leq")) return inequality(lhs, "leq", this.parseAdditive());
-    if (this.consumeOperator("gt")) return inequality(lhs, "gt", this.parseAdditive());
-    if (this.consumeOperator("lt")) return inequality(lhs, "lt", this.parseAdditive());
+    if (this.consumeOperator("geq")) {
+      const rhs = this.parseAdditive();
+      const nextToken = this.peek();
+      if (nextToken?.kind === "operator" && nextToken.value === "=") {
+        throw new UnsupportedLatexError(
+          "Equation and inequality found in expression. This is not supported.",
+        );
+      }
+      if (this.isInequalityOperator(this.peek())) {
+        throw new UnsupportedLatexError(
+          "Multiple inequalities found in expression. This is not supported.",
+        );
+      }
+      return inequality(lhs, "geq", rhs);
+    }
+    if (this.consumeOperator("leq")) {
+      const rhs = this.parseAdditive();
+      const nextToken = this.peek();
+      if (nextToken?.kind === "operator" && nextToken.value === "=") {
+        throw new UnsupportedLatexError(
+          "Equation and inequality found in expression. This is not supported.",
+        );
+      }
+      if (this.isInequalityOperator(this.peek())) {
+        throw new UnsupportedLatexError(
+          "Multiple inequalities found in expression. This is not supported.",
+        );
+      }
+      return inequality(lhs, "leq", rhs);
+    }
+    if (this.consumeOperator("gt")) {
+      const rhs = this.parseAdditive();
+      const nextToken = this.peek();
+      if (nextToken?.kind === "operator" && nextToken.value === "=") {
+        throw new UnsupportedLatexError(
+          "Equation and inequality found in expression. This is not supported.",
+        );
+      }
+      if (this.isInequalityOperator(this.peek())) {
+        throw new UnsupportedLatexError(
+          "Multiple inequalities found in expression. This is not supported.",
+        );
+      }
+      return inequality(lhs, "gt", rhs);
+    }
+    if (this.consumeOperator("lt")) {
+      const rhs = this.parseAdditive();
+      const nextToken = this.peek();
+      if (nextToken?.kind === "operator" && nextToken.value === "=") {
+        throw new UnsupportedLatexError(
+          "Equation and inequality found in expression. This is not supported.",
+        );
+      }
+      if (this.isInequalityOperator(this.peek())) {
+        throw new UnsupportedLatexError(
+          "Multiple inequalities found in expression. This is not supported.",
+        );
+      }
+      return inequality(lhs, "lt", rhs);
+    }
     return lhs;
   }
 
@@ -994,8 +1088,12 @@ class TokenParser {
     if (token.kind === "open_group") {
       const inner = this.parseAdditive();
       const maybeClose = this.peek();
-      if (maybeClose && maybeClose.kind === "close_group") {
+      if (maybeClose && maybeClose.kind === "close_group" && maybeClose.value === token.close) {
         this.next();
+      } else {
+        throw new UnsupportedLatexError(
+          this.unclosedDelimiterErrorMessage(token.close),
+        );
       }
       return displayGroup(token.delimiter, inner);
     }
@@ -1204,7 +1302,7 @@ export function parseLatexToExprWithUnifiedLatexResult(
         },
       };
     }
-    const parsed = parseGroupNodes(nodes);
+    const parsed = parseGroupNodes(nodes, latex);
     if (!parsed) {
       return {
         expr: null,
@@ -1221,7 +1319,7 @@ export function parseLatexToExprWithUnifiedLatexResult(
         expr: null,
         error: {
           code: "unsupported_latex",
-          message: `Unsupported LaTeX construct: ${error.message}`,
+          message: error.message,
           cause: error,
         },
       };

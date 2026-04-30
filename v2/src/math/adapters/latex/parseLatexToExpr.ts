@@ -25,7 +25,7 @@ export function parseLatexToExpr(
   options: ParseLatexToExprOptions = {},
 ): Expr | null {
   const { expr, error } = parseLatexToExprWithUnifiedLatexResult(latex);
-  if (expr) return expr;
+  if (expr) return { ...expr, error: null };
 
   const onError = options.onError ?? "immutable_expression";
   if (onError === "null") return null;
@@ -33,5 +33,8 @@ export function parseLatexToExpr(
     const reason = error?.message ?? "Unknown parse failure.";
     throw new Error(`Unable to parse LaTeX "${latex}": ${reason}`);
   }
-  return immutableExpression(latex.trim());
+  return {
+    ...immutableExpression(latex.trim()),
+    ...(error?.message ? { error: error.message } : {}),
+  };
 }

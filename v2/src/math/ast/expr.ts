@@ -198,7 +198,11 @@ export type ImmutableExpressionExpr = {
   latex: string;
 };
 
-export type Expr =
+type ExprMeta = {
+  error?: string | null;
+};
+
+type ExprCore =
   | NumberExpr
   | SymbolExpr
   | AddExpr
@@ -232,3 +236,5 @@ export type Expr =
   | PartialAtConstQuantityExpr
   | SecondOrderPartialDerivativeExpr
   | ImmutableExpressionExpr;
+
+export type Expr = ExprCore & ExprMeta;

@@ -496,10 +496,10 @@ describe("parseLatexToExpr", () => {
   });
 
   it("throws a descriptive error on parse failure when configured", () => {
-    expect(() => parseLatexToExpr("", { onError: "throw" })).toThrowError(
+    expect(() => parseLatexToExpr("", { onError: "throw" })).toThrow(
       /Unable to parse LaTeX/,
     );
-    expect(() => parseLatexToExpr("", { onError: "throw" })).toThrowError(
+    expect(() => parseLatexToExpr("", { onError: "throw" })).toThrow(
       /Input LaTeX is empty/,
     );
   });
@@ -508,5 +508,32 @@ describe("parseLatexToExpr", () => {
     const expr = parseLatexToExpr("");
     expectExprKind(expr, "immutable_expression");
     expect(expr.latex).toBe("");
+  });
+
+  it("returns error when unmatched parentheses are present", () => {
+    const expr = parseLatexToExpr(String.raw`(a + b`);
+    expectExprKind(expr, "immutable_expression");
+    expect(expr.error).toBe('Unclosed delimiter ( started at "(a + ...)');
+  });
+
+  it("no error when mismatched delimiters are present", () => {
+    const expr = parseLatexToExpr(String.raw`\left. sin(x)\right|_0^1`);
+    expect(expr.error).toBe(null);
+  });
+
+  it("Does not accept multiple inequalities in a single expression", () => {
+    const expr = parseLatexToExpr(String.raw`a < b > c`);
+    expectExprKind(expr, "immutable_expression");
+    expect(expr.error).toBe(
+      "Multiple inequalities found in expression. This is not supported.",
+    );
+  });
+
+  it("Does not accept equation and inequality in a single expression", () => {
+    const expr = parseLatexToExpr(String.raw`a < b = c`);
+    expectExprKind(expr, "immutable_expression");
+    expect(expr.error).toBe(
+      "Equation and inequality found in expression. This is not supported.",
+    );
   });
 });
