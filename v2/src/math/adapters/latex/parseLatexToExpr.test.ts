@@ -382,9 +382,12 @@ describe("parseLatexToExpr", () => {
     }
   });
 
-  /*  
-      Square roots (\sqrt{x})
-      */
+  it("handles square roots", () => {
+    const expr = parseLatexToExpr(String.raw`\sqrt{x^2 + y^2}`);
+    expectExprKind(expr, "root");
+    expect(expr.degree).toBe(2);
+    expectExprKind(expr.value, "add");
+  });
 
   it("parses second order partial derivatives", () => {
     const expr = parseLatexToExpr(

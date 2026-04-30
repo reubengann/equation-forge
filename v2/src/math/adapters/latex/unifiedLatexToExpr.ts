@@ -26,6 +26,7 @@ import {
   partialDerivative,
   primed,
   power,
+  root,
   secondOrderPartialDerivative,
   specialFont,
   sym,
@@ -88,10 +89,11 @@ type Token =
   | { kind: "integral_symbol"; variant: "normal" | "closed" | "multiple"; order: number }
   | { kind: "sum_symbol" }
   | { kind: "prod_symbol" }
+  | { kind: "root"; value: UnifiedNode[]; degree: UnifiedNode[] | null }
   | { kind: "differential"; variable: UnifiedNode[] }
   | { kind: "fraction"; numerator: UnifiedNode[]; denominator: UnifiedNode[] };
 
-const FUNCTION_MACROS = new Set(["sin", "cos", "tan", "log", "ln", "exp", "sqrt"]);
+const FUNCTION_MACROS = new Set(["sin", "cos", "tan", "log", "ln", "exp"]);
 
 class UnsupportedLatexError extends Error {
   constructor(message: string) {
@@ -387,6 +389,23 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
       continue;
     }
 
+    if (macro === "sqrt") {
+      const degreeNodes = node.args?.[0]?.content ?? null;
+      const argNodes = node.args?.[1]?.content ?? node.args?.[0]?.content;
+      if (argNodes) {
+        tokens.push({ kind: "root", value: argNodes, degree: degreeNodes });
+        continue;
+      }
+      const nextGroup = getGroupContentAt(i + 1);
+      if (nextGroup) {
+        tokens.push({ kind: "root", value: nextGroup, degree: null });
+        i += 1;
+        continue;
+      }
+      tokens.push({ kind: "root", value: [], degree: null });
+      continue;
+    }
+
     if (macro === "mathrm") {
       const arg = node.args?.[0]?.content;
       const argIsPlainD =
@@ -570,7 +589,8 @@ class TokenParser {
       token.kind === "differential" ||
       token.kind === "integral_symbol" ||
       token.kind === "sum_symbol" ||
-      token.kind === "prod_symbol"
+      token.kind === "prod_symbol" ||
+      token.kind === "root"
     ) {
       return true;
     }
@@ -1061,6 +1081,12 @@ class TokenParser {
           ? rawMultiplicand.expression
           : rawMultiplicand;
       return bigProd(muliplicand, lowerBound, upperBound);
+    }
+    if (token.kind === "root") {
+      const value = parseGroupNodes(token.value) ?? sym("missing");
+      const degreeExpr = token.degree ? parseGroupNodes(token.degree) : null;
+      const degree = degreeExpr ? this.parsePositiveInteger(degreeExpr) ?? 2 : 2;
+      return root(value, degree);
     }
     if (token.kind === "differential") {
       const variable = parseGroupNodes(token.variable) ?? sym("missing");

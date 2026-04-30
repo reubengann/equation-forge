@@ -37,6 +37,12 @@ export type DivideExpr = {
   denominator: Expr;
 };
 
+export type RootExpr = {
+  kind: "root";
+  value: Expr;
+  degree: number;
+};
+
 export type EquationExpr = {
   kind: "equation";
   sides: Expr[];
@@ -200,6 +206,7 @@ export type Expr =
   | PowerExpr
   | NegateExpr
   | DivideExpr
+  | RootExpr
   | EquationExpr
   | InequalityExpr
   | FunctionCallExpr

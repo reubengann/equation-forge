@@ -24,6 +24,7 @@ export {
   partialAtConstQuantity,
   partialDerivative,
   primed,
+  root,
   secondOrderPartialDerivative,
   specialFont,
   text,

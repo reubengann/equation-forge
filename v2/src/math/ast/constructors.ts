@@ -22,6 +22,12 @@ export const divide = (numerator: Expr, denominator: Expr): Expr => ({
   denominator,
 });
 
+export const root = (value: Expr, degree = 2): Expr => ({
+  kind: "root",
+  value,
+  degree,
+});
+
 export const equation = (sides: Expr[]): Expr => ({ kind: "equation", sides });
 
 export const inequality = (
