@@ -102,6 +102,22 @@ class UnsupportedLatexError extends Error {
   }
 }
 
+export type UnifiedLatexParseErrorCode =
+  | "empty_input"
+  | "unsupported_latex"
+  | "parser_error";
+
+export type UnifiedLatexParseError = {
+  code: UnifiedLatexParseErrorCode;
+  message: string;
+  cause?: unknown;
+};
+
+export type UnifiedLatexParseResult = {
+  expr: Expr | null;
+  error: UnifiedLatexParseError | null;
+};
+
 function parseTextArgument(content: UnifiedNode[] | undefined): string | null {
   if (!content) return "";
   const printable = content as unknown as Parameters<typeof printRaw>[0];
@@ -1174,14 +1190,55 @@ class TokenParser {
   }
 }
 
-export function parseLatexToExprWithUnifiedLatex(latex: string): Expr | null {
+export function parseLatexToExprWithUnifiedLatexResult(
+  latex: string,
+): UnifiedLatexParseResult {
   try {
     const nodes = parseMath(latex) as UnifiedNode[];
-    if (!Array.isArray(nodes) || nodes.length === 0) return null;
+    if (!Array.isArray(nodes) || nodes.length === 0) {
+      return {
+        expr: null,
+        error: {
+          code: "empty_input",
+          message: "Input LaTeX is empty.",
+        },
+      };
+    }
     const parsed = parseGroupNodes(nodes);
-    return parsed;
+    if (!parsed) {
+      return {
+        expr: null,
+        error: {
+          code: "unsupported_latex",
+          message: "Input LaTeX could not be parsed into an expression tree.",
+        },
+      };
+    }
+    return { expr: parsed, error: null };
   } catch (error) {
-    if (error instanceof UnsupportedLatexError) return null;
-    throw error;
+    if (error instanceof UnsupportedLatexError) {
+      return {
+        expr: null,
+        error: {
+          code: "unsupported_latex",
+          message: `Unsupported LaTeX construct: ${error.message}`,
+          cause: error,
+        },
+      };
+    }
+    const message =
+      error instanceof Error ? error.message : "Unknown parser failure.";
+    return {
+      expr: null,
+      error: {
+        code: "parser_error",
+        message: `Parser failure while reading LaTeX: ${message}`,
+        cause: error,
+      },
+    };
   }
+}
+
+export function parseLatexToExprWithUnifiedLatex(latex: string): Expr | null {
+  return parseLatexToExprWithUnifiedLatexResult(latex).expr;
 }

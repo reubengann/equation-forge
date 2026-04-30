@@ -480,4 +480,33 @@ describe("parseLatexToExpr", () => {
     expectExprKind(expr, "number");
     expect(expr.value).toBe(24.7);
   });
+
+  it("parses divide as fraction", () => {
+    const expr = parseLatexToExpr(String.raw`a / b`);
+    expectExprKind(expr, "divide");
+    expectExprKind(expr.numerator, "symbol");
+    expect(expr.numerator.name).toBe("a");
+    expectExprKind(expr.denominator, "symbol");
+    expect(expr.denominator.name).toBe("b");
+  });
+
+  it("returns null on parse failure when configured", () => {
+    const expr = parseLatexToExpr("", { onError: "null" });
+    expect(expr).toBe(null);
+  });
+
+  it("throws a descriptive error on parse failure when configured", () => {
+    expect(() => parseLatexToExpr("", { onError: "throw" })).toThrowError(
+      /Unable to parse LaTeX/,
+    );
+    expect(() => parseLatexToExpr("", { onError: "throw" })).toThrowError(
+      /Input LaTeX is empty/,
+    );
+  });
+
+  it("falls back to immutable expression by default", () => {
+    const expr = parseLatexToExpr("");
+    expectExprKind(expr, "immutable_expression");
+    expect(expr.latex).toBe("");
+  });
 });

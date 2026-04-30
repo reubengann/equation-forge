@@ -1,8 +1,37 @@
 import { immutableExpression, type Expr } from "../../ast";
-import { parseLatexToExprWithUnifiedLatex } from "./unifiedLatexToExpr";
+import { parseLatexToExprWithUnifiedLatexResult } from "./unifiedLatexToExpr";
 
-export function parseLatexToExpr(latex: string): Expr {
-  const unifiedExpr = parseLatexToExprWithUnifiedLatex(latex);
-  if (unifiedExpr) return unifiedExpr;
+type ParseLatexOnError = "immutable_expression" | "null" | "throw";
+
+export type ParseLatexToExprOptions = {
+  onError?: ParseLatexOnError;
+};
+
+export function parseLatexToExpr(latex: string): Expr;
+export function parseLatexToExpr(
+  latex: string,
+  options: { onError: "immutable_expression" },
+): Expr;
+export function parseLatexToExpr(
+  latex: string,
+  options: { onError: "throw" },
+): Expr;
+export function parseLatexToExpr(
+  latex: string,
+  options: { onError: "null" },
+): Expr | null;
+export function parseLatexToExpr(
+  latex: string,
+  options: ParseLatexToExprOptions = {},
+): Expr | null {
+  const { expr, error } = parseLatexToExprWithUnifiedLatexResult(latex);
+  if (expr) return expr;
+
+  const onError = options.onError ?? "immutable_expression";
+  if (onError === "null") return null;
+  if (onError === "throw") {
+    const reason = error?.message ?? "Unknown parse failure.";
+    throw new Error(`Unable to parse LaTeX "${latex}": ${reason}`);
+  }
   return immutableExpression(latex.trim());
 }

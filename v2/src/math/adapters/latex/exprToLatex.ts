@@ -21,23 +21,48 @@ class LatexGenerator {
 
   generate(expr?: Expr): string {
     expr = expr ?? this.expr;
+    const id = this.newId();
     switch (expr.kind) {
       case "number":
-        return this.wrap(expr.value.toString(), this.newId());
+        return this.wrap(expr.value.toString(), id);
       case "symbol":
-        return this.wrap(expr.name, this.newId());
+        return this.wrap(expr.name, id);
       case "add":
-        const id = this.newId();
         return this.wrap(
           expr.terms.map((term) => this.generate(term)).join(" + "),
           id,
         );
       case "multiply":
+        return this.wrap(
+          expr.factors.map((factor) => this.generate(factor)).join(" "),
+          id,
+        );
       case "power":
+        return this.wrap(
+          this.generate(expr.base) + "^" + `{${this.generate(expr.exponent)}}`,
+          id,
+        );
       case "negate":
+        return this.wrap("-" + this.generate(expr.value), id);
       case "divide":
+        return this.wrap(
+          `\\frac{${this.generate(expr.numerator)}}{${this.generate(expr.denominator)}}`,
+          id,
+        );
       case "root":
+        if (expr.degree === 2) {
+          return this.wrap(`\\sqrt{${this.generate(expr.value)}}`, id);
+        } else {
+          return this.wrap(
+            `\\sqrt[${expr.degree}]{${this.generate(expr.value)}}`,
+            id,
+          );
+        }
       case "equation":
+        return this.wrap(
+          expr.sides.map((side) => this.generate(side)).join(" = "),
+          id,
+        );
       case "inequality":
       case "call":
       case "text":
