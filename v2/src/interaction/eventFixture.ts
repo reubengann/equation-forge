@@ -8,6 +8,7 @@ export type ExportedPointerEvent = {
   pointerType: string;
   button: number;
   buttons: number;
+  ctrlKey: boolean;
   ts: number;
 };
 

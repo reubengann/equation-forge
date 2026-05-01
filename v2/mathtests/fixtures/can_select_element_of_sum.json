@@ -81,7 +81,7 @@
       },
       "domSnapshotId": "s1",
       "pointerType": "mouse",
-      "button": 0,
+      "button": 0, "ctrlKey": false,
       "buttons": 1,
       "ts": 1777666162064
     },
@@ -93,7 +93,7 @@
       },
       "domSnapshotId": "s1",
       "pointerType": "mouse",
-      "button": 0,
+      "button": 0, "ctrlKey": false,
       "buttons": 0,
       "ts": 1777666162154
     }

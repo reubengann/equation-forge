@@ -137,6 +137,7 @@ export function EquationEditor({
       pointerId: event.pointerId,
       ts: event.timeStamp,
       buttons: event.buttons,
+      ctrlKey: event.ctrlKey,
     });
     recordingHooks?.onPointerDownEvent?.({
       x: event.clientX,
@@ -145,6 +146,7 @@ export function EquationEditor({
       pointerType: event.pointerType,
       button: event.button,
       buttons: event.buttons,
+      ctrlKey: event.ctrlKey,
     });
   };
 
@@ -155,6 +157,7 @@ export function EquationEditor({
       pointerId: event.pointerId,
       ts: event.timeStamp,
       buttons: event.buttons,
+      ctrlKey: event.ctrlKey,
     });
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -166,6 +169,7 @@ export function EquationEditor({
       pointerType: event.pointerType,
       button: event.button,
       buttons: event.buttons,
+      ctrlKey: event.ctrlKey,
     });
   };
 

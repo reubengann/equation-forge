@@ -9,6 +9,20 @@ import {
 } from "./selectionController";
 import { compileMathDocument } from "../math/compile/compileMathDocument";
 
+function makeRect(
+  specs: Array<[nodeId: string, left: number, right: number]>,
+): NodeRect[] {
+  return specs.map(([nodeId, left, right]) => ({
+    nodeId,
+    left,
+    top: 0,
+    right,
+    bottom: 20,
+    width: right - left,
+    height: 20,
+  }));
+}
+
 function runEvent(
   state: SelectionControllerState,
   event: SelectionControllerEvent,
@@ -51,39 +65,21 @@ describe("selectionController click handling", () => {
   it("selects on pointer_down and preserves that selection on pointer_up", () => {
     const latex = String.raw`a+b`;
     const state0 = createSelectionControllerState();
-    const rects: NodeRect[] = [
-      {
-        nodeId: "n1",
-        left: 0,
-        top: 0,
-        right: 100,
-        bottom: 20,
-        width: 100,
-        height: 20,
-      },
-      {
-        nodeId: "n2",
-        left: 0,
-        top: 0,
-        right: 45,
-        bottom: 20,
-        width: 45,
-        height: 20,
-      },
-      {
-        nodeId: "n3",
-        left: 55,
-        top: 0,
-        right: 100,
-        bottom: 20,
-        width: 45,
-        height: 20,
-      },
-    ];
+    const rects = makeRect([
+      ["n1", 0, 100],
+      ["n2", 0, 45],
+      ["n3", 55, 100],
+    ]);
 
     const down = runEvent(
       state0,
-      { type: "pointer_down", pointer: { x: 10, y: 10 }, ts: 1 },
+      {
+        type: "pointer_down",
+        pointer: { x: 10, y: 10 },
+        ts: 1,
+        buttons: 1,
+        ctrlKey: false,
+      },
       rects,
       latex,
     );
@@ -91,7 +87,13 @@ describe("selectionController click handling", () => {
 
     const up = runEvent(
       down.result,
-      { type: "pointer_up", pointer: { x: 10, y: 10 }, ts: 2 },
+      {
+        type: "pointer_up",
+        pointer: { x: 10, y: 10 },
+        ts: 2,
+        buttons: 1,
+        ctrlKey: false,
+      },
       rects,
       latex,
     );
@@ -101,45 +103,33 @@ describe("selectionController click handling", () => {
   it("suppresses pointer_up re-selection when movement indicates drag", () => {
     const latex = String.raw`a+b`;
     const state0 = createSelectionControllerState();
-    const rects: NodeRect[] = [
-      {
-        nodeId: "n1",
-        left: 0,
-        top: 0,
-        right: 100,
-        bottom: 20,
-        width: 100,
-        height: 20,
-      },
-      {
-        nodeId: "n2",
-        left: 0,
-        top: 0,
-        right: 45,
-        bottom: 20,
-        width: 45,
-        height: 20,
-      },
-      {
-        nodeId: "n3",
-        left: 55,
-        top: 0,
-        right: 100,
-        bottom: 20,
-        width: 45,
-        height: 20,
-      },
-    ];
+    const rects = makeRect([
+      ["n1", 0, 100],
+      ["n2", 0, 45],
+      ["n3", 55, 100],
+    ]);
 
     const down = runEvent(
       state0,
-      { type: "pointer_down", pointer: { x: 10, y: 10 }, ts: 1 },
+      {
+        type: "pointer_down",
+        pointer: { x: 10, y: 10 },
+        ts: 1,
+        buttons: 1,
+        ctrlKey: false,
+      },
       rects,
       latex,
     );
     const up = runEvent(
       down.result,
-      { type: "pointer_up", pointer: { x: 40, y: 10 }, ts: 2 },
+      {
+        type: "pointer_up",
+        pointer: { x: 40, y: 10 },
+        ts: 2,
+        buttons: 1,
+        ctrlKey: false,
+      },
       rects,
       latex,
     );
@@ -152,39 +142,21 @@ describe("selectionController click handling", () => {
       ...createSelectionControllerState(),
       selectedNodeId: "n2",
     };
-    const rects: NodeRect[] = [
-      {
-        nodeId: "n1",
-        left: 0,
-        top: 0,
-        right: 100,
-        bottom: 20,
-        width: 100,
-        height: 20,
-      },
-      {
-        nodeId: "n2",
-        left: 0,
-        top: 0,
-        right: 45,
-        bottom: 20,
-        width: 45,
-        height: 20,
-      },
-      {
-        nodeId: "n3",
-        left: 55,
-        top: 0,
-        right: 100,
-        bottom: 20,
-        width: 45,
-        height: 20,
-      },
-    ];
+    const rects = makeRect([
+      ["n1", 0, 100],
+      ["n2", 0, 45],
+      ["n3", 55, 100],
+    ]);
 
     const down = runEvent(
       state0,
-      { type: "pointer_down", pointer: { x: 60, y: 10 }, ts: 1 },
+      {
+        type: "pointer_down",
+        pointer: { x: 60, y: 10 },
+        ts: 1,
+        buttons: 1,
+        ctrlKey: false,
+      },
       rects,
       latex,
     );
@@ -193,31 +165,21 @@ describe("selectionController click handling", () => {
 
   it("throws if a rect references an unknown node id", () => {
     const latex = String.raw`a+b`;
-    const rects: NodeRect[] = [
-      {
-        nodeId: "n1",
-        left: 0,
-        top: 0,
-        right: 100,
-        bottom: 20,
-        width: 100,
-        height: 20,
-      },
-      {
-        nodeId: "n999",
-        left: 0,
-        top: 0,
-        right: 45,
-        bottom: 20,
-        width: 45,
-        height: 20,
-      },
-    ];
+    const rects = makeRect([
+      ["n1", 0, 100],
+      ["n999", 0, 45],
+    ]);
 
     expect(() =>
       runEvent(
         createSelectionControllerState(),
-        { type: "pointer_down", pointer: { x: 10, y: 10 }, ts: 1 },
+        {
+          type: "pointer_down",
+          pointer: { x: 10, y: 10 },
+          ts: 1,
+          buttons: 1,
+          ctrlKey: false,
+        },
         rects,
         latex,
       ),
@@ -226,41 +188,23 @@ describe("selectionController click handling", () => {
 
   it("double click moves to nearest selectable ancestor", () => {
     const latex = String.raw`a+b`;
-    const rects: NodeRect[] = [
-      {
-        nodeId: "n1",
-        left: 0,
-        top: 0,
-        right: 100,
-        bottom: 20,
-        width: 100,
-        height: 20,
-      },
-      {
-        nodeId: "n2",
-        left: 0,
-        top: 0,
-        right: 45,
-        bottom: 20,
-        width: 45,
-        height: 20,
-      },
-      {
-        nodeId: "n3",
-        left: 55,
-        top: 0,
-        right: 100,
-        bottom: 20,
-        width: 45,
-        height: 20,
-      },
-    ];
+    const rects = makeRect([
+      ["n1", 0, 100],
+      ["n2", 0, 45],
+      ["n3", 55, 100],
+    ]);
     let state = createSelectionControllerState();
     let selected: string | null = null;
 
     const firstDown = runEvent(
       state,
-      { type: "pointer_down", pointer: { x: 10, y: 10 }, ts: 10 },
+      {
+        type: "pointer_down",
+        pointer: { x: 10, y: 10 },
+        ts: 10,
+        buttons: 1,
+        ctrlKey: false,
+      },
       rects,
       latex,
     );
@@ -269,7 +213,13 @@ describe("selectionController click handling", () => {
 
     const firstUp = runEvent(
       state,
-      { type: "pointer_up", pointer: { x: 10, y: 10 }, ts: 20 },
+      {
+        type: "pointer_up",
+        pointer: { x: 10, y: 10 },
+        ts: 20,
+        buttons: 1,
+        ctrlKey: false,
+      },
       rects,
       latex,
     );
@@ -279,7 +229,13 @@ describe("selectionController click handling", () => {
 
     const secondDown = runEvent(
       state,
-      { type: "pointer_down", pointer: { x: 10, y: 10 }, ts: 100 },
+      {
+        type: "pointer_down",
+        pointer: { x: 10, y: 10 },
+        ts: 100,
+        buttons: 1,
+        ctrlKey: false,
+      },
       rects,
       latex,
     );
@@ -288,7 +244,13 @@ describe("selectionController click handling", () => {
 
     const secondUp = runEvent(
       state,
-      { type: "pointer_up", pointer: { x: 10, y: 10 }, ts: 120 },
+      {
+        type: "pointer_up",
+        pointer: { x: 10, y: 10 },
+        ts: 120,
+        buttons: 1,
+        ctrlKey: false,
+      },
       rects,
       latex,
     );
@@ -297,28 +259,40 @@ describe("selectionController click handling", () => {
 
   it("rejects selecting add/equation operators directly", () => {
     const addLatex = String.raw`a+b`;
-    const addRects: NodeRect[] = [
-      { nodeId: "n1", left: 0, top: 0, right: 100, bottom: 20, width: 100, height: 20 },
-      { nodeId: "n2", left: 0, top: 0, right: 40, bottom: 20, width: 40, height: 20 },
-      { nodeId: "n3", left: 60, top: 0, right: 100, bottom: 20, width: 40, height: 20 },
-    ];
+    const addRects = makeRect([
+      ["n1", 0, 100],
+      ["n2", 0, 40],
+      ["n3", 60, 100],
+    ]);
     const addClick = runEvent(
       createSelectionControllerState(),
-      { type: "pointer_down", pointer: { x: 50, y: 10 }, ts: 1 },
+      {
+        type: "pointer_down",
+        pointer: { x: 50, y: 10 },
+        ts: 1,
+        buttons: 1,
+        ctrlKey: false,
+      },
       addRects,
       addLatex,
     );
     expect(addClick.result.selectedNodeId).toBeNull();
 
     const equationLatex = String.raw`a=b`;
-    const equationRects: NodeRect[] = [
-      { nodeId: "n1", left: 0, top: 0, right: 100, bottom: 20, width: 100, height: 20 },
-      { nodeId: "n2", left: 0, top: 0, right: 40, bottom: 20, width: 40, height: 20 },
-      { nodeId: "n3", left: 60, top: 0, right: 100, bottom: 20, width: 40, height: 20 },
-    ];
+    const equationRects = makeRect([
+      ["n1", 0, 100],
+      ["n2", 0, 40],
+      ["n3", 60, 100],
+    ]);
     const equationClick = runEvent(
       createSelectionControllerState(),
-      { type: "pointer_down", pointer: { x: 50, y: 10 }, ts: 1 },
+      {
+        type: "pointer_down",
+        pointer: { x: 50, y: 10 },
+        ts: 1,
+        buttons: 1,
+        ctrlKey: false,
+      },
       equationRects,
       equationLatex,
     );
@@ -356,13 +330,25 @@ describe("selectionController click handling", () => {
 
     const primedDown = runEvent(
       createSelectionControllerState(),
-      { type: "pointer_down", pointer: { x: 10, y: 10 }, ts: 1 },
+      {
+        type: "pointer_down",
+        pointer: { x: 10, y: 10 },
+        ts: 1,
+        buttons: 1,
+        ctrlKey: false,
+      },
       primedRects,
       primedLatex,
     );
     const primedUp = runEvent(
       primedDown.result,
-      { type: "pointer_up", pointer: { x: 10, y: 10 }, ts: 2 },
+      {
+        type: "pointer_up",
+        pointer: { x: 10, y: 10 },
+        ts: 2,
+        buttons: 1,
+        ctrlKey: false,
+      },
       primedRects,
       primedLatex,
     );
@@ -398,13 +384,25 @@ describe("selectionController click handling", () => {
 
     const partialDown = runEvent(
       createSelectionControllerState(),
-      { type: "pointer_down", pointer: { x: 15, y: 10 }, ts: 10 },
+      {
+        type: "pointer_down",
+        pointer: { x: 15, y: 10 },
+        ts: 10,
+        buttons: 1,
+        ctrlKey: false,
+      },
       partialRects,
       partialLatex,
     );
     const partialUp = runEvent(
       partialDown.result,
-      { type: "pointer_up", pointer: { x: 15, y: 10 }, ts: 20 },
+      {
+        type: "pointer_up",
+        pointer: { x: 15, y: 10 },
+        ts: 20,
+        buttons: 1,
+        ctrlKey: false,
+      },
       partialRects,
       partialLatex,
     );

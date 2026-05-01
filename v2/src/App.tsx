@@ -109,6 +109,7 @@ function App() {
               pointerType: event.pointerType,
               button: event.button,
               buttons: event.buttons,
+              ctrlKey: event.ctrlKey,
               ts: event.ts,
             };
           }
@@ -129,6 +130,7 @@ function App() {
             pointerType: event.pointerType,
             button: event.button,
             buttons: event.buttons,
+            ctrlKey: event.ctrlKey,
             ts: event.ts,
           };
         }
@@ -294,6 +296,7 @@ function App() {
                 pointerType: payload.pointerType,
                 button: payload.button,
                 buttons: payload.buttons,
+                ctrlKey: payload.ctrlKey,
               });
               syncRecordedEvents();
             },
@@ -309,6 +312,7 @@ function App() {
                 pointerType: payload.pointerType,
                 button: payload.button,
                 buttons: payload.buttons,
+                ctrlKey: payload.ctrlKey,
               });
               syncRecordedEvents();
             },
@@ -338,7 +342,7 @@ function App() {
                     <div key={`${event.ts}-${index}`}>
                       {event.type}: Pointer down {event.pointer.x}{" "}
                       {event.pointer.y} {event.pointerType} {event.button}{" "}
-                      {event.buttons} rects=
+                      {event.buttons} ctrl={event.ctrlKey ? "1" : "0"} rects=
                       {event.domSnapshot?.nodeRects.length ?? 0}
                     </div>
                   );

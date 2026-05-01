@@ -13,6 +13,7 @@ export type PointerEventRecord = {
   pointerType: string;
   button: number;
   buttons: number;
+  ctrlKey: boolean;
   ts: number;
 };
 
@@ -58,6 +59,7 @@ export class TestRecorder {
     pointerType: string;
     button: number;
     buttons: number;
+    ctrlKey: boolean;
   }): void {
     this.events.push({
       type: "pointer_down",
@@ -66,6 +68,7 @@ export class TestRecorder {
       pointerType: payload.pointerType,
       button: payload.button,
       buttons: payload.buttons,
+      ctrlKey: payload.ctrlKey,
       ts: Date.now(),
     });
   }
@@ -77,6 +80,7 @@ export class TestRecorder {
     pointerType: string;
     button: number;
     buttons: number;
+    ctrlKey: boolean;
   }): void {
     this.events.push({
       type: "pointer_up",
@@ -85,6 +89,7 @@ export class TestRecorder {
       pointerType: payload.pointerType,
       button: payload.button,
       buttons: payload.buttons,
+      ctrlKey: payload.ctrlKey,
       ts: Date.now(),
     });
   }

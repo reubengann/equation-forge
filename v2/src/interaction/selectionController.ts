@@ -7,20 +7,75 @@ export type PointerLike = {
   y: number;
 };
 
+export type SingleSelection = {
+  kind: "single_node";
+  nodeId: string;
+};
+
+export type MultiFromTreeExpansionSelection = {
+  kind: "multi_node_from_tree_expansion";
+  /**
+   * The node selected by the first click.
+   */
+  anchorNodeId: string;
+  /**
+   * The currently selected expanded ancestor node.
+   */
+  expandedNodeId: string;
+  /**
+   * Number of clicks that participated in this expansion sequence.
+   */
+  clickCount: number;
+};
+
+export type MultiFromCtrlClickSelection = {
+  kind: "multi_node_from_ctrl_click";
+  /**
+   * Nodes toggled into the ctrl-click selection set.
+   */
+  nodeIds: string[];
+  /**
+   * Optional structure/container node that constrains valid ctrl-click picks.
+   * Example: selecting terms within one sum.
+   */
+  containerNodeId: string | null;
+};
+
+export type MultiFromRubberBandSelection = {
+  kind: "multi_node_from_rubber_band";
+  /**
+   * Nodes captured by a marquee selection gesture.
+   */
+  nodeIds: string[];
+  marqueeRect: RectBounds;
+  /**
+   * Optional structure/container node inferred from the marquee region.
+   */
+  containerNodeId: string | null;
+};
+
+export type Selection =
+  | SingleSelection
+  | MultiFromTreeExpansionSelection
+  | MultiFromCtrlClickSelection
+  | MultiFromRubberBandSelection;
+
 export type SelectionControllerEvent =
   | {
       type: "pointer_down";
       pointer: PointerLike;
       pointerId?: number;
       ts: number;
-      buttons?: number;
+      buttons: number;
+      ctrlKey: boolean;
     }
   | {
       type: "pointer_up";
       pointer: PointerLike;
       pointerId?: number;
       ts: number;
-      buttons?: number;
+      buttons: number;
+      ctrlKey: boolean;
     }
   | {
       type: "pointer_cancel";
@@ -98,6 +153,7 @@ export type PointerEventPayload = {
   pointerType: string;
   button: number;
   buttons: number;
+  ctrlKey: boolean;
 };
 
 export type DomSnapshotObservedPayload = {
