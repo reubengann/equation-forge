@@ -1,10 +1,7 @@
-import { MathfieldElement } from "mathlive";
 import { type SyntheticEvent, useRef, useState } from "react";
 import { EquationEditor } from "./EquationEditor";
 import { MathliveEditor } from "./MathliveEditor";
 import type { EquationEditorRecordingHooks } from "./TestRecorder";
-
-MathfieldElement.fontsDirectory = "/fonts";
 
 type EditorEntryToggleProps = {
   onLatexAccepted: (payload: {

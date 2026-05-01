@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  buildNodeResolutionSource,
+  createSelectionControllerState,
+  type NodeResolutionSource,
   type NodeRect,
-  resolveSelectionGeometry,
-  resolveSelectedNodeIdFromEvent,
+  captureGeometryFromMathdiv,
+  resolveSelectionFromEvent,
+  type SelectionControllerEvent,
 } from "./interaction/selectionController";
-import {
-  compileMathDocument,
-  resolveCompiledNodeId,
-} from "./math/compile/compileMathDocument";
+import { compileMathDocument } from "./math/compile/compileMathDocument";
 import type { EquationEditorRecordingHooks } from "./TestRecorder";
 
 type EquationEditorProps = {
@@ -23,8 +24,12 @@ export function EquationEditor({
 }: EquationEditorProps) {
   const mathDivRef = useRef<HTMLElement | null>(null);
   const nodeRectsRef = useRef<NodeRect[]>([]);
+  const nodeResolutionRef = useRef<NodeResolutionSource>(
+    buildNodeResolutionSource([], null),
+  );
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const lastSelectedNodeIdRef = useRef<string | null>(null);
+  const selectionStateRef = useRef(createSelectionControllerState());
   const snapshotCounterRef = useRef(0);
   const lastSnapshotKeyRef = useRef<string | null>(null);
   const currentDomSnapshotIdRef = useRef<string | null>(null);
@@ -47,8 +52,12 @@ export function EquationEditor({
     const maxAttempts = 4;
     const captureSnapshotWhenReady = () => {
       attempts += 1;
-      const snapshot = resolveSelectionGeometry(mathDivRef.current);
+      const snapshot = captureGeometryFromMathdiv(mathDivRef.current);
       nodeRectsRef.current = snapshot?.nodeRects ?? [];
+      nodeResolutionRef.current = buildNodeResolutionSource(
+        nodeRectsRef.current,
+        compiledDoc.index,
+      );
       const hasRenderableDom =
         !!snapshot &&
         snapshot.hostRect.height > 0 &&
@@ -102,25 +111,33 @@ export function EquationEditor({
     }
   }, [latex, selectedNodeId]);
 
-  const resolveSelectedNodeAtPoint = (x: number, y: number): string | null => {
-    const rawNodeId = resolveSelectedNodeIdFromEvent(
-      null,
-      { type: "pointer_down", pointer: { x, y } },
-      nodeRectsRef.current,
-    );
-    return resolveCompiledNodeId(compiledDoc, rawNodeId);
-  };
-
-  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    const nextSelectedNodeId = resolveSelectedNodeAtPoint(
-      event.clientX,
-      event.clientY,
-    );
+  const applySelectionEvent = (event: SelectionControllerEvent) => {
+    const result = resolveSelectionFromEvent({
+      event,
+      nodeResolution: nodeResolutionRef.current,
+      index: compiledDoc.index,
+      state: selectionStateRef.current,
+    });
+    selectionStateRef.current = result;
+    const nextSelectedNodeId = result.selectedNodeId;
     if (lastSelectedNodeIdRef.current !== nextSelectedNodeId) {
       lastSelectedNodeIdRef.current = nextSelectedNodeId;
       setSelectedNodeId(nextSelectedNodeId);
       recordingHooks?.onSelectionChanged?.(nextSelectedNodeId);
     }
+  };
+
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId) === false) {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+    applySelectionEvent({
+      type: "pointer_down",
+      pointer: { x: event.clientX, y: event.clientY },
+      pointerId: event.pointerId,
+      ts: event.timeStamp,
+      buttons: event.buttons,
+    });
     recordingHooks?.onPointerDownEvent?.({
       x: event.clientX,
       y: event.clientY,
@@ -132,6 +149,16 @@ export function EquationEditor({
   };
 
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    applySelectionEvent({
+      type: "pointer_up",
+      pointer: { x: event.clientX, y: event.clientY },
+      pointerId: event.pointerId,
+      ts: event.timeStamp,
+      buttons: event.buttons,
+    });
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
     recordingHooks?.onPointerUpEvent?.({
       x: event.clientX,
       y: event.clientY,
@@ -142,10 +169,28 @@ export function EquationEditor({
     });
   };
 
+  const onPointerCancel = (event: React.PointerEvent<HTMLDivElement>) => {
+    applySelectionEvent({
+      type: "pointer_cancel",
+      pointerId: event.pointerId,
+      ts: event.timeStamp,
+    });
+  };
+
+  const onLostPointerCapture = (event: React.PointerEvent<HTMLDivElement>) => {
+    applySelectionEvent({
+      type: "lost_pointer_capture",
+      pointerId: event.pointerId,
+      ts: event.timeStamp,
+    });
+  };
+
   return (
     <div
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      onLostPointerCapture={onLostPointerCapture}
       style={{
         flex: 1,
         boxSizing: "border-box",

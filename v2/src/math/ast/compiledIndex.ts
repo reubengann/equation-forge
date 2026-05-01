@@ -5,6 +5,7 @@ export type CompiledExprIndex = {
   nodeById: Record<string, Expr>;
   parentById: Record<string, string | null>;
   ancestorsById: Record<string, string[]>;
+  childrenById: Record<string, string[]>;
 };
 
 function exprChildren(expr: Expr): Expr[] {
@@ -93,6 +94,7 @@ export function buildCompiledExprIndex(root: Expr): CompiledExprIndex {
   const nodeById: Record<string, Expr> = {};
   const parentById: Record<string, string | null> = {};
   const ancestorsById: Record<string, string[]> = {};
+  const childrenById: Record<string, string[]> = {};
   let nextId = 1;
 
   const visit = (
@@ -104,6 +106,8 @@ export function buildCompiledExprIndex(root: Expr): CompiledExprIndex {
     nodeById[id] = expr;
     parentById[id] = parentId;
     ancestorsById[id] = ancestors;
+    if (!childrenById[id]) childrenById[id] = [];
+    if (parentId) childrenById[parentId].push(id);
     const nextAncestors = [...ancestors, id];
     for (const child of exprChildren(expr)) {
       visit(child, id, nextAncestors);
@@ -112,5 +116,5 @@ export function buildCompiledExprIndex(root: Expr): CompiledExprIndex {
   };
 
   const rootId = visit(root, null, []);
-  return { rootId, nodeById, parentById, ancestorsById };
+  return { rootId, nodeById, parentById, ancestorsById, childrenById };
 }

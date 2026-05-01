@@ -31,6 +31,13 @@ describe("buildCompiledExprIndex", () => {
     expect(index.ancestorsById.n1).toEqual([]);
     expect(index.ancestorsById.n2).toEqual(["n1"]);
     expect(index.ancestorsById.n4).toEqual(["n1", "n3"]);
+    expect(index.childrenById).toEqual({
+      n1: ["n2", "n3"],
+      n2: [],
+      n3: ["n4", "n5"],
+      n4: [],
+      n5: [],
+    });
   });
 
   it("tracks child order for partial_at_const_quantity", () => {
@@ -43,5 +50,6 @@ describe("buildCompiledExprIndex", () => {
     expect(index.nodeById.n4).toMatchObject({ kind: "symbol", name: "P" });
     expect(index.parentById.n4).toBe("n1");
     expect(index.ancestorsById.n4).toEqual(["n1"]);
+    expect(index.childrenById.n1).toEqual(["n2", "n3", "n4"]);
   });
 });

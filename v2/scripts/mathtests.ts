@@ -2,9 +2,13 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import {
   SelectionGeometry,
-  resolveSelectedNodeIdFromEvent,
+  buildNodeResolutionSource,
+  createSelectionControllerState,
+  type NodeResolutionSource,
+  resolveSelectionFromEvent,
 } from "../src/interaction/selectionController";
 import type { EventFixture } from "../src/interaction/eventFixture";
+import { compileMathDocument } from "../src/math/compile/compileMathDocument";
 
 const ROOT_DIR = process.cwd();
 const FIXTURE_DIR = path.join(ROOT_DIR, "mathtests", "fixtures");
@@ -46,11 +50,22 @@ function replayEvents(fixture: EventFixture) {
   const replayFailures: string[] = [];
   let currentDomSnapshotId: string | null = null;
   let currentDomSnapshot: SelectionGeometry | null = null;
+  let currentCompiledIndex = compileMathDocument(state.latex ?? "").index;
+  let currentNodeResolution: NodeResolutionSource = buildNodeResolutionSource(
+    [],
+    currentCompiledIndex,
+  );
+  let selectionState = createSelectionControllerState();
 
   for (const event of fixture.events) {
     switch (event.type) {
       case "latex_accepted":
         state.latex = event.nextLatex ?? null;
+        currentCompiledIndex = compileMathDocument(state.latex ?? "").index;
+        currentNodeResolution = buildNodeResolutionSource(
+          currentDomSnapshot?.nodeRects ?? [],
+          currentCompiledIndex,
+        );
         break;
       case "dom_changed": {
         if (!event.domSnapshotId) {
@@ -67,6 +82,10 @@ function replayEvents(fixture: EventFixture) {
         }
         currentDomSnapshotId = event.domSnapshotId;
         currentDomSnapshot = snapshot;
+        currentNodeResolution = buildNodeResolutionSource(
+          currentDomSnapshot.nodeRects,
+          currentCompiledIndex,
+        );
         break;
       }
       case "pointer_up": {
@@ -83,6 +102,18 @@ function replayEvents(fixture: EventFixture) {
             `pointer_up domSnapshotId mismatch: event=${event.domSnapshotId} current=${currentDomSnapshotId}`,
           );
         }
+        const result = resolveSelectionFromEvent({
+          event: {
+            type: "pointer_up",
+            pointer: { x: event.pointer.x, y: event.pointer.y },
+            ts: event.ts,
+          },
+          nodeResolution: currentNodeResolution,
+          index: currentCompiledIndex,
+          state: selectionState,
+        });
+        selectionState = result;
+        state.selectedNodeId = result.selectedNodeId;
         break;
       }
       case "pointer_down": {
@@ -99,16 +130,18 @@ function replayEvents(fixture: EventFixture) {
             `pointer_down domSnapshotId mismatch: event=${event.domSnapshotId} current=${currentDomSnapshotId}`,
           );
         }
-
-        const nextSelectedNodeId = resolveSelectedNodeIdFromEvent(
-          state.selectedNodeId,
-          {
+        const result = resolveSelectionFromEvent({
+          event: {
             type: "pointer_down",
             pointer: { x: event.pointer.x, y: event.pointer.y },
+            ts: event.ts,
           },
-          currentDomSnapshot?.nodeRects ?? [],
-        );
-        state.selectedNodeId = nextSelectedNodeId;
+          nodeResolution: currentNodeResolution,
+          index: currentCompiledIndex,
+          state: selectionState,
+        });
+        selectionState = result;
+        state.selectedNodeId = result.selectedNodeId;
         break;
       }
       default:

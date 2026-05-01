@@ -11,6 +11,7 @@ import {
   type EquationEditorRecordingHooks,
   type TestRecorderEvent,
 } from "./TestRecorder";
+import { MathfieldElement } from "mathlive";
 
 async function saveFixtureJson(fixture: EventFixture): Promise<void> {
   const json = `${JSON.stringify(fixture, null, 2)}\n`;
@@ -70,6 +71,8 @@ async function saveFixtureJson(fixture: EventFixture): Promise<void> {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+MathfieldElement.fontsDirectory = "/fonts";
 
 function App() {
   const recorderRef = useRef<TestRecorder>(new TestRecorder());
