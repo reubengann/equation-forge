@@ -8,57 +8,17 @@ export type PointerLike = {
 };
 
 export type SingleSelection = {
-  kind: "single_node";
+  kind: "single";
   nodeId: string;
 };
 
-export type MultiFromTreeExpansionSelection = {
-  kind: "multi_node_from_tree_expansion";
-  /**
-   * The node selected by the first click.
-   */
-  anchorNodeId: string;
-  /**
-   * The currently selected expanded ancestor node.
-   */
-  expandedNodeId: string;
-  /**
-   * Number of clicks that participated in this expansion sequence.
-   */
-  clickCount: number;
-};
-
-export type MultiFromCtrlClickSelection = {
-  kind: "multi_node_from_ctrl_click";
-  /**
-   * Nodes toggled into the ctrl-click selection set.
-   */
+export type MultiSelection = {
+  kind: "multi";
   nodeIds: string[];
-  /**
-   * Optional structure/container node that constrains valid ctrl-click picks.
-   * Example: selecting terms within one sum.
-   */
   containerNodeId: string | null;
 };
 
-export type MultiFromRubberBandSelection = {
-  kind: "multi_node_from_rubber_band";
-  /**
-   * Nodes captured by a marquee selection gesture.
-   */
-  nodeIds: string[];
-  marqueeRect: RectBounds;
-  /**
-   * Optional structure/container node inferred from the marquee region.
-   */
-  containerNodeId: string | null;
-};
-
-export type Selection =
-  | SingleSelection
-  | MultiFromTreeExpansionSelection
-  | MultiFromCtrlClickSelection
-  | MultiFromRubberBandSelection;
+export type Selection = SingleSelection | MultiSelection;
 
 export type SelectionControllerEvent =
   | {
