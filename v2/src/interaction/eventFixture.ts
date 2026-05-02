@@ -30,6 +30,7 @@ export type EventFixture = {
   domSnapshots: Record<string, SelectionGeometry>;
   events: ExportedEvent[];
   expected: {
+    selectedNodeIds?: string[];
     selectedNodeId?: string | null;
     latex?: string;
   };

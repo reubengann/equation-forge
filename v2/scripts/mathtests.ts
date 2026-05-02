@@ -5,6 +5,7 @@ import {
   buildNodeResolutionSource,
   createSelectionControllerState,
   type NodeResolutionSource,
+  selectionNodeIds,
   resolveSelectionFromEvent,
 } from "../src/interaction/selectionController";
 import type { EventFixture } from "../src/interaction/eventFixture";
@@ -44,7 +45,7 @@ function resolveCandidateFiles(files: string[], rawFilter: string) {
 
 function replayEvents(fixture: EventFixture) {
   const state = {
-    selectedNodeId: null as string | null,
+    selectedNodeIds: [] as string[],
     latex: null as string | null,
   };
   const replayFailures: string[] = [];
@@ -107,13 +108,16 @@ function replayEvents(fixture: EventFixture) {
             type: "pointer_up",
             pointer: { x: event.pointer.x, y: event.pointer.y },
             ts: event.ts,
+            buttons: event.buttons,
+            ctrlKey: event.ctrlKey ?? false,
           },
-          nodeResolution: currentNodeResolution,
+          currentSelection: selectionState.selection,
+          nodeResolutionSource: currentNodeResolution,
           index: currentCompiledIndex,
           state: selectionState,
         });
         selectionState = result;
-        state.selectedNodeId = result.selectedNodeId;
+        state.selectedNodeIds = selectionNodeIds(result.selection);
         break;
       }
       case "pointer_down": {
@@ -135,13 +139,16 @@ function replayEvents(fixture: EventFixture) {
             type: "pointer_down",
             pointer: { x: event.pointer.x, y: event.pointer.y },
             ts: event.ts,
+            buttons: event.buttons,
+            ctrlKey: event.ctrlKey ?? false,
           },
-          nodeResolution: currentNodeResolution,
+          currentSelection: selectionState.selection,
+          nodeResolutionSource: currentNodeResolution,
           index: currentCompiledIndex,
           state: selectionState,
         });
         selectionState = result;
-        state.selectedNodeId = result.selectedNodeId;
+        state.selectedNodeIds = selectionNodeIds(result.selection);
         break;
       }
       default:
@@ -161,10 +168,18 @@ function buildAssertions(
   const expected = fixture.expected ?? {};
   const finalState = replayResult.state;
 
-  if ("selectedNodeId" in expected) {
-    if (finalState.selectedNodeId !== expected.selectedNodeId) {
+  if ("selectedNodeIds" in expected) {
+    if (JSON.stringify(finalState.selectedNodeIds) !== JSON.stringify(expected.selectedNodeIds)) {
       failures.push(
-        `selectedNodeId expected=${JSON.stringify(expected.selectedNodeId)} actual=${JSON.stringify(finalState.selectedNodeId)}`,
+        `selectedNodeIds expected=${JSON.stringify(expected.selectedNodeIds)} actual=${JSON.stringify(finalState.selectedNodeIds)}`,
+      );
+    }
+  }
+  if ("selectedNodeId" in expected) {
+    const firstSelected = finalState.selectedNodeIds[0] ?? null;
+    if (firstSelected !== expected.selectedNodeId) {
+      failures.push(
+        `selectedNodeId expected=${JSON.stringify(expected.selectedNodeId)} actual=${JSON.stringify(firstSelected)}`,
       );
     }
   }

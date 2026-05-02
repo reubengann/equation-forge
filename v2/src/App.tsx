@@ -6,6 +6,7 @@ import type {
   PointerEventPayload,
   SelectionGeometry,
 } from "./interaction/selectionController";
+import { selectionNodeIds, type Selection } from "./interaction/selectionController";
 import {
   TestRecorder,
   type EquationEditorRecordingHooks,
@@ -76,13 +77,13 @@ MathfieldElement.fontsDirectory = "/fonts";
 
 function App() {
   const recorderRef = useRef<TestRecorder>(new TestRecorder());
-  const selectedNodeIdRef = useRef<string | null>(null);
+  const selectedNodeIdsRef = useRef<string[]>([]);
   const lastDomSnapshotIdRef = useRef<string | null>(null);
   const snapshotByIdRef = useRef<Record<string, SelectionGeometry>>({});
   const [recordedEvents, setRecordedEvents] = useState<TestRecorderEvent[]>([]);
   const [recordedEventCount, setRecordedEventCount] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
 
   const syncRecordedEvents = () => {
     const nextEvents = recorderRef.current.getEvents();
@@ -169,7 +170,7 @@ function App() {
       domSnapshots: compact.domSnapshots,
       events: compact.events,
       expected: {
-        selectedNodeId: selectedNodeIdRef.current,
+        selectedNodeIds: selectedNodeIdsRef.current,
         latex:
           lastLatexAcceptedEvent?.type === "latex_accepted"
             ? lastLatexAcceptedEvent.nextLatex
@@ -316,19 +317,24 @@ function App() {
               });
               syncRecordedEvents();
             },
-            onSelectionChanged: (nodeId: string) => {
+            onSelectionChanged: (selection: Selection | null) => {
               // We do not store selectionchanged events into the recording. This is just for
               // Showing on the UI for debugging purposes.
-              if (selectedNodeIdRef.current !== nodeId) {
-                selectedNodeIdRef.current = nodeId;
-                setSelectedNodeId(nodeId);
+              const nodeIds = selectionNodeIds(selection);
+              const oldKey = selectedNodeIdsRef.current.join(",");
+              const nextKey = nodeIds.join(",");
+              if (oldKey !== nextKey) {
+                selectedNodeIdsRef.current = nodeIds;
+                setSelectedNodeIds(nodeIds);
               }
             },
           } satisfies EquationEditorRecordingHooks
         }
       />
       <div style={{ textAlign: "left", fontSize: "14px" }}>
-        <div>Selected node: {selectedNodeId ?? "none"}</div>
+        <div>
+          Selected nodes: {selectedNodeIds.length > 0 ? selectedNodeIds.join(", ") : "none"}
+        </div>
         <div> Recorded events: {recordedEventCount} </div>
         <div>
           {recordedEvents

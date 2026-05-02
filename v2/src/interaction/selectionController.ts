@@ -1,4 +1,5 @@
 import type { CompiledExprIndex as ExprIndex, Expr } from "../math/ast";
+import { applyMultiSelectionEvent } from "./multiSelectionController";
 
 type MathDivHost = HTMLElement & { shadowRoot?: ShadowRoot | null };
 
@@ -95,14 +96,14 @@ type LastClick = {
 export type SelectionControllerState = {
   pendingPointerDown: PendingPointerDown | null;
   lastCommittedClick: LastClick | null;
-  selectedNodeId: string | null;
+  selection: Selection | null;
 };
 
 export function createSelectionControllerState(): SelectionControllerState {
   return {
     pendingPointerDown: null,
     lastCommittedClick: null,
-    selectedNodeId: null,
+    selection: null,
   };
 }
 
@@ -121,11 +122,24 @@ export type DomSnapshotObservedPayload = {
   domSnapshot: SelectionGeometry | null;
 };
 
-function distanceSquared(a: PointerLike, b: PointerLike): number {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-  return dx * dx + dy * dy;
+// Convenience function for getting all selected nodes regardless of selection type.
+export function selectionSet(selection: Selection | null): Set<string> {
+  if (!selection) return new Set();
+  if (selection.kind === "single") return new Set([selection.nodeId]);
+  return new Set(selection.nodeIds);
 }
+
+export function selectionNodeIds(selection: Selection | null): string[] {
+  if (!selection) return [];
+  if (selection.kind === "single") return [selection.nodeId];
+  return [...selection.nodeIds];
+}
+
+// function distanceSquared(a: PointerLike, b: PointerLike): number {
+//   const dx = a.x - b.x;
+//   const dy = a.y - b.y;
+//   return dx * dx + dy * dy;
+// }
 
 function containsPoint(rect: NodeRect, point: PointerLike): boolean {
   return (
@@ -221,22 +235,22 @@ function resolveSelectableNodeAtPoint(
   return walkUpToSelectableNode(treeHit, index);
 }
 
-function nextSelectableParent(
-  selectedNodeId: string | null,
-  index: ExprIndex | null,
-): string | null {
-  if (!selectedNodeId || !index) return selectedNodeId;
-  const parentId = index.parentById[selectedNodeId];
-  if (!parentId) return selectedNodeId;
-  return walkUpToSelectableNode(parentId, index);
-}
+// function nextSelectableParent(
+//   selectedNodeId: string | null,
+//   index: ExprIndex | null,
+// ): string | null {
+//   if (!selectedNodeId || !index) return selectedNodeId;
+//   const parentId = index.parentById[selectedNodeId];
+//   if (!parentId) return selectedNodeId;
+//   return walkUpToSelectableNode(parentId, index);
+// }
 
 type SelectionControllerInputs = {
   event: SelectionControllerEvent;
-  nodeResolution: NodeResolutionSource;
+  currentSelection: Selection | null;
+  nodeResolutionSource: NodeResolutionSource;
   index: ExprIndex | null;
   state: SelectionControllerState;
-  config?: Partial<SelectionControllerConfig>;
 };
 
 /* 
@@ -244,26 +258,63 @@ type SelectionControllerInputs = {
 */
 export function resolveSelectionFromEvent({
   event,
-  nodeResolution,
+  currentSelection,
+  nodeResolutionSource,
   index,
   state,
-  config,
 }: SelectionControllerInputs): SelectionControllerState {
-  const currentSelectedNodeId = state.selectedNodeId;
-  const mergedConfig: SelectionControllerConfig = {
-    ...DEFAULT_SELECTION_CONTROLLER_CONFIG,
-    ...config,
-  };
+  const currentSelectedNodes = selectionSet(currentSelection);
 
-  // If nothing is selected, we can just select here. Makes it seem snappier.
   if (event.type === "pointer_down") {
-    const resolvedAtPoint =
-      currentSelectedNodeId === null
-        ? resolveSelectableNodeAtPoint(event.pointer, nodeResolution, index)
-        : null;
+    // We only handle this if nothing is selected or if something is selected and multiselecting.
+    if (event.ctrlKey && currentSelectedNodes) {
+      // something is already selected and multiselecting
+      // The pointer is not released yet, but it's safe to resolve now since ctrl+drag is not understood.
+      const resolvedAtPoint = resolveSelectableNodeAtPoint(
+        event.pointer,
+        nodeResolutionSource,
+        index,
+      );
+
+      if (!resolvedAtPoint) {
+        return {
+          ...state,
+          pendingPointerDown: null,
+        };
+      }
+
+      const decision = applyMultiSelectionEvent({
+        event: { type: "ctrl_click", nodeId: resolvedAtPoint },
+        currentSelection,
+        index,
+      });
+      const nextSelection = decision.accepted
+        ? decision.nextSelection
+        : currentSelection;
+      return {
+        ...state,
+        selection: nextSelection,
+        pendingPointerDown: {
+          pointerId: event.pointerId ?? null,
+          pointer: event.pointer,
+          ts: event.ts,
+        },
+      };
+    } else if (!currentSelection) {
+    }
+
+    const resolvedAtPoint = resolveSelectableNodeAtPoint(
+      event.pointer,
+      nodeResolutionSource,
+      index,
+    );
+    const nextSelection =
+      resolvedAtPoint !== null
+        ? ({ kind: "single", nodeId: resolvedAtPoint } as Selection)
+        : currentSelection;
     return {
       ...state,
-      selectedNodeId: resolvedAtPoint ?? currentSelectedNodeId,
+      selection: nextSelection,
       pendingPointerDown: {
         pointerId: event.pointerId ?? null,
         pointer: event.pointer,
@@ -283,59 +334,32 @@ export function resolveSelectionFromEvent({
   }
 
   if (event.type === "pointer_up") {
-    const pending = state.pendingPointerDown;
-    const pointerIdMismatch =
-      !!pending &&
-      pending.pointerId !== null &&
-      event.pointerId !== undefined &&
-      event.pointerId !== pending.pointerId;
-
-    if (pointerIdMismatch) {
+    if (event.ctrlKey) {
+      // we handled ctrl+click in pointer_down, so just finalize the event.
       return {
         ...state,
         pendingPointerDown: null,
       };
     }
 
-    if (pending) {
-      const movedTooFar =
-        distanceSquared(pending.pointer, event.pointer) >
-        mergedConfig.dragThresholdPx ** 2;
-      if (movedTooFar) {
-        return {
-          ...state,
-          pendingPointerDown: null,
-        };
-      }
-    }
-
+    // If we click in an empty space, deselect everything
     const resolvedAtPoint = resolveSelectableNodeAtPoint(
       event.pointer,
-      nodeResolution,
+      nodeResolutionSource,
       index,
     );
-    const isDoubleClick =
-      !!state.lastCommittedClick &&
-      event.ts - state.lastCommittedClick.ts <=
-        mergedConfig.doubleClickWindowMs &&
-      distanceSquared(state.lastCommittedClick.pointer, event.pointer) <=
-        mergedConfig.dragThresholdPx ** 2;
 
-    const nextSelectedNodeId =
-      isDoubleClick && currentSelectedNodeId
-        ? nextSelectableParent(currentSelectedNodeId, index)
-        : resolvedAtPoint;
-
-    return {
-      selectedNodeId: nextSelectedNodeId,
-      pendingPointerDown: null,
-      lastCommittedClick: {
-        pointer: event.pointer,
-        ts: event.ts,
-      },
-    };
+    if (!resolvedAtPoint) {
+      return {
+        pendingPointerDown: null,
+        lastCommittedClick: event,
+        selection: null,
+      };
+    }
+    return { ...state };
   }
 
+  // Can this happen?
   return {
     ...state,
   };

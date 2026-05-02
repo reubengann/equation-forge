@@ -1,6 +1,7 @@
 import type {
   DomSnapshotObservedPayload,
   PointerEventPayload,
+  Selection,
   SelectionGeometry,
 } from "./interaction/selectionController";
 
@@ -40,7 +41,7 @@ export type EquationEditorRecordingHooks = {
   onDomSnapshotObserved: (payload: DomSnapshotObservedPayload) => void;
   onPointerDownEvent: (payload: PointerEventPayload) => void;
   onPointerUpEvent: (payload: PointerEventPayload) => void;
-  onSelectionChanged: (nodeId: string | null) => void;
+  onSelectionChanged: (selection: Selection | null) => void;
 };
 
 export class TestRecorder {

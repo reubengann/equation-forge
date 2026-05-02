@@ -4,9 +4,11 @@ import {
   createSelectionControllerState,
   type NodeResolutionSource,
   type NodeRect,
+  type Selection,
   captureGeometryFromMathdiv,
   resolveSelectionFromEvent,
   type SelectionControllerEvent,
+  selectionSet,
 } from "./interaction/selectionController";
 import { compileMathDocument } from "./math/compile/compileMathDocument";
 import type { EquationEditorRecordingHooks } from "./TestRecorder";
@@ -27,8 +29,8 @@ export function EquationEditor({
   const nodeResolutionRef = useRef<NodeResolutionSource>(
     buildNodeResolutionSource([], null),
   );
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const lastSelectedNodeIdRef = useRef<string | null>(null);
+  const [selection, setSelection] = useState<Selection | null>(null);
+  const lastSelectionKeyRef = useRef<string>("null");
   const selectionStateRef = useRef(createSelectionControllerState());
   const snapshotCounterRef = useRef(0);
   const lastSnapshotKeyRef = useRef<string | null>(null);
@@ -104,26 +106,29 @@ export function EquationEditor({
     const els = Array.from(
       shadowRoot.querySelectorAll<HTMLElement>("[data-node-id]"),
     );
+    const selectedNodeIds = selectionSet(selection);
     for (const el of els) {
       const nodeId = el.dataset.nodeId;
-      const isSelected = !!selectedNodeId && nodeId === selectedNodeId;
+      const isSelected = !!nodeId && selectedNodeIds.has(nodeId);
       el.style.color = isSelected ? "#ff9800" : "";
     }
-  }, [latex, selectedNodeId]);
+  }, [latex, selection]);
 
   const applySelectionEvent = (event: SelectionControllerEvent) => {
     const result = resolveSelectionFromEvent({
       event,
-      nodeResolution: nodeResolutionRef.current,
+      currentSelection: selection,
+      nodeResolutionSource: nodeResolutionRef.current,
       index: compiledDoc.index,
       state: selectionStateRef.current,
     });
     selectionStateRef.current = result;
-    const nextSelectedNodeId = result.selectedNodeId;
-    if (lastSelectedNodeIdRef.current !== nextSelectedNodeId) {
-      lastSelectedNodeIdRef.current = nextSelectedNodeId;
-      setSelectedNodeId(nextSelectedNodeId);
-      recordingHooks?.onSelectionChanged?.(nextSelectedNodeId);
+    const nextSelection = result.selection;
+    const nextSelectionKey = JSON.stringify(nextSelection);
+    if (lastSelectionKeyRef.current !== nextSelectionKey) {
+      lastSelectionKeyRef.current = nextSelectionKey;
+      setSelection(nextSelection);
+      recordingHooks?.onSelectionChanged?.(nextSelection);
     }
   };
 
