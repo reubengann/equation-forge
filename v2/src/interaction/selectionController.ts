@@ -193,7 +193,7 @@ function isDoubleClickSelectableNode(expr: Expr | undefined): boolean {
   }
 }
 
-function walkUpToSelectableNode(nodeId: string | null, index: ExprIndex): string | null {
+function walkUpToDirectlySelectableNode(nodeId: string | null, index: ExprIndex): string | null {
   if (!nodeId) return null;
   let cursor: string | null = nodeId;
   while (cursor) {
@@ -249,7 +249,7 @@ function resolveSelectableNodeAtPoint(
   index: ExprIndex,
 ): string | null {
   const treeHit = pickNodeIdAtPointFromTree(nodeResolution, point, index);
-  return walkUpToSelectableNode(treeHit, index);
+  return walkUpToDirectlySelectableNode(treeHit, index);
 }
 
 function resolveNodeAtPoint(
@@ -260,7 +260,7 @@ function resolveNodeAtPoint(
   const treeHitNodeId = pickNodeIdAtPointFromTree(nodeResolution, point, index);
   return {
     treeHitNodeId,
-    selectableNodeId: walkUpToSelectableNode(treeHitNodeId, index),
+    selectableNodeId: walkUpToDirectlySelectableNode(treeHitNodeId, index),
   };
 }
 
