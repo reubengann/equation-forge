@@ -40,6 +40,21 @@ function runEvent(
   });
 }
 
+function findNodeIdByKind(
+  latex: string,
+  kind: string,
+  predicate?: (node: unknown) => boolean,
+): string {
+  const compiled = compileMathDocument(latex);
+  const hit = Object.entries(compiled.index.nodeById).find(([_, node]) => {
+    if (typeof node !== "object" || node === null || !("kind" in node)) return false;
+    if ((node as { kind: string }).kind !== kind) return false;
+    return predicate ? predicate(node) : true;
+  });
+  if (!hit) throw new Error(`Could not find node of kind ${kind}`);
+  return hit[0];
+}
+
 describe("selectionController", () => {
   it("selects a single node on pointer_down", () => {
     const result = runEvent(
@@ -144,5 +159,122 @@ describe("selectionController", () => {
     );
 
     expect(clickEqualsUp.selection).toEqual({ kind: "single", nodeId: "n2" });
+  });
+
+  it("double-click promotes single selection to next selectable parent", () => {
+    const latex = String.raw`\frac{a}{b}`;
+    const divideId = findNodeIdByKind(latex, "divide");
+    const aId = findNodeIdByKind(
+      latex,
+      "symbol",
+      (node) => (node as { name?: string }).name === "a",
+    );
+    const rects: NodeRect[] = [
+      { nodeId: divideId, left: 0, top: 0, right: 100, bottom: 40, width: 100, height: 40 },
+      { nodeId: aId, left: 10, top: 5, right: 30, bottom: 20, width: 20, height: 15 },
+    ];
+
+    const state = {
+      ...createSelectionControllerState(),
+      selection: { kind: "single", nodeId: aId } as const,
+      lastCommittedClick: { pointer: { x: 15, y: 10 }, ts: 100 },
+    };
+    const result = runEvent(
+      state,
+      {
+        type: "pointer_down",
+        pointer: { x: 15, y: 10 },
+        ts: 120,
+        buttons: 1,
+        ctrlKey: false,
+      },
+      rects,
+      latex,
+    );
+
+    expect(result.selection).toEqual({ kind: "single", nodeId: divideId });
+  });
+
+  it("records lastCommittedClick timestamp on selectable pointer_up", () => {
+    const latex = String.raw`a+b`;
+    const rects = makeRect([
+      ["n1", 0, 100],
+      ["n2", 0, 45],
+      ["n3", 55, 100],
+    ]);
+    const selected = runEvent(
+      createSelectionControllerState(),
+      {
+        type: "pointer_down",
+        pointer: { x: 10, y: 10 },
+        ts: 10,
+        buttons: 1,
+        ctrlKey: false,
+      },
+      rects,
+      latex,
+    );
+
+    const committed = runEvent(
+      selected,
+      {
+        type: "pointer_up",
+        pointer: { x: 10, y: 10 },
+        ts: 20,
+        buttons: 0,
+        ctrlKey: false,
+      },
+      rects,
+      latex,
+    );
+
+    expect(committed.lastCommittedClick).toEqual({
+      pointer: { x: 10, y: 10 },
+      ts: 20,
+    });
+  });
+
+  it("double-click on term in a+b promotes selection to add node", () => {
+    const latex = String.raw`a+b`;
+    const rects = makeRect([
+      ["n1", 0, 100],
+      ["n2", 0, 45],
+      ["n3", 55, 100],
+    ]);
+    const state = {
+      ...createSelectionControllerState(),
+      selection: { kind: "single", nodeId: "n3" } as const,
+      lastCommittedClick: { pointer: { x: 60, y: 10 }, ts: 100 },
+    };
+
+    const downResult = runEvent(
+      state,
+      {
+        type: "pointer_down",
+        pointer: { x: 60, y: 10 },
+        ts: 120,
+        buttons: 1,
+        ctrlKey: false,
+      },
+      rects,
+      latex,
+    );
+
+    expect(downResult.selection).toEqual({ kind: "single", nodeId: "n1" });
+
+    const upResult = runEvent(
+      downResult,
+      {
+        type: "pointer_up",
+        pointer: { x: 60, y: 10 },
+        ts: 130,
+        buttons: 0,
+        ctrlKey: false,
+      },
+      rects,
+      latex,
+    );
+
+    expect(upResult.selection).toEqual({ kind: "single", nodeId: "n1" });
   });
 });

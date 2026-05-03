@@ -103,6 +103,7 @@ export type SelectionControllerState = {
   pendingPointerDown: PendingPointerDown | null;
   lastCommittedClick: LastClick | null;
   selection: Selection | null;
+  suppressSelectionOnNextPointerUp: boolean;
 };
 
 export function createSelectionControllerState(): SelectionControllerState {
@@ -110,6 +111,7 @@ export function createSelectionControllerState(): SelectionControllerState {
     pendingPointerDown: null,
     lastCommittedClick: null,
     selection: null,
+    suppressSelectionOnNextPointerUp: false,
   };
 }
 
@@ -178,6 +180,19 @@ function isDirectlySelectableNode(expr: Expr | undefined): boolean {
   }
 }
 
+// Nodes that cannot be directly selected by a click may still be valid
+// expansion targets for double-click tree promotion.
+function isDoubleClickSelectableNode(expr: Expr | undefined): boolean {
+  if (!expr) return false;
+  if (isDirectlySelectableNode(expr)) return true;
+  switch (expr.kind) {
+    case "add":
+      return true;
+    default:
+      return false;
+  }
+}
+
 function walkUpToSelectableNode(nodeId: string | null, index: ExprIndex): string | null {
   if (!nodeId) return null;
   let cursor: string | null = nodeId;
@@ -192,6 +207,18 @@ function walkUpToSelectableNode(nodeId: string | null, index: ExprIndex): string
       return cursor;
     }
     cursor = parentId;
+  }
+  return null;
+}
+
+function walkUpToDoubleClickSelectableNode(nodeId: string | null, index: ExprIndex): string | null {
+  if (!nodeId) return null;
+  let cursor: string | null = nodeId;
+  while (cursor) {
+    if (isDoubleClickSelectableNode(index.nodeById[cursor])) {
+      return cursor;
+    }
+    cursor = index.parentById[cursor] ?? null;
   }
   return null;
 }
@@ -278,6 +305,86 @@ function handleMultiSelectionWithExistingSelection(
   };
 }
 
+function handleDoubleClick(
+  event: PointerDownControllerEvent,
+  nodeResolutionSource: NodeResolutionSource,
+  index: ExprIndex,
+  currentSelection: Selection | null,
+  state: SelectionControllerState,
+): SelectionControllerState {
+  const hit = resolveNodeAtPoint(event.pointer, nodeResolutionSource, index);
+
+  // Second click is over a non-selectable node, possibly double-clicking in blank space?
+  if (!hit.selectableNodeId) {
+    return { ...state, pendingPointerDown: null };
+  }
+
+  // A double-click promotes to the node above it. Note that selectability is not constrained in the
+  // same way as a click. We _can_ select a sum, for example.
+  const nextSelectableParent = (nodeId: string): string | null => {
+    const parentId = index.parentById[nodeId] ?? null;
+    return walkUpToDoubleClickSelectableNode(parentId, index);
+  };
+
+  // Now we need to resolve how the current selection is updated. If a single item is selected,
+  // we promote to the parent. But if multiple items are selected, and we're double-clicking on
+  // one of those items, we need to remove that item from the multiselection and add its parent instead.
+  const isDescendantOf = (nodeId: string, ancestorId: string): boolean => {
+    let cursor: string | null = nodeId;
+    while (cursor) {
+      if (cursor === ancestorId) return true;
+      cursor = index.parentById[cursor] ?? null;
+    }
+    return false;
+  };
+
+  if (!currentSelection) {
+    return singlySelect(event, nodeResolutionSource, index, currentSelection, state);
+  }
+
+  if (currentSelection.kind === "single") {
+    const promoted = nextSelectableParent(currentSelection.nodeId);
+    if (!promoted) return { ...state, pendingPointerDown: null };
+    return {
+      ...state,
+      selection: { kind: "single", nodeId: promoted },
+      pendingPointerDown: null,
+      suppressSelectionOnNextPointerUp: true,
+    };
+  }
+
+  const hitNodeId = hit.selectableNodeId;
+  if (!currentSelection.nodeIds.includes(hitNodeId)) {
+    return { ...state, pendingPointerDown: null };
+  }
+
+  const promoted = nextSelectableParent(hitNodeId);
+  if (!promoted) return { ...state, pendingPointerDown: null };
+
+  if (currentSelection.containerNodeId && !isDescendantOf(promoted, currentSelection.containerNodeId)) {
+    return { ...state, pendingPointerDown: null };
+  }
+
+  const nextNodeIds = Array.from(
+    new Set(currentSelection.nodeIds.map((id) => (id === hitNodeId ? promoted : id))),
+  );
+  if (nextNodeIds.length === 1) {
+    return {
+      ...state,
+      selection: { kind: "single", nodeId: nextNodeIds[0] },
+      pendingPointerDown: null,
+      suppressSelectionOnNextPointerUp: true,
+    };
+  }
+
+  return {
+    ...state,
+    selection: { ...currentSelection, nodeIds: nextNodeIds },
+    pendingPointerDown: null,
+    suppressSelectionOnNextPointerUp: true,
+  };
+}
+
 /* 
   Main entry point for selecting
 */
@@ -307,6 +414,14 @@ export function resolveSelectionFromEvent({
       );
     }
 
+    // Check for double-click
+    if (
+      event.ts - (state.lastCommittedClick?.ts ?? 0) <
+      DEFAULT_SELECTION_CONTROLLER_CONFIG.doubleClickWindowMs
+    ) {
+      return handleDoubleClick(event, nodeResolutionSource, index, currentSelection, state);
+    }
+
     // If something is already selected, we don't want to clobber that, because user could be dragging.
     if (currentSelection) {
       return {
@@ -331,6 +446,16 @@ export function resolveSelectionFromEvent({
   }
 
   if (event.type === "pointer_up") {
+    // We handled the double-click already, so just bail
+    if (state.suppressSelectionOnNextPointerUp) {
+      return {
+        ...state,
+        pendingPointerDown: null,
+        suppressSelectionOnNextPointerUp: false,
+        lastCommittedClick: { pointer: event.pointer, ts: event.ts },
+      };
+    }
+
     if (event.ctrlKey) {
       // If ctrl was pressed, we handled ctrl+click in pointer_down, so just finalize the event.
       return { ...state, pendingPointerDown: null };
@@ -340,7 +465,12 @@ export function resolveSelectionFromEvent({
 
     // Clicking truly empty space clears selection.
     if (!hit.treeHitNodeId) {
-      return { pendingPointerDown: null, lastCommittedClick: event, selection: null };
+      return {
+        pendingPointerDown: null,
+        lastCommittedClick: event,
+        selection: null,
+        suppressSelectionOnNextPointerUp: false,
+      };
     }
 
     // Clicking non-selectable operator (e.g. +, =) does nothing.
@@ -350,7 +480,11 @@ export function resolveSelectionFromEvent({
 
     // Otherwise, we have might have something selected, but we want to select something new.
     // So we just select singly.
-    return singlySelect(event, nodeResolutionSource, index, currentSelection, state);
+    return {
+      ...singlySelect(event, nodeResolutionSource, index, currentSelection, state),
+      lastCommittedClick: { pointer: event.pointer, ts: event.ts },
+      suppressSelectionOnNextPointerUp: false,
+    };
   }
 
   throw new Error("Unhandled event type");
