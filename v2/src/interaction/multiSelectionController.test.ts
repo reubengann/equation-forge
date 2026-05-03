@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { compileMathDocument } from "../math/compile/compileMathDocument";
-import { applyMultiSelectionEvent } from "./multiSelectionController";
+import { applyCtrlClickIntent } from "./multiSelectionController";
 
 function findNodeIdBySymbolName(latex: string, name: string): string {
   const compiled = compileMathDocument(latex);
@@ -17,8 +17,8 @@ describe("multi-selection add/product", () => {
     const doc = compileMathDocument(latex);
     const aId = findNodeIdBySymbolName(latex, "a");
 
-    const result = applyMultiSelectionEvent({
-      event: { type: "ctrl_click", nodeId: aId },
+    const result = applyCtrlClickIntent({
+      nodeId: aId,
       currentSelection: null,
       index: doc.index,
     });
@@ -35,8 +35,8 @@ describe("multi-selection add/product", () => {
     const aId = findNodeIdBySymbolName(latex, "a");
     const bId = findNodeIdBySymbolName(latex, "b");
 
-    const result = applyMultiSelectionEvent({
-      event: { type: "ctrl_click", nodeId: bId },
+    const result = applyCtrlClickIntent({
+      nodeId: bId,
       currentSelection: { kind: "single", nodeId: aId },
       index: doc.index,
     });
@@ -54,8 +54,8 @@ describe("multi-selection add/product", () => {
     const doc = compileMathDocument(latex);
     const aId = findNodeIdBySymbolName(latex, "a");
 
-    const result = applyMultiSelectionEvent({
-      event: { type: "ctrl_click", nodeId: aId },
+    const result = applyCtrlClickIntent({
+      nodeId: aId,
       currentSelection: { kind: "single", nodeId: aId },
       index: doc.index,
     });
@@ -71,8 +71,8 @@ describe("multi-selection add/product", () => {
     const aId = findNodeIdBySymbolName(latex, "a");
     const cId = findNodeIdBySymbolName(latex, "c");
 
-    const result = applyMultiSelectionEvent({
-      event: { type: "ctrl_click", nodeId: cId },
+    const result = applyCtrlClickIntent({
+      nodeId: cId,
       currentSelection: { kind: "single", nodeId: aId },
       index: doc.index,
     });
@@ -95,8 +95,8 @@ describe("multi-selection add/product", () => {
     )?.[0];
     if (!addId || !fractionId) throw new Error("Expected add and divide nodes");
 
-    const result = applyMultiSelectionEvent({
-      event: { type: "ctrl_click", nodeId: aId },
+    const result = applyCtrlClickIntent({
+      nodeId: aId,
       currentSelection: {
         kind: "multi",
         nodeIds: [fractionId, cId],

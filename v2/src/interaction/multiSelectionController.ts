@@ -156,7 +156,7 @@ const sumProductTermCtrlClickRule: MultiSelectionRule = {
 
 const CTRL_CLICK_RULES: MultiSelectionRule[] = [sumProductTermCtrlClickRule];
 
-function applyCtrlClickIntent(args: {
+export function applyCtrlClickIntent(args: {
   nodeId: string;
   currentSelection: Selection | null;
   index: ExprIndex;
@@ -171,48 +171,4 @@ function applyCtrlClickIntent(args: {
     ruleId: null,
     reason: "no_matching_ctrl_click_rule",
   };
-}
-
-function scaffoldTreeExpansionSelection(_nodeId: string): MultiSelection {
-  throw new Error("Not implemented");
-}
-
-function scaffoldRubberBandSelection(
-  _nodeIds: string[],
-  _marqueeRect: RectBounds,
-): MultiSelection {
-  throw new Error("Not implemented");
-}
-
-export function applyMultiSelectionEvent(args: {
-  event: MultiSelectionEvent;
-  currentSelection: Selection | null;
-  index: ExprIndex;
-}): MultiSelectionDecision {
-  const { event, currentSelection, index } = args;
-  switch (event.type) {
-    case "ctrl_click":
-      return applyCtrlClickIntent({
-        nodeId: event.nodeId,
-        currentSelection,
-        index,
-      });
-    case "tree_expand_click":
-      return {
-        accepted: true,
-        nextSelection: scaffoldTreeExpansionSelection(event.nodeId),
-        ruleId: "tree_expand_scaffold",
-        reason: null,
-      };
-    case "marquee_select":
-      return {
-        accepted: true,
-        nextSelection: scaffoldRubberBandSelection(
-          event.nodeIds,
-          event.marqueeRect,
-        ),
-        ruleId: "marquee_scaffold",
-        reason: null,
-      };
-  }
 }

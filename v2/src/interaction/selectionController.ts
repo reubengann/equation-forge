@@ -1,5 +1,6 @@
+import { apply } from "mathjs";
 import type { CompiledExprIndex as ExprIndex, Expr } from "../math/ast";
-import { applyMultiSelectionEvent } from "./multiSelectionController";
+import { applyCtrlClickIntent } from "./multiSelectionController";
 
 type MathDivHost = HTMLElement & { shadowRoot?: ShadowRoot | null };
 
@@ -21,15 +22,17 @@ export type MultiSelection = {
 
 export type Selection = SingleSelection | MultiSelection;
 
+type PointerDownControllerEvent = {
+  type: "pointer_down";
+  pointer: PointerLike;
+  pointerId?: number;
+  ts: number;
+  buttons: number;
+  ctrlKey: boolean;
+};
+
 export type SelectionControllerEvent =
-  | {
-      type: "pointer_down";
-      pointer: PointerLike;
-      pointerId?: number;
-      ts: number;
-      buttons: number;
-      ctrlKey: boolean;
-    }
+  | PointerDownControllerEvent
   | {
       type: "pointer_up";
       pointer: PointerLike;
@@ -253,6 +256,45 @@ type SelectionControllerInputs = {
   state: SelectionControllerState;
 };
 
+function handleMultiSelectionWithExistingSelection(
+  event: PointerDownControllerEvent,
+  nodeResolutionSource: NodeResolutionSource,
+  index: ExprIndex | null,
+  currentSelection: Selection | null,
+  state: SelectionControllerState,
+): SelectionControllerState {
+  const resolvedAtPoint = resolveSelectableNodeAtPoint(
+    event.pointer,
+    nodeResolutionSource,
+    index,
+  );
+
+  if (!resolvedAtPoint) {
+    return {
+      ...state,
+      pendingPointerDown: null,
+    };
+  }
+
+  const decision = applyCtrlClickIntent({
+    nodeId: resolvedAtPoint,
+    currentSelection,
+    index,
+  });
+  const nextSelection = decision.accepted
+    ? decision.nextSelection
+    : currentSelection;
+  return {
+    ...state,
+    selection: nextSelection,
+    pendingPointerDown: {
+      pointerId: event.pointerId ?? null,
+      pointer: event.pointer,
+      ts: event.ts,
+    },
+  };
+}
+
 /* 
   Main entry point for selecting
 */
@@ -270,39 +312,16 @@ export function resolveSelectionFromEvent({
     if (event.ctrlKey && currentSelectedNodes) {
       // something is already selected and multiselecting
       // The pointer is not released yet, but it's safe to resolve now since ctrl+drag is not understood.
-      const resolvedAtPoint = resolveSelectableNodeAtPoint(
-        event.pointer,
+      return handleMultiSelectionWithExistingSelection(
+        event,
         nodeResolutionSource,
         index,
-      );
-
-      if (!resolvedAtPoint) {
-        return {
-          ...state,
-          pendingPointerDown: null,
-        };
-      }
-
-      const decision = applyMultiSelectionEvent({
-        event: { type: "ctrl_click", nodeId: resolvedAtPoint },
         currentSelection,
-        index,
-      });
-      const nextSelection = decision.accepted
-        ? decision.nextSelection
-        : currentSelection;
-      return {
-        ...state,
-        selection: nextSelection,
-        pendingPointerDown: {
-          pointerId: event.pointerId ?? null,
-          pointer: event.pointer,
-          ts: event.ts,
-        },
-      };
-    } else if (!currentSelection) {
+        state,
+      );
     }
 
+    // If nothing is selected, we can safely go ahead and singly select something.
     const resolvedAtPoint = resolveSelectableNodeAtPoint(
       event.pointer,
       nodeResolutionSource,
@@ -365,32 +384,6 @@ export function resolveSelectionFromEvent({
   };
 }
 
-/**
- * Collects per-node layout rectangles from a rendered math div.
- * Use this for point-based node resolution (selection hit-testing).
- */
-export function captureLabeledNodes(mathDiv: HTMLElement | null): NodeRect[] {
-  const host = mathDiv as MathDivHost | null;
-  const shadowRoot = host?.shadowRoot;
-  if (!shadowRoot) return [];
-  return Array.from(shadowRoot.querySelectorAll<HTMLElement>("[data-node-id]"))
-    .map((el) => {
-      const nodeId = el.dataset.nodeId;
-      if (!nodeId) return null;
-      const nodeRect = el.getBoundingClientRect();
-      return {
-        nodeId,
-        left: nodeRect.left,
-        top: nodeRect.top,
-        right: nodeRect.right,
-        bottom: nodeRect.bottom,
-        width: nodeRect.width,
-        height: nodeRect.height,
-      };
-    })
-    .filter((item): item is NonNullable<typeof item> => item !== null);
-}
-
 export function buildNodeResolutionSource(
   nodeRects: NodeRect[],
   index: ExprIndex | null,
@@ -426,7 +419,24 @@ export function captureGeometryFromMathdiv(
   if (!shadowRoot) return null;
 
   const rect = mathDiv.getBoundingClientRect();
-  const nodeRects = captureLabeledNodes(mathDiv);
+  const nodeRects = Array.from(
+    shadowRoot.querySelectorAll<HTMLElement>("[data-node-id]"),
+  )
+    .map((el) => {
+      const nodeId = el.dataset.nodeId;
+      if (!nodeId) return null;
+      const nodeRect = el.getBoundingClientRect();
+      return {
+        nodeId,
+        left: nodeRect.left,
+        top: nodeRect.top,
+        right: nodeRect.right,
+        bottom: nodeRect.bottom,
+        width: nodeRect.width,
+        height: nodeRect.height,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
 
   return {
     hostRect: {
