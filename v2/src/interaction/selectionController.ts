@@ -1,4 +1,3 @@
-import { apply } from "mathjs";
 import type { CompiledExprIndex as ExprIndex, Expr } from "../math/ast";
 import { applyCtrlClickIntent } from "./multiSelectionController";
 

@@ -1,9 +1,5 @@
 import type { CompiledExprIndex as ExprIndex } from "../math/ast";
-import type {
-  MultiSelection,
-  RectBounds,
-  Selection,
-} from "./selectionController";
+import type { RectBounds, Selection } from "./selectionController";
 
 export type MultiSelectionEvent =
   | { type: "ctrl_click"; nodeId: string }
