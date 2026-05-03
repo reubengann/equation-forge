@@ -30,16 +30,20 @@ type PointerDownControllerEvent = {
   ctrlKey: boolean;
 };
 
+type PointerUpControllerEvent = {
+  type: "pointer_up";
+  pointer: PointerLike;
+  pointerId?: number;
+  ts: number;
+  buttons: number;
+  ctrlKey: boolean;
+};
+
+type PointerControllerEvent = PointerDownControllerEvent | PointerUpControllerEvent;
+
 export type SelectionControllerEvent =
   | PointerDownControllerEvent
-  | {
-      type: "pointer_up";
-      pointer: PointerLike;
-      pointerId?: number;
-      ts: number;
-      buttons: number;
-      ctrlKey: boolean;
-    }
+  | PointerUpControllerEvent
   | {
       type: "pointer_cancel";
       pointerId?: number;
@@ -144,17 +148,10 @@ export function selectionNodeIds(selection: Selection | null): string[] {
 // }
 
 function containsPoint(rect: NodeRect, point: PointerLike): boolean {
-  return (
-    point.x >= rect.left &&
-    point.x <= rect.right &&
-    point.y >= rect.top &&
-    point.y <= rect.bottom
-  );
+  return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
 }
 
-function shouldEscalateFromChildToParent(
-  parentExpr: Expr | undefined,
-): boolean {
+function shouldEscalateFromChildToParent(parentExpr: Expr | undefined): boolean {
   if (!parentExpr) return false;
   switch (parentExpr.kind) {
     case "primed":
@@ -187,10 +184,7 @@ function isDirectlySelectableNode(expr: Expr | undefined): boolean {
   }
 }
 
-function walkUpToSelectableNode(
-  nodeId: string | null,
-  index: ExprIndex,
-): string | null {
+function walkUpToSelectableNode(nodeId: string | null, index: ExprIndex): string | null {
   if (!nodeId) return null;
   let cursor: string | null = nodeId;
   while (cursor) {
@@ -262,11 +256,7 @@ function handleMultiSelectionWithExistingSelection(
   currentSelection: Selection | null,
   state: SelectionControllerState,
 ): SelectionControllerState {
-  const resolvedAtPoint = resolveSelectableNodeAtPoint(
-    event.pointer,
-    nodeResolutionSource,
-    index,
-  );
+  const resolvedAtPoint = resolveSelectableNodeAtPoint(event.pointer, nodeResolutionSource, index);
 
   if (!resolvedAtPoint) {
     return {
@@ -280,9 +270,7 @@ function handleMultiSelectionWithExistingSelection(
     currentSelection,
     index,
   });
-  const nextSelection = decision.accepted
-    ? decision.nextSelection
-    : currentSelection;
+  const nextSelection = decision.accepted ? decision.nextSelection : currentSelection;
   return {
     ...state,
     selection: nextSelection,
@@ -307,6 +295,9 @@ export function resolveSelectionFromEvent({
   const currentSelectedNodes = selectionSet(currentSelection);
 
   if (event.type === "pointer_down") {
+    // TODO: possibly we should check for resolvability here rather than in each handler, since
+    // technically we could just abort here.
+
     // We only handle this if nothing is selected or if something is selected and multiselecting.
     if (event.ctrlKey && currentSelectedNodes) {
       // something is already selected and multiselecting
@@ -320,31 +311,23 @@ export function resolveSelectionFromEvent({
       );
     }
 
+    // If something is already selected, we don't want to clobber that, because user could be dragging.
+    if (currentSelection) {
+      return {
+        ...state,
+        pendingPointerDown: {
+          pointerId: event.pointerId ?? null,
+          pointer: event.pointer,
+          ts: event.ts,
+        },
+      };
+    }
+
     // If nothing is selected, we can safely go ahead and singly select something.
-    const resolvedAtPoint = resolveSelectableNodeAtPoint(
-      event.pointer,
-      nodeResolutionSource,
-      index,
-    );
-    const nextSelection =
-      resolvedAtPoint !== null
-        ? ({ kind: "single", nodeId: resolvedAtPoint } as Selection)
-        : currentSelection;
-    return {
-      ...state,
-      selection: nextSelection,
-      pendingPointerDown: {
-        pointerId: event.pointerId ?? null,
-        pointer: event.pointer,
-        ts: event.ts,
-      },
-    };
+    return singlySelect(event, nodeResolutionSource, index, currentSelection, state);
   }
 
-  if (
-    event.type === "pointer_cancel" ||
-    event.type === "lost_pointer_capture"
-  ) {
+  if (event.type === "pointer_cancel" || event.type === "lost_pointer_capture") {
     return {
       ...state,
       pendingPointerDown: null,
@@ -353,33 +336,43 @@ export function resolveSelectionFromEvent({
 
   if (event.type === "pointer_up") {
     if (event.ctrlKey) {
-      // we handled ctrl+click in pointer_down, so just finalize the event.
-      return {
-        ...state,
-        pendingPointerDown: null,
-      };
+      // If ctrl was pressed, we handled ctrl+click in pointer_down, so just finalize the event.
+      return { ...state, pendingPointerDown: null };
     }
 
     // If we click in an empty space, deselect everything
-    const resolvedAtPoint = resolveSelectableNodeAtPoint(
-      event.pointer,
-      nodeResolutionSource,
-      index,
-    );
+    const resolvedAtPoint = resolveSelectableNodeAtPoint(event.pointer, nodeResolutionSource, index);
 
     if (!resolvedAtPoint) {
-      return {
-        pendingPointerDown: null,
-        lastCommittedClick: event,
-        selection: null,
-      };
+      return { pendingPointerDown: null, lastCommittedClick: event, selection: null };
     }
-    return { ...state };
+
+    // Otherwise, we have might have something selected, but we want to select something new.
+    // So we just select singly.
+    return singlySelect(event, nodeResolutionSource, index, currentSelection, state);
   }
 
-  // Can this happen?
+  throw new Error("Unhandled event type");
+}
+
+function singlySelect(
+  event: PointerControllerEvent,
+  nodeResolutionSource: NodeResolutionSource,
+  index: ExprIndex,
+  currentSelection: Selection,
+  state: SelectionControllerState,
+) {
+  const resolvedAtPoint = resolveSelectableNodeAtPoint(event.pointer, nodeResolutionSource, index);
+  const nextSelection =
+    resolvedAtPoint !== null ? ({ kind: "single", nodeId: resolvedAtPoint } as Selection) : currentSelection;
   return {
     ...state,
+    selection: nextSelection,
+    pendingPointerDown: {
+      pointerId: event.pointerId ?? null,
+      pointer: event.pointer,
+      ts: event.ts,
+    },
   };
 }
 
@@ -390,14 +383,10 @@ export function buildNodeResolutionSource(
   const rectById: Record<string, NodeRect> = {};
   for (const rect of nodeRects) {
     if (index && !index.nodeById[rect.nodeId]) {
-      throw new Error(
-        `selectionController received unknown rect nodeId ${rect.nodeId}`,
-      );
+      throw new Error(`selectionController received unknown rect nodeId ${rect.nodeId}`);
     }
     if (rectById[rect.nodeId]) {
-      throw new Error(
-        `selectionController received duplicate rect nodeId ${rect.nodeId}`,
-      );
+      throw new Error(`selectionController received duplicate rect nodeId ${rect.nodeId}`);
     }
     rectById[rect.nodeId] = rect;
   }
@@ -409,18 +398,14 @@ export function buildNodeResolutionSource(
  * the host bounds plus all node rectangles.
  * Useful for recording/replay fixtures and diagnostics.
  */
-export function captureGeometryFromMathdiv(
-  mathDiv: HTMLElement | null,
-): SelectionGeometry | null {
+export function captureGeometryFromMathdiv(mathDiv: HTMLElement | null): SelectionGeometry | null {
   if (!mathDiv) return null;
   const host = mathDiv as MathDivHost;
   const shadowRoot = host.shadowRoot;
   if (!shadowRoot) return null;
 
   const rect = mathDiv.getBoundingClientRect();
-  const nodeRects = Array.from(
-    shadowRoot.querySelectorAll<HTMLElement>("[data-node-id]"),
-  )
+  const nodeRects = Array.from(shadowRoot.querySelectorAll<HTMLElement>("[data-node-id]"))
     .map((el) => {
       const nodeId = el.dataset.nodeId;
       if (!nodeId) return null;
