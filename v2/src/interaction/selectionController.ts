@@ -3,17 +3,17 @@ import { applyCtrlClickIntent } from "./multiSelectionController";
 
 type MathDivHost = HTMLElement & { shadowRoot?: ShadowRoot | null };
 
-export type PointerLike = {
+type PointerLike = {
   x: number;
   y: number;
 };
 
-export type SingleSelection = {
+type SingleSelection = {
   kind: "single";
   nodeId: string;
 };
 
-export type MultiSelection = {
+type MultiSelection = {
   kind: "multi";
   nodeIds: string[];
   containerNodeId: string | null;
@@ -78,7 +78,7 @@ export type NodeResolutionSource = {
   rectById: Record<string, NodeRect>;
 };
 
-export type SelectionControllerConfig = {
+type SelectionControllerConfig = {
   dragThresholdPx: number;
   doubleClickWindowMs: number;
 };
@@ -140,12 +140,6 @@ export function selectionNodeIds(selection: Selection | null): string[] {
   if (selection.kind === "single") return [selection.nodeId];
   return [...selection.nodeIds];
 }
-
-// function distanceSquared(a: PointerLike, b: PointerLike): number {
-//   const dx = a.x - b.x;
-//   const dy = a.y - b.y;
-//   return dx * dx + dy * dy;
-// }
 
 function containsPoint(rect: NodeRect, point: PointerLike): boolean {
   return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
@@ -231,15 +225,17 @@ function resolveSelectableNodeAtPoint(
   return walkUpToSelectableNode(treeHit, index);
 }
 
-// function nextSelectableParent(
-//   selectedNodeId: string | null,
-//   index: ExprIndex | null,
-// ): string | null {
-//   if (!selectedNodeId || !index) return selectedNodeId;
-//   const parentId = index.parentById[selectedNodeId];
-//   if (!parentId) return selectedNodeId;
-//   return walkUpToSelectableNode(parentId, index);
-// }
+function resolveNodeAtPoint(
+  point: PointerLike,
+  nodeResolution: NodeResolutionSource,
+  index: ExprIndex,
+): { treeHitNodeId: string | null; selectableNodeId: string | null } {
+  const treeHitNodeId = pickNodeIdAtPointFromTree(nodeResolution, point, index);
+  return {
+    treeHitNodeId,
+    selectableNodeId: walkUpToSelectableNode(treeHitNodeId, index),
+  };
+}
 
 type SelectionControllerInputs = {
   event: SelectionControllerEvent;
@@ -340,11 +336,16 @@ export function resolveSelectionFromEvent({
       return { ...state, pendingPointerDown: null };
     }
 
-    // If we click in an empty space, deselect everything
-    const resolvedAtPoint = resolveSelectableNodeAtPoint(event.pointer, nodeResolutionSource, index);
+    const hit = resolveNodeAtPoint(event.pointer, nodeResolutionSource, index);
 
-    if (!resolvedAtPoint) {
+    // Clicking truly empty space clears selection.
+    if (!hit.treeHitNodeId) {
       return { pendingPointerDown: null, lastCommittedClick: event, selection: null };
+    }
+
+    // Clicking non-selectable operator (e.g. +, =) does nothing.
+    if (!hit.selectableNodeId) {
+      return { ...state, pendingPointerDown: null, lastCommittedClick: event };
     }
 
     // Otherwise, we have might have something selected, but we want to select something new.

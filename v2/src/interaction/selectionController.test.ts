@@ -109,4 +109,40 @@ describe("selectionController", () => {
     ).toEqual(["n4", "n7"]);
     expect(selectionNodeIds(null)).toEqual([]);
   });
+
+  it("clicking non-selectable equals does not clear existing selection", () => {
+    const latex = String.raw`a=b`;
+    const rects = makeRect([
+      ["n1", 0, 100],
+      ["n2", 0, 40],
+      ["n3", 60, 100],
+    ]);
+    const selectedLeft = runEvent(
+      createSelectionControllerState(),
+      {
+        type: "pointer_down",
+        pointer: { x: 10, y: 10 },
+        ts: 1,
+        buttons: 1,
+        ctrlKey: false,
+      },
+      rects,
+      latex,
+    );
+
+    const clickEqualsUp = runEvent(
+      selectedLeft,
+      {
+        type: "pointer_up",
+        pointer: { x: 50, y: 10 },
+        ts: 2,
+        buttons: 0,
+        ctrlKey: false,
+      },
+      rects,
+      latex,
+    );
+
+    expect(clickEqualsUp.selection).toEqual({ kind: "single", nodeId: "n2" });
+  });
 });
