@@ -6,12 +6,9 @@ import type {
   PointerEventPayload,
   SelectionGeometry,
 } from "./interaction/selectionController";
-import { selectionNodeIds, type Selection } from "./interaction/selectionController";
-import {
-  TestRecorder,
-  type EquationEditorRecordingHooks,
-  type TestRecorderEvent,
-} from "./TestRecorder";
+import { selectionNodeIds } from "./interaction/selectionController";
+import { type Selection } from "./selection/types";
+import { TestRecorder, type EquationEditorRecordingHooks, type TestRecorderEvent } from "./TestRecorder";
 import { MathfieldElement } from "mathlive";
 
 async function saveFixtureJson(fixture: EventFixture): Promise<void> {
@@ -21,13 +18,7 @@ async function saveFixtureJson(fixture: EventFixture): Promise<void> {
   const pickerHost = globalThis as typeof globalThis & {
     showSaveFilePicker?: (options?: {
       id?: string;
-      startIn?:
-        | "downloads"
-        | "documents"
-        | "desktop"
-        | "pictures"
-        | "music"
-        | "videos";
+      startIn?: "downloads" | "documents" | "desktop" | "pictures" | "music" | "videos";
       excludeAcceptAllOption?: boolean;
       suggestedName?: string;
       types?: Array<{ description: string; accept: Record<string, string[]> }>;
@@ -64,9 +55,7 @@ async function saveFixtureJson(fixture: EventFixture): Promise<void> {
   a.href = url;
   const enteredName = window.prompt("Save As filename", defaultFileName);
   const normalizedName = enteredName?.trim() || defaultFileName;
-  a.download = normalizedName.toLowerCase().endsWith(".json")
-    ? normalizedName
-    : `${normalizedName}.json`;
+  a.download = normalizedName.toLowerCase().endsWith(".json") ? normalizedName : `${normalizedName}.json`;
   document.body.append(a);
   a.click();
   a.remove();
@@ -91,9 +80,7 @@ function App() {
     setRecordedEventCount(nextEvents.length);
   };
 
-  const buildCompactExport = (
-    events: TestRecorderEvent[],
-  ): Pick<EventFixture, "domSnapshots" | "events"> => {
+  const buildCompactExport = (events: TestRecorderEvent[]): Pick<EventFixture, "domSnapshots" | "events"> => {
     const domSnapshots: EventFixture["domSnapshots"] = {};
     const snapshotIdByKey = new Map<string, string>();
     let snapshotCounter = 0;
@@ -172,9 +159,7 @@ function App() {
       expected: {
         selectedNodeIds: selectedNodeIdsRef.current,
         latex:
-          lastLatexAcceptedEvent?.type === "latex_accepted"
-            ? lastLatexAcceptedEvent.nextLatex
-            : undefined,
+          lastLatexAcceptedEvent?.type === "latex_accepted" ? lastLatexAcceptedEvent.nextLatex : undefined,
       },
     };
     try {
@@ -186,11 +171,7 @@ function App() {
   };
 
   const maybeRecordDomChanged = useCallback(
-    (
-      source: "accept",
-      domSnapshotId: string | null,
-      domSnapshot: SelectionGeometry | null,
-    ) => {
+    (source: "accept", domSnapshotId: string | null, domSnapshot: SelectionGeometry | null) => {
       if (!isRecording || !domSnapshot) return false;
       if (domSnapshotId === lastDomSnapshotIdRef.current) return false;
       lastDomSnapshotIdRef.current = domSnapshotId;
@@ -332,9 +313,7 @@ function App() {
         }
       />
       <div style={{ textAlign: "left", fontSize: "14px" }}>
-        <div>
-          Selected nodes: {selectedNodeIds.length > 0 ? selectedNodeIds.join(", ") : "none"}
-        </div>
+        <div>Selected nodes: {selectedNodeIds.length > 0 ? selectedNodeIds.join(", ") : "none"}</div>
         <div> Recorded events: {recordedEventCount} </div>
         <div>
           {recordedEvents
@@ -346,9 +325,8 @@ function App() {
                 case "pointer_down":
                   return (
                     <div key={`${event.ts}-${index}`}>
-                      {event.type}: Pointer down {event.pointer.x}{" "}
-                      {event.pointer.y} {event.pointerType} {event.button}{" "}
-                      {event.buttons} ctrl={event.ctrlKey ? "1" : "0"} rects=
+                      {event.type}: Pointer down {event.pointer.x} {event.pointer.y} {event.pointerType}{" "}
+                      {event.button} {event.buttons} ctrl={event.ctrlKey ? "1" : "0"} rects=
                       {event.domSnapshot?.nodeRects.length ?? 0}
                     </div>
                   );
@@ -362,8 +340,7 @@ function App() {
                 case "latex_accepted":
                   return (
                     <div key={`${event.ts}-${index}`}>
-                      {event.type}: Latex changed from{" "}
-                      {event.previousLatex ?? "(none)"} to {event.nextLatex}
+                      {event.type}: Latex changed from {event.previousLatex ?? "(none)"} to {event.nextLatex}
                     </div>
                   );
                 case "dom_changed":

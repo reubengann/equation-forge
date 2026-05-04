@@ -1,5 +1,6 @@
 import type { CompiledExprIndex as ExprIndex } from "../math/ast";
-import type { RectBounds, Selection } from "./selectionController";
+import type { RectBounds } from "./selectionController";
+import type { TermSelection } from "../selection/types";
 
 export type MultiSelectionEvent =
   | { type: "ctrl_click"; nodeId: string }
@@ -8,7 +9,7 @@ export type MultiSelectionEvent =
 
 export type MultiSelectionDecision = {
   accepted: boolean;
-  nextSelection: Selection | null;
+  nextSelection: TermSelection | null;
   ruleId: string | null;
   reason: string | null;
 };
@@ -17,16 +18,12 @@ type MultiSelectionRule = {
   id: string;
   apply: (args: {
     nodeId: string;
-    currentSelection: Selection | null;
+    currentSelection: TermSelection | null;
     index: ExprIndex;
   }) => MultiSelectionDecision | null;
 };
 
-function walkUpToSelectableNode(
-  nodeId: string,
-  parentId: string,
-  index: ExprIndex,
-): string | null {
+function walkUpToSelectableNode(nodeId: string, parentId: string, index: ExprIndex): string | null {
   // Walk up until we reach the direct child under the container parent.
   let cursor = nodeId;
   while (true) {
@@ -58,11 +55,7 @@ const sumProductTermCtrlClickRule: MultiSelectionRule = {
   // If we click on a selectable element, but not necessarily the term of the sum/product
   // we need to walk up to it. Example: if we have \frac{a}{b} + c, select c, and then ctrl
   // click on a, we should select the fraction and c, since those are indeed both part of the same sum.
-  apply: ({
-    nodeId,
-    currentSelection,
-    index,
-  }): MultiSelectionDecision | null => {
+  apply: ({ nodeId, currentSelection, index }): MultiSelectionDecision | null => {
     if (!currentSelection) return null;
     if (currentSelection.kind === "single") {
       // If the current selection is a single node and this is the same node, just de-select it.
@@ -75,15 +68,11 @@ const sumProductTermCtrlClickRule: MultiSelectionRule = {
         };
       }
       // We have to determine if the existing selection has any common sum/product parent.
-      const sumOrProductOfExistingSelection = walkUpToSumOrProduct(
-        currentSelection.nodeId,
-        index,
-      );
+      const sumOrProductOfExistingSelection = walkUpToSumOrProduct(currentSelection.nodeId, index);
       if (!sumOrProductOfExistingSelection) return null;
       const sumOrProductOfNewNode = walkUpToSumOrProduct(nodeId, index);
       if (!sumOrProductOfNewNode) return null;
-      if (sumOrProductOfExistingSelection !== sumOrProductOfNewNode)
-        return null;
+      if (sumOrProductOfExistingSelection !== sumOrProductOfNewNode) return null;
       return {
         accepted: true,
         nextSelection: {
@@ -98,19 +87,13 @@ const sumProductTermCtrlClickRule: MultiSelectionRule = {
       // multiselection
       const currentSelectedParent = currentSelection.containerNodeId;
       if (!currentSelectedParent) return null;
-      const selectableNode = walkUpToSelectableNode(
-        nodeId,
-        currentSelectedParent,
-        index,
-      );
+      const selectableNode = walkUpToSelectableNode(nodeId, currentSelectedParent, index);
       if (!selectableNode) return null;
       if (currentSelection.nodeIds.includes(selectableNode)) {
         // Deselect the node.
         // If there is only one node remaining, convert to single selection.
         if (currentSelection.nodeIds.length === 2) {
-          const remainingNodeId = currentSelection.nodeIds.find(
-            (id) => id !== selectableNode,
-          );
+          const remainingNodeId = currentSelection.nodeIds.find((id) => id !== selectableNode);
           if (!remainingNodeId) return null;
           return {
             accepted: true,
@@ -127,9 +110,7 @@ const sumProductTermCtrlClickRule: MultiSelectionRule = {
           accepted: true,
           nextSelection: {
             ...currentSelection,
-            nodeIds: currentSelection.nodeIds.filter(
-              (id) => id !== selectableNode,
-            ),
+            nodeIds: currentSelection.nodeIds.filter((id) => id !== selectableNode),
           },
           ruleId: "remove_node_from_multi_selection",
           reason: "node is already selected",
@@ -154,7 +135,7 @@ const CTRL_CLICK_RULES: MultiSelectionRule[] = [sumProductTermCtrlClickRule];
 
 export function applyCtrlClickIntent(args: {
   nodeId: string;
-  currentSelection: Selection | null;
+  currentSelection: TermSelection | null;
   index: ExprIndex;
 }): MultiSelectionDecision {
   for (const rule of CTRL_CLICK_RULES) {

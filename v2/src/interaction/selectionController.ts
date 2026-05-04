@@ -1,4 +1,5 @@
 import type { CompiledExprIndex as ExprIndex, Expr } from "../math/ast";
+import type { TermSelection } from "../selection/types";
 import { applyCtrlClickIntent } from "./multiSelectionController";
 
 type MathDivHost = HTMLElement & { shadowRoot?: ShadowRoot | null };
@@ -7,19 +8,6 @@ type PointerLike = {
   x: number;
   y: number;
 };
-
-type SingleSelection = {
-  kind: "single";
-  nodeId: string;
-};
-
-type MultiSelection = {
-  kind: "multi";
-  nodeIds: string[];
-  containerNodeId: string | null;
-};
-
-export type Selection = SingleSelection | MultiSelection;
 
 type PointerDownControllerEvent = {
   type: "pointer_down";
@@ -102,7 +90,7 @@ type LastClick = {
 export type SelectionControllerState = {
   pendingPointerDown: PendingPointerDown | null;
   lastCommittedClick: LastClick | null;
-  selection: Selection | null;
+  selection: TermSelection | null;
   suppressSelectionOnNextPointerUp: boolean;
 };
 
@@ -131,13 +119,13 @@ export type DomSnapshotObservedPayload = {
 };
 
 // Convenience function for getting all selected nodes regardless of selection type.
-export function selectionSet(selection: Selection | null): Set<string> {
+export function selectionSet(selection: TermSelection | null): Set<string> {
   if (!selection) return new Set();
   if (selection.kind === "single") return new Set([selection.nodeId]);
   return new Set(selection.nodeIds);
 }
 
-export function selectionNodeIds(selection: Selection | null): string[] {
+export function selectionNodeIds(selection: TermSelection | null): string[] {
   if (!selection) return [];
   if (selection.kind === "single") return [selection.nodeId];
   return [...selection.nodeIds];
@@ -267,7 +255,7 @@ function resolveNodeAtPoint(
 
 type SelectionControllerInputs = {
   event: SelectionControllerEvent;
-  currentSelection: Selection | null;
+  currentSelection: TermSelection | null;
   nodeResolutionSource: NodeResolutionSource;
   index: ExprIndex | null;
   state: SelectionControllerState;
@@ -277,7 +265,7 @@ function handleMultiSelectionWithExistingSelection(
   event: PointerDownControllerEvent,
   nodeResolutionSource: NodeResolutionSource,
   index: ExprIndex | null,
-  currentSelection: Selection | null,
+  currentSelection: TermSelection | null,
   state: SelectionControllerState,
 ): SelectionControllerState {
   const resolvedAtPoint = resolveSelectableNodeAtPoint(event.pointer, nodeResolutionSource, index);
@@ -310,7 +298,7 @@ function handleDoubleClick(
   event: PointerDownControllerEvent,
   nodeResolutionSource: NodeResolutionSource,
   index: ExprIndex,
-  currentSelection: Selection | null,
+  currentSelection: TermSelection | null,
   state: SelectionControllerState,
 ): SelectionControllerState {
   const hit = resolveNodeAtPoint(event.pointer, nodeResolutionSource, index);
@@ -495,12 +483,14 @@ function singlySelect(
   event: PointerControllerEvent,
   nodeResolutionSource: NodeResolutionSource,
   index: ExprIndex,
-  currentSelection: Selection,
+  currentSelection: TermSelection,
   state: SelectionControllerState,
 ) {
   const resolvedAtPoint = resolveSelectableNodeAtPoint(event.pointer, nodeResolutionSource, index);
   const nextSelection =
-    resolvedAtPoint !== null ? ({ kind: "single", nodeId: resolvedAtPoint } as Selection) : currentSelection;
+    resolvedAtPoint !== null
+      ? ({ kind: "single", nodeId: resolvedAtPoint } as TermSelection)
+      : currentSelection;
   return {
     ...state,
     selection: nextSelection,

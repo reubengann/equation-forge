@@ -1,9 +1,9 @@
 import type {
   DomSnapshotObservedPayload,
   PointerEventPayload,
-  Selection,
   SelectionGeometry,
 } from "./interaction/selectionController";
+import type { Selection } from "./selection/types";
 
 export type PointerPhase = "pointer_down" | "pointer_up";
 
@@ -32,10 +32,7 @@ export type DomChangedEvent = {
   ts: number;
 };
 
-export type TestRecorderEvent =
-  | PointerEventRecord
-  | LatexAcceptedEvent
-  | DomChangedEvent;
+export type TestRecorderEvent = PointerEventRecord | LatexAcceptedEvent | DomChangedEvent;
 
 export type EquationEditorRecordingHooks = {
   onDomSnapshotObserved: (payload: DomSnapshotObservedPayload) => void;
@@ -95,10 +92,7 @@ export class TestRecorder {
     });
   }
 
-  recordLatexAccepted(payload: {
-    previousLatex: string | null;
-    nextLatex: string;
-  }): void {
+  recordLatexAccepted(payload: { previousLatex: string | null; nextLatex: string }): void {
     if (this.lastAcceptedLatex === payload.nextLatex) {
       return;
     }
@@ -111,10 +105,7 @@ export class TestRecorder {
     this.lastAcceptedLatex = payload.nextLatex;
   }
 
-  recordDomChanged(payload: {
-    source: "accept";
-    domSnapshot: SelectionGeometry;
-  }): void {
+  recordDomChanged(payload: { source: "accept"; domSnapshot: SelectionGeometry }): void {
     this.events.push({
       type: "dom_changed",
       source: payload.source,

@@ -4,12 +4,12 @@ import {
   createSelectionControllerState,
   type NodeResolutionSource,
   type NodeRect,
-  type Selection,
   captureGeometryFromMathdiv,
   resolveSelectionFromEvent,
   type SelectionControllerEvent,
   selectionSet,
 } from "./interaction/selectionController";
+import { type TermSelection } from "./selection/types";
 import { compileMathDocument } from "./math/compile/compileMathDocument";
 import type { EquationEditorRecordingHooks } from "./TestRecorder";
 
@@ -19,17 +19,11 @@ type EquationEditorProps = {
   recordingHooks?: EquationEditorRecordingHooks;
 };
 
-export function EquationEditor({
-  latex,
-  onCanonicalLatexChanged,
-  recordingHooks,
-}: EquationEditorProps) {
+export function EquationEditor({ latex, onCanonicalLatexChanged, recordingHooks }: EquationEditorProps) {
   const mathDivRef = useRef<HTMLElement | null>(null);
   const nodeRectsRef = useRef<NodeRect[]>([]);
-  const nodeResolutionRef = useRef<NodeResolutionSource>(
-    buildNodeResolutionSource([], null),
-  );
-  const [selection, setSelection] = useState<Selection | null>(null);
+  const nodeResolutionRef = useRef<NodeResolutionSource>(buildNodeResolutionSource([], null));
+  const [selection, setSelection] = useState<TermSelection | null>(null);
   const lastSelectionKeyRef = useRef<string>("null");
   const selectionStateRef = useRef(createSelectionControllerState());
   const snapshotCounterRef = useRef(0);
@@ -42,9 +36,7 @@ export function EquationEditor({
   }, [compiledDoc, onCanonicalLatexChanged]);
 
   useEffect(() => {
-    const mathDiv = mathDivRef.current as
-      | (HTMLElement & { value?: string; render?: () => void })
-      | null;
+    const mathDiv = mathDivRef.current as (HTMLElement & { value?: string; render?: () => void }) | null;
     if (!mathDiv) return;
     mathDiv.value = compiledDoc.taggedLatex;
     mathDiv.textContent = compiledDoc.taggedLatex;
@@ -56,14 +48,8 @@ export function EquationEditor({
       attempts += 1;
       const snapshot = captureGeometryFromMathdiv(mathDivRef.current);
       nodeRectsRef.current = snapshot?.nodeRects ?? [];
-      nodeResolutionRef.current = buildNodeResolutionSource(
-        nodeRectsRef.current,
-        compiledDoc.index,
-      );
-      const hasRenderableDom =
-        !!snapshot &&
-        snapshot.hostRect.height > 0 &&
-        snapshot.nodeRects.length > 0;
+      nodeResolutionRef.current = buildNodeResolutionSource(nodeRectsRef.current, compiledDoc.index);
+      const hasRenderableDom = !!snapshot && snapshot.hostRect.height > 0 && snapshot.nodeRects.length > 0;
       if (hasRenderableDom || attempts >= maxAttempts) {
         if (!snapshot) {
           lastSnapshotKeyRef.current = null;
@@ -97,15 +83,11 @@ export function EquationEditor({
   }, [compiledDoc, recordingHooks]);
 
   useEffect(() => {
-    const host = mathDivRef.current as
-      | (HTMLElement & { shadowRoot?: ShadowRoot | null })
-      | null;
+    const host = mathDivRef.current as (HTMLElement & { shadowRoot?: ShadowRoot | null }) | null;
     const shadowRoot = host?.shadowRoot;
     if (!shadowRoot) return;
 
-    const els = Array.from(
-      shadowRoot.querySelectorAll<HTMLElement>("[data-node-id]"),
-    );
+    const els = Array.from(shadowRoot.querySelectorAll<HTMLElement>("[data-node-id]"));
     const selectedNodeIds = selectionSet(selection);
     for (const el of els) {
       const nodeId = el.dataset.nodeId;

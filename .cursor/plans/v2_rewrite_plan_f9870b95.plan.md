@@ -16,10 +16,10 @@ todos:
     status: pending
   - id: define-v2-ast
     content: Design the typed v2 AST, distinguishing semantic nodes from display grouping and adapter-specific MathJSON shapes.
-    status: pending
+    status: completed
   - id: build-adapters
     content: Implement LaTeX/MathJSON/CortexJS adapter boundaries so package churn is isolated from the v2 kernel.
-    status: pending
+    status: completed
   - id: rewrite-candidates
     content: Implement the rule engine and `RewriteCandidate` pipeline so preview and execution share one source of truth.
     status: pending
