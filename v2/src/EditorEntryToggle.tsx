@@ -53,7 +53,9 @@ export function EditorEntryToggle({
   const handleAcceptToggle = () => {
     if (!showMathDisplay) {
       const previousLatex = lastAcceptedLatexRef.current;
-      const nextLatex = canonicalLatexRef.current;
+      // Accept should use the current MathLive edit buffer, not the last rendered canonical value.
+      const nextLatex = latex;
+      canonicalLatexRef.current = nextLatex;
       setLatex(nextLatex);
       onLatexAccepted({
         previousLatex,

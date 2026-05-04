@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "mathtests": "tsx ./scripts/mathtests.ts",
+    "gen_mathtests": "tsx ./scripts/gen_mathtests.ts",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
