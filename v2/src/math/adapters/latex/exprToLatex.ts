@@ -1,4 +1,4 @@
-import type { DelimiterKind, Expr } from "../../ast";
+import { type DelimiterKind, type Expr } from "../../ast";
 
 class LatexGenerator {
   readonly expr: Expr;
@@ -138,35 +138,25 @@ class LatexGenerator {
         const maybeLower = expr.lowerBound ? `_{${this.generate(expr.lowerBound)}}` : "";
         const maybeUpper = expr.upperBound ? `^{${this.generate(expr.upperBound)}}` : "";
         let integratedThing = "";
-        if (expr.variable && expr.differentialSlot === "prefix") {
-          integratedThing = `\\mathrm{d}{${this.generate(expr.variable)}} ${this.generate(expr.integrand)}`;
-        } else if (expr.variable) {
-          integratedThing = `${this.generate(expr.integrand)} \\,\\mathrm{d}{${this.generate(expr.variable)}}`;
+        if (expr.integrand.kind === "multiply") {
+          integratedThing = expr.integrand.factors
+            // If differential appears anywhere but the beginning, put a thinspace before it.
+            .map((factor, index) => {
+              const rendered = this.generate(factor);
+              if (index === 0) return rendered;
+              return factor.kind === "differential" ? ` \\,${rendered}` : ` ${rendered}`;
+            })
+            .join("");
         } else {
           integratedThing = this.generate(expr.integrand);
         }
         return this.wrap(`\\int${maybeLower}${maybeUpper} ${integratedThing}`, id);
       case "uniterated_integral":
-        return this.wrap(
-          `\\int ${this.generate(expr.integrand)}${
-            expr.variable ? ` \\,\\mathrm{d}{${this.generate(expr.variable)}}` : ""
-          }`,
-          id,
-        );
+        return this.wrap(`\\int ${this.generate(expr.integrand)}`, id);
       case "closed_integral":
-        return this.wrap(
-          `\\oint ${this.generate(expr.integrand)}${
-            expr.variable ? ` \\,\\mathrm{d}{${this.generate(expr.variable)}}` : ""
-          }`,
-          id,
-        );
+        return this.wrap(`\\oint ${this.generate(expr.integrand)}`, id);
       case "multiple_integral":
-        return this.wrap(
-          `${"\\int".repeat(expr.order)} ${this.generate(expr.integrand)}${
-            expr.variable ? ` \\,\\mathrm{d}{${this.generate(expr.variable)}}` : ""
-          }`,
-          id,
-        );
+        return this.wrap(`${"\\int".repeat(expr.order)} ${this.generate(expr.integrand)}`, id);
       case "differential":
         return this.wrap(`\\mathrm{d}{${this.generate(expr.variable)}}`, id);
       case "partial_derivative":

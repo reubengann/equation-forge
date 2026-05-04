@@ -156,6 +156,7 @@ function shouldEscalateFromChildToParent(parentExpr: Expr | undefined): boolean 
     case "vector":
     case "special_font":
     case "partial_derivative":
+    case "differential":
     case "partial_derivative_operator":
     case "full_derivative_operator":
     case "second_order_partial_derivative":

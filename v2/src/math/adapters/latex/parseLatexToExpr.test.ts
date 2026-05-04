@@ -137,7 +137,9 @@ describe("parseLatexToExpr", () => {
       String.raw`\int (\mathrm{d}{x} + \mathrm{d}{y}) ds`,
     );
     expectExprKind(expr, "uniterated_integral");
-    expectExprKind(expr.integrand, "add");
+    expectExprKind(expr.integrand, "multiply");
+    expectExprKind(expr.integrand.factors[0], "display_group");
+    expectExprKind(expr.integrand.factors[1], "differential");
   });
 
   it("Handles closed integrals", () => {
@@ -154,7 +156,7 @@ describe("parseLatexToExpr", () => {
 
   it("Handles multiple integrals of product", () => {
     const expr = parseLatexToExpr(String.raw`\int \int dx dy`);
-    expectExprKind(expr, "integral");
+    expectExprKind(expr, "uniterated_integral");
     expectExprKind(expr.integrand, "integral");
   });
 
@@ -450,10 +452,11 @@ describe("parseLatexToExpr", () => {
     expectExprKind(rhs.lowerBound!, "number");
     expectExprKind(rhs.upperBound!, "symbol");
     expect(rhs.upperBound.name).toBe("x_0");
-    expectExprKind(rhs.variable!, "symbol");
-    expect(rhs.variable.name).toBe("x");
-    expect(rhs.differentialSlot).toBe("suffix");
     expectExprKind(rhs.integrand, "multiply");
+    const trailing = rhs.integrand.factors[rhs.integrand.factors.length - 1];
+    expectExprKind(trailing, "differential");
+    expectExprKind(trailing.variable, "symbol");
+    expect(trailing.variable.name).toBe("x");
   });
 
   it("tracks differential slot for prefix differential integrals", () => {
@@ -461,12 +464,13 @@ describe("parseLatexToExpr", () => {
       String.raw`\int_{0}^{2\pi} d\theta \sin\left(\theta\right)`,
     );
     expectExprKind(expr, "integral");
-    expectExprKind(expr.variable!, "symbol");
-    expect(expr.variable.name).toBe("theta");
-    expect(expr.differentialSlot).toBe("prefix");
-    expectExprKind(expr.integrand, "call");
-    expectExprKind(expr.integrand.callee, "symbol");
-    expect(expr.integrand.callee.name).toBe("sin");
+    expectExprKind(expr.integrand, "multiply");
+    expectExprKind(expr.integrand.factors[0], "differential");
+    expectExprKind(expr.integrand.factors[0].variable, "symbol");
+    expect(expr.integrand.factors[0].variable.name).toBe("theta");
+    expectExprKind(expr.integrand.factors[1], "call");
+    expectExprKind(expr.integrand.factors[1].callee, "symbol");
+    expect(expr.integrand.factors[1].callee.name).toBe("sin");
   });
 
   it("parses multi-digit numbers", () => {

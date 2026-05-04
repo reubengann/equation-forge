@@ -128,40 +128,32 @@ export const bigProd = (
 
 export const integral = (
   integrand: Expr,
-  variable: Expr | null,
   lowerBound: Expr | null,
   upperBound: Expr | null,
-  differentialSlot: "prefix" | "suffix" | "middle" | "unknown",
 ): Expr => ({
   kind: "integral",
   integrand,
-  variable,
   lowerBound,
   upperBound,
-  differentialSlot,
 });
 
-export const uniteratedIntegral = (integrand: Expr, variable: Expr | null): Expr => ({
+export const uniteratedIntegral = (integrand: Expr): Expr => ({
   kind: "uniterated_integral",
   integrand,
-  variable,
 });
 
-export const closedIntegral = (integrand: Expr, variable: Expr | null): Expr => ({
+export const closedIntegral = (integrand: Expr): Expr => ({
   kind: "closed_integral",
   integrand,
-  variable,
 });
 
 export const multipleIntegral = (
   integrand: Expr,
   order: number,
-  variable: Expr | null,
 ): Expr => ({
   kind: "multiple_integral",
   integrand,
   order,
-  variable,
 });
 
 export const differential = (variable: Expr): Expr => ({

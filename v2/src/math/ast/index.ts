@@ -1,6 +1,7 @@
 export type { DelimiterKind, Expr } from "./expr";
 export type { CompiledExprIndex } from "./compiledIndex";
 export { buildCompiledExprIndex } from "./compiledIndex";
+export { findIntegralDifferentialVariable } from "./integralDifferential";
 export {
   add,
   absoluteValue,

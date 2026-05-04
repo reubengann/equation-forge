@@ -132,29 +132,24 @@ export type BigProdExpr = {
 export type IntegralExpr = {
   kind: "integral";
   integrand: Expr;
-  variable: Expr | null;
   lowerBound: Expr | null;
   upperBound: Expr | null;
-  differentialSlot: "prefix" | "suffix" | "middle" | "unknown";
 };
 
 export type UniteratedIntegralExpr = {
   kind: "uniterated_integral";
   integrand: Expr;
-  variable: Expr | null;
 };
 
 export type ClosedIntegralExpr = {
   kind: "closed_integral";
   integrand: Expr;
-  variable: Expr | null;
 };
 
 export type MultipleIntegralExpr = {
   kind: "multiple_integral";
   integrand: Expr;
   order: number;
-  variable: Expr | null;
 };
 
 export type DifferentialExpr = {

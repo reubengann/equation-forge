@@ -67,12 +67,11 @@ function exprChildren(expr: Expr): Expr[] {
         ...(expr.lowerBound ? [expr.lowerBound] : []),
         ...(expr.upperBound ? [expr.upperBound] : []),
         expr.integrand,
-        ...(expr.variable ? [expr.variable] : []),
       ];
     case "uniterated_integral":
     case "closed_integral":
     case "multiple_integral":
-      return [expr.integrand, ...(expr.variable ? [expr.variable] : [])];
+      return [expr.integrand];
     case "differential":
       return [expr.variable];
     case "partial_derivative":
