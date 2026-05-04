@@ -43,63 +43,33 @@ class LatexGenerator {
       case "symbol":
         return this.wrap(expr.name, id);
       case "add":
-        return this.wrap(
-          expr.terms.map((term) => this.generate(term)).join(" + "),
-          id,
-        );
+        return this.wrap(expr.terms.map((term) => this.generate(term)).join(" + "), id);
       case "multiply":
-        return this.wrap(
-          expr.factors.map((factor) => this.generate(factor)).join(" "),
-          id,
-        );
+        return this.wrap(expr.factors.map((factor) => this.generate(factor)).join(" "), id);
       case "power":
-        return this.wrap(
-          this.generate(expr.base) + "^" + `{${this.generate(expr.exponent)}}`,
-          id,
-        );
+        return this.wrap(this.generate(expr.base) + "^" + `{${this.generate(expr.exponent)}}`, id);
       case "negate":
         return this.wrap("-" + this.generate(expr.value), id);
       case "divide":
-        return this.wrap(
-          `\\frac{${this.generate(expr.numerator)}}{${this.generate(expr.denominator)}}`,
-          id,
-        );
+        return this.wrap(`\\frac{${this.generate(expr.numerator)}}{${this.generate(expr.denominator)}}`, id);
       case "root":
         if (expr.degree === 2) {
           return this.wrap(`\\sqrt{${this.generate(expr.value)}}`, id);
         } else {
-          return this.wrap(
-            `\\sqrt[${expr.degree}]{${this.generate(expr.value)}}`,
-            id,
-          );
+          return this.wrap(`\\sqrt[${expr.degree}]{${this.generate(expr.value)}}`, id);
         }
       case "equation":
-        return this.wrap(
-          expr.sides.map((side) => this.generate(side)).join(" = "),
-          id,
-        );
+        return this.wrap(expr.sides.map((side) => this.generate(side)).join(" = "), id);
       case "inequality":
         switch (expr.operator) {
           case "lt":
-            return this.wrap(
-              `${this.generate(expr.lhs)} < ${this.generate(expr.rhs)}`,
-              id,
-            );
+            return this.wrap(`${this.generate(expr.lhs)} < ${this.generate(expr.rhs)}`, id);
           case "gt":
-            return this.wrap(
-              `${this.generate(expr.lhs)} > ${this.generate(expr.rhs)}`,
-              id,
-            );
+            return this.wrap(`${this.generate(expr.lhs)} > ${this.generate(expr.rhs)}`, id);
           case "geq":
-            return this.wrap(
-              `${this.generate(expr.lhs)} \\geq ${this.generate(expr.rhs)}`,
-              id,
-            );
+            return this.wrap(`${this.generate(expr.lhs)} \\geq ${this.generate(expr.rhs)}`, id);
           case "leq":
-            return this.wrap(
-              `${this.generate(expr.lhs)} \\leq ${this.generate(expr.rhs)}`,
-              id,
-            );
+            return this.wrap(`${this.generate(expr.lhs)} \\leq ${this.generate(expr.rhs)}`, id);
         }
       case "call":
         if (expr.callee.kind !== "symbol") {
@@ -118,10 +88,8 @@ class LatexGenerator {
             );
           case "bare":
             return (
-              this.wrap(
-                `\\${expr.callee.name} ${expr.args.map((x) => this.generate(x)).join(", ")}`,
-                id,
-              ) + " "
+              this.wrap(`\\${expr.callee.name} ${expr.args.map((x) => this.generate(x)).join(", ")}`, id) +
+              " "
             );
         }
       case "text":
@@ -133,18 +101,11 @@ class LatexGenerator {
       case "hat":
         return this.wrap(`\\hat{${this.generate(expr.value)}}`, id);
       case "inner_product":
-        return this.wrap(
-          `${this.generate(expr.factors[0])} \\cdot ${this.generate(expr.factors[1])}`,
-          id,
-        );
+        return this.wrap(`${this.generate(expr.factors[0])} \\cdot ${this.generate(expr.factors[1])}`, id);
       case "outer_product":
-        return this.wrap(
-          `${this.generate(expr.factors[0])} \\times ${this.generate(expr.factors[1])}`,
-          id,
-        );
+        return this.wrap(`${this.generate(expr.factors[0])} \\times ${this.generate(expr.factors[1])}`, id);
       case "dotted_expr":
-        if (expr.order !== 1 && expr.order !== 2)
-          throw new Error(`Unsupported order: ${expr.order}`);
+        if (expr.order !== 1 && expr.order !== 2) throw new Error(`Unsupported order: ${expr.order}`);
         const dot = expr.order === 1 ? "\\dot" : "\\ddot";
         return this.wrap(`${dot}{${this.generate(expr.value)}}`, id);
       case "primed":
@@ -174,42 +135,35 @@ class LatexGenerator {
           id,
         );
       case "integral":
-        return this.wrap(
-          `\\int${
-            expr.lowerBound ? `_{${this.generate(expr.lowerBound)}}` : ""
-          }${expr.upperBound ? `^{${this.generate(expr.upperBound)}}` : ""} ${
-            expr.variable && expr.differentialSlot === "prefix"
-              ? `\\mathrm{d}{${this.generate(expr.variable)}} ${this.generate(expr.integrand)}`
-              : expr.variable
-                ? `${this.generate(expr.integrand)} \\,\\mathrm{d}{${this.generate(expr.variable)}}`
-                : this.generate(expr.integrand)
-          }`,
-          id,
-        );
+        const maybeLower = expr.lowerBound ? `_{${this.generate(expr.lowerBound)}}` : "";
+        const maybeUpper = expr.upperBound ? `^{${this.generate(expr.upperBound)}}` : "";
+        let integratedThing = "";
+        if (expr.variable && expr.differentialSlot === "prefix") {
+          integratedThing = `\\mathrm{d}{${this.generate(expr.variable)}} ${this.generate(expr.integrand)}`;
+        } else if (expr.variable) {
+          integratedThing = `${this.generate(expr.integrand)} \\,\\mathrm{d}{${this.generate(expr.variable)}}`;
+        } else {
+          integratedThing = this.generate(expr.integrand);
+        }
+        return this.wrap(`\\int${maybeLower}${maybeUpper} ${integratedThing}`, id);
       case "uniterated_integral":
         return this.wrap(
           `\\int ${this.generate(expr.integrand)}${
-            expr.variable
-              ? ` \\,\\mathrm{d}{${this.generate(expr.variable)}}`
-              : ""
+            expr.variable ? ` \\,\\mathrm{d}{${this.generate(expr.variable)}}` : ""
           }`,
           id,
         );
       case "closed_integral":
         return this.wrap(
           `\\oint ${this.generate(expr.integrand)}${
-            expr.variable
-              ? ` \\,\\mathrm{d}{${this.generate(expr.variable)}}`
-              : ""
+            expr.variable ? ` \\,\\mathrm{d}{${this.generate(expr.variable)}}` : ""
           }`,
           id,
         );
       case "multiple_integral":
         return this.wrap(
           `${"\\int".repeat(expr.order)} ${this.generate(expr.integrand)}${
-            expr.variable
-              ? ` \\,\\mathrm{d}{${this.generate(expr.variable)}}`
-              : ""
+            expr.variable ? ` \\,\\mathrm{d}{${this.generate(expr.variable)}}` : ""
           }`,
           id,
         );
@@ -232,10 +186,7 @@ class LatexGenerator {
         );
       case "display_group": {
         const [open, close] = this.delimiterPair(expr.delimiter);
-        return this.wrap(
-          `\\left${open}${this.generate(expr.expression)}\\right${close}`,
-          id,
-        );
+        return this.wrap(`\\left${open}${this.generate(expr.expression)}\\right${close}`, id);
       }
       case "second_order_partial_derivative":
         return this.wrap(
