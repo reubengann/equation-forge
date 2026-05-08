@@ -9,3 +9,4 @@ type MultiSelection = {
 };
 
 export type TermSelection = SingleSelection | MultiSelection;
+export type SelectionKind = "single" | "multi";

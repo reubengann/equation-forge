@@ -1,25 +1,68 @@
 import type { TermSelection } from "../../selection/types";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
+import type { MoveType, RewriteRule } from "./types";
 
-type Rule = {
-  moveType: MoveType;
+const RULES: RewriteRule[] = [];
+
+type MovePath = {
+  pivotId: string;
+  upNodes: string[];
+  downNodes: string[];
 };
 
-const RULES: Rule[] = [];
+export function findPath(document: CompiledMathDocument, nodeId1: string, nodeId2: string): MovePath | null {
+  const { parentById, nodeById } = document.index;
+  if (!nodeById[nodeId1] || !nodeById[nodeId2]) return null;
 
-type MoveType = "additive" | "multiplicative";
+  // The easiest way to find the lowest common ancestor is to travel all the way to the root, recording all the ancestors of the first node.
+  // Then, we can travel up the second node until we find any ancestor of the first node. That's the lowest common ancestor.
+
+  // TODO: Possible improvement if needed: cache node1ancestors during a drag/on selection.
+  const node1Ancestors = new Set<string>();
+  let cursor: string | null = nodeId1;
+  while (cursor) {
+    node1Ancestors.add(cursor);
+    cursor = parentById[cursor] ?? null;
+  }
+
+  let pivotId: string | null = nodeId2;
+  while (pivotId && !node1Ancestors.has(pivotId)) {
+    pivotId = parentById[pivotId] ?? null;
+  }
+  if (!pivotId) return null;
+
+  const upNodes: string[] = [];
+  cursor = nodeId1;
+  while (cursor && cursor !== pivotId) {
+    upNodes.push(cursor);
+    cursor = parentById[cursor] ?? null;
+  }
+
+  const downNodesReversed: string[] = [];
+  cursor = nodeId2;
+  while (cursor && cursor !== pivotId) {
+    downNodesReversed.push(cursor);
+    cursor = parentById[cursor] ?? null;
+  }
+
+  return {
+    pivotId,
+    upNodes,
+    downNodes: downNodesReversed.reverse(),
+  };
+}
 
 export class RulesPipeline {
   document: CompiledMathDocument;
   execute: boolean;
-  rules: Rule[];
+  rules: RewriteRule[];
   selection: TermSelection;
   destinationId: string;
   moveType: string;
 
   constructor(
     document: CompiledMathDocument,
-    rules: Rule[] | null,
+    rules: RewriteRule[] | null,
     selection: TermSelection,
     destinationId: string,
     moveType: MoveType,

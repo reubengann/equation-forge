@@ -10,3 +10,9 @@
   round-trip these.
 - Accept on enter
 - BIG: Implement rules engine for determining move validity, insertion point, and tree rewriting.
+
+a + b to b + a
+a - b to -b + a
+a + b = c to b = c - a
+a - b = c to a = c + b
+a - b = c to -b = -a + c
