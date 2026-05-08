@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  compileMathDocumentFromExpr,
-  printTree,
-  type CompiledMathDocument,
-} from "../../compile/compileMathDocument";
+import { compileMathDocumentFromExpr, type CompiledMathDocument } from "../../compile/compileMathDocument";
 import { exprToLatex, parseLatexToExpr } from "../../adapters/latex";
 import { upOutOfSum } from "./upOutOfSum";
 import type { AddExpr } from "../../ast/expr";
@@ -32,7 +28,7 @@ describe("upOutOfSum", () => {
       { document, selection: { kind: "single", nodeId: "n2" }, payload: null, destinationId: "n3" },
       document.index.nodeById["n1"]!,
     );
-    expect(document.index.nodeById["n1"]!.kind).toBe("symbol");
+    expect(document.index.nodeById["n1"]!.kind).toBe("add");
     expect(exprToLatex(document.expr, false)).toBe("b");
     expect(result.payload.kind).toBe("symbol");
     expect(exprToLatex(result.payload, false)).toBe("a");
@@ -66,7 +62,7 @@ describe("upOutOfSum", () => {
       },
       document.index.nodeById["n1"]!,
     );
-    expect(document.index.nodeById["n1"].kind).toBe("symbol");
+    expect(document.index.nodeById["n1"].kind).toBe("add");
     expect(exprToLatex(document.expr, false)).toBe("b");
     expect(result.payload.kind).toBe("add");
     expect(exprToLatex(result.payload, false)).toBe("a + c");
@@ -74,7 +70,6 @@ describe("upOutOfSum", () => {
 
   it("removes minus term", () => {
     const document = buildDocument("a - b");
-    printTree(document);
     const result = rule.executeMove(
       { document, selection: { kind: "single", nodeId: "n3" }, payload: null, destinationId: "n2" },
       document.index.nodeById["n1"]!,

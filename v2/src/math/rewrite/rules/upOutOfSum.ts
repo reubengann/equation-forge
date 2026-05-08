@@ -24,9 +24,6 @@ export function upOutOfSum(): RewriteRule {
         selectedNodes.forEach((node) => removeTermFromAdd(source, node));
         payload = newAdd;
       }
-      if (source.terms.length === 1) {
-        replaceExprInPlace(source, source.terms[0]!);
-      }
       return {
         payload,
       };
@@ -41,12 +38,4 @@ function removeTermFromAdd(source: AddExpr, selectedNode: Expr) {
   const index = source.terms.indexOf(selectedNode);
   if (index < 0) throw new Error("Node not found in add");
   source.terms.splice(index, 1);
-}
-
-// Overwrite the reference
-function replaceExprInPlace(target: Expr, replacement: Expr) {
-  for (const key of Object.keys(target)) {
-    delete (target as Record<string, unknown>)[key];
-  }
-  Object.assign(target, replacement);
 }
