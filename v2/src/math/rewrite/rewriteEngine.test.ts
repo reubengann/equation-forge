@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { parseLatexToExpr } from "../adapters/latex/parseLatexToExpr";
 import { compileMathDocumentFromExpr, type CompiledMathDocument } from "../compile/compileMathDocument";
-import { findPath, RulesPipeline } from "./rewriteEngine";
+import {
+  canExecuteMove,
+  findPath,
+  RulesPipeline,
+} from "./rewriteEngine";
 
 function buildDocument(latex: string): CompiledMathDocument {
   const expr = parseLatexToExpr(latex);
@@ -20,6 +24,63 @@ describe("RulesPipeline", () => {
     ).canMove();
     expect(result).toBe(false);
   });
+
+  it("allows additive reorder within the same sum", () => {
+    const document = buildDocument(String.raw`a+b`);
+    const result = new RulesPipeline(
+      document,
+      null,
+      { kind: "single", nodeId: "n2" },
+      "n3",
+      "additive",
+      "after",
+    ).canMove();
+    expect(result).toBe(true);
+  });
+
+  it("rejects move when extraction rule is unavailable", () => {
+    const document = buildDocument(String.raw`a+b`);
+    const result = new RulesPipeline(
+      document,
+      [],
+      { kind: "single", nodeId: "n2" },
+      "n3",
+      "additive",
+    ).canMove();
+    expect(result).toBe(false);
+  });
+
+  it("allows multiplicative reorder within the same product", () => {
+    const document = buildDocument(String.raw`a b`);
+    const result = new RulesPipeline(
+      document,
+      null,
+      { kind: "single", nodeId: "n2" },
+      "n3",
+      "multiplicative",
+      "after",
+    ).canMove();
+    expect(result).toBe(true);
+  });
+
+  it("returns insertion preview with container and orientation", () => {
+    const document = buildDocument(String.raw`a+b`);
+    const preview = new RulesPipeline(
+      document,
+      null,
+      { kind: "single", nodeId: "n2" },
+      "n3",
+      "additive",
+      "after",
+    ).getInsertionPreview();
+    expect(preview).toEqual({
+      containerId: "n1",
+      containerKind: "add",
+      destinationId: "n3",
+      destinationSlot: "after",
+      lineOrientation: "vertical",
+    });
+  });
 });
 
 describe("treeTools", () => {
@@ -31,5 +92,52 @@ describe("treeTools", () => {
       upNodes: ["n2"], // a
       downNodes: ["n3"], // b
     });
+  });
+});
+
+describe("canExecuteMove slot resolution", () => {
+  it("returns before when pointer is near/left of center", () => {
+    const document = buildDocument(String.raw`a+b`);
+    const preview = canExecuteMove({
+      document,
+      selection: { kind: "single", nodeId: "n3" },
+      destinationId: "n2",
+      moveType: "additive",
+      pointerX: 15,
+      rectById: {
+        n2: { left: 10, right: 30 },
+      },
+      rightOfCenterMarginPx: 8,
+    });
+    expect(preview?.destinationSlot).toBe("before");
+  });
+
+  it("returns after when pointer is significantly right of center", () => {
+    const document = buildDocument(String.raw`a+b`);
+    const preview = canExecuteMove({
+      document,
+      selection: { kind: "single", nodeId: "n2" },
+      destinationId: "n3",
+      moveType: "additive",
+      pointerX: 30,
+      rectById: {
+        n3: { left: 10, right: 30 },
+      },
+      rightOfCenterMarginPx: 8,
+    });
+    expect(preview?.destinationSlot).toBe("after");
+  });
+});
+
+describe("canExecuteMove", () => {
+  it("returns null when move is disallowed", () => {
+    const document = buildDocument(String.raw`a+b`);
+    const preview = canExecuteMove({
+      document,
+      selection: { kind: "single", nodeId: "n2" },
+      destinationId: "n2",
+      moveType: "additive",
+    });
+    expect(preview).toBeNull();
   });
 });
