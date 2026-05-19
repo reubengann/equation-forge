@@ -20,16 +20,34 @@ type EditorEntryToggleProps = {
   recordingHooks?: EquationEditorRecordingHooks;
 };
 
+type EquationHistoryStep = {
+  latex: string;
+};
+
+type EquationHistory = {
+  past: EquationHistoryStep[];
+  present: EquationHistoryStep;
+};
+
+function createEquationHistory(latex: string): EquationHistory {
+  return {
+    past: [],
+    present: { latex },
+  };
+}
+
 export function EditorEntryToggle({
   onLatexAccepted,
   onCanonicalLatexChanged,
   recordingHooks,
 }: EditorEntryToggleProps) {
   const [latex, setLatex] = useState(String.raw`a+b=c`);
+  const [equationHistory, setEquationHistory] = useState<EquationHistory>(() => createEquationHistory(latex));
   const [presetIndex, setPresetIndex] = useState(0);
   const [showMathDisplay, setShowMathDisplay] = useState(false);
   const lastAcceptedLatexRef = useRef<string | null>(null);
   const canonicalLatexRef = useRef(latex);
+  const skipNextCanonicalHistoryRef = useRef(false);
   const slotRef = useRef<HTMLDivElement | null>(null);
 
   const updateMathFieldValue = (event: SyntheticEvent<HTMLElement>) => {
@@ -50,6 +68,7 @@ export function EditorEntryToggle({
     setPresetIndex(normalizedIndex);
     setLatex(nextLatex);
     canonicalLatexRef.current = nextLatex;
+    setEquationHistory(createEquationHistory(nextLatex));
   };
 
   const handleAcceptToggle = () => {
@@ -58,6 +77,8 @@ export function EditorEntryToggle({
       // Accept should use the current MathLive edit buffer, not the last rendered canonical value.
       const nextLatex = latex;
       canonicalLatexRef.current = nextLatex;
+      setEquationHistory(createEquationHistory(nextLatex));
+      skipNextCanonicalHistoryRef.current = true;
       setLatex(nextLatex);
       onLatexAccepted({
         previousLatex,
@@ -66,6 +87,35 @@ export function EditorEntryToggle({
       lastAcceptedLatexRef.current = nextLatex;
     }
     setShowMathDisplay((prev) => !prev);
+  };
+
+  const handleCanonicalLatexChanged = (nextLatex: string) => {
+    const previousLatex = canonicalLatexRef.current;
+    const shouldSkipHistory = skipNextCanonicalHistoryRef.current;
+    skipNextCanonicalHistoryRef.current = false;
+    if (previousLatex !== nextLatex && !shouldSkipHistory) {
+      setEquationHistory((currentHistory) => ({
+        past: [...currentHistory.past, currentHistory.present],
+        present: { latex: nextLatex },
+      }));
+    } else if (previousLatex !== nextLatex) {
+      setEquationHistory(createEquationHistory(nextLatex));
+    }
+    canonicalLatexRef.current = nextLatex;
+    setLatex(nextLatex);
+    onCanonicalLatexChanged?.(nextLatex);
+  };
+
+  const handleUndoRequested = () => {
+    const previousStep = equationHistory.past.at(-1);
+    if (!previousStep) return;
+    setEquationHistory({
+      past: equationHistory.past.slice(0, -1),
+      present: previousStep,
+    });
+    canonicalLatexRef.current = previousStep.latex;
+    setLatex(previousStep.latex);
+    onCanonicalLatexChanged?.(previousStep.latex);
   };
 
   return (
@@ -92,12 +142,10 @@ export function EditorEntryToggle({
           <EquationEditor
             latex={latex}
             recordingHooks={recordingHooks}
+            canUndo={equationHistory.past.length > 0}
+            onUndoRequested={handleUndoRequested}
             // Needed so that we can show the mathlive again with the existing latex.
-            onCanonicalLatexChanged={(nextLatex) => {
-              canonicalLatexRef.current = nextLatex;
-              setLatex(nextLatex);
-              onCanonicalLatexChanged?.(nextLatex);
-            }}
+            onCanonicalLatexChanged={handleCanonicalLatexChanged}
           />
         ) : (
           <MathliveEditor

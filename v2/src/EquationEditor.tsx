@@ -60,6 +60,11 @@ const modeIconButtonActiveStyle: CSSProperties = {
   boxShadow: "0 0 0 1px rgba(124, 77, 255, 0.3)",
 };
 
+const modeIconButtonDisabledStyle: CSSProperties = {
+  opacity: 0.45,
+  cursor: "not-allowed",
+};
+
 function resolveHorizontalInsertionSlot(pointerX: number, rect: NodeHorizontalBounds) {
   const centerX = (rect.left + rect.right) / 2;
   return pointerX >= centerX + INSERTION_SLOT_RIGHT_OF_CENTER_MARGIN_PX ? "after" : "before";
@@ -76,10 +81,18 @@ function selectionKey(selection: TermSelection): string {
 type EquationEditorProps = {
   latex: string;
   onCanonicalLatexChanged: (nextLatex: string) => void;
+  canUndo?: boolean;
+  onUndoRequested?: () => void;
   recordingHooks?: EquationEditorRecordingHooks;
 };
 
-export function EquationEditor({ latex, onCanonicalLatexChanged, recordingHooks }: EquationEditorProps) {
+export function EquationEditor({
+  latex,
+  onCanonicalLatexChanged,
+  canUndo = false,
+  onUndoRequested,
+  recordingHooks,
+}: EquationEditorProps) {
   const editorRootRef = useRef<HTMLDivElement | null>(null);
   const mathDivRef = useRef<HTMLElement | null>(null);
   const nodeRectsRef = useRef<NodeRect[]>([]);
@@ -244,8 +257,17 @@ export function EquationEditor({ latex, onCanonicalLatexChanged, recordingHooks 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
+      const key = event.key.toLowerCase();
+
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && key === "z") {
+        if (!canUndo || !onUndoRequested) return;
+        event.preventDefault();
+        onUndoRequested();
+        return;
+      }
+
       if (event.ctrlKey || event.metaKey || event.altKey) return;
-      if (event.key.toLowerCase() !== "a") return;
+      if (key !== "a") return;
       event.preventDefault();
       setMoveType((currentMoveType) =>
         currentMoveType === "additive" ? "multiplicative" : "additive",
@@ -256,7 +278,7 @@ export function EquationEditor({ latex, onCanonicalLatexChanged, recordingHooks 
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, []);
+  }, [canUndo, onUndoRequested]);
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.currentTarget.hasPointerCapture?.(event.pointerId) === false) {
@@ -405,52 +427,80 @@ export function EquationEditor({ latex, onCanonicalLatexChanged, recordingHooks 
       }}
     >
       <div
-        role="group"
-        aria-label="Move mode"
         style={{
           alignSelf: "flex-start",
           display: "flex",
-          border: "1px solid #757575",
-          borderRadius: "3px",
-          overflow: "hidden",
+          alignItems: "center",
+          gap: "10px",
         }}
       >
+        <div
+          role="group"
+          aria-label="Move mode"
+          style={{
+            display: "flex",
+            border: "1px solid #757575",
+            borderRadius: "3px",
+            overflow: "hidden",
+          }}
+        >
+          <button
+            type="button"
+            data-testid="move-mode-additive"
+            aria-label="Additive move mode"
+            title="Additive move mode"
+            aria-pressed={moveType === "additive"}
+            onClick={() => updateMoveType("additive")}
+            style={{
+              ...modeIconButtonBaseStyle,
+              ...(moveType === "additive" ? modeIconButtonActiveStyle : {}),
+              borderRightWidth: 0,
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M11 4a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            data-testid="move-mode-multiplicative"
+            aria-label="Multiplicative move mode"
+            title="Multiplicative move mode"
+            aria-pressed={moveType === "multiplicative"}
+            onClick={() => updateMoveType("multiplicative")}
+            style={{
+              ...modeIconButtonBaseStyle,
+              ...(moveType === "multiplicative" ? modeIconButtonActiveStyle : {}),
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M6.7 5.3a1 1 0 0 0-1.4 1.4L10.6 12l-5.3 5.3a1 1 0 1 0 1.4 1.4L12 13.4l5.3 5.3a1 1 0 0 0 1.4-1.4L13.4 12l5.3-5.3a1 1 0 0 0-1.4-1.4L12 10.6z"
+              />
+            </svg>
+          </button>
+        </div>
         <button
           type="button"
-          data-testid="move-mode-additive"
-          aria-label="Additive move mode"
-          title="Additive move mode"
-          aria-pressed={moveType === "additive"}
-          onClick={() => updateMoveType("additive")}
+          data-testid="undo-equation-rewrite"
+          aria-label="Undo"
+          title="Undo"
+          disabled={!canUndo}
+          onClick={onUndoRequested}
           style={{
             ...modeIconButtonBaseStyle,
-            ...(moveType === "additive" ? modeIconButtonActiveStyle : {}),
-            borderRightWidth: 0,
+            borderRadius: "3px",
+            ...(!canUndo ? modeIconButtonDisabledStyle : {}),
           }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
             <path
               fill="currentColor"
-              d="M11 4a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z"
-            />
-          </svg>
-        </button>
-        <button
-          type="button"
-          data-testid="move-mode-multiplicative"
-          aria-label="Multiplicative move mode"
-          title="Multiplicative move mode"
-          aria-pressed={moveType === "multiplicative"}
-          onClick={() => updateMoveType("multiplicative")}
-          style={{
-            ...modeIconButtonBaseStyle,
-            ...(moveType === "multiplicative" ? modeIconButtonActiveStyle : {}),
-          }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              fill="currentColor"
-              d="M6.7 5.3a1 1 0 0 0-1.4 1.4L10.6 12l-5.3 5.3a1 1 0 1 0 1.4 1.4L12 13.4l5.3 5.3a1 1 0 0 0 1.4-1.4L13.4 12l5.3-5.3a1 1 0 0 0-1.4-1.4L12 10.6z"
+              d="M9.7 6.3a1 1 0 0 1 0 1.4L7.4 10H15a5 5 0 1 1 0 10h-2a1 1 0 1 1 0-2h2a3 3 0 1 0 0-6H7.4l2.3 2.3a1 1 0 1 1-1.4 1.4l-4-4a1 1 0 0 1 0-1.4l4-4a1 1 0 0 1 1.4 0z"
             />
           </svg>
         </button>
