@@ -234,6 +234,46 @@ describe("selectionController", () => {
     });
   });
 
+  it("does not select the node under pointer_up after a suppressed drag release", () => {
+    const latex = String.raw`a+b=c`;
+    const rects = makeRect([
+      ["n1", 0, 130],
+      ["n2", 0, 80],
+      ["n3", 0, 35],
+      ["n4", 45, 80],
+      ["n5", 100, 130],
+    ]);
+    const selected = runEvent(
+      createSelectionControllerState(),
+      {
+        type: "pointer_down",
+        pointer: { x: 50, y: 10 },
+        ts: 10,
+        buttons: 1,
+        ctrlKey: false,
+      },
+      rects,
+      latex,
+    );
+
+    const releasedOverOtherNode = runEvent(
+      selected,
+      {
+        type: "pointer_up",
+        pointer: { x: 110, y: 10 },
+        ts: 20,
+        buttons: 0,
+        ctrlKey: false,
+        suppressClickSelectionWhenDragging: true,
+      },
+      rects,
+      latex,
+    );
+
+    expect(releasedOverOtherNode.selection).toEqual({ kind: "single", nodeId: "n4" });
+    expect(releasedOverOtherNode.lastCommittedClick).toBeNull();
+  });
+
   it("double-click on term in a+b promotes selection to add node", () => {
     const latex = String.raw`a+b`;
     const rects = makeRect([

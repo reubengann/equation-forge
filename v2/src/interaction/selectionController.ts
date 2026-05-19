@@ -25,6 +25,7 @@ type PointerUpControllerEvent = {
   ts: number;
   buttons: number;
   ctrlKey: boolean;
+  suppressClickSelectionWhenDragging?: boolean;
 };
 
 type PointerControllerEvent = PointerDownControllerEvent | PointerUpControllerEvent;
@@ -150,6 +151,10 @@ function distanceToRect(rect: NodeRect, point: PointerLike): number {
   const dx = point.x < rect.left ? rect.left - point.x : point.x > rect.right ? point.x - rect.right : 0;
   const dy = point.y < rect.top ? rect.top - point.y : point.y > rect.bottom ? point.y - rect.bottom : 0;
   return Math.hypot(dx, dy);
+}
+
+function distanceBetweenPoints(a: PointerLike, b: PointerLike): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
 function shouldEscalateFromChildToParent(parentExpr: Expr | undefined): boolean {
@@ -488,6 +493,18 @@ export function resolveSelectionFromEvent({
     if (event.ctrlKey) {
       // If ctrl was pressed, we handled ctrl+click in pointer_down, so just finalize the event.
       return { ...state, pendingPointerDown: null };
+    }
+
+    const pointerMovedFarEnoughToDrag =
+      !!state.pendingPointerDown &&
+      distanceBetweenPoints(state.pendingPointerDown.pointer, event.pointer) >=
+        DEFAULT_SELECTION_CONTROLLER_CONFIG.dragThresholdPx;
+    if (event.suppressClickSelectionWhenDragging && pointerMovedFarEnoughToDrag) {
+      return {
+        ...state,
+        pendingPointerDown: null,
+        suppressSelectionOnNextPointerUp: false,
+      };
     }
 
     const hit = resolveNodeAtPoint(event.pointer, nodeResolutionSource, index);

@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "exportedAtIso": "2026-05-19T21:45:48.775Z",
+  "domSnapshots": {
+    "s1": {
+      "hostRect": {
+        "left": 96.08332824707031,
+        "top": 121.16667175292969,
+        "right": 776.0833282470703,
+        "bottom": 146.10000610351562,
+        "width": 680,
+        "height": 24.933334350585938
+      },
+      "nodeRects": [
+        {
+          "nodeId": "n1",
+          "left": 96.08332824707031,
+          "top": 120.30000305175781,
+          "right": 138.6666717529297,
+          "bottom": 143.63333129882812,
+          "width": 42.583343505859375,
+          "height": 23.333328247070312
+        },
+        {
+          "nodeId": "n2",
+          "left": 96.08332824707031,
+          "top": 120.30000305175781,
+          "right": 105.60000610351562,
+          "bottom": 143.63333129882812,
+          "width": 9.516677856445312,
+          "height": 23.333328247070312
+        },
+        {
+          "nodeId": "n3",
+          "left": 129.6666717529297,
+          "top": 120.30000305175781,
+          "right": 138.6666717529297,
+          "bottom": 143.63333129882812,
+          "width": 9,
+          "height": 23.333328247070312
+        }
+      ]
+    }
+  },
+  "events": [
+    {
+      "type": "move_mode_changed",
+      "moveType": "additive",
+      "ts": 1779227140801
+    },
+    {
+      "type": "dom_changed",
+      "source": "accept",
+      "domSnapshotId": "s1",
+      "ts": 1779227140803
+    },
+    {
+      "type": "latex_accepted",
+      "previousLatex": "a=0",
+      "nextLatex": "a = 0",
+      "ts": 1779227142820
+    },
+    {
+      "type": "pointer_down",
+      "pointer": {
+        "x": 133.3333282470703,
+        "y": 135.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1779227144665
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 113.33333587646484,
+        "y": 139.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1779227145571
+    }
+  ],
+  "expected": {
+    "selectedNodeIds": [
+      "n3"
+    ],
+    "insertionPreview": null,
+    "moveType": "additive",
+    "latex": "a = 0"
+  }
+}

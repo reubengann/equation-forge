@@ -75,4 +75,25 @@ describe("extractTermFromSum", () => {
     expect(exprToLatex(result!.payload!, false)).toBe("a + b");
     expect(exprToLatex(result!.updatedNode!, false)).toBe("c");
   });
+
+  it("does not extract a bare zero from an equation side as a term", () => {
+    const document = buildDocument("a = 0");
+    const rule = extractTermFromSum();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "single", nodeId: "n3" },
+        payload: null,
+        destinationId: "n2",
+      },
+      {
+        childId: "n3",
+        parentId: "n1",
+        childNode: document.index.nodeById.n3!,
+        parentNode: document.index.nodeById.n1!,
+      },
+    );
+
+    expect(result).toBeNull();
+  });
 });

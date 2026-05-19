@@ -82,12 +82,20 @@ export function replayEvents(fixture: EventFixture) {
   for (const event of fixture.events) {
     switch (event.type) {
       case "latex_accepted":
+        const hadCompiledLatex = state.latex != null;
         state.latex = event.nextLatex ?? null;
         currentCompiledDoc = compileMathDocument(state.latex ?? "");
         currentCompiledIndex = currentCompiledDoc.index;
-        currentDomSnapshotId = null;
-        currentDomSnapshot = null;
-        currentNodeResolution = buildNodeResolutionSource([], currentCompiledIndex);
+        if (!hadCompiledLatex && currentDomSnapshot) {
+          currentNodeResolution = buildNodeResolutionSource(
+            currentDomSnapshot.nodeRects,
+            currentCompiledIndex,
+          );
+        } else {
+          currentDomSnapshotId = null;
+          currentDomSnapshot = null;
+          currentNodeResolution = buildNodeResolutionSource([], currentCompiledIndex);
+        }
         state.insertionPreview = null;
         break;
       case "move_mode_changed":
@@ -109,6 +117,9 @@ export function replayEvents(fixture: EventFixture) {
         }
         currentDomSnapshotId = event.domSnapshotId;
         currentDomSnapshot = snapshot;
+        if (state.latex == null) {
+          break;
+        }
         currentNodeResolution = buildNodeResolutionSource(
           currentDomSnapshot.nodeRects,
           currentCompiledIndex,
@@ -150,6 +161,7 @@ export function replayEvents(fixture: EventFixture) {
             ts: event.ts,
             buttons: event.buttons,
             ctrlKey: event.ctrlKey ?? false,
+            suppressClickSelectionWhenDragging: !!selection && !previewToApply,
           },
           currentSelection: selectionState.selection,
           nodeResolutionSource: currentNodeResolution,

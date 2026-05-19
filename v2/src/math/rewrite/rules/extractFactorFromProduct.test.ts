@@ -52,4 +52,25 @@ describe("extractFactorFromProduct", () => {
 
     expect(result).toBeNull();
   });
+
+  it("does not extract a bare one from an equation side as a factor", () => {
+    const document = buildDocument(String.raw`\frac{a}{c} = 1`);
+    const rule = extractFactorFromProduct();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "single", nodeId: "n5" },
+        payload: null,
+        destinationId: "n2",
+      },
+      {
+        childId: "n5",
+        parentId: "n1",
+        childNode: document.index.nodeById.n5!,
+        parentNode: document.index.nodeById.n1!,
+      },
+    );
+
+    expect(result).toBeNull();
+  });
 });

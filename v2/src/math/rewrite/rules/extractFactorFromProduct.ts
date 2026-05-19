@@ -14,7 +14,9 @@ export function extractFactorFromProduct(): UpwardRewriteRule {
       if (context.selection.kind === "single") {
         return (
           edge.parentNode.kind === "multiply" ||
-          (edge.parentNode.kind === "equation" && edge.childId === context.selection.nodeId)
+          (edge.parentNode.kind === "equation" &&
+            edge.childId === context.selection.nodeId &&
+            !isMultiplicativeIdentity(edge.childNode))
         );
       }
       return edge.parentNode.kind === "multiply" && context.selection.containerNodeId === edge.parentId;
@@ -27,6 +29,7 @@ export function extractFactorFromProduct(): UpwardRewriteRule {
         const selectionNodeId = context.selection.nodeId;
         if (edge.parentNode.kind !== "equation") return null;
         if (edge.childId !== selectionNodeId) return null;
+        if (isMultiplicativeIdentity(edge.childNode)) return null;
         return {
           payload: cloneExpr(edge.childNode),
           updatedNodeId: edge.childId,
@@ -75,4 +78,8 @@ function collapseMultiplicativeFactors(factors: Expr[]): Expr {
   if (factors.length === 0) return { kind: "number", value: 1 };
   if (factors.length === 1) return factors[0];
   return { kind: "multiply", factors };
+}
+
+function isMultiplicativeIdentity(expr: Expr): boolean {
+  return expr.kind === "number" && expr.value === 1;
 }

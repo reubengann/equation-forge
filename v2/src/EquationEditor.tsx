@@ -305,6 +305,7 @@ export function EquationEditor({ latex, onCanonicalLatexChanged, recordingHooks 
       ts: event.timeStamp,
       buttons: event.buttons,
       ctrlKey: event.ctrlKey,
+      suppressClickSelectionWhenDragging: !!selection && !previewToApply,
     });
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
