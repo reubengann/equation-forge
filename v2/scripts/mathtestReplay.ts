@@ -85,10 +85,9 @@ export function replayEvents(fixture: EventFixture) {
         state.latex = event.nextLatex ?? null;
         currentCompiledDoc = compileMathDocument(state.latex ?? "");
         currentCompiledIndex = currentCompiledDoc.index;
-        currentNodeResolution = buildNodeResolutionSource(
-          currentDomSnapshot?.nodeRects ?? [],
-          currentCompiledIndex,
-        );
+        currentDomSnapshotId = null;
+        currentDomSnapshot = null;
+        currentNodeResolution = buildNodeResolutionSource([], currentCompiledIndex);
         state.insertionPreview = null;
         break;
       case "move_mode_changed":
@@ -164,10 +163,9 @@ export function replayEvents(fixture: EventFixture) {
           state.latex = nextLatex;
           currentCompiledDoc = compileMathDocument(state.latex);
           currentCompiledIndex = currentCompiledDoc.index;
-          currentNodeResolution = buildNodeResolutionSource(
-            currentDomSnapshot?.nodeRects ?? [],
-            currentCompiledIndex,
-          );
+          currentDomSnapshotId = null;
+          currentDomSnapshot = null;
+          currentNodeResolution = buildNodeResolutionSource([], currentCompiledIndex);
         }
         break;
       }

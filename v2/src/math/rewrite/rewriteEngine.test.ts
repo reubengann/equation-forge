@@ -203,7 +203,7 @@ describe("canExecuteMove", () => {
       destinationSlot: "after",
     });
 
-    expect(result?.latex).toBe("a = c + -b");
+    expect(result?.latex).toBe("a = c - b");
   });
 
   it("inserts a cross-equation additive move into an existing sum", () => {
@@ -229,7 +229,7 @@ describe("canExecuteMove", () => {
       destinationSlot: "after",
     });
 
-    expect(result?.latex).toBe(String.raw`0 = c + -\left(a + b\right)`);
+    expect(result?.latex).toBe(String.raw`0 = c - \left(a + b\right)`);
   });
 
   it("executes moving a selected sum to the other side of an equation", () => {
@@ -242,6 +242,51 @@ describe("canExecuteMove", () => {
       destinationSlot: "after",
     });
 
-    expect(result?.latex).toBe(String.raw`0 = c + -\left(a + b\right)`);
+    expect(result?.latex).toBe(String.raw`0 = c - \left(a + b\right)`);
+  });
+
+  it("executes moving a subtraction term back across an equation", () => {
+    const document = buildDocument(String.raw`a=c-b`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n6" },
+      destinationId: "n2",
+      moveType: "additive",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe("a + b = c");
+  });
+
+  it("previews moving a multiplicative factor across an equation as a denominator drop", () => {
+    const document = buildDocument(String.raw`F=m a`);
+    const preview = canExecuteMove({
+      document,
+      selection: { kind: "single", nodeId: "n5" },
+      destinationId: "n2",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(preview).toEqual({
+      containerId: "n2",
+      containerKind: "divide",
+      destinationId: "n2",
+      destinationSlot: "after",
+      lineOrientation: "horizontal",
+    });
+  });
+
+  it("executes moving a multiplicative factor across an equation into the denominator", () => {
+    const document = buildDocument(String.raw`F=m a`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n5" },
+      destinationId: "n2",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\frac{F}{a} = m`);
   });
 });

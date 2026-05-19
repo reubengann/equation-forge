@@ -14,7 +14,11 @@ export const power = (base: Expr, exponent: Expr): Expr => ({
   exponent,
 });
 
-export const negate = (value: Expr): Expr => ({ kind: "negate", value });
+export const negate = (value: Expr, notation: "prefix" | "subtraction" = "prefix"): Expr => ({
+  kind: "negate",
+  value,
+  notation,
+});
 
 export const divide = (numerator: Expr, denominator: Expr): Expr => ({
   kind: "divide",

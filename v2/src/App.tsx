@@ -76,6 +76,7 @@ function App() {
   const selectedNodeIdsRef = useRef<string[]>([]);
   const insertionPreviewRef = useRef<InsertionPreview | null>(null);
   const moveTypeRef = useRef<MoveType>("additive");
+  const currentLatexRef = useRef<string | null>(null);
   const expectedAtStopRef = useRef<EventFixture["expected"] | null>(null);
   const lastDomSnapshotIdRef = useRef<string | null>(null);
   const snapshotByIdRef = useRef<Record<string, SelectionGeometry>>({});
@@ -90,22 +91,17 @@ function App() {
     setRecordedEventCount(nextEvents.length);
   };
 
-  const buildExpectedState = (events: TestRecorderEvent[]): EventFixture["expected"] => {
-    const lastLatexAcceptedEvent = [...events]
-      .reverse()
-      .find((event) => event.type === "latex_accepted");
+  const buildExpectedState = (): EventFixture["expected"] => {
     return {
       selectedNodeIds: selectedNodeIdsRef.current,
       insertionPreview: insertionPreviewRef.current,
       moveType: moveTypeRef.current,
-      latex:
-        lastLatexAcceptedEvent?.type === "latex_accepted" ? lastLatexAcceptedEvent.nextLatex : undefined,
+      latex: currentLatexRef.current ?? undefined,
     };
   };
 
   const stopRecording = () => {
-    const events = recorderRef.current.getEvents();
-    expectedAtStopRef.current = buildExpectedState(events);
+    expectedAtStopRef.current = buildExpectedState();
     setIsRecording(false);
   };
 
@@ -183,7 +179,7 @@ function App() {
       exportedAtIso: new Date().toISOString(),
       domSnapshots: compact.domSnapshots,
       events: compact.events,
-      expected: expectedAtStopRef.current ?? buildExpectedState(recordedEvents),
+      expected: expectedAtStopRef.current ?? buildExpectedState(),
     };
     try {
       await saveFixtureJson(fixture);
@@ -301,10 +297,14 @@ function App() {
       </div>
       <EditorEntryToggle
         onLatexAccepted={(payload) => {
+          currentLatexRef.current = payload.nextLatex;
           // We can record this ourselves, since we are the actor
           if (!isRecording) return;
           recorderRef.current.recordLatexAccepted(payload);
           syncRecordedEvents();
+        }}
+        onCanonicalLatexChanged={(nextLatex) => {
+          currentLatexRef.current = nextLatex;
         }}
         recordingHooks={
           {

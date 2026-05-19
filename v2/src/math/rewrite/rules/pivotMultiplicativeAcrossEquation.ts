@@ -2,11 +2,11 @@ import { cloneExpr } from "../../ast/utils";
 import type { Expr } from "../../ast/expr";
 import type { MoveContext, PivotRewriteRule } from "../types";
 
-export function pivotAdditiveAcrossEquation(): PivotRewriteRule {
+export function pivotMultiplicativeAcrossEquation(): PivotRewriteRule {
   return {
-    id: "pivotAdditiveAcrossEquation",
+    id: "pivotMultiplicativeAcrossEquation",
     selectionKind: "*",
-    moveType: "additive",
+    moveType: "multiplicative",
     pivotKind: "equation",
     canApply: (context, pivotContext) => {
       if (!context.payload) return false;
@@ -18,20 +18,16 @@ export function pivotAdditiveAcrossEquation(): PivotRewriteRule {
       if (pivotContext.pivotNode.kind !== "equation") return null;
 
       return {
-        payload: additiveInverse(context.payload),
+        payload: reciprocalPayload(context.payload),
       };
     },
   };
 }
 
-function additiveInverse(expr: Expr): Expr {
-  if (expr.kind === "negate") return cloneExpr(expr.value);
-  if (expr.kind === "add") {
-    return {
-      kind: "negate",
-      notation: "subtraction",
-      value: { kind: "display_group", delimiter: "paren", expression: cloneExpr(expr) },
-    };
-  }
-  return { kind: "negate", notation: "subtraction", value: cloneExpr(expr) };
+function reciprocalPayload(expr: Expr): Expr {
+  return {
+    kind: "divide",
+    numerator: { kind: "number", value: 1 },
+    denominator: cloneExpr(expr),
+  };
 }

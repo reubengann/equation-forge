@@ -1033,7 +1033,7 @@ class TokenParser {
         continue;
       }
       if (this.consumeOperator("-")) {
-        terms.push(negate(this.parseMultiplicative()));
+        terms.push(negate(this.parseMultiplicative(), "subtraction"));
         continue;
       }
       break;

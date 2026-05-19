@@ -29,6 +29,7 @@ export type PowerExpr = {
 export type NegateExpr = {
   kind: "negate";
   value: Expr;
+  notation?: "prefix" | "subtraction";
 };
 
 export type DivideExpr = {

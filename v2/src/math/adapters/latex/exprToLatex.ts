@@ -43,7 +43,7 @@ class LatexGenerator {
       case "symbol":
         return this.wrap(expr.name, id);
       case "add":
-        return this.wrap(expr.terms.map((term) => this.generate(term)).join(" + "), id);
+        return this.wrap(this.generateAddTerms(expr.terms), id);
       case "multiply":
         return this.wrap(expr.factors.map((factor) => this.generate(factor)).join(" "), id);
       case "power":
@@ -195,6 +195,19 @@ class LatexGenerator {
       case "invalid_input":
         throw new Error(`Invalid input: ${expr.latex}`);
     }
+  }
+
+  generateAddTerms(terms: Expr[]): string {
+    return terms
+      .map((term, index) => {
+        if (term.kind === "negate" && term.notation !== "prefix") {
+          const renderedValue = this.generate(term.value);
+          return index === 0 ? `-${renderedValue}` : `- ${renderedValue}`;
+        }
+        const renderedTerm = this.generate(term);
+        return index === 0 ? renderedTerm : `+ ${renderedTerm}`;
+      })
+      .join(" ");
   }
 }
 

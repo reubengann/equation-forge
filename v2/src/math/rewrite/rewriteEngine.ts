@@ -3,13 +3,13 @@ import type { Expr } from "../ast";
 import { exprToLatex } from "../adapters/latex/exprToLatex";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import { replaceCompiledNode } from "../ast/utils";
-import { extractTermFromSum } from "./rules/extractTermFromSum";
-import { insertTermIntoSum } from "./rules/insertTermIntoSum";
-import { pivotAdditiveAcrossEquation } from "./rules/pivotAdditiveAcrossEquation";
-import { rearrangeFactorsInProduct } from "./rules/rearrangeFactorsInProduct";
-import { rearrangeTermsInSum } from "./rules/rearrangeTermsInSum";
+import {
+  DOWNWARD_REWRITE_RULES,
+  PIVOT_REWRITE_RULES,
+  SINGLE_CONTAINER_RULES,
+  UPWARD_REWRITE_RULES,
+} from "./ruleRegistry";
 import type {
-  DownwardRewriteRule,
   InsertionPreview,
   InsertionSlot,
   MoveContext,
@@ -17,15 +17,8 @@ import type {
   MoveType,
   NodeHorizontalBounds,
   PipelineRuleResult,
-  PivotRewriteRule,
   SingleContainerRule,
-  UpwardRewriteRule,
 } from "./types";
-
-const SINGLE_CONTAINER_RULES: SingleContainerRule[] = [rearrangeTermsInSum(), rearrangeFactorsInProduct()];
-const UPWARD_REWRITE_RULES: UpwardRewriteRule[] = [extractTermFromSum()];
-const PIVOT_REWRITE_RULES: PivotRewriteRule[] = [pivotAdditiveAcrossEquation()];
-const DOWNWARD_REWRITE_RULES: DownwardRewriteRule[] = [insertTermIntoSum()];
 
 type MovePath = {
   pivotId: string;

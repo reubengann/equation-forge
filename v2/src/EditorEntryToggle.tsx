@@ -16,11 +16,13 @@ type EditorEntryToggleProps = {
     previousLatex: string | null;
     nextLatex: string;
   }) => void;
+  onCanonicalLatexChanged?: (nextLatex: string) => void;
   recordingHooks?: EquationEditorRecordingHooks;
 };
 
 export function EditorEntryToggle({
   onLatexAccepted,
+  onCanonicalLatexChanged,
   recordingHooks,
 }: EditorEntryToggleProps) {
   const [latex, setLatex] = useState(String.raw`a+b=c`);
@@ -92,15 +94,9 @@ export function EditorEntryToggle({
             recordingHooks={recordingHooks}
             // Needed so that we can show the mathlive again with the existing latex.
             onCanonicalLatexChanged={(nextLatex) => {
-              const previousLatex = canonicalLatexRef.current;
               canonicalLatexRef.current = nextLatex;
               setLatex(nextLatex);
-              if (previousLatex !== nextLatex) {
-                onLatexAccepted({
-                  previousLatex,
-                  nextLatex,
-                });
-              }
+              onCanonicalLatexChanged?.(nextLatex);
             }}
           />
         ) : (

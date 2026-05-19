@@ -35,6 +35,18 @@ describe("exprToLatex", () => {
     expect(latex).toBe("a + b");
   });
 
+  it("prints subtraction notation in sums", () => {
+    const expr = parseLatexToExpr("c-a");
+    const latex = exprToLatex(expr, false);
+    expect(latex).toBe("c - a");
+  });
+
+  it("preserves explicit prefix negation in sums", () => {
+    const expr = parseLatexToExpr("c + -a");
+    const latex = exprToLatex(expr, false);
+    expect(latex).toBe("c + -a");
+  });
+
   it("wraps product", () => {
     const expr = parseLatexToExpr("a b");
     const latex = exprToLatex(expr, true);

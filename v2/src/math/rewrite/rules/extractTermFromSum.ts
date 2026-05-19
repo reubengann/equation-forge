@@ -12,7 +12,10 @@ export function extractTermFromSum(): UpwardRewriteRule {
     canApply: (context, edge) => {
       if (context.payload) return false;
       if (context.selection.kind === "single") {
-        return edge.parentNode.kind === "add" || edge.childId === context.selection.nodeId;
+        return (
+          edge.parentNode.kind === "add" ||
+          (edge.parentNode.kind === "equation" && edge.childId === context.selection.nodeId)
+        );
       }
       return edge.parentNode.kind === "add" && context.selection.containerNodeId === edge.parentId;
     },
@@ -22,6 +25,7 @@ export function extractTermFromSum(): UpwardRewriteRule {
       if (edge.parentNode.kind !== "add") {
         if (context.selection.kind !== "single") return null;
         const selectionNodeId = context.selection.nodeId;
+        if (edge.parentNode.kind !== "equation") return null;
         if (edge.childId !== selectionNodeId) return null;
         return {
           payload: cloneExpr(edge.childNode),

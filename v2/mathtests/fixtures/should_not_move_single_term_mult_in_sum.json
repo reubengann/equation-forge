@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "exportedAtIso": "2026-05-19T21:34:39.941Z",
+  "domSnapshots": {
+    "s1": {
+      "hostRect": {
+        "left": 96.08332824707031,
+        "top": 121.16667175292969,
+        "right": 776.0833282470703,
+        "bottom": 146.10000610351562,
+        "width": 680,
+        "height": 24.933334350585938
+      },
+      "nodeRects": [
+        {
+          "nodeId": "n1",
+          "left": 96.08332824707031,
+          "top": 120.30000305175781,
+          "right": 167.4499969482422,
+          "bottom": 143.63333129882812,
+          "width": 71.36666870117188,
+          "height": 23.333328247070312
+        },
+        {
+          "nodeId": "n2",
+          "left": 96.08332824707031,
+          "top": 120.30000305175781,
+          "right": 135.5833282470703,
+          "bottom": 143.63333129882812,
+          "width": 39.5,
+          "height": 23.333328247070312
+        },
+        {
+          "nodeId": "n3",
+          "left": 96.08332824707031,
+          "top": 120.30000305175781,
+          "right": 105.60000610351562,
+          "bottom": 143.63333129882812,
+          "width": 9.516677856445312,
+          "height": 23.333328247070312
+        },
+        {
+          "nodeId": "n4",
+          "left": 127.86666870117188,
+          "top": 120.30000305175781,
+          "right": 135.5833282470703,
+          "bottom": 143.63333129882812,
+          "width": 7.7166595458984375,
+          "height": 23.333328247070312
+        },
+        {
+          "nodeId": "n5",
+          "left": 159.64999389648438,
+          "top": 120.30000305175781,
+          "right": 167.4499969482422,
+          "bottom": 143.63333129882812,
+          "width": 7.8000030517578125,
+          "height": 23.333328247070312
+        }
+      ]
+    }
+  },
+  "events": [
+    {
+      "type": "move_mode_changed",
+      "moveType": "additive",
+      "ts": 1779226469889
+    },
+    {
+      "type": "latex_accepted",
+      "previousLatex": "a + b = c",
+      "nextLatex": "a + b = c",
+      "ts": 1779226471580
+    },
+    {
+      "type": "dom_changed",
+      "source": "accept",
+      "domSnapshotId": "s1",
+      "ts": 1779226471584
+    },
+    {
+      "type": "move_mode_changed",
+      "moveType": "multiplicative",
+      "ts": 1779226472647
+    },
+    {
+      "type": "pointer_down",
+      "pointer": {
+        "x": 131.6666717529297,
+        "y": 127.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1779226473521
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 151.6666717529297,
+        "y": 133.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1779226474014
+    }
+  ],
+  "expected": {
+    "selectedNodeIds": [
+      "n4"
+    ],
+    "insertionPreview": null,
+    "moveType": "multiplicative",
+    "latex": "a + b = c"
+  }
+}
