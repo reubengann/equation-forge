@@ -66,6 +66,7 @@ export function replayEvents(fixture: EventFixture) {
     selectedNodeIds: [] as string[],
     latex: null as string | null,
     insertionPreview: null as InsertionPreview | null,
+    moveType: "additive" as MoveType,
   };
   const replayFailures: string[] = [];
   let currentDomSnapshotId: string | null = null;
@@ -88,6 +89,10 @@ export function replayEvents(fixture: EventFixture) {
           currentDomSnapshot?.nodeRects ?? [],
           currentCompiledIndex,
         );
+        state.insertionPreview = null;
+        break;
+      case "move_mode_changed":
+        state.moveType = event.moveType;
         state.insertionPreview = null;
         break;
       case "dom_changed": {
@@ -129,21 +134,13 @@ export function replayEvents(fixture: EventFixture) {
         const previewToApply = state.insertionPreview;
         let nextLatex: string | null = null;
         if (selection?.kind === "single" && previewToApply) {
-          const moveType: MoveType | null =
-            previewToApply.containerKind === "add"
-              ? "additive"
-              : previewToApply.containerKind === "multiply"
-                ? "multiplicative"
-                : null;
-          const moveResult = moveType
-            ? executeMove({
-                document: currentCompiledDoc,
-                selection,
-                destinationId: previewToApply.destinationId,
-                moveType,
-                destinationSlot: previewToApply.destinationSlot,
-              })
-            : null;
+          const moveResult = executeMove({
+            document: currentCompiledDoc,
+            selection,
+            destinationId: previewToApply.destinationId,
+            moveType: state.moveType,
+            destinationSlot: previewToApply.destinationSlot,
+          });
           nextLatex = moveResult?.latex ?? null;
         }
 
@@ -213,18 +210,6 @@ export function replayEvents(fixture: EventFixture) {
           break;
         }
 
-        const sourceContainer = currentCompiledIndex.nodeById[sourceParentId];
-        const moveType: MoveType | null =
-          sourceContainer?.kind === "add"
-            ? "additive"
-            : sourceContainer?.kind === "multiply"
-              ? "multiplicative"
-              : null;
-        if (!moveType) {
-          state.insertionPreview = null;
-          break;
-        }
-
         const rectById: Record<string, NodeHorizontalBounds> = {};
         for (const [nodeId, rect] of Object.entries(currentNodeResolution.rectById)) {
           rectById[nodeId] = { left: rect.left, right: rect.right };
@@ -233,7 +218,7 @@ export function replayEvents(fixture: EventFixture) {
           document: currentCompiledDoc,
           selection,
           destinationId,
-          moveType,
+          moveType: state.moveType,
           pointerX: event.pointer.x,
           rectById,
         });
@@ -322,6 +307,14 @@ export function buildAssertions(
     ) {
       failures.push(
         `insertionPreview expected=${JSON.stringify(expected.insertionPreview)} actual=${JSON.stringify(finalState.insertionPreview)}`,
+      );
+    }
+  }
+
+  if ("moveType" in expected) {
+    if (finalState.moveType !== expected.moveType) {
+      failures.push(
+        `moveType expected=${JSON.stringify(expected.moveType)} actual=${JSON.stringify(finalState.moveType)}`,
       );
     }
   }

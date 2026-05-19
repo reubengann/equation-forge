@@ -3,8 +3,8 @@ import type {
   PointerEventPayload,
   SelectionGeometry,
 } from "./interaction/selectionController";
-import type { InsertionPreview } from "./math/rewrite/types";
-import type { Selection } from "./selection/types";
+import type { InsertionPreview, MoveType } from "./math/rewrite/types";
+import type { TermSelection } from "./selection/types";
 
 export type PointerPhase = "pointer_down" | "pointer_move" | "pointer_up";
 
@@ -33,24 +33,37 @@ export type DomChangedEvent = {
   ts: number;
 };
 
-export type TestRecorderEvent = PointerEventRecord | LatexAcceptedEvent | DomChangedEvent;
+export type MoveModeChangedEvent = {
+  type: "move_mode_changed";
+  moveType: MoveType;
+  ts: number;
+};
+
+export type TestRecorderEvent =
+  | PointerEventRecord
+  | LatexAcceptedEvent
+  | DomChangedEvent
+  | MoveModeChangedEvent;
 
 export type EquationEditorRecordingHooks = {
   onDomSnapshotObserved: (payload: DomSnapshotObservedPayload) => void;
   onPointerDownEvent: (payload: PointerEventPayload) => void;
   onPointerMoveEvent: (payload: PointerEventPayload) => void;
   onPointerUpEvent: (payload: PointerEventPayload) => void;
-  onSelectionChanged: (selection: Selection | null) => void;
+  onSelectionChanged: (selection: TermSelection | null) => void;
   onPreviewChanged: (preview: InsertionPreview | null) => void;
+  onMoveTypeChanged: (moveType: MoveType) => void;
 };
 
 export class TestRecorder {
   private events: TestRecorderEvent[] = [];
   private lastAcceptedLatex: string | null = null;
+  private lastMoveType: MoveType | null = null;
 
   startSession(): void {
     this.events = [];
     this.lastAcceptedLatex = null;
+    this.lastMoveType = null;
   }
 
   recordPointerDown(payload: {
@@ -136,6 +149,18 @@ export class TestRecorder {
       domSnapshot: payload.domSnapshot,
       ts: Date.now(),
     });
+  }
+
+  recordMoveModeChanged(moveType: MoveType): void {
+    if (this.lastMoveType === moveType) {
+      return;
+    }
+    this.events.push({
+      type: "move_mode_changed",
+      moveType,
+      ts: Date.now(),
+    });
+    this.lastMoveType = moveType;
   }
 
   getEvents(): TestRecorderEvent[] {

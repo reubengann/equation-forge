@@ -6,9 +6,9 @@ import type {
   PointerEventPayload,
   SelectionGeometry,
 } from "./interaction/selectionController";
-import type { InsertionPreview } from "./math/rewrite/types";
+import type { InsertionPreview, MoveType } from "./math/rewrite/types";
 import { selectionNodeIds } from "./interaction/selectionController";
-import { type Selection } from "./selection/types";
+import type { TermSelection } from "./selection/types";
 import { TestRecorder, type EquationEditorRecordingHooks, type TestRecorderEvent } from "./TestRecorder";
 import { MathfieldElement } from "mathlive";
 
@@ -75,6 +75,7 @@ function App() {
   const recorderRef = useRef<TestRecorder>(new TestRecorder());
   const selectedNodeIdsRef = useRef<string[]>([]);
   const insertionPreviewRef = useRef<InsertionPreview | null>(null);
+  const moveTypeRef = useRef<MoveType>("additive");
   const expectedAtStopRef = useRef<EventFixture["expected"] | null>(null);
   const lastDomSnapshotIdRef = useRef<string | null>(null);
   const snapshotByIdRef = useRef<Record<string, SelectionGeometry>>({});
@@ -96,6 +97,7 @@ function App() {
     return {
       selectedNodeIds: selectedNodeIdsRef.current,
       insertionPreview: insertionPreviewRef.current,
+      moveType: moveTypeRef.current,
       latex:
         lastLatexAcceptedEvent?.type === "latex_accepted" ? lastLatexAcceptedEvent.nextLatex : undefined,
     };
@@ -250,13 +252,13 @@ function App() {
               return;
             }
             recorderRef.current.startSession();
+            recorderRef.current.recordMoveModeChanged(moveTypeRef.current);
             lastDomSnapshotIdRef.current = null;
             snapshotByIdRef.current = {};
             insertionPreviewRef.current = null;
             expectedAtStopRef.current = null;
             setIsRecording(true);
-            setRecordedEvents([]);
-            setRecordedEventCount(0);
+            syncRecordedEvents();
           }}
           style={{
             boxSizing: "border-box",
@@ -355,7 +357,7 @@ function App() {
               });
               syncRecordedEvents();
             },
-            onSelectionChanged: (selection: Selection | null) => {
+            onSelectionChanged: (selection: TermSelection | null) => {
               // We do not store selectionchanged events into the recording. This is just for
               // Showing on the UI for debugging purposes.
               const nodeIds = selectionNodeIds(selection);
@@ -368,6 +370,13 @@ function App() {
             },
             onPreviewChanged: (preview: InsertionPreview | null) => {
               insertionPreviewRef.current = preview;
+            },
+            onMoveTypeChanged: (moveType: MoveType) => {
+              if (moveTypeRef.current === moveType) return;
+              moveTypeRef.current = moveType;
+              if (!isRecording) return;
+              recorderRef.current.recordMoveModeChanged(moveType);
+              syncRecordedEvents();
             },
           } satisfies EquationEditorRecordingHooks
         }
@@ -403,6 +412,12 @@ function App() {
                   return (
                     <div key={`${event.ts}-${index}`}>
                       {event.type}: Latex changed from {event.previousLatex ?? "(none)"} to {event.nextLatex}
+                    </div>
+                  );
+                case "move_mode_changed":
+                  return (
+                    <div key={`${event.ts}-${index}`}>
+                      {event.type}: {event.moveType}
                     </div>
                   );
                 case "dom_changed":

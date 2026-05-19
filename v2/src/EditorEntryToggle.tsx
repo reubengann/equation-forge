@@ -108,6 +108,7 @@ export function EditorEntryToggle({
             slotRef={slotRef}
             latex={latex}
             updateMathFieldValue={updateMathFieldValue}
+            onAccept={handleAcceptToggle}
           />
         )}
         {!showMathDisplay && (

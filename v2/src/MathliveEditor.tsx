@@ -1,16 +1,24 @@
-import type { RefObject, SyntheticEvent } from "react";
+import type { KeyboardEvent, RefObject, SyntheticEvent } from "react";
 
 type MathliveEditorProps = {
   slotRef: RefObject<HTMLDivElement | null>;
   latex: string;
   updateMathFieldValue: (event: SyntheticEvent<HTMLElement>) => void;
+  onAccept: () => void;
 };
 
 export function MathliveEditor({
   slotRef,
   latex,
   updateMathFieldValue,
+  onAccept,
 }: MathliveEditorProps) {
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    onAccept();
+  };
+
   return (
     <div
       ref={slotRef}
@@ -29,6 +37,7 @@ export function MathliveEditor({
         data-testid="latex-mathfield"
         value={latex}
         onInput={updateMathFieldValue}
+        onKeyDown={handleKeyDown}
         style={{
           display: "block",
           width: "100%",

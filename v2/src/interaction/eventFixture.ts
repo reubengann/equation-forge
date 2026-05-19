@@ -1,6 +1,6 @@
 import type { TestRecorderEvent } from "../TestRecorder";
 import type { SelectionGeometry } from "./selectionController";
-import type { InsertionPreview } from "../math/rewrite/types";
+import type { InsertionPreview, MoveType } from "../math/rewrite/types";
 
 export type ExportedPointerEvent = {
   type: "pointer_down" | "pointer_move" | "pointer_up";
@@ -35,5 +35,6 @@ export type EventFixture = {
     selectedNodeId?: string | null;
     latex?: string;
     insertionPreview?: InsertionPreview | null;
+    moveType?: MoveType;
   };
 };
