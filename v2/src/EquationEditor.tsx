@@ -13,7 +13,7 @@ import {
 } from "./interaction/selectionController";
 import { type TermSelection } from "./selection/types";
 import { compileMathDocument } from "./math/compile/compileMathDocument";
-import { canExecuteMove } from "./math/rewrite/rewriteEngine";
+import { canExecuteMove, executeMove } from "./math/rewrite/rewriteEngine";
 import type { InsertionPreview, MoveType, NodeHorizontalBounds } from "./math/rewrite/types";
 import type { EquationEditorRecordingHooks } from "./TestRecorder";
 
@@ -44,6 +44,7 @@ export function EquationEditor({ latex, onCanonicalLatexChanged, recordingHooks 
   const nodeResolutionRef = useRef<NodeResolutionSource>(buildNodeResolutionSource([], null));
   const [selection, setSelection] = useState<TermSelection | null>(null);
   const [insertionPreview, setInsertionPreview] = useState<InsertionPreview | null>(null);
+  const insertionPreviewRef = useRef<InsertionPreview | null>(null);
   const [insertionLineStyle, setInsertionLineStyle] = useState<InsertionLineStyle | null>(null);
   const lastSelectionKeyRef = useRef<string>("null");
   const selectionStateRef = useRef(createSelectionControllerState());
@@ -61,7 +62,9 @@ export function EquationEditor({ latex, onCanonicalLatexChanged, recordingHooks 
     const mathDiv = mathDivRef.current as (HTMLElement & { value?: string; render?: () => void }) | null;
     if (!mathDiv) return;
     mathDiv.value = compiledDoc.taggedLatex;
+    mathDiv.setAttribute("value", compiledDoc.taggedLatex);
     mathDiv.textContent = compiledDoc.taggedLatex;
+    mathDiv.render?.();
 
     let rafId = 0;
     let attempts = 0;
@@ -156,6 +159,7 @@ export function EquationEditor({ latex, onCanonicalLatexChanged, recordingHooks 
   useEffect(() => {
     // Any AST refresh invalidates cached drag evaluation.
     lastDragEngineQueryKeyRef.current = null;
+    insertionPreviewRef.current = null;
     setInsertionPreview(null);
     setInsertionLineStyle(null);
     recordingHooks?.onPreviewChanged?.(null);
@@ -180,6 +184,7 @@ export function EquationEditor({ latex, onCanonicalLatexChanged, recordingHooks 
   };
 
   const updateInsertionPreview = (preview: InsertionPreview | null) => {
+    insertionPreviewRef.current = preview;
     setInsertionPreview(preview);
     recordingHooks?.onPreviewChanged?.(preview);
   };
@@ -210,6 +215,28 @@ export function EquationEditor({ latex, onCanonicalLatexChanged, recordingHooks 
   };
 
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const previewToApply = insertionPreviewRef.current;
+    if (selection?.kind === "single" && previewToApply) {
+      const moveType: MoveType | null =
+        previewToApply.containerKind === "add"
+          ? "additive"
+          : previewToApply.containerKind === "multiply"
+            ? "multiplicative"
+            : null;
+      const moveResult = moveType
+        ? executeMove({
+            document: compiledDoc,
+            selection,
+            destinationId: previewToApply.destinationId,
+            moveType,
+            destinationSlot: previewToApply.destinationSlot,
+          })
+        : null;
+      if (moveResult) {
+        onCanonicalLatexChanged(moveResult.latex);
+      }
+    }
+
     applySelectionEvent({
       type: "pointer_up",
       pointer: { x: event.clientX, y: event.clientY },

@@ -3,6 +3,7 @@ import { parseLatexToExpr } from "../adapters/latex/parseLatexToExpr";
 import { compileMathDocumentFromExpr, type CompiledMathDocument } from "../compile/compileMathDocument";
 import {
   canExecuteMove,
+  executeMove,
   findPath,
   RulesPipeline,
 } from "./rewriteEngine";
@@ -139,5 +140,37 @@ describe("canExecuteMove", () => {
       moveType: "additive",
     });
     expect(preview).toBeNull();
+  });
+
+  it("allows moving b before a in the left side of an equation", () => {
+    const document = buildDocument(String.raw`a+b=c`);
+    const preview = canExecuteMove({
+      document,
+      selection: { kind: "single", nodeId: "n4" },
+      destinationId: "n3",
+      moveType: "additive",
+      destinationSlot: "before",
+    });
+
+    expect(preview).toEqual({
+      containerId: "n2",
+      containerKind: "add",
+      destinationId: "n3",
+      destinationSlot: "before",
+      lineOrientation: "vertical",
+    });
+  });
+
+  it("executes moving b before a in the left side of an equation", () => {
+    const document = buildDocument(String.raw`a+b=c`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n4" },
+      destinationId: "n3",
+      moveType: "additive",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe("b + a = c");
   });
 });

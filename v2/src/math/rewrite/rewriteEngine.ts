@@ -1,12 +1,15 @@
 import type { TermSelection } from "../../selection/types";
 import type { Expr } from "../ast";
+import { exprToLatex } from "../adapters/latex/exprToLatex";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
+import { replaceCompiledNode } from "../ast/utils";
 import { rearrangeFactorsInProduct } from "./rules/rearrangeFactorsInProduct";
 import { rearrangeTermsInSum } from "./rules/rearrangeTermsInSum";
 import type {
   InsertionPreview,
   InsertionSlot,
   MoveContext,
+  MoveResult,
   MoveType,
   NodeHorizontalBounds,
   SingleContainerRule,
@@ -28,6 +31,7 @@ type ContainerIndexes = {
 
 type MoveEvaluation = {
   insertionPreview: InsertionPreview;
+  moveResult?: MoveResult;
 };
 
 export function findPath(document: CompiledMathDocument, nodeId1: string, nodeId2: string): MovePath | null {
@@ -102,8 +106,8 @@ export class RulesPipeline {
     return this.runEngine(false) !== null;
   }
 
-  executeMove(): boolean {
-    return this.runEngine(true) !== null;
+  executeMove(): MoveResult | null {
+    return this.runEngine(true)?.moveResult ?? null;
   }
 
   getInsertionPreview(): InsertionPreview | null {
@@ -144,6 +148,8 @@ export class RulesPipeline {
       context.sourceContainerIndex = containerIndexes.sourceIndex;
       context.destinationInsertionIndex = containerIndexes.insertionIndex;
 
+      // If the replacement is just commutation within a given container (sum or product), we
+      // don't need to do a full tree rewrite. Some single rule will cover it.
       const rule = this.findSingleContainerRule(
         applicableRules,
         context,
@@ -152,9 +158,14 @@ export class RulesPipeline {
         destinationNode,
       );
       if (!rule) return null;
-      if (shouldExecute && rule.executeMove(context, containerNode, selectedNode, destinationNode) == null) {
-        return null;
-      }
+      const ruleMoveResult = shouldExecute
+        ? rule.executeMove(context, containerNode, selectedNode, destinationNode)
+        : null;
+      if (shouldExecute && ruleMoveResult == null) return null;
+
+      // If we get a replacement, apply it
+      const moveResult =
+        ruleMoveResult == null ? null : serializeRuleMoveResult(this.document, ruleMoveResult);
 
       return {
         insertionPreview: {
@@ -164,6 +175,7 @@ export class RulesPipeline {
           destinationSlot: context.destinationSlot ?? "before",
           lineOrientation: lineOrientationForContainer(containerNode.kind),
         },
+        ...(moveResult ? { moveResult } : {}),
       };
     } else {
       throw new Error("Not Implemented");
@@ -186,6 +198,15 @@ export class RulesPipeline {
     }
     return null;
   }
+}
+
+function serializeRuleMoveResult(
+  document: CompiledMathDocument,
+  ruleMoveResult: NonNullable<ReturnType<SingleContainerRule["executeMove"]>>,
+): MoveResult | null {
+  const nextExpr = replaceCompiledNode(document, ruleMoveResult.updatedNodeId, ruleMoveResult.updatedNode);
+  if (!nextExpr) return null;
+  return { latex: exprToLatex(nextExpr, false) };
 }
 
 function lineOrientationForContainer(containerKind: Expr["kind"]): "vertical" | "horizontal" {
@@ -226,7 +247,8 @@ function resolveContainerIndexes({
   if (sourceIndex < 0 || destinationIndex < 0) return null;
 
   const adjustedDestinationIndex = sourceIndex < destinationIndex ? destinationIndex - 1 : destinationIndex;
-  const insertionIndex = destinationSlot === "after" ? adjustedDestinationIndex + 1 : adjustedDestinationIndex;
+  const insertionIndex =
+    destinationSlot === "after" ? adjustedDestinationIndex + 1 : adjustedDestinationIndex;
 
   return { sourceIndex, destinationIndex, insertionIndex };
 }
@@ -284,6 +306,29 @@ export function canExecuteMove({
     moveType,
     resolvedSlot,
   ).getInsertionPreview();
+}
+
+export function executeMove({
+  document,
+  selection,
+  destinationId,
+  moveType,
+  destinationSlot,
+}: {
+  document: CompiledMathDocument;
+  selection: TermSelection;
+  destinationId: string;
+  moveType: MoveType;
+  destinationSlot: InsertionSlot;
+}): MoveResult | null {
+  return new RulesPipeline(
+    document,
+    SINGLE_CONTAINER_RULES,
+    selection,
+    destinationId,
+    moveType,
+    destinationSlot,
+  ).executeMove();
 }
 
 function resolveSingleContainerSlot({

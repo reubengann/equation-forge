@@ -38,6 +38,13 @@ describe("buildCompiledExprIndex", () => {
       n4: [],
       n5: [],
     });
+    expect(index.locationById).toEqual({
+      n1: { parentId: null, field: null },
+      n2: { parentId: "n1", field: "terms", index: 0 },
+      n3: { parentId: "n1", field: "terms", index: 1 },
+      n4: { parentId: "n3", field: "base" },
+      n5: { parentId: "n3", field: "exponent" },
+    });
   });
 
   it("tracks child order for partial_at_const_quantity", () => {
@@ -51,5 +58,9 @@ describe("buildCompiledExprIndex", () => {
     expect(index.parentById.n4).toBe("n1");
     expect(index.ancestorsById.n4).toEqual(["n1"]);
     expect(index.childrenById.n1).toEqual(["n2", "n3", "n4"]);
+    expect(index.locationById.n4).toEqual({
+      parentId: "n1",
+      field: "constantQuantity",
+    });
   });
 });

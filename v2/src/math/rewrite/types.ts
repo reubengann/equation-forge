@@ -30,6 +30,10 @@ export type MoveContext = {
 };
 
 export type MoveResult = {
+  latex: string;
+};
+
+export type RuleMoveResult = {
   payload: Expr;
   updatedNodeId: string;
   updatedNode: Expr;
@@ -43,7 +47,7 @@ export type RewriteRule = {
   fromKind: string;
   toKind: string;
   canMove: (moveContext: MoveContext, node: Expr) => boolean;
-  executeMove: (moveContext: MoveContext, node: Expr) => MoveResult | null;
+  executeMove: (moveContext: MoveContext, node: Expr) => RuleMoveResult | null;
 };
 
 export type SingleContainerRule = {
@@ -62,5 +66,5 @@ export type SingleContainerRule = {
     containerNode: Expr,
     selectedNode: Expr,
     destinationNode: Expr,
-  ) => MoveResult | null;
+  ) => RuleMoveResult | null;
 };

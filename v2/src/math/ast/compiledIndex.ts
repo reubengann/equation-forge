@@ -1,14 +1,27 @@
 import type { Expr } from "./expr";
 
+export type CompiledExprNodeLocation = {
+  parentId: string | null;
+  field: string | null;
+  index?: number;
+};
+
 export type CompiledExprIndex = {
   rootId: string;
   nodeById: Record<string, Expr>;
   parentById: Record<string, string | null>;
   ancestorsById: Record<string, string[]>;
   childrenById: Record<string, string[]>;
+  locationById: Record<string, CompiledExprNodeLocation>;
 };
 
-function exprChildren(expr: Expr): Expr[] {
+type ExprChildLocation = {
+  expr: Expr;
+  field: string;
+  index?: number;
+};
+
+function exprChildLocations(expr: Expr): ExprChildLocation[] {
   switch (expr.kind) {
     case "number":
     case "symbol":
@@ -17,75 +30,97 @@ function exprChildren(expr: Expr): Expr[] {
     case "invalid_input":
       return [];
     case "add":
-      return expr.terms;
+      return expr.terms.map((term, index) => ({ expr: term, field: "terms", index }));
     case "multiply":
-      return expr.factors;
+      return expr.factors.map((factor, index) => ({ expr: factor, field: "factors", index }));
     case "power":
-      return [expr.base, expr.exponent];
+      return [
+        { expr: expr.base, field: "base" },
+        { expr: expr.exponent, field: "exponent" },
+      ];
     case "negate":
-      return [expr.value];
+      return [{ expr: expr.value, field: "value" }];
     case "divide":
-      return [expr.numerator, expr.denominator];
+      return [
+        { expr: expr.numerator, field: "numerator" },
+        { expr: expr.denominator, field: "denominator" },
+      ];
     case "root":
-      return [expr.value];
+      return [{ expr: expr.value, field: "value" }];
     case "equation":
-      return expr.sides;
+      return expr.sides.map((side, index) => ({ expr: side, field: "sides", index }));
     case "inequality":
-      return [expr.lhs, expr.rhs];
+      return [
+        { expr: expr.lhs, field: "lhs" },
+        { expr: expr.rhs, field: "rhs" },
+      ];
     case "call":
-      return [expr.callee, ...expr.args];
+      return [
+        { expr: expr.callee, field: "callee" },
+        ...expr.args.map((arg, index) => ({ expr: arg, field: "args", index })),
+      ];
     case "absolute_value":
-      return [expr.value];
     case "vector":
-      return [expr.value];
     case "hat":
-      return [expr.value];
-    case "inner_product":
-      return expr.factors;
-    case "outer_product":
-      return expr.factors;
     case "dotted_expr":
-      return [expr.value];
     case "primed":
-      return [expr.value];
     case "special_font":
-      return [expr.value];
+      return [{ expr: expr.value, field: "value" }];
+    case "inner_product":
+    case "outer_product":
+      return expr.factors.map((factor, index) => ({ expr: factor, field: "factors", index }));
     case "big_sum":
       return [
-        ...(expr.lowerBound ? [expr.lowerBound] : []),
-        ...(expr.upperBound ? [expr.upperBound] : []),
-        expr.summand,
+        ...(expr.lowerBound ? [{ expr: expr.lowerBound, field: "lowerBound" }] : []),
+        ...(expr.upperBound ? [{ expr: expr.upperBound, field: "upperBound" }] : []),
+        { expr: expr.summand, field: "summand" },
       ];
     case "big_prod":
       return [
-        ...(expr.lowerBound ? [expr.lowerBound] : []),
-        ...(expr.upperBound ? [expr.upperBound] : []),
-        expr.muliplicand,
+        ...(expr.lowerBound ? [{ expr: expr.lowerBound, field: "lowerBound" }] : []),
+        ...(expr.upperBound ? [{ expr: expr.upperBound, field: "upperBound" }] : []),
+        { expr: expr.muliplicand, field: "muliplicand" },
       ];
     case "integral":
       return [
-        ...(expr.lowerBound ? [expr.lowerBound] : []),
-        ...(expr.upperBound ? [expr.upperBound] : []),
-        expr.integrand,
+        ...(expr.lowerBound ? [{ expr: expr.lowerBound, field: "lowerBound" }] : []),
+        ...(expr.upperBound ? [{ expr: expr.upperBound, field: "upperBound" }] : []),
+        { expr: expr.integrand, field: "integrand" },
       ];
     case "uniterated_integral":
     case "closed_integral":
     case "multiple_integral":
-      return [expr.integrand];
+      return [{ expr: expr.integrand, field: "integrand" }];
     case "differential":
-      return [expr.variable];
+      return [{ expr: expr.variable, field: "variable" }];
     case "partial_derivative":
-      return [expr.quantity, expr.variable];
+      return [
+        { expr: expr.quantity, field: "quantity" },
+        { expr: expr.variable, field: "variable" },
+      ];
     case "full_derivative_operator":
-      return [expr.variable, expr.operand];
     case "partial_derivative_operator":
-      return [expr.variable, expr.operand];
+      return [
+        { expr: expr.variable, field: "variable" },
+        { expr: expr.operand, field: "operand" },
+      ];
     case "display_group":
-      return [expr.expression];
+      return [{ expr: expr.expression, field: "expression" }];
     case "second_order_partial_derivative":
-      return [expr.dependentVariable, ...expr.independentVariables];
+      return [
+        { expr: expr.dependentVariable, field: "dependentVariable" },
+        ...expr.independentVariables.map((variable, index) => ({
+          expr: variable,
+          field: "independentVariables",
+          index,
+        })),
+      ];
     case "partial_at_const_quantity":
-      return [expr.quantity, expr.variable, expr.constantQuantity];
+      return [
+        { expr: expr.quantity, field: "quantity" },
+        { expr: expr.variable, field: "variable" },
+        { expr: expr.constantQuantity, field: "constantQuantity" },
+      ];
   }
 }
 
@@ -94,26 +129,32 @@ export function buildCompiledExprIndex(root: Expr): CompiledExprIndex {
   const parentById: Record<string, string | null> = {};
   const ancestorsById: Record<string, string[]> = {};
   const childrenById: Record<string, string[]> = {};
+  const locationById: Record<string, CompiledExprNodeLocation> = {};
   let nextId = 1;
 
   const visit = (
     expr: Expr,
     parentId: string | null,
     ancestors: string[],
+    location: Omit<CompiledExprNodeLocation, "parentId">,
   ): string => {
     const id = `n${nextId++}`;
     nodeById[id] = expr;
     parentById[id] = parentId;
     ancestorsById[id] = ancestors;
+    locationById[id] = { parentId, ...location };
     if (!childrenById[id]) childrenById[id] = [];
     if (parentId) childrenById[parentId].push(id);
     const nextAncestors = [...ancestors, id];
-    for (const child of exprChildren(expr)) {
-      visit(child, id, nextAncestors);
+    for (const child of exprChildLocations(expr)) {
+      visit(child.expr, id, nextAncestors, {
+        field: child.field,
+        ...(child.index != null ? { index: child.index } : {}),
+      });
     }
     return id;
   };
 
-  const rootId = visit(root, null, []);
-  return { rootId, nodeById, parentById, ancestorsById, childrenById };
+  const rootId = visit(root, null, [], { field: null });
+  return { rootId, nodeById, parentById, ancestorsById, childrenById, locationById };
 }

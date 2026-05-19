@@ -93,6 +93,7 @@ export function EditorEntryToggle({
             // Needed so that we can show the mathlive again with the existing latex.
             onCanonicalLatexChanged={(nextLatex) => {
               canonicalLatexRef.current = nextLatex;
+              setLatex(nextLatex);
             }}
           />
         ) : (
