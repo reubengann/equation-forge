@@ -3,19 +3,29 @@ import type { Expr } from "../ast";
 import { exprToLatex } from "../adapters/latex/exprToLatex";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import { replaceCompiledNode } from "../ast/utils";
+import { extractTermFromSum } from "./rules/extractTermFromSum";
+import { insertTermIntoSum } from "./rules/insertTermIntoSum";
+import { pivotAdditiveAcrossEquation } from "./rules/pivotAdditiveAcrossEquation";
 import { rearrangeFactorsInProduct } from "./rules/rearrangeFactorsInProduct";
 import { rearrangeTermsInSum } from "./rules/rearrangeTermsInSum";
 import type {
+  DownwardRewriteRule,
   InsertionPreview,
   InsertionSlot,
   MoveContext,
   MoveResult,
   MoveType,
   NodeHorizontalBounds,
+  PipelineRuleResult,
+  PivotRewriteRule,
   SingleContainerRule,
+  UpwardRewriteRule,
 } from "./types";
 
 const SINGLE_CONTAINER_RULES: SingleContainerRule[] = [rearrangeTermsInSum(), rearrangeFactorsInProduct()];
+const UPWARD_REWRITE_RULES: UpwardRewriteRule[] = [extractTermFromSum()];
+const PIVOT_REWRITE_RULES: PivotRewriteRule[] = [pivotAdditiveAcrossEquation()];
+const DOWNWARD_REWRITE_RULES: DownwardRewriteRule[] = [insertTermIntoSum()];
 
 type MovePath = {
   pivotId: string;
@@ -130,7 +140,9 @@ export class RulesPipeline {
       };
       const sourceParentId = this.document.index.parentById[this.selection.nodeId];
       const destinationParentId = this.document.index.parentById[this.destinationId];
-      if (!sourceParentId || sourceParentId !== destinationParentId) return null;
+      if (!sourceParentId || sourceParentId !== destinationParentId) {
+        return this.runGeneralPipeline(context, shouldExecute);
+      }
 
       const containerNode = this.document.index.nodeById[sourceParentId];
       const selectedNode = this.document.index.nodeById[this.selection.nodeId];
@@ -183,6 +195,121 @@ export class RulesPipeline {
     }
   }
 
+  private runGeneralPipeline(context: MoveContext, shouldExecute: boolean): MoveEvaluation | null {
+    if (context.selection.kind !== "single") return null;
+
+    const path = findPath(this.document, context.selection.nodeId, this.destinationId);
+    if (!path) return null;
+
+    const sourceBranchId = path.upNodes[path.upNodes.length - 1] ?? context.selection.nodeId;
+    const destinationBranchId = path.downNodes[0] ?? this.destinationId;
+    const pivotNode = this.document.index.nodeById[path.pivotId];
+    if (!pivotNode) return null;
+
+    const state: GeneralPipelineState = {
+      payload: null,
+      updatedNodes: {},
+      insertionPreview: null,
+    };
+
+    for (let index = 0; index < path.upNodes.length; index += 1) {
+      const childId = path.upNodes[index];
+      const parentId = index === path.upNodes.length - 1 ? path.pivotId : path.upNodes[index + 1];
+      const childNode = this.nodeForPipeline(state, childId);
+      const parentNode = this.nodeForPipeline(state, parentId);
+      if (!childNode || !parentNode) return null;
+
+      const rule = UPWARD_REWRITE_RULES.find(
+        (candidate) =>
+          candidate.moveType === this.moveType &&
+          candidate.selectionKind === context.selection.kind &&
+          candidate.canApply({ ...context, payload: state.payload }, { childId, parentId, childNode, parentNode }),
+      );
+      if (!rule) continue;
+
+      const result = rule.apply({ ...context, payload: state.payload }, { childId, parentId, childNode, parentNode });
+      if (!result) return null;
+      applyPipelineRuleResult(state, result);
+    }
+
+    const pivotRule = PIVOT_REWRITE_RULES.find(
+      (candidate) =>
+        candidate.moveType === this.moveType &&
+        candidate.selectionKind === context.selection.kind &&
+        candidate.pivotKind === pivotNode.kind &&
+        candidate.canApply(
+          { ...context, payload: state.payload },
+          { pivotId: path.pivotId, pivotNode, sourceBranchId, destinationBranchId },
+        ),
+    );
+    if (!pivotRule) return null;
+
+    const pivotResult = pivotRule.apply(
+      { ...context, payload: state.payload },
+      { pivotId: path.pivotId, pivotNode, sourceBranchId, destinationBranchId },
+    );
+    if (!pivotResult) return null;
+    applyPipelineRuleResult(state, pivotResult);
+
+    const destinationSideId = path.downNodes[0] ?? this.destinationId;
+    const destinationSideNode = this.nodeForPipeline(state, destinationSideId);
+    const destinationNode = this.nodeForPipeline(state, this.destinationId);
+    if (!destinationSideNode || !destinationNode) return null;
+
+    const downRule = DOWNWARD_REWRITE_RULES.find(
+      (candidate) =>
+        candidate.moveType === this.moveType &&
+        candidate.selectionKind === context.selection.kind &&
+        candidate.canApply(
+          { ...context, payload: state.payload },
+          {
+            sideId: destinationSideId,
+            sideNode: destinationSideNode,
+            destinationId: this.destinationId,
+            destinationNode,
+          },
+        ),
+    );
+    if (!downRule) return null;
+
+    const downResult = downRule.apply(
+      { ...context, payload: state.payload },
+      {
+        sideId: destinationSideId,
+        sideNode: destinationSideNode,
+        destinationId: this.destinationId,
+        destinationNode,
+      },
+    );
+    if (!downResult) return null;
+    applyPipelineRuleResult(state, downResult);
+    if (!state.insertionPreview) return null;
+
+    if (!shouldExecute) {
+      return { insertionPreview: state.insertionPreview };
+    }
+
+    const nextExpr = this.applyPipelineUpdates(path.pivotId, state.updatedNodes);
+    if (!nextExpr) return null;
+
+    return {
+      insertionPreview: state.insertionPreview,
+      moveResult: { latex: exprToLatex(nextExpr, false) },
+    };
+  }
+
+  private nodeForPipeline(state: GeneralPipelineState, nodeId: string): Expr | null {
+    return state.updatedNodes[nodeId] ?? this.document.index.nodeById[nodeId] ?? null;
+  }
+
+  private applyPipelineUpdates(pivotId: string, updatedNodes: Record<string, Expr>): Expr | null {
+    const pivot = this.document.index.nodeById[pivotId];
+    if (!pivot) return null;
+    const nextPivot = rebuildUpdatedSubtree(this.document, pivotId, updatedNodes);
+    if (!nextPivot) return null;
+    return replaceCompiledNode(this.document, pivotId, nextPivot);
+  }
+
   private findSingleContainerRule(
     applicableRules: SingleContainerRule[],
     context: MoveContext,
@@ -199,6 +326,56 @@ export class RulesPipeline {
     return null;
   }
 }
+
+type GeneralPipelineState = {
+  payload: Expr | null;
+  updatedNodes: Record<string, Expr>;
+  insertionPreview: InsertionPreview | null;
+};
+
+function applyPipelineRuleResult(state: GeneralPipelineState, result: PipelineRuleResult): void {
+  if (result.payload) state.payload = result.payload;
+  if (result.updatedNodeId && result.updatedNode) {
+    state.updatedNodes[result.updatedNodeId] = result.updatedNode;
+  }
+  if (result.insertionPreview) state.insertionPreview = result.insertionPreview;
+}
+
+function rebuildUpdatedSubtree(
+  document: CompiledMathDocument,
+  nodeId: string,
+  updatedNodes: Record<string, Expr>,
+): Expr | null {
+  const original = document.index.nodeById[nodeId];
+  if (!original) return null;
+
+  if (updatedNodes[nodeId]) return structuredClone(updatedNodes[nodeId]) as Expr;
+
+  const base = original;
+  const next = structuredClone(base) as Expr;
+  const nextRecord = next as Record<string, unknown>;
+  const childIds = document.index.childrenById[nodeId] ?? [];
+
+  for (const childId of childIds) {
+    const location = document.index.locationById[childId];
+    if (!location.field) continue;
+    const updatedChild = rebuildUpdatedSubtree(document, childId, updatedNodes);
+    if (!updatedChild) return null;
+
+    if (location.index != null) {
+      const current = nextRecord[location.field];
+      if (!Array.isArray(current) || location.index >= current.length) continue;
+      const nextChildren = [...current];
+      nextChildren[location.index] = updatedChild;
+      nextRecord[location.field] = nextChildren;
+    } else if (location.field in nextRecord) {
+      nextRecord[location.field] = updatedChild;
+    }
+  }
+
+  return next;
+}
+
 
 function serializeRuleMoveResult(
   document: CompiledMathDocument,
@@ -351,10 +528,7 @@ function resolveSingleContainerSlot({
 
   const sourceParentId = document.index.parentById[selection.nodeId];
   const destinationParentId = document.index.parentById[destinationId];
-  if (!sourceParentId || sourceParentId !== destinationParentId) return null;
-
-  const container = document.index.nodeById[sourceParentId];
-  if (!container || (container.kind !== "add" && container.kind !== "multiply")) return null;
+  if (!sourceParentId || !destinationParentId) return null;
 
   const destinationRect = rectById[destinationId];
   if (!destinationRect) return null;

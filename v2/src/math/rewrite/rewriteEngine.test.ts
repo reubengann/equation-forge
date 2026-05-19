@@ -173,4 +173,49 @@ describe("canExecuteMove", () => {
 
     expect(result?.latex).toBe("b + a = c");
   });
+
+  it("allows moving an additive term to the other side of an equation", () => {
+    const document = buildDocument(String.raw`a+b=c`);
+    const preview = canExecuteMove({
+      document,
+      selection: { kind: "single", nodeId: "n4" },
+      destinationId: "n5",
+      moveType: "additive",
+      destinationSlot: "after",
+    });
+
+    expect(preview).toEqual({
+      containerId: "n5",
+      containerKind: "add",
+      destinationId: "n5",
+      destinationSlot: "after",
+      lineOrientation: "vertical",
+    });
+  });
+
+  it("executes moving an additive term to the other side of an equation", () => {
+    const document = buildDocument(String.raw`a+b=c`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n4" },
+      destinationId: "n5",
+      moveType: "additive",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe("a = c + -b");
+  });
+
+  it("inserts a cross-equation additive move into an existing sum", () => {
+    const document = buildDocument(String.raw`a=b+c`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n2" },
+      destinationId: "n4",
+      moveType: "additive",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe("0 = -a + b + c");
+  });
 });

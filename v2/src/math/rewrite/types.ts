@@ -39,6 +39,62 @@ export type RuleMoveResult = {
   updatedNode: Expr;
 };
 
+export type PipelineRuleResult = {
+  payload?: Expr;
+  updatedNodeId?: string;
+  updatedNode?: Expr;
+  insertionPreview?: InsertionPreview;
+};
+
+export type RewriteRuleEdge = {
+  childId: string;
+  parentId: string;
+  childNode: Expr;
+  parentNode: Expr;
+};
+
+export type PivotRewriteContext = {
+  pivotId: string;
+  pivotNode: Expr;
+  sourceBranchId: string;
+  destinationBranchId: string;
+};
+
+export type DownwardRewriteContext = {
+  sideId: string;
+  sideNode: Expr;
+  destinationId: string;
+  destinationNode: Expr;
+};
+
+export type UpwardRewriteRule = {
+  id: string;
+  selectionKind: SelectionKind;
+  moveType: MoveType;
+  fromKind: string;
+  toKind: string;
+  canApply: (moveContext: MoveContext, edge: RewriteRuleEdge) => boolean;
+  apply: (moveContext: MoveContext, edge: RewriteRuleEdge) => PipelineRuleResult | null;
+};
+
+export type PivotRewriteRule = {
+  id: string;
+  selectionKind: SelectionKind;
+  moveType: MoveType;
+  pivotKind: string;
+  canApply: (moveContext: MoveContext, pivotContext: PivotRewriteContext) => boolean;
+  apply: (moveContext: MoveContext, pivotContext: PivotRewriteContext) => PipelineRuleResult | null;
+};
+
+export type DownwardRewriteRule = {
+  id: string;
+  selectionKind: SelectionKind;
+  moveType: MoveType;
+  toKind: string;
+  canApply: (moveContext: MoveContext, downContext: DownwardRewriteContext) => boolean;
+  apply: (moveContext: MoveContext, downContext: DownwardRewriteContext) => PipelineRuleResult | null;
+};
+
 export type RewriteRule = {
   id: string;
   selectionKind: SelectionKind;

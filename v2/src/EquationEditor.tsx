@@ -330,14 +330,6 @@ export function EquationEditor({ latex, onCanonicalLatexChanged, recordingHooks 
       return;
     }
 
-    const sourceParentId = compiledDoc.index.parentById[selection.nodeId];
-    const destinationParentId = compiledDoc.index.parentById[destinationId];
-    if (!sourceParentId || sourceParentId !== destinationParentId) {
-      lastDragEngineQueryKeyRef.current = null;
-      updateInsertionPreview(null);
-      return;
-    }
-
     const rectById: Record<string, NodeHorizontalBounds> = {};
     for (const [nodeId, rect] of Object.entries(nodeResolutionRef.current.rectById)) {
       rectById[nodeId] = { left: rect.left, right: rect.right };
