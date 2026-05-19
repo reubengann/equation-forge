@@ -129,6 +129,9 @@ export class RulesPipeline {
       // no op
       return null;
     }
+    if (this.selection.kind === "multi" && this.selection.nodeIds.includes(this.destinationId)) {
+      return null;
+    }
     const applicableRules = this.rules.filter((rule) => rule.moveType === this.moveType);
     if (this.selection.kind === "single") {
       const context: MoveContext = {
@@ -169,7 +172,7 @@ export class RulesPipeline {
         selectedNode,
         destinationNode,
       );
-      if (!rule) return null;
+      if (!rule) return this.runGeneralPipeline(context, shouldExecute);
       const ruleMoveResult = shouldExecute
         ? rule.executeMove(context, containerNode, selectedNode, destinationNode)
         : null;
@@ -189,19 +192,25 @@ export class RulesPipeline {
         },
         ...(moveResult ? { moveResult } : {}),
       };
-    } else {
-      throw new Error("Not Implemented");
-      // multi selection, what is the "start node"?
     }
+    const context: MoveContext = {
+      document: this.document,
+      selection: this.selection,
+      payload: null,
+      destinationId: this.destinationId,
+      destinationSlot: this.destinationSlot,
+    };
+    return this.runGeneralPipeline(context, shouldExecute);
   }
 
   private runGeneralPipeline(context: MoveContext, shouldExecute: boolean): MoveEvaluation | null {
-    if (context.selection.kind !== "single") return null;
+    const startNodeId = startNodeIdForSelection(context.selection);
+    if (!startNodeId) return null;
 
-    const path = findPath(this.document, context.selection.nodeId, this.destinationId);
+    const path = findPath(this.document, startNodeId, this.destinationId);
     if (!path) return null;
 
-    const sourceBranchId = path.upNodes[path.upNodes.length - 1] ?? context.selection.nodeId;
+    const sourceBranchId = path.upNodes[path.upNodes.length - 1] ?? startNodeId;
     const destinationBranchId = path.downNodes[0] ?? this.destinationId;
     const pivotNode = this.document.index.nodeById[path.pivotId];
     if (!pivotNode) return null;
@@ -222,7 +231,7 @@ export class RulesPipeline {
       const rule = UPWARD_REWRITE_RULES.find(
         (candidate) =>
           candidate.moveType === this.moveType &&
-          candidate.selectionKind === context.selection.kind &&
+          (candidate.selectionKind === "*" || candidate.selectionKind === context.selection.kind) &&
           candidate.canApply({ ...context, payload: state.payload }, { childId, parentId, childNode, parentNode }),
       );
       if (!rule) continue;
@@ -235,7 +244,7 @@ export class RulesPipeline {
     const pivotRule = PIVOT_REWRITE_RULES.find(
       (candidate) =>
         candidate.moveType === this.moveType &&
-        candidate.selectionKind === context.selection.kind &&
+        (candidate.selectionKind === "*" || candidate.selectionKind === context.selection.kind) &&
         candidate.pivotKind === pivotNode.kind &&
         candidate.canApply(
           { ...context, payload: state.payload },
@@ -259,7 +268,7 @@ export class RulesPipeline {
     const downRule = DOWNWARD_REWRITE_RULES.find(
       (candidate) =>
         candidate.moveType === this.moveType &&
-        candidate.selectionKind === context.selection.kind &&
+        (candidate.selectionKind === "*" || candidate.selectionKind === context.selection.kind) &&
         candidate.canApply(
           { ...context, payload: state.payload },
           {
@@ -332,6 +341,11 @@ type GeneralPipelineState = {
   updatedNodes: Record<string, Expr>;
   insertionPreview: InsertionPreview | null;
 };
+
+function startNodeIdForSelection(selection: TermSelection): string | null {
+  if (selection.kind === "single") return selection.nodeId;
+  return selection.nodeIds[0] ?? null;
+}
 
 function applyPipelineRuleResult(state: GeneralPipelineState, result: PipelineRuleResult): void {
   if (result.payload) state.payload = result.payload;

@@ -5,11 +5,10 @@ import type { MoveContext, PivotRewriteRule } from "../types";
 export function pivotAdditiveAcrossEquation(): PivotRewriteRule {
   return {
     id: "pivotAdditiveAcrossEquation",
-    selectionKind: "single",
+    selectionKind: "*",
     moveType: "additive",
     pivotKind: "equation",
     canApply: (context, pivotContext) => {
-      if (context.selection.kind !== "single") return false;
       if (!context.payload) return false;
       if (pivotContext.pivotNode.kind !== "equation") return false;
       return pivotContext.sourceBranchId !== pivotContext.destinationBranchId;
@@ -27,5 +26,8 @@ export function pivotAdditiveAcrossEquation(): PivotRewriteRule {
 
 function additiveInverse(expr: Expr): Expr {
   if (expr.kind === "negate") return cloneExpr(expr.value);
+  if (expr.kind === "add") {
+    return { kind: "negate", value: { kind: "display_group", delimiter: "paren", expression: cloneExpr(expr) } };
+  }
   return { kind: "negate", value: cloneExpr(expr) };
 }

@@ -53,4 +53,26 @@ describe("extractTermFromSum", () => {
     expect(exprToLatex(result!.payload!, false)).toBe("a");
     expect(exprToLatex(result!.updatedNode!, false)).toBe("0");
   });
+
+  it("extracts multiple selected terms from an additive container", () => {
+    const document = buildDocument("a + b + c");
+    const rule = extractTermFromSum();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "multi", nodeIds: ["n2", "n3"], containerNodeId: "n1" },
+        payload: null,
+        destinationId: "n4",
+      },
+      {
+        childId: "n2",
+        parentId: "n1",
+        childNode: document.index.nodeById.n2!,
+        parentNode: document.index.nodeById.n1!,
+      },
+    );
+
+    expect(exprToLatex(result!.payload!, false)).toBe("a + b");
+    expect(exprToLatex(result!.updatedNode!, false)).toBe("c");
+  });
 });

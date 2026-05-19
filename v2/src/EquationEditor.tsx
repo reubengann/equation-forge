@@ -65,6 +65,14 @@ function resolveHorizontalInsertionSlot(pointerX: number, rect: NodeHorizontalBo
   return pointerX >= centerX + INSERTION_SLOT_RIGHT_OF_CENTER_MARGIN_PX ? "after" : "before";
 }
 
+function selectionContainsNode(selection: TermSelection, nodeId: string): boolean {
+  return selection.kind === "single" ? selection.nodeId === nodeId : selection.nodeIds.includes(nodeId);
+}
+
+function selectionKey(selection: TermSelection): string {
+  return selection.kind === "single" ? selection.nodeId : selection.nodeIds.join(",");
+}
+
 type EquationEditorProps = {
   latex: string;
   onCanonicalLatexChanged: (nextLatex: string) => void;
@@ -277,7 +285,7 @@ export function EquationEditor({ latex, onCanonicalLatexChanged, recordingHooks 
 
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     const previewToApply = insertionPreviewRef.current;
-    if (selection?.kind === "single" && previewToApply) {
+    if (selection && previewToApply) {
       const moveResult = executeMove({
         document: compiledDoc,
         selection,
@@ -315,7 +323,7 @@ export function EquationEditor({ latex, onCanonicalLatexChanged, recordingHooks 
   };
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!selection || selection.kind !== "single") return;
+    if (!selection) return;
     if (!event.currentTarget.hasPointerCapture?.(event.pointerId)) return;
 
     const destinationId = resolveSelectableNodeAtPoint(
@@ -324,7 +332,7 @@ export function EquationEditor({ latex, onCanonicalLatexChanged, recordingHooks 
       compiledDoc.index,
       DRAG_PREVIEW_HIT_TEST_PADDING_PX,
     );
-    if (!destinationId || destinationId === selection.nodeId) {
+    if (!destinationId || selectionContainsNode(selection, destinationId)) {
       lastDragEngineQueryKeyRef.current = null;
       updateInsertionPreview(null);
       return;
@@ -343,7 +351,7 @@ export function EquationEditor({ latex, onCanonicalLatexChanged, recordingHooks 
     }
 
     const destinationSlot = resolveHorizontalInsertionSlot(event.clientX, destinationRect);
-    const queryKey = `${selection.nodeId}|${destinationId}|${moveType}|${destinationSlot}`;
+    const queryKey = `${selectionKey(selection)}|${destinationId}|${moveType}|${destinationSlot}`;
     if (queryKey === lastDragEngineQueryKeyRef.current) return;
     lastDragEngineQueryKeyRef.current = queryKey;
     recordingHooks?.onPointerMoveEvent?.({

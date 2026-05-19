@@ -4,11 +4,10 @@ import type { MoveContext, DownwardRewriteRule } from "../types";
 export function insertTermIntoSum(): DownwardRewriteRule {
   return {
     id: "insertTermIntoSum",
-    selectionKind: "single",
+    selectionKind: "*",
     moveType: "additive",
     toKind: "add",
     canApply: (context, downContext) => {
-      if (context.selection.kind !== "single") return false;
       if (!context.payload) return false;
       return downContext.sideNode.kind === "add" || downContext.sideId === downContext.destinationId;
     },

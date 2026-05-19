@@ -133,7 +133,7 @@ export function replayEvents(fixture: EventFixture) {
         const selection = selectionState.selection;
         const previewToApply = state.insertionPreview;
         let nextLatex: string | null = null;
-        if (selection?.kind === "single" && previewToApply) {
+        if (selection && previewToApply) {
           const moveResult = executeMove({
             document: currentCompiledDoc,
             selection,
@@ -187,7 +187,7 @@ export function replayEvents(fixture: EventFixture) {
         }
 
         const selection = selectionState.selection;
-        if (!selection || selection.kind !== "single") {
+        if (!selection) {
           state.insertionPreview = null;
           break;
         }
@@ -198,14 +198,7 @@ export function replayEvents(fixture: EventFixture) {
           currentCompiledIndex,
           DRAG_PREVIEW_HIT_TEST_PADDING_PX,
         );
-        if (!destinationId || destinationId === selection.nodeId) {
-          state.insertionPreview = null;
-          break;
-        }
-
-        const sourceParentId = currentCompiledIndex.parentById[selection.nodeId];
-        const destinationParentId = currentCompiledIndex.parentById[destinationId];
-        if (!sourceParentId || sourceParentId !== destinationParentId) {
+        if (!destinationId || selectionNodeIds(selection).includes(destinationId)) {
           state.insertionPreview = null;
           break;
         }

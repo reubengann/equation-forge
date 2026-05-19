@@ -69,7 +69,7 @@ export type DownwardRewriteContext = {
 
 export type UpwardRewriteRule = {
   id: string;
-  selectionKind: SelectionKind;
+  selectionKind: SelectionKind | "*";
   moveType: MoveType;
   fromKind: string;
   toKind: string;
@@ -79,7 +79,7 @@ export type UpwardRewriteRule = {
 
 export type PivotRewriteRule = {
   id: string;
-  selectionKind: SelectionKind;
+  selectionKind: SelectionKind | "*";
   moveType: MoveType;
   pivotKind: string;
   canApply: (moveContext: MoveContext, pivotContext: PivotRewriteContext) => boolean;
@@ -88,7 +88,7 @@ export type PivotRewriteRule = {
 
 export type DownwardRewriteRule = {
   id: string;
-  selectionKind: SelectionKind;
+  selectionKind: SelectionKind | "*";
   moveType: MoveType;
   toKind: string;
   canApply: (moveContext: MoveContext, downContext: DownwardRewriteContext) => boolean;

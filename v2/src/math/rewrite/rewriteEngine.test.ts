@@ -218,4 +218,30 @@ describe("canExecuteMove", () => {
 
     expect(result?.latex).toBe("0 = -a + b + c");
   });
+
+  it("executes moving multiple selected additive terms to the other side of an equation", () => {
+    const document = buildDocument(String.raw`a+b=c`);
+    const result = executeMove({
+      document,
+      selection: { kind: "multi", nodeIds: ["n3", "n4"], containerNodeId: "n2" },
+      destinationId: "n5",
+      moveType: "additive",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`0 = c + -\left(a + b\right)`);
+  });
+
+  it("executes moving a selected sum to the other side of an equation", () => {
+    const document = buildDocument(String.raw`a+b=c`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n2" },
+      destinationId: "n5",
+      moveType: "additive",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`0 = c + -\left(a + b\right)`);
+  });
 });
