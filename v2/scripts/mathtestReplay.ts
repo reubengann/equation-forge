@@ -12,7 +12,7 @@ import {
 } from "../src/interaction/selectionController";
 import type { EventFixture } from "../src/interaction/eventFixture";
 import { compileMathDocument } from "../src/math/compile/compileMathDocument";
-import { canExecuteMove } from "../src/math/rewrite/rewriteEngine";
+import { canExecuteMove, executeMove } from "../src/math/rewrite/rewriteEngine";
 import type { InsertionPreview, MoveType, NodeHorizontalBounds } from "../src/math/rewrite/types";
 
 export const ROOT_DIR = process.cwd();
@@ -125,6 +125,28 @@ export function replayEvents(fixture: EventFixture) {
             `pointer_up domSnapshotId mismatch: event=${event.domSnapshotId} current=${currentDomSnapshotId}`,
           );
         }
+        const selection = selectionState.selection;
+        const previewToApply = state.insertionPreview;
+        let nextLatex: string | null = null;
+        if (selection?.kind === "single" && previewToApply) {
+          const moveType: MoveType | null =
+            previewToApply.containerKind === "add"
+              ? "additive"
+              : previewToApply.containerKind === "multiply"
+                ? "multiplicative"
+                : null;
+          const moveResult = moveType
+            ? executeMove({
+                document: currentCompiledDoc,
+                selection,
+                destinationId: previewToApply.destinationId,
+                moveType,
+                destinationSlot: previewToApply.destinationSlot,
+              })
+            : null;
+          nextLatex = moveResult?.latex ?? null;
+        }
+
         const result = resolveSelectionFromEvent({
           event: {
             type: "pointer_up",
@@ -141,6 +163,15 @@ export function replayEvents(fixture: EventFixture) {
         selectionState = result;
         state.selectedNodeIds = selectionNodeIds(result.selection);
         state.insertionPreview = null;
+        if (nextLatex != null) {
+          state.latex = nextLatex;
+          currentCompiledDoc = compileMathDocument(state.latex);
+          currentCompiledIndex = currentCompiledDoc.index;
+          currentNodeResolution = buildNodeResolutionSource(
+            currentDomSnapshot?.nodeRects ?? [],
+            currentCompiledIndex,
+          );
+        }
         break;
       }
       case "pointer_move": {

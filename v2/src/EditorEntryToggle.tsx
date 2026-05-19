@@ -92,8 +92,15 @@ export function EditorEntryToggle({
             recordingHooks={recordingHooks}
             // Needed so that we can show the mathlive again with the existing latex.
             onCanonicalLatexChanged={(nextLatex) => {
+              const previousLatex = canonicalLatexRef.current;
               canonicalLatexRef.current = nextLatex;
               setLatex(nextLatex);
+              if (previousLatex !== nextLatex) {
+                onLatexAccepted({
+                  previousLatex,
+                  nextLatex,
+                });
+              }
             }}
           />
         ) : (
