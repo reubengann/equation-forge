@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import EditorEntryToggle from "./EditorEntryToggle";
 import type { EventFixture, ExportedEvent } from "./interaction/eventFixture";
 import type {
@@ -6,6 +6,7 @@ import type {
   PointerEventPayload,
   SelectionGeometry,
 } from "./interaction/selectionController";
+import type { InsertionPreview } from "./math/rewrite/types";
 import { selectionNodeIds } from "./interaction/selectionController";
 import { type Selection } from "./selection/types";
 import { TestRecorder, type EquationEditorRecordingHooks, type TestRecorderEvent } from "./TestRecorder";
@@ -64,9 +65,17 @@ async function saveFixtureJson(fixture: EventFixture): Promise<void> {
 
 MathfieldElement.fontsDirectory = "/fonts";
 
+function isStopRecordingShortcut(event: KeyboardEvent): boolean {
+  if (event.repeat) return false;
+  const key = event.key.toLowerCase();
+  return (event.ctrlKey || event.metaKey) && event.shiftKey && key === "s";
+}
+
 function App() {
   const recorderRef = useRef<TestRecorder>(new TestRecorder());
   const selectedNodeIdsRef = useRef<string[]>([]);
+  const insertionPreviewRef = useRef<InsertionPreview | null>(null);
+  const expectedAtStopRef = useRef<EventFixture["expected"] | null>(null);
   const lastDomSnapshotIdRef = useRef<string | null>(null);
   const snapshotByIdRef = useRef<Record<string, SelectionGeometry>>({});
   const [recordedEvents, setRecordedEvents] = useState<TestRecorderEvent[]>([]);
@@ -80,6 +89,24 @@ function App() {
     setRecordedEventCount(nextEvents.length);
   };
 
+  const buildExpectedState = (events: TestRecorderEvent[]): EventFixture["expected"] => {
+    const lastLatexAcceptedEvent = [...events]
+      .reverse()
+      .find((event) => event.type === "latex_accepted");
+    return {
+      selectedNodeIds: selectedNodeIdsRef.current,
+      insertionPreview: insertionPreviewRef.current,
+      latex:
+        lastLatexAcceptedEvent?.type === "latex_accepted" ? lastLatexAcceptedEvent.nextLatex : undefined,
+    };
+  };
+
+  const stopRecording = () => {
+    const events = recorderRef.current.getEvents();
+    expectedAtStopRef.current = buildExpectedState(events);
+    setIsRecording(false);
+  };
+
   const buildCompactExport = (events: TestRecorderEvent[]): Pick<EventFixture, "domSnapshots" | "events"> => {
     const domSnapshots: EventFixture["domSnapshots"] = {};
     const snapshotIdByKey = new Map<string, string>();
@@ -88,6 +115,7 @@ function App() {
     const compactEvents: ExportedEvent[] = events.map((event) => {
       switch (event.type) {
         case "pointer_down":
+        case "pointer_move":
         case "pointer_up": {
           if (!event.domSnapshot) {
             return {
@@ -147,20 +175,13 @@ function App() {
   };
 
   const exportEventsAsJson = async () => {
-    const lastLatexAcceptedEvent = [...recordedEvents]
-      .reverse()
-      .find((event) => event.type === "latex_accepted");
     const compact = buildCompactExport(recordedEvents);
     const fixture: EventFixture = {
       schemaVersion: 1,
       exportedAtIso: new Date().toISOString(),
       domSnapshots: compact.domSnapshots,
       events: compact.events,
-      expected: {
-        selectedNodeIds: selectedNodeIdsRef.current,
-        latex:
-          lastLatexAcceptedEvent?.type === "latex_accepted" ? lastLatexAcceptedEvent.nextLatex : undefined,
-      },
+      expected: expectedAtStopRef.current ?? buildExpectedState(recordedEvents),
     };
     try {
       await saveFixtureJson(fixture);
@@ -196,6 +217,19 @@ function App() {
     [maybeRecordDomChanged],
   );
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!isRecording) return;
+      if (!isStopRecordingShortcut(event)) return;
+      event.preventDefault();
+      stopRecording();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isRecording]);
+
   return (
     <main
       className="app-shell"
@@ -212,12 +246,14 @@ function App() {
           data-testid="start-recording"
           onClick={() => {
             if (isRecording) {
-              setIsRecording(false);
+              stopRecording();
               return;
             }
             recorderRef.current.startSession();
             lastDomSnapshotIdRef.current = null;
             snapshotByIdRef.current = {};
+            insertionPreviewRef.current = null;
+            expectedAtStopRef.current = null;
             setIsRecording(true);
             setRecordedEvents([]);
             setRecordedEventCount(0);
@@ -234,6 +270,11 @@ function App() {
         >
           {isRecording ? "Stop recording" : "Start recording"}
         </button>
+        {isRecording && (
+          <span style={{ fontSize: "12px", opacity: 0.8, alignSelf: "center" }}>
+            Stop shortcut: Ctrl/Cmd+Shift+S
+          </span>
+        )}
         <button
           type="button"
           data-testid="export-events-json"
@@ -282,6 +323,22 @@ function App() {
               });
               syncRecordedEvents();
             },
+            onPointerMoveEvent: (payload: PointerEventPayload) => {
+              if (!isRecording) return;
+              const domSnapshot = payload.domSnapshotId
+                ? (snapshotByIdRef.current[payload.domSnapshotId] ?? null)
+                : null;
+              recorderRef.current.recordPointerMove({
+                x: payload.x,
+                y: payload.y,
+                domSnapshot,
+                pointerType: payload.pointerType,
+                button: payload.button,
+                buttons: payload.buttons,
+                ctrlKey: payload.ctrlKey,
+              });
+              syncRecordedEvents();
+            },
             onPointerUpEvent: (payload: PointerEventPayload) => {
               if (!isRecording) return;
               const domSnapshot = payload.domSnapshotId
@@ -309,6 +366,9 @@ function App() {
                 setSelectedNodeIds(nodeIds);
               }
             },
+            onPreviewChanged: (preview: InsertionPreview | null) => {
+              insertionPreviewRef.current = preview;
+            },
           } satisfies EquationEditorRecordingHooks
         }
       />
@@ -323,9 +383,11 @@ function App() {
             .map((event: TestRecorderEvent, index) => {
               switch (event.type) {
                 case "pointer_down":
+                case "pointer_move":
                   return (
                     <div key={`${event.ts}-${index}`}>
-                      {event.type}: Pointer down {event.pointer.x} {event.pointer.y} {event.pointerType}{" "}
+                      {event.type}: Pointer {event.type === "pointer_down" ? "down" : "move"} {event.pointer.x}{" "}
+                      {event.pointer.y} {event.pointerType}{" "}
                       {event.button} {event.buttons} ctrl={event.ctrlKey ? "1" : "0"} rects=
                       {event.domSnapshot?.nodeRects.length ?? 0}
                     </div>

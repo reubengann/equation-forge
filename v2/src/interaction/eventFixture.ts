@@ -1,8 +1,9 @@
 import type { TestRecorderEvent } from "../TestRecorder";
 import type { SelectionGeometry } from "./selectionController";
+import type { InsertionPreview } from "../math/rewrite/types";
 
 export type ExportedPointerEvent = {
-  type: "pointer_down" | "pointer_up";
+  type: "pointer_down" | "pointer_move" | "pointer_up";
   pointer: { x: number; y: number };
   domSnapshotId: string | null;
   pointerType: string;
@@ -22,7 +23,7 @@ export type ExportedDomChangedEvent = {
 export type ExportedEvent =
   | ExportedPointerEvent
   | ExportedDomChangedEvent
-  | Exclude<TestRecorderEvent, { type: "pointer_down" | "pointer_up" | "dom_changed" }>;
+  | Exclude<TestRecorderEvent, { type: "pointer_down" | "pointer_move" | "pointer_up" | "dom_changed" }>;
 
 export type EventFixture = {
   schemaVersion: number;
@@ -33,5 +34,6 @@ export type EventFixture = {
     selectedNodeIds?: string[];
     selectedNodeId?: string | null;
     latex?: string;
+    insertionPreview?: InsertionPreview | null;
   };
 };

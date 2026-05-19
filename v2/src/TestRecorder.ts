@@ -3,9 +3,10 @@ import type {
   PointerEventPayload,
   SelectionGeometry,
 } from "./interaction/selectionController";
+import type { InsertionPreview } from "./math/rewrite/types";
 import type { Selection } from "./selection/types";
 
-export type PointerPhase = "pointer_down" | "pointer_up";
+export type PointerPhase = "pointer_down" | "pointer_move" | "pointer_up";
 
 export type PointerEventRecord = {
   type: PointerPhase;
@@ -37,8 +38,10 @@ export type TestRecorderEvent = PointerEventRecord | LatexAcceptedEvent | DomCha
 export type EquationEditorRecordingHooks = {
   onDomSnapshotObserved: (payload: DomSnapshotObservedPayload) => void;
   onPointerDownEvent: (payload: PointerEventPayload) => void;
+  onPointerMoveEvent: (payload: PointerEventPayload) => void;
   onPointerUpEvent: (payload: PointerEventPayload) => void;
   onSelectionChanged: (selection: Selection | null) => void;
+  onPreviewChanged: (preview: InsertionPreview | null) => void;
 };
 
 export class TestRecorder {
@@ -61,6 +64,27 @@ export class TestRecorder {
   }): void {
     this.events.push({
       type: "pointer_down",
+      pointer: { x: payload.x, y: payload.y },
+      domSnapshot: payload.domSnapshot,
+      pointerType: payload.pointerType,
+      button: payload.button,
+      buttons: payload.buttons,
+      ctrlKey: payload.ctrlKey,
+      ts: Date.now(),
+    });
+  }
+
+  recordPointerMove(payload: {
+    x: number;
+    y: number;
+    domSnapshot: SelectionGeometry | null;
+    pointerType: string;
+    button: number;
+    buttons: number;
+    ctrlKey: boolean;
+  }): void {
+    this.events.push({
+      type: "pointer_move",
       pointer: { x: payload.x, y: payload.y },
       domSnapshot: payload.domSnapshot,
       pointerType: payload.pointerType,

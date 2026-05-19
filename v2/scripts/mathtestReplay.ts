@@ -4,12 +4,16 @@ import {
   SelectionGeometry,
   buildNodeResolutionSource,
   createSelectionControllerState,
+  DRAG_PREVIEW_HIT_TEST_PADDING_PX,
   type NodeResolutionSource,
+  resolveSelectableNodeAtPoint,
   resolveSelectionFromEvent,
   selectionNodeIds,
 } from "../src/interaction/selectionController";
 import type { EventFixture } from "../src/interaction/eventFixture";
 import { compileMathDocument } from "../src/math/compile/compileMathDocument";
+import { canExecuteMove } from "../src/math/rewrite/rewriteEngine";
+import type { InsertionPreview, MoveType, NodeHorizontalBounds } from "../src/math/rewrite/types";
 
 export const ROOT_DIR = process.cwd();
 export const FIXTURE_DIR = path.join(ROOT_DIR, "mathtests", "fixtures");
@@ -61,11 +65,13 @@ export function replayEvents(fixture: EventFixture) {
   const state = {
     selectedNodeIds: [] as string[],
     latex: null as string | null,
+    insertionPreview: null as InsertionPreview | null,
   };
   const replayFailures: string[] = [];
   let currentDomSnapshotId: string | null = null;
   let currentDomSnapshot: SelectionGeometry | null = null;
-  let currentCompiledIndex = compileMathDocument(state.latex ?? "").index;
+  let currentCompiledDoc = compileMathDocument(state.latex ?? "");
+  let currentCompiledIndex = currentCompiledDoc.index;
   let currentNodeResolution: NodeResolutionSource = buildNodeResolutionSource(
     [],
     currentCompiledIndex,
@@ -76,11 +82,13 @@ export function replayEvents(fixture: EventFixture) {
     switch (event.type) {
       case "latex_accepted":
         state.latex = event.nextLatex ?? null;
-        currentCompiledIndex = compileMathDocument(state.latex ?? "").index;
+        currentCompiledDoc = compileMathDocument(state.latex ?? "");
+        currentCompiledIndex = currentCompiledDoc.index;
         currentNodeResolution = buildNodeResolutionSource(
           currentDomSnapshot?.nodeRects ?? [],
           currentCompiledIndex,
         );
+        state.insertionPreview = null;
         break;
       case "dom_changed": {
         if (!event.domSnapshotId) {
@@ -132,6 +140,72 @@ export function replayEvents(fixture: EventFixture) {
         });
         selectionState = result;
         state.selectedNodeIds = selectionNodeIds(result.selection);
+        state.insertionPreview = null;
+        break;
+      }
+      case "pointer_move": {
+        if (!currentDomSnapshot) {
+          replayFailures.push(
+            "pointer_move occurred before dom_changed established current DOM snapshot",
+          );
+        }
+        if (
+          event.domSnapshotId &&
+          event.domSnapshotId !== currentDomSnapshotId
+        ) {
+          replayFailures.push(
+            `pointer_move domSnapshotId mismatch: event=${event.domSnapshotId} current=${currentDomSnapshotId}`,
+          );
+        }
+
+        const selection = selectionState.selection;
+        if (!selection || selection.kind !== "single") {
+          state.insertionPreview = null;
+          break;
+        }
+
+        const destinationId = resolveSelectableNodeAtPoint(
+          { x: event.pointer.x, y: event.pointer.y },
+          currentNodeResolution,
+          currentCompiledIndex,
+          DRAG_PREVIEW_HIT_TEST_PADDING_PX,
+        );
+        if (!destinationId || destinationId === selection.nodeId) {
+          state.insertionPreview = null;
+          break;
+        }
+
+        const sourceParentId = currentCompiledIndex.parentById[selection.nodeId];
+        const destinationParentId = currentCompiledIndex.parentById[destinationId];
+        if (!sourceParentId || sourceParentId !== destinationParentId) {
+          state.insertionPreview = null;
+          break;
+        }
+
+        const sourceContainer = currentCompiledIndex.nodeById[sourceParentId];
+        const moveType: MoveType | null =
+          sourceContainer?.kind === "add"
+            ? "additive"
+            : sourceContainer?.kind === "multiply"
+              ? "multiplicative"
+              : null;
+        if (!moveType) {
+          state.insertionPreview = null;
+          break;
+        }
+
+        const rectById: Record<string, NodeHorizontalBounds> = {};
+        for (const [nodeId, rect] of Object.entries(currentNodeResolution.rectById)) {
+          rectById[nodeId] = { left: rect.left, right: rect.right };
+        }
+        state.insertionPreview = canExecuteMove({
+          document: currentCompiledDoc,
+          selection,
+          destinationId,
+          moveType,
+          pointerX: event.pointer.x,
+          rectById,
+        });
         break;
       }
       case "pointer_down": {
@@ -163,6 +237,7 @@ export function replayEvents(fixture: EventFixture) {
         });
         selectionState = result;
         state.selectedNodeIds = selectionNodeIds(result.selection);
+        state.insertionPreview = null;
         break;
       }
       default:
@@ -205,6 +280,17 @@ export function buildAssertions(
     if (finalState.latex !== expected.latex) {
       failures.push(
         `latex expected=${JSON.stringify(expected.latex)} actual=${JSON.stringify(finalState.latex)}`,
+      );
+    }
+  }
+
+  if ("insertionPreview" in expected) {
+    if (
+      JSON.stringify(finalState.insertionPreview) !==
+      JSON.stringify(expected.insertionPreview)
+    ) {
+      failures.push(
+        `insertionPreview expected=${JSON.stringify(expected.insertionPreview)} actual=${JSON.stringify(finalState.insertionPreview)}`,
       );
     }
   }

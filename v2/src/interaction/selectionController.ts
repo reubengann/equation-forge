@@ -66,6 +66,8 @@ export type NodeResolutionSource = {
   rectById: Record<string, NodeRect>;
 };
 
+export const DRAG_PREVIEW_HIT_TEST_PADDING_PX = 10;
+
 type SelectionControllerConfig = {
   dragThresholdPx: number;
   doubleClickWindowMs: number;
@@ -133,6 +135,21 @@ export function selectionNodeIds(selection: TermSelection | null): string[] {
 
 function containsPoint(rect: NodeRect, point: PointerLike): boolean {
   return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
+}
+
+function containsPointWithPadding(rect: NodeRect, point: PointerLike, paddingPx: number): boolean {
+  return (
+    point.x >= rect.left - paddingPx &&
+    point.x <= rect.right + paddingPx &&
+    point.y >= rect.top - paddingPx &&
+    point.y <= rect.bottom + paddingPx
+  );
+}
+
+function distanceToRect(rect: NodeRect, point: PointerLike): number {
+  const dx = point.x < rect.left ? rect.left - point.x : point.x > rect.right ? point.x - rect.right : 0;
+  const dy = point.y < rect.top ? rect.top - point.y : point.y > rect.bottom ? point.y - rect.bottom : 0;
+  return Math.hypot(dx, dy);
 }
 
 function shouldEscalateFromChildToParent(parentExpr: Expr | undefined): boolean {
@@ -217,10 +234,13 @@ function pickNodeIdAtPointFromTree(
   nodeResolution: NodeResolutionSource,
   point: PointerLike,
   index: ExprIndex,
+  paddingPx = 0,
 ): string | null {
   const descend = (nodeId: string): string | null => {
     const nodeRect = nodeResolution.rectById[nodeId];
-    const containsSelf = !!nodeRect && containsPoint(nodeRect, point);
+    const containsSelf =
+      !!nodeRect &&
+      (paddingPx > 0 ? containsPointWithPadding(nodeRect, point, paddingPx) : containsPoint(nodeRect, point));
     const children = index.childrenById[nodeId] ?? [];
     for (const childId of children) {
       const hit = descend(childId);
@@ -232,13 +252,33 @@ function pickNodeIdAtPointFromTree(
   return descend(index.rootId);
 }
 
-function resolveSelectableNodeAtPoint(
+export function resolveSelectableNodeAtPoint(
   point: PointerLike,
   nodeResolution: NodeResolutionSource,
   index: ExprIndex,
+  paddingPx = 0,
 ): string | null {
-  const treeHit = pickNodeIdAtPointFromTree(nodeResolution, point, index);
-  return walkUpToDirectlySelectableNode(treeHit, index);
+  const exactHit = pickNodeIdAtPointFromTree(nodeResolution, point, index);
+  const exactSelectableNodeId = walkUpToDirectlySelectableNode(exactHit, index);
+  if (exactSelectableNodeId || paddingPx <= 0) return exactSelectableNodeId;
+
+  let best: { nodeId: string; distance: number; area: number } | null = null;
+  for (const rect of nodeResolution.nodeRects) {
+    if (!containsPointWithPadding(rect, point, paddingPx)) continue;
+    const selectableNodeId = walkUpToDirectlySelectableNode(rect.nodeId, index);
+    if (!selectableNodeId) continue;
+    const selectableRect = nodeResolution.rectById[selectableNodeId] ?? rect;
+    const distance = distanceToRect(selectableRect, point);
+    const area = selectableRect.width * selectableRect.height;
+    if (
+      !best ||
+      distance < best.distance ||
+      (distance === best.distance && area < best.area)
+    ) {
+      best = { nodeId: selectableNodeId, distance, area };
+    }
+  }
+  return best?.nodeId ?? null;
 }
 
 function resolveNodeAtPoint(
