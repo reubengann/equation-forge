@@ -11,12 +11,40 @@ export function insertFactorIntoProduct(): DownwardRewriteRule {
     canApply: (context, downContext) => {
       if (!context.payload) return false;
       if (isReciprocalPayload(context.payload)) return false;
-      return downContext.sideNode.kind === "multiply" || downContext.sideId === downContext.destinationId;
+      return (
+        downContext.sideNode.kind === "multiply" ||
+        downContext.sideId === downContext.destinationId ||
+        isDestinationInNumerator(context, downContext.sideId, downContext.destinationId)
+      );
     },
     apply: (context: MoveContext, downContext) => {
       if (!context.payload || isReciprocalPayload(context.payload)) return null;
 
       if (downContext.sideNode.kind !== "multiply") {
+        const numeratorId = numeratorIdForDestination(context, downContext.sideId, downContext.destinationId);
+        if (numeratorId) {
+          if (downContext.sideNode.kind !== "divide") return null;
+          return {
+            updatedNodeId: downContext.sideId,
+            updatedNode: {
+              kind: "divide",
+              numerator: multiplyWithPayload(
+                cloneExpr(downContext.sideNode.numerator),
+                context.payload,
+                context.destinationSlot ?? "after",
+              ),
+              denominator: cloneExpr(downContext.sideNode.denominator),
+            },
+            insertionPreview: {
+              containerId: numeratorId,
+              containerKind: "multiply",
+              destinationId: downContext.destinationId,
+              destinationSlot: context.destinationSlot ?? "after",
+              lineOrientation: "vertical",
+            },
+          };
+        }
+
         if (downContext.sideId !== downContext.destinationId) return null;
         const destination = cloneExpr(downContext.sideNode);
         return {
@@ -73,6 +101,19 @@ function multiplyWithPayload(destination: Expr, payload: Expr, destinationSlot: 
 
 function isMultiplicativeIdentity(expr: Expr): boolean {
   return expr.kind === "number" && String(expr.value) === "1";
+}
+
+function isDestinationInNumerator(context: MoveContext, sideId: string, destinationId: string): boolean {
+  return numeratorIdForDestination(context, sideId, destinationId) != null;
+}
+
+function numeratorIdForDestination(context: MoveContext, sideId: string, destinationId: string): string | null {
+  const sideNode = context.document.index.nodeById[sideId];
+  if (sideNode?.kind !== "divide") return null;
+  const numeratorId = context.document.index.childrenById[sideId]?.[0];
+  if (!numeratorId) return null;
+  if (destinationId === numeratorId) return numeratorId;
+  return context.document.index.ancestorsById[destinationId]?.includes(numeratorId) ? numeratorId : null;
 }
 
 function isReciprocalPayload(expr: Expr): boolean {

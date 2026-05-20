@@ -391,4 +391,43 @@ describe("canExecuteMove", () => {
 
     expect(result?.latex).toBe("F = m a");
   });
+
+  it("executes extracting a single denominator from one factor of a product", () => {
+    const document = buildDocument(String.raw`\frac{1}{a} \frac{b}{c}=5`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n8" },
+      destinationId: "n6",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\frac{1}{a} b \frac{1}{c} = 5`);
+  });
+
+  it("executes moving a denominator from one fraction into another fraction", () => {
+    const document = buildDocument(String.raw`\frac{1}{a} \frac{b}{c}=5`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n8" },
+      destinationId: "n5",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\frac{1}{a c} b = 5`);
+  });
+
+  it("executes moving a numerator from one fraction into another fraction", () => {
+    const document = buildDocument(String.raw`\frac{1}{a} \frac{b}{c}=5`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n7" },
+      destinationId: "n4",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\frac{b}{a} \frac{1}{c} = 5`);
+  });
 });

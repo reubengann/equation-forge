@@ -38,4 +38,33 @@ describe("insertFactorIntoDenominator", () => {
     });
     expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`\frac{F}{a}`);
   });
+
+  it("inserts reciprocal payload into an existing fraction denominator", () => {
+    const document = buildDocument(String.raw`\frac{1}{a} \frac{b}{c} = 5`);
+    const rule = insertFactorIntoDenominator();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "single", nodeId: "n8" },
+        payload: divide(num(1), sym("c")),
+        destinationId: "n5",
+        destinationSlot: "after",
+      },
+      {
+        sideId: "n3",
+        sideNode: document.index.nodeById.n3!,
+        destinationId: "n5",
+        destinationNode: document.index.nodeById.n5!,
+      },
+    );
+
+    expect(result?.insertionPreview).toMatchObject({
+      containerId: "n3",
+      containerKind: "divide",
+      destinationId: "n5",
+      destinationSlot: "after",
+      lineOrientation: "horizontal",
+    });
+    expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`\frac{1}{a c}`);
+  });
 });

@@ -54,4 +54,28 @@ describe("insertFactorIntoProduct", () => {
 
     expect(exprToLatex(result!.updatedNode!, false)).toBe("m a b");
   });
+
+  it("inserts a factor into an existing fraction numerator", () => {
+    const document = buildDocument(String.raw`\frac{1}{a} \frac{b}{c} = 5`);
+    const rule = insertFactorIntoProduct();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "single", nodeId: "n7" },
+        payload: sym("b"),
+        destinationId: "n4",
+        destinationSlot: "after",
+      },
+      {
+        sideId: "n3",
+        sideNode: document.index.nodeById.n3!,
+        destinationId: "n4",
+        destinationNode: document.index.nodeById.n4!,
+      },
+    );
+
+    expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`\frac{b}{a}`);
+    expect(result?.insertionPreview?.containerId).toBe("n4");
+    expect(result?.insertionPreview?.destinationId).toBe("n4");
+  });
 });

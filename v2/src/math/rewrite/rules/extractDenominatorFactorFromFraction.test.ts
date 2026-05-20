@@ -107,5 +107,31 @@ describe("extractDenominatorFactorFromFraction", () => {
     expect(exprToLatex(result!.payload!, false)).toBe(String.raw`\frac{1}{m a}`);
     expect(result?.insertionPreview).toBeUndefined();
   });
+
+  it("extracts a selected single-node denominator into a reciprocal product", () => {
+    const document = buildDocument(String.raw`\frac{1}{a} \frac{b}{c} = 5`);
+    const rule = extractDenominatorFactorFromFraction();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "single", nodeId: "n8" },
+        payload: null,
+        destinationId: "n6",
+        destinationSlot: "after",
+      },
+      {
+        childId: "n8",
+        parentId: "n6",
+        childNode: document.index.nodeById.n8!,
+        parentNode: document.index.nodeById.n6!,
+        isFinalUpwardEdge: true,
+        pivotId: "n6",
+      },
+    );
+
+    expect(result?.updatedNodeId).toBe("n6");
+    expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`b \frac{1}{c}`);
+    expect(result?.insertionPreview?.destinationSlot).toBe("after");
+  });
 });
 

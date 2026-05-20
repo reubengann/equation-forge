@@ -13,14 +13,14 @@ export function extractDenominatorFactorFromFraction(): UpwardRewriteRule {
       if (context.payload) return false;
       if (context.selection.kind !== "single") return false;
       if (edge.parentNode.kind !== "divide") return false;
-      if (edge.childNode.kind !== "multiply") return false;
       if (context.document.index.locationById[edge.childId]?.field !== "denominator") return false;
+      if (isWholeDenominatorSelection(context, edge.childId)) return true;
+      if (edge.childNode.kind !== "multiply") return false;
       return isWholeDenominatorSelection(context, edge.childId) || selectedFactorIndex(context, edge.childId) != null;
     },
     apply: (context: MoveContext, edge) => {
       if (context.selection.kind !== "single") return null;
       if (edge.parentNode.kind !== "divide") return null;
-      if (edge.childNode.kind !== "multiply") return null;
       if (context.document.index.locationById[edge.childId]?.field !== "denominator") return null;
 
       if (isWholeDenominatorSelection(context, edge.childId)) {
@@ -61,6 +61,8 @@ export function extractDenominatorFactorFromFraction(): UpwardRewriteRule {
           },
         };
       }
+
+      if (edge.childNode.kind !== "multiply") return null;
 
       const sourceFactorIndex = selectedFactorIndex(context, edge.childId);
       if (sourceFactorIndex == null) return null;

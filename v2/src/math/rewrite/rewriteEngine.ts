@@ -414,7 +414,6 @@ function rebuildUpdatedSubtree(
   return next;
 }
 
-
 function serializeRuleMoveResult(
   document: CompiledMathDocument,
   ruleMoveResult: NonNullable<ReturnType<SingleContainerRule["executeMove"]>>,
