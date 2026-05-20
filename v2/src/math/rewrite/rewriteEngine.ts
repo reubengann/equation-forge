@@ -214,6 +214,7 @@ export class RulesPipeline {
       insertionPreview: null,
     };
 
+    // Walk from the selected node toward the pivot, extracting a payload or applying local upward rewrites.
     for (let index = 0; index < path.upNodes.length; index += 1) {
       const childId = path.upNodes[index];
       const parentId = index === path.upNodes.length - 1 ? path.pivotId : path.upNodes[index + 1];
@@ -237,6 +238,22 @@ export class RulesPipeline {
       applyPipelineRuleResult(state, result);
     }
 
+    // Some moves complete entirely while walking upward, such as pulling a numerator out of a fraction.
+    if (state.insertionPreview && path.downNodes.length === 0 && Object.keys(state.updatedNodes).length > 0) {
+      if (!shouldExecute) {
+        return { insertionPreview: state.insertionPreview };
+      }
+
+      const nextExpr = this.applyPipelineUpdates(path.pivotId, state.updatedNodes);
+      if (!nextExpr) return null;
+
+      return {
+        insertionPreview: state.insertionPreview,
+        moveResult: { latex: exprToLatex(nextExpr, false) },
+      };
+    }
+
+    // At the lowest common ancestor, transform the payload for crossing that pivot (for example, across equals).
     const pivotRule = PIVOT_REWRITE_RULES.find(
       (candidate) =>
         candidate.moveType === this.moveType &&
@@ -256,6 +273,7 @@ export class RulesPipeline {
     if (!pivotResult) return null;
     applyPipelineRuleResult(state, pivotResult);
 
+    // Walk down into the destination side and insert the transformed payload at the target.
     const destinationSideId = path.downNodes[0] ?? this.destinationId;
     const destinationSideNode = this.nodeForPipeline(state, destinationSideId);
     const destinationNode = this.nodeForPipeline(state, this.destinationId);
@@ -290,10 +308,12 @@ export class RulesPipeline {
     applyPipelineRuleResult(state, downResult);
     if (!state.insertionPreview) return null;
 
+    // Preview mode stops once rules agree on a legal insertion point.
     if (!shouldExecute) {
       return { insertionPreview: state.insertionPreview };
     }
 
+    // Execute mode rebuilds the changed subtree and serializes the updated document back to LaTeX.
     const nextExpr = this.applyPipelineUpdates(path.pivotId, state.updatedNodes);
     if (!nextExpr) return null;
 

@@ -1,4 +1,5 @@
 import { extractFactorFromProduct } from "./rules/extractFactorFromProduct";
+import { extractNumeratorFromFraction } from "./rules/extractNumeratorFromFraction";
 import { extractTermFromSum } from "./rules/extractTermFromSum";
 import { insertFactorIntoDenominator } from "./rules/insertFactorIntoDenominator";
 import { insertTermIntoSum } from "./rules/insertTermIntoSum";
@@ -15,6 +16,7 @@ export const SINGLE_CONTAINER_RULES: SingleContainerRule[] = [
 
 export const UPWARD_REWRITE_RULES: UpwardRewriteRule[] = [
   extractTermFromSum(),
+  extractNumeratorFromFraction(),
   extractFactorFromProduct(),
 ];
 

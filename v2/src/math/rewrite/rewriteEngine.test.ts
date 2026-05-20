@@ -300,4 +300,17 @@ describe("canExecuteMove", () => {
 
     expect(result?.latex).toBe(String.raw`\frac{F}{a} = m`);
   });
+
+  it("executes extracting a numerator factor from a fraction", () => {
+    const document = buildDocument(String.raw`\frac{a}{b}+c`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n3" },
+      destinationId: "n2",
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`a \frac{1}{b} + c`);
+  });
 });
