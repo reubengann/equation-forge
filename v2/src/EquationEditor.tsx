@@ -5,6 +5,7 @@ import {
   type NodeResolutionSource,
   type NodeRect,
   captureGeometryFromMathdiv,
+  DRAG_COMMIT_THRESHOLD_PX,
   DRAG_PREVIEW_HIT_TEST_PADDING_PX,
   resolveSelectableNodeAtPoint,
   resolveSelectionFromEvent,
@@ -76,6 +77,10 @@ function selectionKey(selection: TermSelection): string {
   return selection.kind === "single" ? selection.nodeId : selection.nodeIds.join(",");
 }
 
+function distanceBetweenPoints(a: { x: number; y: number }, b: { x: number; y: number }): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
 type EquationEditorProps = {
   latex: string;
   onCanonicalLatexChanged: (nextLatex: string) => void;
@@ -96,6 +101,7 @@ export function EquationEditor({
   const nodeRectsRef = useRef<NodeRect[]>([]);
   const nodeResolutionRef = useRef<NodeResolutionSource>(buildNodeResolutionSource([], null));
   const [selection, setSelection] = useState<TermSelection | null>(null);
+  const selectionRef = useRef<TermSelection | null>(null);
   const [moveType, setMoveType] = useState<MoveType>("additive");
   const [insertionPreview, setInsertionPreview] = useState<InsertionPreview | null>(null);
   const insertionPreviewRef = useRef<InsertionPreview | null>(null);
@@ -106,7 +112,23 @@ export function EquationEditor({
   const snapshotCounterRef = useRef(0);
   const lastSnapshotKeyRef = useRef<string | null>(null);
   const currentDomSnapshotIdRef = useRef<string | null>(null);
+  const dragStartPointerRef = useRef<{ x: number; y: number } | null>(null);
   const compiledDoc = useMemo(() => compileMathDocument(latex), [latex]);
+
+  const applySelectionHighlight = (nextSelection: TermSelection | null) => {
+    const host = mathDivRef.current as (HTMLElement & { shadowRoot?: ShadowRoot | null }) | null;
+    const shadowRoot = host?.shadowRoot;
+    if (!shadowRoot) return;
+
+    const els = Array.from(shadowRoot.querySelectorAll<HTMLElement>("[data-node-id]"));
+    const selectedNodeIds = selectionSet(nextSelection);
+    for (const el of els) {
+      const nodeId = el.dataset.nodeId;
+      const isSelected = !!nodeId && selectedNodeIds.has(nodeId);
+      el.style.color = isSelected ? "#ff9800" : "";
+      el.style.outline = "";
+    }
+  };
 
   useEffect(() => {
     onCanonicalLatexChanged(compiledDoc.plainLatex);
@@ -132,6 +154,7 @@ export function EquationEditor({
       const snapshot = captureGeometryFromMathdiv(mathDivRef.current);
       nodeRectsRef.current = snapshot?.nodeRects ?? [];
       nodeResolutionRef.current = buildNodeResolutionSource(nodeRectsRef.current, compiledDoc.index);
+      applySelectionHighlight(selectionRef.current);
       const hasRenderableDom = !!snapshot && snapshot.hostRect.height > 0 && snapshot.nodeRects.length > 0;
       if (hasRenderableDom || attempts >= maxAttempts) {
         if (!snapshot) {
@@ -166,18 +189,8 @@ export function EquationEditor({
   }, [compiledDoc, recordingHooks]);
 
   useEffect(() => {
-    const host = mathDivRef.current as (HTMLElement & { shadowRoot?: ShadowRoot | null }) | null;
-    const shadowRoot = host?.shadowRoot;
-    if (!shadowRoot) return;
-
-    const els = Array.from(shadowRoot.querySelectorAll<HTMLElement>("[data-node-id]"));
-    const selectedNodeIds = selectionSet(selection);
-    for (const el of els) {
-      const nodeId = el.dataset.nodeId;
-      const isSelected = !!nodeId && selectedNodeIds.has(nodeId);
-      el.style.color = isSelected ? "#ff9800" : "";
-      el.style.outline = "";
-    }
+    selectionRef.current = selection;
+    applySelectionHighlight(selection);
   }, [latex, selection]);
 
   useEffect(() => {
@@ -233,6 +246,7 @@ export function EquationEditor({
     });
     selectionStateRef.current = result;
     const nextSelection = result.selection;
+    selectionRef.current = nextSelection;
     const nextSelectionKey = JSON.stringify(nextSelection);
     if (lastSelectionKeyRef.current !== nextSelectionKey) {
       lastSelectionKeyRef.current = nextSelectionKey;
@@ -306,6 +320,7 @@ export function EquationEditor({
   }, [canUndo, onUndoRequested]);
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    dragStartPointerRef.current = { x: event.clientX, y: event.clientY };
     if (event.currentTarget.hasPointerCapture?.(event.pointerId) === false) {
       event.currentTarget.setPointerCapture(event.pointerId);
     }
@@ -331,9 +346,11 @@ export function EquationEditor({
   };
 
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    const previewToApply = event.ctrlKey
-      ? null
-      : resolveInsertionPreviewAtPoint({ x: event.clientX, y: event.clientY });
+    const pointerUp = { x: event.clientX, y: event.clientY };
+    const hasDragged =
+      !!dragStartPointerRef.current &&
+      distanceBetweenPoints(dragStartPointerRef.current, pointerUp) >= DRAG_COMMIT_THRESHOLD_PX;
+    const previewToApply = event.ctrlKey || !hasDragged ? null : resolveInsertionPreviewAtPoint(pointerUp);
     if (selection && previewToApply) {
       const moveResult = executeMove({
         document: compiledDoc,
@@ -359,6 +376,7 @@ export function EquationEditor({
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+    dragStartPointerRef.current = null;
     lastDragEngineQueryKeyRef.current = null;
     updateInsertionPreview(null);
     recordingHooks?.onPointerUpEvent?.({
@@ -425,6 +443,7 @@ export function EquationEditor({
   };
 
   const onPointerCancel = (event: React.PointerEvent<HTMLDivElement>) => {
+    dragStartPointerRef.current = null;
     applySelectionEvent({
       type: "pointer_cancel",
       pointerId: event.pointerId,
@@ -435,6 +454,7 @@ export function EquationEditor({
   };
 
   const onLostPointerCapture = (event: React.PointerEvent<HTMLDivElement>) => {
+    dragStartPointerRef.current = null;
     applySelectionEvent({
       type: "lost_pointer_capture",
       pointerId: event.pointerId,

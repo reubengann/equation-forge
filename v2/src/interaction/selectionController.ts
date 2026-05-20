@@ -68,6 +68,7 @@ export type NodeResolutionSource = {
 };
 
 export const DRAG_PREVIEW_HIT_TEST_PADDING_PX = 10;
+export const DRAG_COMMIT_THRESHOLD_PX = 6;
 
 type SelectionControllerConfig = {
   dragThresholdPx: number;

@@ -139,6 +139,7 @@ class LatexGenerator {
         const maybeUpper = expr.upperBound ? `^{${this.generate(expr.upperBound)}}` : "";
         let integratedThing = "";
         if (expr.integrand.kind === "multiply") {
+          const integrandId = this.newId();
           integratedThing = expr.integrand.factors
             // If differential appears anywhere but the beginning, put a thinspace before it.
             .map((factor, index) => {
@@ -147,6 +148,7 @@ class LatexGenerator {
               return factor.kind === "differential" ? ` \\,${rendered}` : ` ${rendered}`;
             })
             .join("");
+          integratedThing = this.wrap(integratedThing, integrandId);
         } else {
           integratedThing = this.generate(expr.integrand);
         }

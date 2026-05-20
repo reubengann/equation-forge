@@ -4,6 +4,7 @@ import {
   SelectionGeometry,
   buildNodeResolutionSource,
   createSelectionControllerState,
+  DRAG_COMMIT_THRESHOLD_PX,
   DRAG_PREVIEW_HIT_TEST_PADDING_PX,
   type NodeResolutionSource,
   resolveSelectableNodeAtPoint,
@@ -78,6 +79,7 @@ export function replayEvents(fixture: EventFixture) {
     currentCompiledIndex,
   );
   let selectionState = createSelectionControllerState();
+  let dragStartPointer: { x: number; y: number } | null = null;
 
   for (const event of fixture.events) {
     switch (event.type) {
@@ -142,7 +144,11 @@ export function replayEvents(fixture: EventFixture) {
         }
         const selection = selectionState.selection;
         let previewToApply = state.insertionPreview;
-        if (event.ctrlKey) {
+        const hasDragged =
+          !!dragStartPointer &&
+          Math.hypot(event.pointer.x - dragStartPointer.x, event.pointer.y - dragStartPointer.y) >=
+            DRAG_COMMIT_THRESHOLD_PX;
+        if (event.ctrlKey || !hasDragged) {
           previewToApply = null;
         } else if (selection) {
           const destinationId = resolveSelectableNodeAtPoint(
@@ -195,6 +201,7 @@ export function replayEvents(fixture: EventFixture) {
           state: selectionState,
         });
         selectionState = result;
+        dragStartPointer = null;
         state.selectedNodeIds = selectionNodeIds(result.selection);
         state.insertionPreview = null;
         if (nextLatex != null) {
@@ -254,6 +261,7 @@ export function replayEvents(fixture: EventFixture) {
         break;
       }
       case "pointer_down": {
+        dragStartPointer = { x: event.pointer.x, y: event.pointer.y };
         if (!currentDomSnapshot) {
           replayFailures.push(
             "pointer_down occurred before dom_changed established current DOM snapshot",
