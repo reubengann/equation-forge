@@ -122,11 +122,12 @@ export function EditorEntryToggle({
     <section
       className="equation-editor"
       style={{
-        maxWidth: "760px",
+        width: "100%",
+        maxWidth: "1000px",
         display: "flex",
         flexDirection: "column",
-        gap: "10px",
-        alignItems: "flex-start",
+        gap: "12px",
+        alignItems: "stretch",
         textAlign: "left",
       }}
     >
@@ -135,7 +136,7 @@ export function EditorEntryToggle({
           width: "100%",
           display: "flex",
           gap: "8px",
-          alignItems: "center",
+          alignItems: "stretch",
         }}
       >
         {showMathDisplay ? (

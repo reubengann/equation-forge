@@ -7,12 +7,7 @@ type MathliveEditorProps = {
   onAccept: () => void;
 };
 
-export function MathliveEditor({
-  slotRef,
-  latex,
-  updateMathFieldValue,
-  onAccept,
-}: MathliveEditorProps) {
+export function MathliveEditor({ slotRef, latex, updateMathFieldValue, onAccept }: MathliveEditorProps) {
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
@@ -25,23 +20,30 @@ export function MathliveEditor({
       style={{
         flex: 1,
         boxSizing: "border-box",
-        borderRadius: "3px",
+        height: "112px",
         color: "rgba(255, 255, 255, 1.0)",
-        padding: "8px",
         textAlign: "left",
         display: "flex",
+        alignItems: "center",
+        overflow: "visible",
+        border: "1px solid #757575",
+        padding: "10px",
       }}
     >
       <math-field
         id="equation-mathfield"
+        className="equation-mathfield"
         data-testid="latex-mathfield"
         value={latex}
         onInput={updateMathFieldValue}
         onKeyDown={handleKeyDown}
         style={{
-          display: "block",
           width: "100%",
-          textAlign: "left",
+          fontSize: "1.2rem",
+          background: "transparent",
+          border: "none",
+          outline: "none",
+          boxShadow: "none",
         }}
       />
     </div>

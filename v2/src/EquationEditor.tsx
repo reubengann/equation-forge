@@ -296,9 +296,7 @@ export function EquationEditor({
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       if (key !== "a") return;
       event.preventDefault();
-      setMoveType((currentMoveType) =>
-        currentMoveType === "additive" ? "multiplicative" : "additive",
-      );
+      setMoveType((currentMoveType) => (currentMoveType === "additive" ? "multiplicative" : "additive"));
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -452,7 +450,7 @@ export function EquationEditor({
         flex: 1,
         display: "flex",
         flexDirection: "column",
-        gap: "8px",
+        gap: "12px",
       }}
     >
       <div
@@ -543,13 +541,15 @@ export function EquationEditor({
         onLostPointerCapture={onLostPointerCapture}
         style={{
           flex: 1,
+          minHeight: "100px",
           position: "relative",
           boxSizing: "border-box",
-          borderRadius: "3px",
           color: "rgba(255, 255, 255, 1.0)",
-          padding: "16px",
+          paddingLeft: "12px",
+          paddingRight: "12px",
           textAlign: "left",
           display: "flex",
+          alignItems: "center",
         }}
       >
         <math-div
@@ -561,6 +561,7 @@ export function EquationEditor({
             display: "block",
             width: "100%",
             textAlign: "left",
+            fontSize: "1.2rem",
           }}
         />
         {insertionPreview && insertionLineStyle && (
