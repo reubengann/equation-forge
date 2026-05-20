@@ -1,7 +1,9 @@
 import { extractFactorFromProduct } from "./rules/extractFactorFromProduct";
+import { extractDenominatorFactorFromFraction } from "./rules/extractDenominatorFactorFromFraction";
 import { extractNumeratorFromFraction } from "./rules/extractNumeratorFromFraction";
 import { extractTermFromSum } from "./rules/extractTermFromSum";
 import { insertFactorIntoDenominator } from "./rules/insertFactorIntoDenominator";
+import { insertFactorIntoProduct } from "./rules/insertFactorIntoProduct";
 import { insertTermIntoSum } from "./rules/insertTermIntoSum";
 import { pivotAdditiveAcrossEquation } from "./rules/pivotAdditiveAcrossEquation";
 import { pivotMultiplicativeAcrossEquation } from "./rules/pivotMultiplicativeAcrossEquation";
@@ -17,6 +19,7 @@ export const SINGLE_CONTAINER_RULES: SingleContainerRule[] = [
 export const UPWARD_REWRITE_RULES: UpwardRewriteRule[] = [
   extractTermFromSum(),
   extractNumeratorFromFraction(),
+  extractDenominatorFactorFromFraction(),
   extractFactorFromProduct(),
 ];
 
@@ -28,4 +31,5 @@ export const PIVOT_REWRITE_RULES: PivotRewriteRule[] = [
 export const DOWNWARD_REWRITE_RULES: DownwardRewriteRule[] = [
   insertTermIntoSum(),
   insertFactorIntoDenominator(),
+  insertFactorIntoProduct(),
 ];

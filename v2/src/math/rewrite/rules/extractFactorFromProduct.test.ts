@@ -24,6 +24,8 @@ describe("extractFactorFromProduct", () => {
         parentId: "n3",
         childNode: document.index.nodeById.n5!,
         parentNode: document.index.nodeById.n3!,
+        isFinalUpwardEdge: true,
+        pivotId: "n3",
       },
     );
 
@@ -47,6 +49,8 @@ describe("extractFactorFromProduct", () => {
         parentId: "n2",
         childNode: document.index.nodeById.n4!,
         parentNode: document.index.nodeById.n2!,
+        isFinalUpwardEdge: true,
+        pivotId: "n2",
       },
     );
 
@@ -68,6 +72,8 @@ describe("extractFactorFromProduct", () => {
         parentId: "n1",
         childNode: document.index.nodeById.n5!,
         parentNode: document.index.nodeById.n1!,
+        isFinalUpwardEdge: true,
+        pivotId: "n1",
       },
     );
 

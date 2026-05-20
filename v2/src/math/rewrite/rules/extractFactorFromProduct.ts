@@ -11,6 +11,7 @@ export function extractFactorFromProduct(): UpwardRewriteRule {
     toKind: "multiply",
     canApply: (context, edge) => {
       if (context.payload) return false;
+      if (context.document.index.locationById[edge.parentId]?.field === "denominator") return false;
       if (context.selection.kind === "single") {
         return (
           edge.parentNode.kind === "multiply" ||

@@ -24,6 +24,8 @@ describe("extractTermFromSum", () => {
         parentId: "n1",
         childNode: document.index.nodeById.n3!,
         parentNode: document.index.nodeById.n1!,
+        isFinalUpwardEdge: true,
+        pivotId: "n1",
       },
     );
 
@@ -47,6 +49,8 @@ describe("extractTermFromSum", () => {
         parentId: "n1",
         childNode: document.index.nodeById.n2!,
         parentNode: document.index.nodeById.n1!,
+        isFinalUpwardEdge: true,
+        pivotId: "n1",
       },
     );
 
@@ -69,6 +73,8 @@ describe("extractTermFromSum", () => {
         parentId: "n1",
         childNode: document.index.nodeById.n2!,
         parentNode: document.index.nodeById.n1!,
+        isFinalUpwardEdge: true,
+        pivotId: "n1",
       },
     );
 
@@ -91,6 +97,8 @@ describe("extractTermFromSum", () => {
         parentId: "n1",
         childNode: document.index.nodeById.n3!,
         parentNode: document.index.nodeById.n1!,
+        isFinalUpwardEdge: true,
+        pivotId: "n1",
       },
     );
 

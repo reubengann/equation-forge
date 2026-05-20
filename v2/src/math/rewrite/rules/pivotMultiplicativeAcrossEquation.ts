@@ -25,6 +25,9 @@ export function pivotMultiplicativeAcrossEquation(): PivotRewriteRule {
 }
 
 function reciprocalPayload(expr: Expr): Expr {
+  if (expr.kind === "divide" && expr.numerator.kind === "number" && expr.numerator.value === 1) {
+    return cloneExpr(expr.denominator);
+  }
   return {
     kind: "divide",
     numerator: { kind: "number", value: 1 },

@@ -51,6 +51,8 @@ export type RewriteRuleEdge = {
   parentId: string;
   childNode: Expr;
   parentNode: Expr;
+  isFinalUpwardEdge: boolean;
+  pivotId: string;
 };
 
 export type PivotRewriteContext = {

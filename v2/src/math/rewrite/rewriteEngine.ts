@@ -221,19 +221,27 @@ export class RulesPipeline {
       const childNode = this.nodeForPipeline(state, childId);
       const parentNode = this.nodeForPipeline(state, parentId);
       if (!childNode || !parentNode) return null;
+      const edge = {
+        childId,
+        parentId,
+        childNode,
+        parentNode,
+        isFinalUpwardEdge: parentId === path.pivotId,
+        pivotId: path.pivotId,
+      };
 
       const rule = UPWARD_REWRITE_RULES.find(
         (candidate) =>
           candidate.moveType === this.moveType &&
           (candidate.selectionKind === "*" || candidate.selectionKind === context.selection.kind) &&
-          candidate.canApply({ ...context, payload: state.payload }, { childId, parentId, childNode, parentNode }),
+          candidate.canApply({ ...context, payload: state.payload }, edge),
       );
       if (!rule) {
         if (state.payload && parentId !== path.pivotId) return null;
         continue;
       }
 
-      const result = rule.apply({ ...context, payload: state.payload }, { childId, parentId, childNode, parentNode });
+      const result = rule.apply({ ...context, payload: state.payload }, edge);
       if (!result) return null;
       applyPipelineRuleResult(state, result);
     }

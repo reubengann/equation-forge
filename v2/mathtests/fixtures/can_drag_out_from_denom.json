@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 1,
+  "exportedAtIso": "2026-05-20T20:46:52.113Z",
+  "domSnapshots": {
+    "s1": {
+      "hostRect": {
+        "left": 92.08332824707031,
+        "top": 138.85000610351562,
+        "right": 1020.0833282470703,
+        "bottom": 179.46665954589844,
+        "width": 928,
+        "height": 40.61665344238281
+      },
+      "nodeRects": [
+        {
+          "nodeId": "n1",
+          "left": 92.08332824707031,
+          "top": 141.23333740234375,
+          "right": 167.38333129882812,
+          "bottom": 170.39999389648438,
+          "width": 75.30000305175781,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n2",
+          "left": 92.08332824707031,
+          "top": 141.23333740234375,
+          "right": 127.68333435058594,
+          "bottom": 170.39999389648438,
+          "width": 35.600006103515625,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n4",
+          "left": 94.68333435058594,
+          "top": 156.13333129882812,
+          "right": 125.08332824707031,
+          "bottom": 185.3000030517578,
+          "width": 30.399993896484375,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n5",
+          "left": 94.68333435058594,
+          "top": 156.13333129882812,
+          "right": 113.64999389648438,
+          "bottom": 185.3000030517578,
+          "width": 18.966659545898438,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n6",
+          "left": 113.64999389648438,
+          "top": 156.13333129882812,
+          "right": 125.08332824707031,
+          "bottom": 185.3000030517578,
+          "width": 11.433334350585938,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n3",
+          "left": 101.43333435058594,
+          "top": 130.43333435058594,
+          "right": 118.33332824707031,
+          "bottom": 159.60000610351562,
+          "width": 16.899993896484375,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n7",
+          "left": 156.5833282470703,
+          "top": 141.23333740234375,
+          "right": 167.38333129882812,
+          "bottom": 170.39999389648438,
+          "width": 10.800003051757812,
+          "height": 29.166656494140625
+        }
+      ]
+    }
+  },
+  "events": [
+    {
+      "type": "move_mode_changed",
+      "moveType": "multiplicative",
+      "ts": 1779309999679
+    },
+    {
+      "type": "latex_accepted",
+      "previousLatex": "F=ma",
+      "nextLatex": "\\frac{F}{m a} = 1",
+      "ts": 1779310001249
+    },
+    {
+      "type": "move_mode_changed",
+      "moveType": "additive",
+      "ts": 1779310001252
+    },
+    {
+      "type": "dom_changed",
+      "source": "accept",
+      "domSnapshotId": "s1",
+      "ts": 1779310001255
+    },
+    {
+      "type": "move_mode_changed",
+      "moveType": "multiplicative",
+      "ts": 1779310002492
+    },
+    {
+      "type": "pointer_down",
+      "pointer": {
+        "x": 116.66666412353516,
+        "y": 171.6666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1779310003746
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 125.83333587646484,
+        "y": 163.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1779310005368
+    },
+    {
+      "type": "pointer_up",
+      "pointer": {
+        "x": 128.3333282470703,
+        "y": 161.6666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 0,
+      "ctrlKey": false,
+      "ts": 1779310009643
+    }
+  ],
+  "expected": {
+    "selectedNodeIds": [
+      "n6"
+    ],
+    "insertionPreview": null,
+    "moveType": "multiplicative",
+    "latex": "\\frac{F}{m} \\frac{1}{a} = 1"
+  }
+}

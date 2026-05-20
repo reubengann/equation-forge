@@ -313,4 +313,82 @@ describe("canExecuteMove", () => {
 
     expect(result?.latex).toBe(String.raw`a \frac{1}{b} + c`);
   });
+
+  it("executes extracting a numerator factor to the right of a fraction", () => {
+    const document = buildDocument(String.raw`\frac{F}{m a}=1`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n3" },
+      destinationId: "n2",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\frac{1}{m a} F = 1`);
+  });
+
+  it("executes moving a numerator factor across an equation", () => {
+    const document = buildDocument(String.raw`\frac{F}{m a}=1`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n3" },
+      destinationId: "n7",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\frac{1}{m a} = \frac{1}{F}`);
+  });
+
+  it("executes extracting a denominator factor from a fraction", () => {
+    const document = buildDocument(String.raw`\frac{F}{m a}=1`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n6" },
+      destinationId: "n2",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\frac{F}{m} \frac{1}{a} = 1`);
+  });
+
+  it("executes extracting a denominator factor to the left of a fraction", () => {
+    const document = buildDocument(String.raw`\frac{F}{m a}=1`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n5" },
+      destinationId: "n2",
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`\frac{1}{m} \frac{F}{a} = 1`);
+  });
+
+  it("executes moving a denominator factor across an equation", () => {
+    const document = buildDocument(String.raw`\frac{F}{m a}=1`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n6" },
+      destinationId: "n7",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\frac{F}{m} = a`);
+  });
+
+  it("executes moving a whole denominator across an equation", () => {
+    const document = buildDocument(String.raw`\frac{F}{m a}=1`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n4" },
+      destinationId: "n7",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe("F = m a");
+  });
 });
