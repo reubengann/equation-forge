@@ -97,7 +97,7 @@ describe("treeTools", () => {
 });
 
 describe("canExecuteMove slot resolution", () => {
-  it("returns before when pointer is near/left of center", () => {
+  it("returns before when pointer is left of center", () => {
     const document = buildDocument(String.raw`a+b`);
     const preview = canExecuteMove({
       document,
@@ -108,12 +108,11 @@ describe("canExecuteMove slot resolution", () => {
       rectById: {
         n2: { left: 10, right: 30 },
       },
-      rightOfCenterMarginPx: 8,
     });
     expect(preview?.destinationSlot).toBe("before");
   });
 
-  it("returns after when pointer is significantly right of center", () => {
+  it("returns after when pointer is right of center", () => {
     const document = buildDocument(String.raw`a+b`);
     const preview = canExecuteMove({
       document,
@@ -124,7 +123,6 @@ describe("canExecuteMove slot resolution", () => {
       rectById: {
         n3: { left: 10, right: 30 },
       },
-      rightOfCenterMarginPx: 8,
     });
     expect(preview?.destinationSlot).toBe("after");
   });
@@ -243,6 +241,19 @@ describe("canExecuteMove", () => {
     });
 
     expect(result?.latex).toBe(String.raw`0 = c - \left(a + b\right)`);
+  });
+
+  it("does not move a single additive term out of a denominator sum", () => {
+    const document = buildDocument(String.raw`\frac{b + a}{d + c} = d`);
+    const preview = canExecuteMove({
+      document,
+      selection: { kind: "single", nodeId: "n8" },
+      destinationId: "n9",
+      moveType: "additive",
+      destinationSlot: "after",
+    });
+
+    expect(preview).toBeNull();
   });
 
   it("executes moving a subtraction term back across an equation", () => {

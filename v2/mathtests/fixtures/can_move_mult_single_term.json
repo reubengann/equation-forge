@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "exportedAtIso": "2026-05-19T21:37:36.013Z",
+  "exportedAtIso": "2026-05-20T15:40:00.048Z",
   "domSnapshots": {
     "s1": {
       "hostRect": {
@@ -102,93 +102,75 @@
   "events": [
     {
       "type": "move_mode_changed",
-      "moveType": "multiplicative",
-      "ts": 1779226643360
+      "moveType": "additive",
+      "ts": 1779291591461
     },
     {
       "type": "latex_accepted",
       "previousLatex": "a+b=c",
       "nextLatex": "a=c",
-      "ts": 1779226644759
-    },
-    {
-      "type": "move_mode_changed",
-      "moveType": "additive",
-      "ts": 1779226644762
+      "ts": 1779291593360
     },
     {
       "type": "dom_changed",
       "source": "accept",
       "domSnapshotId": "s1",
-      "ts": 1779226644764
+      "ts": 1779291593364
     },
     {
       "type": "move_mode_changed",
       "moveType": "multiplicative",
-      "ts": 1779226645972
+      "ts": 1779291594731
     },
     {
       "type": "pointer_down",
       "pointer": {
-        "x": 130,
-        "y": 132.5
+        "x": 130.8333282470703,
+        "y": 134.1666717529297
       },
       "domSnapshotId": "s1",
       "pointerType": "mouse",
       "button": 0,
       "buttons": 1,
       "ctrlKey": false,
-      "ts": 1779226647091
+      "ts": 1779291595922
     },
     {
       "type": "pointer_move",
       "pointer": {
-        "x": 115,
-        "y": 138.3333282470703
+        "x": 113.33333587646484,
+        "y": 139.1666717529297
       },
       "domSnapshotId": "s1",
       "pointerType": "mouse",
       "button": -1,
       "buttons": 1,
       "ctrlKey": false,
-      "ts": 1779226647546
-    },
-    {
-      "type": "pointer_move",
-      "pointer": {
-        "x": 108.33333587646484,
-        "y": 140
-      },
-      "domSnapshotId": "s1",
-      "pointerType": "mouse",
-      "button": -1,
-      "buttons": 1,
-      "ctrlKey": false,
-      "ts": 1779226647580
+      "ts": 1779291596382
     },
     {
       "type": "pointer_up",
       "pointer": {
-        "x": 104.16666412353516,
-        "y": 141.6666717529297
+        "x": 101.66666412353516,
+        "y": 145
       },
       "domSnapshotId": "s1",
       "pointerType": "mouse",
       "button": 0,
       "buttons": 0,
       "ctrlKey": false,
-      "ts": 1779226648480
+      "ts": 1779291597776
     },
     {
       "type": "dom_changed",
       "source": "accept",
       "domSnapshotId": "s2",
-      "ts": 1779226648484
+      "ts": 1779291597783
     }
   ],
   "expected": {
     "selectedNodeIds": [
-      "n2"
+      "n3"
     ],
     "insertionPreview": null,
     "moveType": "multiplicative",

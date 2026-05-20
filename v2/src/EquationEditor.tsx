@@ -24,8 +24,6 @@ type InsertionLineStyle = {
   height: number;
 };
 
-const INSERTION_SLOT_RIGHT_OF_CENTER_MARGIN_PX = 8;
-
 const modeIconButtonBaseStyle: CSSProperties = {
   width: 36,
   height: 36,
@@ -67,7 +65,7 @@ const modeIconButtonDisabledStyle: CSSProperties = {
 
 function resolveHorizontalInsertionSlot(pointerX: number, rect: NodeHorizontalBounds) {
   const centerX = (rect.left + rect.right) / 2;
-  return pointerX >= centerX + INSERTION_SLOT_RIGHT_OF_CENTER_MARGIN_PX ? "after" : "before";
+  return pointerX >= centerX ? "after" : "before";
 }
 
 function selectionContainsNode(selection: TermSelection, nodeId: string): boolean {
@@ -254,6 +252,35 @@ export function EquationEditor({
     setMoveType(nextMoveType);
   };
 
+  const resolveInsertionPreviewAtPoint = (pointer: { x: number; y: number }): InsertionPreview | null => {
+    if (!selection) return null;
+
+    const destinationId = resolveSelectableNodeAtPoint(
+      pointer,
+      nodeResolutionRef.current,
+      compiledDoc.index,
+      DRAG_PREVIEW_HIT_TEST_PADDING_PX,
+    );
+    if (!destinationId || selectionContainsNode(selection, destinationId)) return null;
+
+    const rectById: Record<string, NodeHorizontalBounds> = {};
+    for (const [nodeId, rect] of Object.entries(nodeResolutionRef.current.rectById)) {
+      rectById[nodeId] = { left: rect.left, right: rect.right };
+    }
+
+    const destinationRect = rectById[destinationId];
+    if (!destinationRect) return null;
+
+    const destinationSlot = resolveHorizontalInsertionSlot(pointer.x, destinationRect);
+    return canExecuteMove({
+      document: compiledDoc,
+      selection,
+      destinationId,
+      moveType,
+      destinationSlot,
+    });
+  };
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
@@ -306,7 +333,9 @@ export function EquationEditor({
   };
 
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    const previewToApply = insertionPreviewRef.current;
+    const previewToApply = event.ctrlKey
+      ? null
+      : resolveInsertionPreviewAtPoint({ x: event.clientX, y: event.clientY });
     if (selection && previewToApply) {
       const moveResult = executeMove({
         document: compiledDoc,
@@ -327,7 +356,7 @@ export function EquationEditor({
       ts: event.timeStamp,
       buttons: event.buttons,
       ctrlKey: event.ctrlKey,
-      suppressClickSelectionWhenDragging: !!selection && !previewToApply,
+      suppressClickSelectionWhenDragging: !!selection,
     });
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);

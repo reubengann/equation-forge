@@ -83,8 +83,8 @@ export function replayEvents(fixture: EventFixture) {
     switch (event.type) {
       case "latex_accepted":
         const hadCompiledLatex = state.latex != null;
-        state.latex = event.nextLatex ?? null;
-        currentCompiledDoc = compileMathDocument(state.latex ?? "");
+        currentCompiledDoc = compileMathDocument(event.nextLatex ?? "");
+        state.latex = currentCompiledDoc.plainLatex;
         currentCompiledIndex = currentCompiledDoc.index;
         if (!hadCompiledLatex && currentDomSnapshot) {
           currentNodeResolution = buildNodeResolutionSource(
@@ -141,7 +141,33 @@ export function replayEvents(fixture: EventFixture) {
           );
         }
         const selection = selectionState.selection;
-        const previewToApply = state.insertionPreview;
+        let previewToApply = state.insertionPreview;
+        if (event.ctrlKey) {
+          previewToApply = null;
+        } else if (selection) {
+          const destinationId = resolveSelectableNodeAtPoint(
+            { x: event.pointer.x, y: event.pointer.y },
+            currentNodeResolution,
+            currentCompiledIndex,
+            DRAG_PREVIEW_HIT_TEST_PADDING_PX,
+          );
+          if (!destinationId || selectionNodeIds(selection).includes(destinationId)) {
+            previewToApply = null;
+          } else {
+            const rectById: Record<string, NodeHorizontalBounds> = {};
+            for (const [nodeId, rect] of Object.entries(currentNodeResolution.rectById)) {
+              rectById[nodeId] = { left: rect.left, right: rect.right };
+            }
+            previewToApply = canExecuteMove({
+              document: currentCompiledDoc,
+              selection,
+              destinationId,
+              moveType: state.moveType,
+              pointerX: event.pointer.x,
+              rectById,
+            });
+          }
+        }
         let nextLatex: string | null = null;
         if (selection && previewToApply) {
           const moveResult = executeMove({
@@ -161,7 +187,7 @@ export function replayEvents(fixture: EventFixture) {
             ts: event.ts,
             buttons: event.buttons,
             ctrlKey: event.ctrlKey ?? false,
-            suppressClickSelectionWhenDragging: !!selection && !previewToApply,
+            suppressClickSelectionWhenDragging: !!selection,
           },
           currentSelection: selectionState.selection,
           nodeResolutionSource: currentNodeResolution,

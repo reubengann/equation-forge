@@ -227,7 +227,10 @@ export class RulesPipeline {
           (candidate.selectionKind === "*" || candidate.selectionKind === context.selection.kind) &&
           candidate.canApply({ ...context, payload: state.payload }, { childId, parentId, childNode, parentNode }),
       );
-      if (!rule) continue;
+      if (!rule) {
+        if (state.payload && parentId !== path.pivotId) return null;
+        continue;
+      }
 
       const result = rule.apply({ ...context, payload: state.payload }, { childId, parentId, childNode, parentNode });
       if (!result) return null;
@@ -521,7 +524,7 @@ function resolveSingleContainerSlot({
   destinationId,
   pointerX,
   rectById,
-  rightOfCenterMarginPx = 8,
+  rightOfCenterMarginPx = 0,
 }: {
   document: CompiledMathDocument;
   selection: TermSelection;

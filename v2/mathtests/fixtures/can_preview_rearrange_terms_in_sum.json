@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "exportedAtIso": "2026-05-18T21:26:25.784Z",
+  "exportedAtIso": "2026-05-20T15:41:11.135Z",
   "domSnapshots": {
     "s1": {
       "hostRect": {
         "left": 96.08332824707031,
-        "top": 75.5,
+        "top": 121.16667175292969,
         "right": 776.0833282470703,
-        "bottom": 100.43333435058594,
+        "bottom": 146.10000610351562,
         "width": 680,
         "height": 24.933334350585938
       },
@@ -15,45 +15,45 @@
         {
           "nodeId": "n1",
           "left": 96.08332824707031,
-          "top": 74.63333129882812,
+          "top": 120.30000305175781,
           "right": 167.4499969482422,
-          "bottom": 97.96665954589844,
+          "bottom": 143.63333129882812,
           "width": 71.36666870117188,
           "height": 23.333328247070312
         },
         {
           "nodeId": "n2",
           "left": 96.08332824707031,
-          "top": 74.63333129882812,
+          "top": 120.30000305175781,
           "right": 135.5833282470703,
-          "bottom": 97.96665954589844,
+          "bottom": 143.63333129882812,
           "width": 39.5,
           "height": 23.333328247070312
         },
         {
           "nodeId": "n3",
           "left": 96.08332824707031,
-          "top": 74.63333129882812,
+          "top": 120.30000305175781,
           "right": 105.60000610351562,
-          "bottom": 97.96665954589844,
+          "bottom": 143.63333129882812,
           "width": 9.516677856445312,
           "height": 23.333328247070312
         },
         {
           "nodeId": "n4",
           "left": 127.86666870117188,
-          "top": 74.63333129882812,
+          "top": 120.30000305175781,
           "right": 135.5833282470703,
-          "bottom": 97.96665954589844,
+          "bottom": 143.63333129882812,
           "width": 7.7166595458984375,
           "height": 23.333328247070312
         },
         {
           "nodeId": "n5",
           "left": 159.64999389648438,
-          "top": 74.63333129882812,
+          "top": 120.30000305175781,
           "right": 167.4499969482422,
-          "bottom": 97.96665954589844,
+          "bottom": 143.63333129882812,
           "width": 7.8000030517578125,
           "height": 23.333328247070312
         }
@@ -62,42 +62,65 @@
   },
   "events": [
     {
+      "type": "move_mode_changed",
+      "moveType": "multiplicative",
+      "ts": 1779291660929
+    },
+    {
       "type": "latex_accepted",
-      "previousLatex": "a+b=c",
+      "previousLatex": "a=c",
       "nextLatex": "a+b=c",
-      "ts": 1779139578452
+      "ts": 1779291662537
+    },
+    {
+      "type": "move_mode_changed",
+      "moveType": "additive",
+      "ts": 1779291662541
     },
     {
       "type": "dom_changed",
       "source": "accept",
       "domSnapshotId": "s1",
-      "ts": 1779139578464
+      "ts": 1779291662543
     },
     {
       "type": "pointer_down",
       "pointer": {
-        "x": 129.1666717529297,
-        "y": 87.5
+        "x": 130.8333282470703,
+        "y": 133.3333282470703
       },
       "domSnapshotId": "s1",
       "pointerType": "mouse",
       "button": 0,
       "buttons": 1,
       "ctrlKey": false,
-      "ts": 1779139579567
+      "ts": 1779291666325
     },
     {
       "type": "pointer_move",
       "pointer": {
-        "x": 105,
-        "y": 88.33333587646484
+        "x": 115,
+        "y": 135.8333282470703
       },
       "domSnapshotId": "s1",
       "pointerType": "mouse",
       "button": -1,
       "buttons": 1,
       "ctrlKey": false,
-      "ts": 1779139580761
+      "ts": 1779291667376
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 100,
+        "y": 138.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1779291667894
     }
   ],
   "expected": {
@@ -111,6 +134,7 @@
       "destinationSlot": "before",
       "lineOrientation": "vertical"
     },
-    "latex": "a+b=c"
+    "moveType": "additive",
+    "latex": "a + b = c"
   }
 }
