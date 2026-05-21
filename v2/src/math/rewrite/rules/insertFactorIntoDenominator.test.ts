@@ -67,4 +67,62 @@ describe("insertFactorIntoDenominator", () => {
     });
     expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`\frac{1}{a c}`);
   });
+
+  it("inserts reciprocal payload under an existing product side", () => {
+    const document = buildDocument("m v = V");
+    const rule = insertFactorIntoDenominator();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "single", nodeId: "n5" },
+        payload: divide(num(1), sym("V")),
+        destinationId: "n3",
+        destinationSlot: "after",
+      },
+      {
+        sideId: "n2",
+        sideNode: document.index.nodeById.n2!,
+        destinationId: "n3",
+        destinationNode: document.index.nodeById.n3!,
+      },
+    );
+
+    expect(result?.insertionPreview).toMatchObject({
+      containerId: "n2",
+      containerKind: "divide",
+      destinationId: "n3",
+      destinationSlot: "after",
+      lineOrientation: "horizontal",
+    });
+    expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`\frac{m v}{V}`);
+  });
+
+  it("inserts reciprocal payload under any destination side shape", () => {
+    const document = buildDocument("m + v = V");
+    const rule = insertFactorIntoDenominator();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "single", nodeId: "n5" },
+        payload: divide(num(1), sym("V")),
+        destinationId: "n3",
+        destinationSlot: "after",
+      },
+      {
+        sideId: "n2",
+        sideNode: document.index.nodeById.n2!,
+        destinationId: "n3",
+        destinationNode: document.index.nodeById.n3!,
+      },
+    );
+
+    expect(result?.insertionPreview).toMatchObject({
+      containerId: "n2",
+      containerKind: "divide",
+      destinationId: "n3",
+      destinationSlot: "after",
+      lineOrientation: "horizontal",
+    });
+    expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`\frac{m + v}{V}`);
+  });
 });

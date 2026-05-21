@@ -301,6 +301,19 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe(String.raw`\frac{F}{a} = m`);
   });
 
+  it("executes moving a whole side across an equation under an existing product", () => {
+    const document = buildDocument(String.raw`m v=V`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n5" },
+      destinationId: "n3",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\frac{m v}{V} = 1`);
+  });
+
   it("executes extracting a numerator factor from a fraction", () => {
     const document = buildDocument(String.raw`\frac{a}{b}+c`);
     const result = executeMove({
@@ -338,6 +351,32 @@ describe("canExecuteMove", () => {
     });
 
     expect(result?.latex).toBe(String.raw`\frac{1}{m a} = \frac{1}{F}`);
+  });
+
+  it("executes moving a factor out of a fraction numerator across an equation", () => {
+    const document = buildDocument(String.raw`\frac{m v}{V}=1`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n5" },
+      destinationId: "n7",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\frac{m}{V} = \frac{1}{v}`);
+  });
+
+  it("executes moving a factor out of a fraction numerator locally", () => {
+    const document = buildDocument(String.raw`\frac{m v}{V}=1`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n5" },
+      destinationId: "n2",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\frac{m}{V} v = 1`);
   });
 
   it("executes extracting a denominator factor from a fraction", () => {

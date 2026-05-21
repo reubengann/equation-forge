@@ -338,4 +338,16 @@ describe("exprToLatex", () => {
     const latex = exprToLatex(expr, false);
     expect(latex).toBe(String.raw`\Delta x`);
   });
+
+  it("round-trips Greek symbol macros without tags", () => {
+    const expr = parseLatexToExpr(String.raw`\rho`);
+    const latex = exprToLatex(expr, false);
+    expect(latex).toBe(String.raw`\rho`);
+  });
+
+  it("round-trips limits without tags", () => {
+    const expr = parseLatexToExpr(String.raw`\lim_{x \to 0} \frac{\sin x}{x}`);
+    const latex = exprToLatex(expr, false);
+    expect(latex).toBe(String.raw`\lim_{x \to 0} \frac{\sin x }{x}`);
+  });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { exprToLatex, parseLatexToExpr } from "../../adapters/latex";
+import { sym } from "../../ast";
 import { compileMathDocumentFromExpr, type CompiledMathDocument } from "../../compile/compileMathDocument";
 import { extractNumeratorFromFraction } from "./extractNumeratorFromFraction";
 
@@ -81,6 +82,57 @@ describe("extractNumeratorFromFraction", () => {
     expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`\frac{1}{m a}`);
     expect(exprToLatex(result!.payload!, false)).toBe("F");
     expect(result?.insertionPreview).toBeUndefined();
+  });
+
+  it("carries an existing payload through a fraction numerator", () => {
+    const document = buildDocument(String.raw`\frac{m v}{V} = 1`);
+    const rule = extractNumeratorFromFraction();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "single", nodeId: "n5" },
+        payload: sym("v"),
+        destinationId: "n7",
+      },
+      {
+        childId: "n3",
+        parentId: "n2",
+        childNode: sym("m"),
+        parentNode: document.index.nodeById.n2!,
+        isFinalUpwardEdge: false,
+        pivotId: "n1",
+      },
+    );
+
+    expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`\frac{m}{V}`);
+    expect(exprToLatex(result!.payload!, false)).toBe("v");
+    expect(result?.insertionPreview).toBeUndefined();
+  });
+
+  it("extracts an existing payload out of a fraction numerator locally", () => {
+    const document = buildDocument(String.raw`\frac{m v}{V} = 1`);
+    const rule = extractNumeratorFromFraction();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "single", nodeId: "n5" },
+        payload: sym("v"),
+        destinationId: "n2",
+        destinationSlot: "after",
+      },
+      {
+        childId: "n3",
+        parentId: "n2",
+        childNode: sym("m"),
+        parentNode: document.index.nodeById.n2!,
+        isFinalUpwardEdge: true,
+        pivotId: "n2",
+      },
+    );
+
+    expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`\frac{m}{V} v`);
+    expect(result?.payload).toBeUndefined();
+    expect(result?.insertionPreview?.destinationSlot).toBe("after");
   });
 
   it("does not extract a selected denominator as a numerator factor", () => {

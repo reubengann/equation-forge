@@ -357,6 +357,21 @@ describe("parseLatexToExpr", () => {
     expect(expr.upperBound).toBe(null);
   });
 
+  it("parses limits with lower bounds", () => {
+    const expr = parseLatexToExpr(String.raw`\lim_{x \to 0} \frac{\sin x}{x}`);
+    expectExprKind(expr, "limit");
+    expectExprKind(expr.lowerBound!, "immutable_expression");
+    expect(expr.lowerBound.latex).toBe(String.raw`x \to 0`);
+    expectExprKind(expr.expression, "divide");
+  });
+
+  it("parses limits without lower bounds", () => {
+    const expr = parseLatexToExpr(String.raw`\lim f(x)`);
+    expectExprKind(expr, "limit");
+    expect(expr.lowerBound).toBe(null);
+    expectExprKind(expr.expression, "multiply");
+  });
+
   it("handles equalities with more than two sides", () => {
     const expr = parseLatexToExpr(String.raw`a = b = c`);
     expectExprKind(expr, "equation");
@@ -467,7 +482,7 @@ describe("parseLatexToExpr", () => {
     expectExprKind(expr.integrand, "multiply");
     expectExprKind(expr.integrand.factors[0], "differential");
     expectExprKind(expr.integrand.factors[0].variable, "symbol");
-    expect(expr.integrand.factors[0].variable.name).toBe("theta");
+    expect(expr.integrand.factors[0].variable.name).toBe(String.raw`\theta`);
     expectExprKind(expr.integrand.factors[1], "call");
     expectExprKind(expr.integrand.factors[1].callee, "symbol");
     expect(expr.integrand.factors[1].callee.name).toBe("sin");
@@ -584,6 +599,18 @@ describe("parseLatexToExpr", () => {
     const expr = parseLatexToExpr(String.raw`\Delta x`);
     expectExprKind(expr, "symbol");
     expect(expr.name).toBe(String.raw`\Delta x`);
+  });
+
+  it("parses Greek symbol macros as single symbols", () => {
+    const expr = parseLatexToExpr(String.raw`\rho`);
+    expectExprKind(expr, "symbol");
+    expect(expr.name).toBe(String.raw`\rho`);
+  });
+
+  it("parses subscripted Greek symbol macros as single symbols", () => {
+    const expr = parseLatexToExpr(String.raw`\mu_s`);
+    expectExprKind(expr, "symbol");
+    expect(expr.name).toBe(String.raw`\mu_s`);
   });
 
   it("parses full derivative operator with bare differential denominator", () => {

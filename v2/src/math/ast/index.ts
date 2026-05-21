@@ -20,6 +20,7 @@ export {
   invalidInput,
   inequality,
   integral,
+  limit,
   multipleIntegral,
   multiply,
   negate,

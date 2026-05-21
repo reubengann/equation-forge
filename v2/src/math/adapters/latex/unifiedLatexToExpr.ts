@@ -18,6 +18,7 @@ import {
   immutableExpression,
   inequality,
   integral,
+  limit,
   multipleIntegral,
   multiply,
   negate,
@@ -91,11 +92,53 @@ type Token =
   | { kind: "integral_symbol"; variant: "normal" | "closed" | "multiple"; order: number }
   | { kind: "sum_symbol" }
   | { kind: "prod_symbol" }
+  | { kind: "limit_symbol" }
   | { kind: "root"; value: UnifiedNode[]; degree: UnifiedNode[] | null }
   | { kind: "differential"; variable: UnifiedNode[] }
   | { kind: "fraction"; numerator: UnifiedNode[]; denominator: UnifiedNode[] };
 
 const FUNCTION_MACROS = new Set(["sin", "cos", "tan", "log", "ln", "exp"]);
+const SYMBOL_MACROS = new Set([
+  "alpha",
+  "beta",
+  "gamma",
+  "delta",
+  "epsilon",
+  "varepsilon",
+  "zeta",
+  "eta",
+  "theta",
+  "vartheta",
+  "iota",
+  "kappa",
+  "lambda",
+  "mu",
+  "nu",
+  "xi",
+  "pi",
+  "varpi",
+  "rho",
+  "varrho",
+  "sigma",
+  "varsigma",
+  "tau",
+  "upsilon",
+  "phi",
+  "varphi",
+  "chi",
+  "psi",
+  "omega",
+  "Gamma",
+  "Lambda",
+  "Omega",
+  "Phi",
+  "Pi",
+  "Psi",
+  "Sigma",
+  "Theta",
+  "Upsilon",
+  "Xi",
+]);
 
 class UnsupportedLatexError extends Error {
   constructor(message: string) {
@@ -460,6 +503,11 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
       continue;
     }
 
+    if (macro === "lim") {
+      tokens.push({ kind: "limit_symbol" });
+      continue;
+    }
+
     if (macro === "sqrt") {
       const degreeNodes = node.args?.[0]?.content ?? null;
       const argNodes = node.args?.[1]?.content ?? node.args?.[0]?.content;
@@ -614,6 +662,11 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
       continue;
     }
 
+    if (SYMBOL_MACROS.has(macro)) {
+      tokens.push({ kind: "symbol", name: `\\${macro}` });
+      continue;
+    }
+
     if (macro === ",") {
       continue;
     }
@@ -695,6 +748,7 @@ class TokenParser {
       token.kind === "integral_symbol" ||
       token.kind === "sum_symbol" ||
       token.kind === "prod_symbol" ||
+      token.kind === "limit_symbol" ||
       token.kind === "root"
     ) {
       return true;
@@ -1277,6 +1331,23 @@ class TokenParser {
           ? rawMultiplicand.expression
           : rawMultiplicand;
       return bigProd(muliplicand, lowerBound, upperBound);
+    }
+    if (token.kind === "limit_symbol") {
+      let lowerBound: Expr | null = null;
+
+      const lowerToken = this.peek();
+      if (lowerToken?.kind === "subscript") {
+        this.next();
+        const printable = lowerToken.value as unknown as Parameters<typeof printRaw>[0];
+        lowerBound = immutableExpression(printRaw(printable));
+      }
+
+      const expressionTokens = this.consumeUntilEquationBoundary();
+      const rawExpression =
+        expressionTokens.length > 0 ? this.parseFromSlice(expressionTokens) : sym("missing");
+      const expression =
+        rawExpression.kind === "display_group" ? rawExpression.expression : rawExpression;
+      return limit(expression, lowerBound);
     }
     if (token.kind === "root") {
       const value = parseGroupNodes(token.value) ?? sym("missing");

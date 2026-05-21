@@ -130,6 +130,12 @@ export const bigProd = (
   upperBound,
 });
 
+export const limit = (expression: Expr, lowerBound: Expr | null): Expr => ({
+  kind: "limit",
+  expression,
+  lowerBound,
+});
+
 export const integral = (
   integrand: Expr,
   lowerBound: Expr | null,

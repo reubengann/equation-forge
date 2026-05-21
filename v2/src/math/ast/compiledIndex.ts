@@ -81,6 +81,11 @@ function exprChildLocations(expr: Expr): ExprChildLocation[] {
         ...(expr.upperBound ? [{ expr: expr.upperBound, field: "upperBound" }] : []),
         { expr: expr.muliplicand, field: "muliplicand" },
       ];
+    case "limit":
+      return [
+        ...(expr.lowerBound ? [{ expr: expr.lowerBound, field: "lowerBound" }] : []),
+        { expr: expr.expression, field: "expression" },
+      ];
     case "integral":
       return [
         ...(expr.lowerBound ? [{ expr: expr.lowerBound, field: "lowerBound" }] : []),

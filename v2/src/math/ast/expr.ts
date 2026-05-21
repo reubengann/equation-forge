@@ -130,6 +130,12 @@ export type BigProdExpr = {
   upperBound: Expr | null;
 };
 
+export type LimitExpr = {
+  kind: "limit";
+  expression: Expr;
+  lowerBound: Expr | null;
+};
+
 export type IntegralExpr = {
   kind: "integral";
   integrand: Expr;
@@ -233,6 +239,7 @@ type ExprCore =
   | SpecialFontExpr
   | BigSumExpr
   | BigProdExpr
+  | LimitExpr
   | IntegralExpr
   | UniteratedIntegralExpr
   | ClosedIntegralExpr

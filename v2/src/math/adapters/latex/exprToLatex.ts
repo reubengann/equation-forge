@@ -134,6 +134,11 @@ class LatexGenerator {
           }${expr.upperBound ? `^{${this.generate(expr.upperBound)}}` : ""} ${this.generate(expr.muliplicand)}`,
           id,
         );
+      case "limit":
+        return this.wrap(
+          `\\lim${expr.lowerBound ? `_{${this.generate(expr.lowerBound)}}` : ""} ${this.generate(expr.expression)}`,
+          id,
+        );
       case "integral":
         const maybeLower = expr.lowerBound ? `_{${this.generate(expr.lowerBound)}}` : "";
         const maybeUpper = expr.upperBound ? `^{${this.generate(expr.upperBound)}}` : "";

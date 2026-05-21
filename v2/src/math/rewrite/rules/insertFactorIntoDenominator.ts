@@ -12,15 +12,15 @@ export function insertFactorIntoDenominator(): DownwardRewriteRule {
       if (!context.payload) return false;
       if (!isReciprocalPayload(context.payload)) return false;
       return (
-        downContext.sideId === downContext.destinationId ||
-        isDestinationInDenominator(context, downContext.sideId, downContext.destinationId)
+        isDestinationInDenominator(context, downContext.sideId, downContext.destinationId) ||
+        isDestinationInsideSide(context, downContext.sideId, downContext.destinationId)
       );
     },
     apply: (context: MoveContext, downContext) => {
       if (!context.payload || !isReciprocalPayload(context.payload)) return null;
-      const insertsIntoSide = downContext.sideId === downContext.destinationId;
       const insertsIntoDenominator = isDestinationInDenominator(context, downContext.sideId, downContext.destinationId);
-      if (!insertsIntoSide && !insertsIntoDenominator) return null;
+      const insertsUnderSide = isDestinationInsideSide(context, downContext.sideId, downContext.destinationId);
+      if (!insertsIntoDenominator && !insertsUnderSide) return null;
 
       return {
         updatedNodeId: downContext.sideId,
@@ -48,6 +48,11 @@ function isDestinationInDenominator(context: MoveContext, sideId: string, destin
   if (!denominatorId) return false;
   if (destinationId === denominatorId) return true;
   return context.document.index.ancestorsById[destinationId]?.includes(denominatorId) ?? false;
+}
+
+function isDestinationInsideSide(context: MoveContext, sideId: string, destinationId: string): boolean {
+  if (sideId === destinationId) return true;
+  return context.document.index.ancestorsById[destinationId]?.includes(sideId) ?? false;
 }
 
 function divideByPayload(numerator: Expr, denominator: Expr): Expr {
