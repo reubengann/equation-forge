@@ -7,14 +7,9 @@ function expectExprKind<K extends Expr["kind"]>(
   kind: K,
 ): asserts expr is Extract<Expr, { kind: K }> {
   if (expr.kind !== kind) {
-    const error = new Error(
-      `Expected expr.kind to be "${kind}" but received "${expr.kind}"`,
-    );
+    const error = new Error(`Expected expr.kind to be "${kind}" but received "${expr.kind}"`);
     const ErrorWithCapture = Error as typeof Error & {
-      captureStackTrace?: (
-        targetObject: object,
-        constructorOpt?: Function,
-      ) => void;
+      captureStackTrace?: (targetObject: object, constructorOpt?: Function) => void;
     };
     if (ErrorWithCapture.captureStackTrace) {
       ErrorWithCapture.captureStackTrace(error, expectExprKind);
@@ -133,9 +128,7 @@ describe("parseLatexToExpr", () => {
   });
 
   it("Handles uniterated integrals of product with mixed differentials", () => {
-    const expr = parseLatexToExpr(
-      String.raw`\int (\mathrm{d}{x} + \mathrm{d}{y}) ds`,
-    );
+    const expr = parseLatexToExpr(String.raw`\int (\mathrm{d}{x} + \mathrm{d}{y}) ds`);
     expectExprKind(expr, "uniterated_integral");
     expectExprKind(expr.integrand, "multiply");
     expectExprKind(expr.integrand.factors[0], "display_group");
@@ -316,9 +309,7 @@ describe("parseLatexToExpr", () => {
   });
 
   it("parses big sum", () => {
-    const expr = parseLatexToExpr(
-      String.raw`\sum_{i \neq j} \left(\frac{x_{i}}{2}\right)`,
-    );
+    const expr = parseLatexToExpr(String.raw`\sum_{i \neq j} \left(\frac{x_{i}}{2}\right)`);
     expectExprKind(expr, "big_sum");
     expectExprKind(expr.summand, "divide");
     expectExprKind(expr.lowerBound!, "immutable_expression");
@@ -327,9 +318,7 @@ describe("parseLatexToExpr", () => {
   });
 
   it("parses big sum no limits", () => {
-    const expr = parseLatexToExpr(
-      String.raw`\sum \left(\frac{x_{i}}{2}\right)`,
-    );
+    const expr = parseLatexToExpr(String.raw`\sum \left(\frac{x_{i}}{2}\right)`);
     expectExprKind(expr, "big_sum");
     expectExprKind(expr.summand, "divide");
     expect(expr.lowerBound).toBe(null);
@@ -337,9 +326,7 @@ describe("parseLatexToExpr", () => {
   });
 
   it("parses big prod", () => {
-    const expr = parseLatexToExpr(
-      String.raw`\prod_{i \neq j} \left(\frac{x_{i}}{2}\right)`,
-    );
+    const expr = parseLatexToExpr(String.raw`\prod_{i \neq j} \left(\frac{x_{i}}{2}\right)`);
     expectExprKind(expr, "big_prod");
     expectExprKind(expr.muliplicand, "divide");
     expectExprKind(expr.lowerBound!, "immutable_expression");
@@ -348,9 +335,7 @@ describe("parseLatexToExpr", () => {
   });
 
   it("parses big prod with no limits", () => {
-    const expr = parseLatexToExpr(
-      String.raw`\prod \left(\frac{x_{i}}{2}\right)`,
-    );
+    const expr = parseLatexToExpr(String.raw`\prod \left(\frac{x_{i}}{2}\right)`);
     expectExprKind(expr, "big_prod");
     expectExprKind(expr.muliplicand, "divide");
     expect(expr.lowerBound).toBe(null);
@@ -407,9 +392,7 @@ describe("parseLatexToExpr", () => {
   });
 
   it("parses second order partial derivatives", () => {
-    const expr = parseLatexToExpr(
-      String.raw`\frac{\partial^{2}{s}}{\partial{P}^2}`,
-    );
+    const expr = parseLatexToExpr(String.raw`\frac{\partial^{2}{s}}{\partial{P}^2}`);
     expectExprKind(expr, "second_order_partial_derivative");
     expect(expr.degree).toBe(2);
     expectExprKind(expr.dependentVariable, "symbol");
@@ -420,9 +403,7 @@ describe("parseLatexToExpr", () => {
   });
 
   it("parses mixed second order partial derivatives", () => {
-    const expr = parseLatexToExpr(
-      String.raw`\frac{\partial^{2}{s}}{\partial{P} \partial{T}}`,
-    );
+    const expr = parseLatexToExpr(String.raw`\frac{\partial^{2}{s}}{\partial{P} \partial{T}}`);
     expectExprKind(expr, "second_order_partial_derivative");
     expect(expr.degree).toBe(2);
     expectExprKind(expr.dependentVariable, "symbol");
@@ -474,10 +455,38 @@ describe("parseLatexToExpr", () => {
     expect(trailing.variable.name).toBe("x");
   });
 
+  it("parses integrals with unbraced roman differential variables", () => {
+    const expr = parseLatexToExpr(String.raw`\int_{a}^{b}x\,\mathrm{d}x`);
+    expectExprKind(expr, "integral");
+    expectExprKind(expr.integrand, "multiply");
+    const trailing = expr.integrand.factors[expr.integrand.factors.length - 1];
+    expectExprKind(trailing, "differential");
+    expectExprKind(trailing.variable, "symbol");
+    expect(trailing.variable.name).toBe("x");
+  });
+
+  it("parses integrals with boundary groups before roman differential variables", () => {
+    const expr = parseLatexToExpr(String.raw`\int_{a}^{b}x\,\mathrm{d}{}x`);
+    expectExprKind(expr, "integral");
+    expectExprKind(expr.integrand, "multiply");
+    const trailing = expr.integrand.factors[expr.integrand.factors.length - 1];
+    expectExprKind(trailing, "differential");
+    expectExprKind(trailing.variable, "symbol");
+    expect(trailing.variable.name).toBe("x");
+  });
+
+  it("parses MathLive differentialD variables", () => {
+    const expr = parseLatexToExpr(String.raw`\int_{a}^{b}x\,\differentialD x`);
+    expectExprKind(expr, "integral");
+    expectExprKind(expr.integrand, "multiply");
+    const trailing = expr.integrand.factors[expr.integrand.factors.length - 1];
+    expectExprKind(trailing, "differential");
+    expectExprKind(trailing.variable, "symbol");
+    expect(trailing.variable.name).toBe("x");
+  });
+
   it("tracks differential slot for prefix differential integrals", () => {
-    const expr = parseLatexToExpr(
-      String.raw`\int_{0}^{2\pi} d\theta \sin\left(\theta\right)`,
-    );
+    const expr = parseLatexToExpr(String.raw`\int_{0}^{2\pi} d\theta \sin\left(\theta\right)`);
     expectExprKind(expr, "integral");
     expectExprKind(expr.integrand, "multiply");
     expectExprKind(expr.integrand.factors[0], "differential");
@@ -515,12 +524,8 @@ describe("parseLatexToExpr", () => {
   });
 
   it("throws a descriptive error on parse failure when configured", () => {
-    expect(() => parseLatexToExpr("", { onError: "throw" })).toThrow(
-      /Unable to parse LaTeX/,
-    );
-    expect(() => parseLatexToExpr("", { onError: "throw" })).toThrow(
-      /Input LaTeX is empty/,
-    );
+    expect(() => parseLatexToExpr("", { onError: "throw" })).toThrow(/Unable to parse LaTeX/);
+    expect(() => parseLatexToExpr("", { onError: "throw" })).toThrow(/Input LaTeX is empty/);
   });
 
   it("falls back to immutable expression by default", () => {
@@ -535,6 +540,12 @@ describe("parseLatexToExpr", () => {
     expect(expr.error).toBe('Unclosed delimiter ( started at "(a + ...)');
   });
 
+  it("returns error when unmatched trailing parentheses are present", () => {
+    const expr = parseLatexToExpr(String.raw`a (`);
+    expectExprKind(expr, "immutable_expression");
+    expect(expr.error).toBe('Unclosed delimiter ( started at "(...)');
+  });
+
   it("no error when mismatched delimiters are present", () => {
     const expr = parseLatexToExpr(String.raw`\left. sin(x)\right|_0^1`);
     expect(expr.error).toBe(null);
@@ -543,23 +554,30 @@ describe("parseLatexToExpr", () => {
   it("Does not accept multiple inequalities in a single expression", () => {
     const expr = parseLatexToExpr(String.raw`a < b > c`);
     expectExprKind(expr, "immutable_expression");
-    expect(expr.error).toBe(
-      "Multiple inequalities found in expression. This is not supported.",
-    );
+    expect(expr.error).toBe("Multiple inequalities found in expression. This is not supported.");
   });
 
   it("Does not accept equation and inequality in a single expression", () => {
     const expr = parseLatexToExpr(String.raw`a < b = c`);
     expectExprKind(expr, "immutable_expression");
-    expect(expr.error).toBe(
-      "Equation and inequality found in expression. This is not supported.",
-    );
+    expect(expr.error).toBe("Equation and inequality found in expression. This is not supported.");
   });
 
   it("returns invalid input when unclosed fraction is present", () => {
     const expr = parseLatexToExpr(String.raw`\frac{a + b}{c + d`);
     expectExprKind(expr, "invalid_input");
     expect(expr.error).toBe('Unclosed fraction started at "\\frac{a + ...)');
+  });
+
+  it("rejects MathLive placeholders", () => {
+    const expr = parseLatexToExpr(String.raw`\frac{\placeholder{}}{x}`);
+    expectExprKind(expr, "immutable_expression");
+    expect(expr.error).toBe(
+      "Math entry still contains placeholders. Fill or remove every placeholder before accepting.",
+    );
+    expect(() => parseLatexToExpr(String.raw`\placeholder{}`, { onError: "throw" })).toThrow(
+      /still contains placeholders/,
+    );
   });
 
   it("preserves call argument delimiter", () => {

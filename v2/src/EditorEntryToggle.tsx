@@ -1,7 +1,8 @@
-import { type SyntheticEvent, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { EquationEditor } from "./EquationEditor";
 import { MathliveEditor } from "./MathliveEditor";
 import type { EquationEditorRecordingHooks } from "./TestRecorder";
+import { parseLatexToExpr } from "./math/adapters/latex";
 
 const DEBUG_EQUATION_PRESETS = [
   String.raw`a+b=c`,
@@ -45,16 +46,19 @@ export function EditorEntryToggle({
 }: EditorEntryToggleProps) {
   const [latex, setLatex] = useState(String.raw`a+b=c`);
   const [equationHistory, setEquationHistory] = useState<EquationHistory>(() => createEquationHistory(latex));
+  const [entryError, setEntryError] = useState<string | null>(null);
   const [presetIndex, setPresetIndex] = useState(0);
   const [showMathDisplay, setShowMathDisplay] = useState(false);
   const lastAcceptedLatexRef = useRef<string | null>(null);
   const canonicalLatexRef = useRef(latex);
+  const entryLatexRef = useRef(latex);
   const skipNextCanonicalHistoryRef = useRef(false);
   const slotRef = useRef<HTMLDivElement | null>(null);
 
-  const updateMathFieldValue = (event: SyntheticEvent<HTMLElement>) => {
-    const nextValue =
-      (event.currentTarget as HTMLElement & { value?: string }).value ?? "";
+  const updateMathFieldValue = (nextValue: string) => {
+    const valueChanged = nextValue !== entryLatexRef.current;
+    entryLatexRef.current = nextValue;
+    if (valueChanged) setEntryError(null);
     setLatex(nextValue);
     const matchedPresetIndex = DEBUG_EQUATION_PRESETS.indexOf(nextValue);
     if (matchedPresetIndex >= 0) {
@@ -69,15 +73,31 @@ export function EditorEntryToggle({
     const nextLatex = DEBUG_EQUATION_PRESETS[normalizedIndex];
     setPresetIndex(normalizedIndex);
     setLatex(nextLatex);
+    entryLatexRef.current = nextLatex;
     canonicalLatexRef.current = nextLatex;
     setEquationHistory(createEquationHistory(nextLatex));
   };
 
-  const handleAcceptToggle = () => {
+  const handleAcceptToggle = (latestLatex?: unknown) => {
     if (!showMathDisplay) {
       const previousLatex = lastAcceptedLatexRef.current;
       // Accept should use the current MathLive edit buffer, not the last rendered canonical value.
-      const nextLatex = latex;
+      const nextLatex = typeof latestLatex === "string" ? latestLatex : latex;
+      try {
+        parseLatexToExpr(nextLatex, { onError: "throw" });
+      } catch (error) {
+        entryLatexRef.current = nextLatex;
+        setLatex(nextLatex);
+        const message = error instanceof Error ? error.message : "Unable to parse LaTeX input.";
+        setEntryError(
+          message.includes("still contains placeholders")
+            ? "Fill or remove every placeholder before accepting."
+            : message,
+        );
+        return;
+      }
+      setEntryError(null);
+      entryLatexRef.current = nextLatex;
       canonicalLatexRef.current = nextLatex;
       setEquationHistory(createEquationHistory(nextLatex));
       skipNextCanonicalHistoryRef.current = true;
@@ -118,6 +138,7 @@ export function EditorEntryToggle({
       future: [equationHistory.present, ...equationHistory.future],
     });
     canonicalLatexRef.current = previousStep.latex;
+    entryLatexRef.current = previousStep.latex;
     setLatex(previousStep.latex);
     onCanonicalLatexChanged?.(previousStep.latex);
   };
@@ -131,6 +152,7 @@ export function EditorEntryToggle({
       future: equationHistory.future.slice(1),
     });
     canonicalLatexRef.current = nextStep.latex;
+    entryLatexRef.current = nextStep.latex;
     setLatex(nextStep.latex);
     onCanonicalLatexChanged?.(nextStep.latex);
   };
@@ -168,12 +190,26 @@ export function EditorEntryToggle({
             onCanonicalLatexChanged={handleCanonicalLatexChanged}
           />
         ) : (
-          <MathliveEditor
-            slotRef={slotRef}
-            latex={latex}
-            updateMathFieldValue={updateMathFieldValue}
-            onAccept={handleAcceptToggle}
-          />
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
+            <MathliveEditor
+              slotRef={slotRef}
+              latex={latex}
+              updateMathFieldValue={updateMathFieldValue}
+              onAccept={handleAcceptToggle}
+            />
+            {entryError && (
+              <div
+                role="alert"
+                style={{
+                  color: "#ffb4ab",
+                  fontSize: "0.9rem",
+                  lineHeight: 1.35,
+                }}
+              >
+                {entryError}
+              </div>
+            )}
+          </div>
         )}
         {!showMathDisplay && (
           <>

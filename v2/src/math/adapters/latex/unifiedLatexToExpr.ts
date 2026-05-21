@@ -154,6 +154,41 @@ class InvalidLatexInputError extends Error {
   }
 }
 
+function validateBalancedEntryDelimiters(latex: string): void {
+  const stack: Array<{ open: "(" | "["; index: number }> = [];
+  const matchingOpenByClose = {
+    ")": "(",
+    "]": "[",
+  } as const;
+
+  for (let index = 0; index < latex.length; index += 1) {
+    const char = latex[index];
+    if (char === "\\") {
+      index += 1;
+      continue;
+    }
+    if (char === "(" || char === "[") {
+      stack.push({ open: char, index });
+      continue;
+    }
+    if (char === ")" || char === "]") {
+      const expectedOpen = matchingOpenByClose[char];
+      const previous = stack.pop();
+      if (!previous || previous.open !== expectedOpen) {
+        // Let the parser produce its richer mismatch message for cases like \sin(x].
+        return;
+      }
+    }
+  }
+
+  const unclosed = stack.at(-1);
+  if (unclosed) {
+    throw new UnsupportedLatexError(
+      `Unclosed delimiter ${unclosed.open} started at "${latex.slice(unclosed.index, unclosed.index + 5)}...)`,
+    );
+  }
+}
+
 export type UnifiedLatexParseErrorCode =
   | "empty_input"
   | "invalid_input"
@@ -265,16 +300,23 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
   };
   const readInferredDifferential = (
     startIndex: number,
+    options: { skipWhitespace?: boolean } = {},
   ): { variable: UnifiedNode[]; consumedNodes: number } | null => {
-    const next = nodes[startIndex + 1];
+    let nextIndex = startIndex + 1;
+    if (options.skipWhitespace) {
+      while (nodes[nextIndex]?.type === "whitespace") {
+        nextIndex += 1;
+      }
+    }
+    const next = nodes[nextIndex];
     if (!next || next.type === "whitespace") return null;
 
     if (next.type === "group" && Array.isArray(next.content)) {
-      return { variable: next.content, consumedNodes: 1 };
+      return { variable: next.content, consumedNodes: nextIndex - startIndex };
     }
 
     if (next.type === "macro") {
-      return { variable: [next], consumedNodes: 1 };
+      return { variable: [next], consumedNodes: nextIndex - startIndex };
     }
 
     if (next.type !== "string" || typeof next.content !== "string") return null;
@@ -287,7 +329,7 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
     if (close) {
       const variableNodes: UnifiedNode[] = [];
       let depth = 0;
-      let i = startIndex + 1;
+      let i = nextIndex;
       while (i < nodes.length) {
         const candidate = nodes[i];
         if (!candidate || candidate.type === "whitespace") break;
@@ -309,7 +351,7 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
     }
 
     if (/^[a-zA-Z0-9]$/.test(next.content)) {
-      return { variable: [next], consumedNodes: 1 };
+      return { variable: [next], consumedNodes: nextIndex - startIndex };
     }
     return null;
   };
@@ -410,6 +452,12 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
 
     if (node.type !== "macro") continue;
     const macro = typeof node.content === "string" ? node.content : "";
+
+    if (macro === "placeholder") {
+      throw new UnsupportedLatexError(
+        "Math entry still contains placeholders. Fill or remove every placeholder before accepting.",
+      );
+    }
 
     if (macro === "left") {
       const next = nodes[i + 1];
@@ -532,12 +580,33 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
         arg.length === 1 &&
         arg[0]?.type === "string" &&
         arg[0]?.content === "d";
+      let differentialStartIndex = i;
       const nextNode = nodes[i + 1];
-      if (argIsPlainD && nextNode?.type === "group" && Array.isArray(nextNode.content)) {
-        tokens.push({ kind: "differential", variable: nextNode.content });
-        i += 1;
+      if (
+        argIsPlainD &&
+        nextNode?.type === "group" &&
+        Array.isArray(nextNode.content) &&
+        nextNode.content.length === 0
+      ) {
+        differentialStartIndex = i + 1;
+      }
+      const inferred = argIsPlainD ? readInferredDifferential(differentialStartIndex) : null;
+      if (inferred) {
+        tokens.push({ kind: "differential", variable: inferred.variable });
+        i = differentialStartIndex + inferred.consumedNodes;
         continue;
       }
+    }
+
+    if (macro === "differentialD") {
+      const inferred = readInferredDifferential(i, { skipWhitespace: true });
+      if (inferred) {
+        tokens.push({ kind: "differential", variable: inferred.variable });
+        i += inferred.consumedNodes;
+        continue;
+      }
+      tokens.push({ kind: "symbol", name: "d" });
+      continue;
     }
 
     if (macro === "text") {
@@ -1446,6 +1515,7 @@ export function parseLatexToExprWithUnifiedLatexResult(
   latex: string,
 ): UnifiedLatexParseResult {
   try {
+    validateBalancedEntryDelimiters(latex);
     const nodes = parseMath(latex) as UnifiedNode[];
     if (!Array.isArray(nodes) || nodes.length === 0) {
       return {
