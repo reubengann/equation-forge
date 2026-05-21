@@ -1,4 +1,4 @@
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   buildNodeResolutionSource,
   createSelectionControllerState,
@@ -14,54 +14,18 @@ import {
 } from "./interaction/selectionController";
 import { type TermSelection } from "./selection/types";
 import { compileMathDocument } from "./math/compile/compileMathDocument";
+import { exprToLatex } from "./math/adapters/latex";
+import { canRun as canFlipRelation, run as flipRelation } from "./math/rewrite/flipRelation";
 import { canExecuteMove, executeMove } from "./math/rewrite/rewriteEngine";
 import type { InsertionPreview, MoveType, NodeHorizontalBounds } from "./math/rewrite/types";
 import type { EquationEditorRecordingHooks } from "./TestRecorder";
+import { EquationToolbar } from "./EquationToolbar";
 
 type InsertionLineStyle = {
   left: number;
   top: number;
   width: number;
   height: number;
-};
-
-const modeIconButtonBaseStyle: CSSProperties = {
-  width: 36,
-  height: 36,
-  padding: 0,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  borderTopWidth: 1,
-  borderRightWidth: 1,
-  borderBottomWidth: 1,
-  borderLeftWidth: 1,
-  borderTopStyle: "solid",
-  borderRightStyle: "solid",
-  borderBottomStyle: "solid",
-  borderLeftStyle: "solid",
-  borderTopColor: "#757575",
-  borderRightColor: "#757575",
-  borderBottomColor: "#757575",
-  borderLeftColor: "#757575",
-  background: "#424242",
-  color: "rgba(255, 255, 255, 0.87)",
-  cursor: "pointer",
-};
-
-const modeIconButtonActiveStyle: CSSProperties = {
-  borderTopColor: "#7c4dff",
-  borderRightColor: "#7c4dff",
-  borderBottomColor: "#7c4dff",
-  borderLeftColor: "#7c4dff",
-  color: "#7c4dff",
-  background: "rgba(124, 77, 255, 0.14)",
-  boxShadow: "0 0 0 1px rgba(124, 77, 255, 0.3)",
-};
-
-const modeIconButtonDisabledStyle: CSSProperties = {
-  opacity: 0.45,
-  cursor: "not-allowed",
 };
 
 function resolveHorizontalInsertionSlot(pointerX: number, rect: NodeHorizontalBounds) {
@@ -86,6 +50,8 @@ type EquationEditorProps = {
   onCanonicalLatexChanged: (nextLatex: string) => void;
   canUndo?: boolean;
   onUndoRequested?: () => void;
+  canRedo?: boolean;
+  onRedoRequested?: () => void;
   recordingHooks?: EquationEditorRecordingHooks;
 };
 
@@ -94,6 +60,8 @@ export function EquationEditor({
   onCanonicalLatexChanged,
   canUndo = false,
   onUndoRequested,
+  canRedo = false,
+  onRedoRequested,
   recordingHooks,
 }: EquationEditorProps) {
   const editorRootRef = useRef<HTMLDivElement | null>(null);
@@ -114,6 +82,7 @@ export function EquationEditor({
   const currentDomSnapshotIdRef = useRef<string | null>(null);
   const dragStartPointerRef = useRef<{ x: number; y: number } | null>(null);
   const compiledDoc = useMemo(() => compileMathDocument(latex), [latex]);
+  const canFlip = canFlipRelation(compiledDoc.expr);
 
   const applySelectionHighlight = (nextSelection: TermSelection | null) => {
     const host = mathDivRef.current as (HTMLElement & { shadowRoot?: ShadowRoot | null }) | null;
@@ -300,6 +269,20 @@ export function EquationEditor({
       if (event.defaultPrevented) return;
       const key = event.key.toLowerCase();
 
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.shiftKey && key === "z") {
+        if (!canRedo || !onRedoRequested) return;
+        event.preventDefault();
+        onRedoRequested();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && key === "y") {
+        if (!canRedo || !onRedoRequested) return;
+        event.preventDefault();
+        onRedoRequested();
+        return;
+      }
+
       if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && key === "z") {
         if (!canUndo || !onUndoRequested) return;
         event.preventDefault();
@@ -317,7 +300,7 @@ export function EquationEditor({
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [canUndo, onUndoRequested]);
+  }, [canRedo, canUndo, onRedoRequested, onUndoRequested]);
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     dragStartPointerRef.current = { x: event.clientX, y: event.clientY };
@@ -464,6 +447,11 @@ export function EquationEditor({
     updateInsertionPreview(null);
   };
 
+  const onFlipRelationRequested = () => {
+    if (!canFlip) return;
+    onCanonicalLatexChanged(exprToLatex(flipRelation(compiledDoc.expr), false));
+  };
+
   return (
     <div
       style={{
@@ -473,85 +461,16 @@ export function EquationEditor({
         gap: "12px",
       }}
     >
-      <div
-        style={{
-          alignSelf: "flex-start",
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-        }}
-      >
-        <div
-          role="group"
-          aria-label="Move mode"
-          style={{
-            display: "flex",
-            border: "1px solid #757575",
-            borderRadius: "3px",
-            overflow: "hidden",
-          }}
-        >
-          <button
-            type="button"
-            data-testid="move-mode-additive"
-            aria-label="Additive move mode"
-            title="Additive move mode"
-            aria-pressed={moveType === "additive"}
-            onClick={() => updateMoveType("additive")}
-            style={{
-              ...modeIconButtonBaseStyle,
-              ...(moveType === "additive" ? modeIconButtonActiveStyle : {}),
-              borderRightWidth: 0,
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="currentColor"
-                d="M11 4a1 1 0 1 1 2 0v6h6a1 1 0 1 1 0 2h-6v6a1 1 0 1 1-2 0v-6H5a1 1 0 1 1 0-2h6z"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
-            data-testid="move-mode-multiplicative"
-            aria-label="Multiplicative move mode"
-            title="Multiplicative move mode"
-            aria-pressed={moveType === "multiplicative"}
-            onClick={() => updateMoveType("multiplicative")}
-            style={{
-              ...modeIconButtonBaseStyle,
-              ...(moveType === "multiplicative" ? modeIconButtonActiveStyle : {}),
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="currentColor"
-                d="M6.7 5.3a1 1 0 0 0-1.4 1.4L10.6 12l-5.3 5.3a1 1 0 1 0 1.4 1.4L12 13.4l5.3 5.3a1 1 0 0 0 1.4-1.4L13.4 12l5.3-5.3a1 1 0 0 0-1.4-1.4L12 10.6z"
-              />
-            </svg>
-          </button>
-        </div>
-        <button
-          type="button"
-          data-testid="undo-equation-rewrite"
-          aria-label="Undo"
-          title="Undo"
-          disabled={!canUndo}
-          onClick={onUndoRequested}
-          style={{
-            ...modeIconButtonBaseStyle,
-            borderRadius: "3px",
-            ...(!canUndo ? modeIconButtonDisabledStyle : {}),
-          }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              fill="currentColor"
-              d="M9.7 6.3a1 1 0 0 1 0 1.4L7.4 10H15a5 5 0 1 1 0 10h-2a1 1 0 1 1 0-2h2a3 3 0 1 0 0-6H7.4l2.3 2.3a1 1 0 1 1-1.4 1.4l-4-4a1 1 0 0 1 0-1.4l4-4a1 1 0 0 1 1.4 0z"
-            />
-          </svg>
-        </button>
-      </div>
+      <EquationToolbar
+        moveType={moveType}
+        onMoveTypeChanged={updateMoveType}
+        canUndo={canUndo}
+        onUndoRequested={onUndoRequested}
+        canRedo={canRedo}
+        onRedoRequested={onRedoRequested}
+        canFlip={canFlip}
+        onFlipRelationRequested={onFlipRelationRequested}
+      />
       <div
         ref={editorRootRef}
         onPointerDown={onPointerDown}

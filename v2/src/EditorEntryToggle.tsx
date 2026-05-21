@@ -27,12 +27,14 @@ type EquationHistoryStep = {
 type EquationHistory = {
   past: EquationHistoryStep[];
   present: EquationHistoryStep;
+  future: EquationHistoryStep[];
 };
 
 function createEquationHistory(latex: string): EquationHistory {
   return {
     past: [],
     present: { latex },
+    future: [],
   };
 }
 
@@ -97,6 +99,7 @@ export function EditorEntryToggle({
       setEquationHistory((currentHistory) => ({
         past: [...currentHistory.past, currentHistory.present],
         present: { latex: nextLatex },
+        future: [],
       }));
     } else if (previousLatex !== nextLatex) {
       setEquationHistory(createEquationHistory(nextLatex));
@@ -112,10 +115,24 @@ export function EditorEntryToggle({
     setEquationHistory({
       past: equationHistory.past.slice(0, -1),
       present: previousStep,
+      future: [equationHistory.present, ...equationHistory.future],
     });
     canonicalLatexRef.current = previousStep.latex;
     setLatex(previousStep.latex);
     onCanonicalLatexChanged?.(previousStep.latex);
+  };
+
+  const handleRedoRequested = () => {
+    const nextStep = equationHistory.future[0];
+    if (!nextStep) return;
+    setEquationHistory({
+      past: [...equationHistory.past, equationHistory.present],
+      present: nextStep,
+      future: equationHistory.future.slice(1),
+    });
+    canonicalLatexRef.current = nextStep.latex;
+    setLatex(nextStep.latex);
+    onCanonicalLatexChanged?.(nextStep.latex);
   };
 
   return (
@@ -145,6 +162,8 @@ export function EditorEntryToggle({
             recordingHooks={recordingHooks}
             canUndo={equationHistory.past.length > 0}
             onUndoRequested={handleUndoRequested}
+            canRedo={equationHistory.future.length > 0}
+            onRedoRequested={handleRedoRequested}
             // Needed so that we can show the mathlive again with the existing latex.
             onCanonicalLatexChanged={handleCanonicalLatexChanged}
           />
