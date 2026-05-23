@@ -10,6 +10,8 @@ type EquationToolbarProps = {
   onRedoRequested?: () => void;
   canFlip: boolean;
   onFlipRelationRequested: () => void;
+  canSubstitute: boolean;
+  onSubstituteRequested: () => void;
 };
 
 const iconButtonBaseStyle: CSSProperties = {
@@ -67,6 +69,8 @@ export function EquationToolbar({
   onRedoRequested,
   canFlip,
   onFlipRelationRequested,
+  canSubstitute,
+  onSubstituteRequested,
 }: EquationToolbarProps) {
   return (
     <div
@@ -169,6 +173,7 @@ export function EquationToolbar({
           onClick={onFlipRelationRequested}
           style={{
             ...iconButtonBaseStyle,
+            borderRightWidth: 0,
             ...(!canFlip ? iconButtonDisabledStyle : {}),
           }}
         >
@@ -196,6 +201,49 @@ export function EquationToolbar({
               strokeLinejoin="round"
               strokeWidth="1.5"
               d="M7.5 14h9M7.5 17.5h9"
+            />
+          </svg>
+        </button>
+        <button
+          type="button"
+          data-testid="substitute-selection"
+          aria-label="Substitute"
+          title="Substitute"
+          disabled={!canSubstitute}
+          onClick={onSubstituteRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            ...(!canSubstitute ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+            <rect
+              x="2.5"
+              y="7"
+              width="5.5"
+              height="10"
+              rx="1.8"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+            />
+            <path
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.6"
+              d="M10.5 12h3.5M12.5 10l2 2-2 2"
+            />
+            <rect
+              x="16"
+              y="7"
+              width="5.5"
+              height="10"
+              rx="1.8"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
             />
           </svg>
         </button>

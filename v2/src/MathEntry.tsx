@@ -1,5 +1,5 @@
 import type { KeyboardEvent, RefObject } from "react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { MATH_ENTRY_MACROS, type MathEntryMacro } from "./mathEntry/mathEntryMacros";
 
 type MathfieldElementLike = HTMLElement & {
@@ -23,7 +23,14 @@ type MathEntryProps = {
   onLatexChange: (nextLatex: string) => void;
   onAccept: (latestLatex?: string) => void;
   macros?: MathEntryMacro[];
+  autoFocus?: boolean;
+  focusSession?: number;
+  mathFieldId?: string;
 };
+
+function focusMathField(field: MathfieldElementLike | null) {
+  field?.focus();
+}
 
 export function MathEntry({
   slotRef,
@@ -31,8 +38,30 @@ export function MathEntry({
   onLatexChange,
   onAccept,
   macros = MATH_ENTRY_MACROS,
+  autoFocus = false,
+  focusSession,
+  mathFieldId = "equation-mathfield",
 }: MathEntryProps) {
   const mathFieldRef = useRef<MathfieldElementLike | null>(null);
+
+  useEffect(() => {
+    if (!autoFocus || focusSession == null) return;
+
+    let cancelled = false;
+    const tryFocus = () => {
+      if (!cancelled) focusMathField(mathFieldRef.current);
+    };
+
+    const animationFrameId = requestAnimationFrame(() => {
+      tryFocus();
+      window.setTimeout(tryFocus, 0);
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [autoFocus, focusSession]);
 
   const readLatexFromField = (): string => {
     const field = mathFieldRef.current;
@@ -43,7 +72,6 @@ export function MathEntry({
 
   const syncLatexFromField = () => {
     const nextLatex = readLatexFromField();
-    console.log("syncLatexFromField", nextLatex);
     onLatexChange(nextLatex);
     return nextLatex;
   };
@@ -148,8 +176,11 @@ export function MathEntry({
         <math-field
           ref={(field) => {
             mathFieldRef.current = field as MathfieldElementLike | null;
+            if (autoFocus && field && focusSession != null) {
+              requestAnimationFrame(() => focusMathField(field as MathfieldElementLike));
+            }
           }}
-          id="equation-mathfield"
+          id={mathFieldId}
           className="equation-mathfield"
           data-testid="latex-mathfield"
           value={latex}
