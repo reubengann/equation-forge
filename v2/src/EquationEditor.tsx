@@ -16,6 +16,7 @@ import { type TermSelection } from "./selection/types";
 import { compileMathDocument, type CompiledMathDocument } from "./math/compile/compileMathDocument";
 import { exprToLatex, parseLatexToExpr } from "./math/adapters/latex";
 import { canRun as canFlipRelation, run as flipRelation } from "./math/rewrite/flipRelation";
+import { autoRewriteSelection, canAutoRewrite } from "./math/rewrite/autoRewrite";
 import { canExecuteMove, executeMove } from "./math/rewrite/rewriteEngine";
 import {
   getSubstitutionSelection,
@@ -107,6 +108,7 @@ export function EquationEditor({
     [compiledDoc, selection],
   );
   const canSubstitute = substitutionSelection !== null;
+  const canFactor = canAutoRewrite(compiledDoc, selection, "factor");
 
   const updateSelection = useCallback(
     (nextSelection: TermSelection | null) => {
@@ -501,6 +503,14 @@ export function EquationEditor({
     onCanonicalLatexChanged(exprToLatex(flipRelation(compiledDoc.expr), false));
   };
 
+  const onFactorRequested = () => {
+    if (!selection || !canFactor) return;
+    const nextExpr = autoRewriteSelection(compiledDoc, selection, "factor");
+    if (!nextExpr) return;
+    updateSelection(null);
+    onCanonicalLatexChanged(exprToLatex(nextExpr, false));
+  };
+
   const closeSubstituteModal = () => {
     setIsSubstituteModalOpen(false);
     setSubstituteError(null);
@@ -570,6 +580,8 @@ export function EquationEditor({
         onFlipRelationRequested={onFlipRelationRequested}
         canSubstitute={canSubstitute}
         onSubstituteRequested={openSubstituteModal}
+        canFactor={canFactor}
+        onFactorRequested={onFactorRequested}
       />
       <div
         ref={editorRootRef}

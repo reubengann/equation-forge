@@ -12,6 +12,8 @@ type EquationToolbarProps = {
   onFlipRelationRequested: () => void;
   canSubstitute: boolean;
   onSubstituteRequested: () => void;
+  canFactor: boolean;
+  onFactorRequested: () => void;
 };
 
 const iconButtonBaseStyle: CSSProperties = {
@@ -60,6 +62,23 @@ const toolbarGroupStyle: CSSProperties = {
   overflow: "hidden",
 };
 
+const materialSymbolStyle: CSSProperties = {
+  fontVariationSettings: `"FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24`,
+  fontFamily: `"Material Symbols Rounded"`,
+  fontWeight: "normal",
+  fontStyle: "normal",
+  fontSize: 22,
+  lineHeight: 1,
+  letterSpacing: "normal",
+  textTransform: "none",
+  display: "inline-block",
+  whiteSpace: "nowrap",
+  wordWrap: "normal",
+  direction: "ltr",
+  WebkitFontFeatureSettings: `"liga"`,
+  WebkitFontSmoothing: "antialiased",
+};
+
 export function EquationToolbar({
   moveType,
   onMoveTypeChanged,
@@ -71,6 +90,8 @@ export function EquationToolbar({
   onFlipRelationRequested,
   canSubstitute,
   onSubstituteRequested,
+  canFactor,
+  onFactorRequested,
 }: EquationToolbarProps) {
   return (
     <div
@@ -246,6 +267,25 @@ export function EquationToolbar({
               strokeWidth="1.6"
             />
           </svg>
+        </button>
+      </div>
+
+      <div role="group" aria-label="Automatic rewrites" style={toolbarGroupStyle}>
+        <button
+          type="button"
+          data-testid="factor-selection"
+          aria-label="Factor selection"
+          title="Factor selection"
+          disabled={!canFactor}
+          onClick={onFactorRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            ...(!canFactor ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <span style={materialSymbolStyle} aria-hidden="true">
+            call_split
+          </span>
         </button>
       </div>
     </div>
