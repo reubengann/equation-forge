@@ -278,6 +278,14 @@ export function EquationEditor({
     setIsSubstituteModalOpen(true);
   }, [substitutionSelection]);
 
+  const onFactorRequested = useCallback(() => {
+    if (!selection || !canFactor) return;
+    const nextExpr = autoRewriteSelection(compiledDoc, selection, "factor");
+    if (!nextExpr) return;
+    updateSelection(null);
+    onCanonicalLatexChanged(exprToLatex(nextExpr, false));
+  }, [canFactor, compiledDoc, onCanonicalLatexChanged, selection, updateSelection]);
+
   const resolveInsertionPreviewAtPoint = (pointer: { x: number; y: number }): InsertionPreview | null => {
     if (!selection) return null;
 
@@ -342,6 +350,13 @@ export function EquationEditor({
         return;
       }
 
+      if (key === "f") {
+        if (!canFactor) return;
+        event.preventDefault();
+        onFactorRequested();
+        return;
+      }
+
       if (key !== "a") return;
       event.preventDefault();
       setMoveType((currentMoveType) => (currentMoveType === "additive" ? "multiplicative" : "additive"));
@@ -351,7 +366,17 @@ export function EquationEditor({
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [canRedo, canSubstitute, canUndo, isSubstituteModalOpen, onRedoRequested, onUndoRequested, openSubstituteModal]);
+  }, [
+    canFactor,
+    canRedo,
+    canSubstitute,
+    canUndo,
+    isSubstituteModalOpen,
+    onFactorRequested,
+    onRedoRequested,
+    onUndoRequested,
+    openSubstituteModal,
+  ]);
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     dragStartPointerRef.current = { x: event.clientX, y: event.clientY };
@@ -501,14 +526,6 @@ export function EquationEditor({
   const onFlipRelationRequested = () => {
     if (!canFlip) return;
     onCanonicalLatexChanged(exprToLatex(flipRelation(compiledDoc.expr), false));
-  };
-
-  const onFactorRequested = () => {
-    if (!selection || !canFactor) return;
-    const nextExpr = autoRewriteSelection(compiledDoc, selection, "factor");
-    if (!nextExpr) return;
-    updateSelection(null);
-    onCanonicalLatexChanged(exprToLatex(nextExpr, false));
   };
 
   const closeSubstituteModal = () => {
