@@ -109,6 +109,8 @@ export function EquationEditor({
   );
   const canSubstitute = substitutionSelection !== null;
   const canFactor = canAutoRewrite(compiledDoc, selection, "factor");
+  const canDistribute = canAutoRewrite(compiledDoc, selection, "distribute");
+  const canCleanup = canAutoRewrite(compiledDoc, selection, "cleanup");
 
   const updateSelection = useCallback(
     (nextSelection: TermSelection | null) => {
@@ -286,6 +288,22 @@ export function EquationEditor({
     onCanonicalLatexChanged(exprToLatex(nextExpr, false));
   }, [canFactor, compiledDoc, onCanonicalLatexChanged, selection, updateSelection]);
 
+  const onDistributeRequested = useCallback(() => {
+    if (!selection || !canDistribute) return;
+    const nextExpr = autoRewriteSelection(compiledDoc, selection, "distribute");
+    if (!nextExpr) return;
+    updateSelection(null);
+    onCanonicalLatexChanged(exprToLatex(nextExpr, false));
+  }, [canDistribute, compiledDoc, onCanonicalLatexChanged, selection, updateSelection]);
+
+  const onCleanupRequested = useCallback(() => {
+    if (!selection || !canCleanup) return;
+    const nextExpr = autoRewriteSelection(compiledDoc, selection, "cleanup");
+    if (!nextExpr) return;
+    updateSelection(null);
+    onCanonicalLatexChanged(exprToLatex(nextExpr, false));
+  }, [canCleanup, compiledDoc, onCanonicalLatexChanged, selection, updateSelection]);
+
   const resolveInsertionPreviewAtPoint = (pointer: { x: number; y: number }): InsertionPreview | null => {
     if (!selection) return null;
 
@@ -357,6 +375,13 @@ export function EquationEditor({
         return;
       }
 
+      if (key === "d") {
+        if (!canDistribute) return;
+        event.preventDefault();
+        onDistributeRequested();
+        return;
+      }
+
       if (key !== "a") return;
       event.preventDefault();
       setMoveType((currentMoveType) => (currentMoveType === "additive" ? "multiplicative" : "additive"));
@@ -367,11 +392,13 @@ export function EquationEditor({
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [
+    canDistribute,
     canFactor,
     canRedo,
     canSubstitute,
     canUndo,
     isSubstituteModalOpen,
+    onDistributeRequested,
     onFactorRequested,
     onRedoRequested,
     onUndoRequested,
@@ -599,6 +626,10 @@ export function EquationEditor({
         onSubstituteRequested={openSubstituteModal}
         canFactor={canFactor}
         onFactorRequested={onFactorRequested}
+        canDistribute={canDistribute}
+        onDistributeRequested={onDistributeRequested}
+        canCleanup={canCleanup}
+        onCleanupRequested={onCleanupRequested}
       />
       <div
         ref={editorRootRef}

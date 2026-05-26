@@ -469,4 +469,17 @@ describe("canExecuteMove", () => {
 
     expect(result?.latex).toBe(String.raw`\frac{b}{a} \frac{1}{c} = 5`);
   });
+
+  it("executes extracting a factor through a denominator delimiter", () => {
+    const document = buildDocument(String.raw`\frac{b}{\left(b c\right)}`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n5" },
+      destinationId: "n3",
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`\frac{b}{b \left(c\right)}`);
+  });
 });

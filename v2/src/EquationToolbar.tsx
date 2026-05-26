@@ -14,6 +14,10 @@ type EquationToolbarProps = {
   onSubstituteRequested: () => void;
   canFactor: boolean;
   onFactorRequested: () => void;
+  canDistribute: boolean;
+  onDistributeRequested: () => void;
+  canCleanup: boolean;
+  onCleanupRequested: () => void;
 };
 
 const iconButtonBaseStyle: CSSProperties = {
@@ -92,6 +96,10 @@ export function EquationToolbar({
   onSubstituteRequested,
   canFactor,
   onFactorRequested,
+  canDistribute,
+  onDistributeRequested,
+  canCleanup,
+  onCleanupRequested,
 }: EquationToolbarProps) {
   return (
     <div
@@ -286,6 +294,46 @@ export function EquationToolbar({
           <span style={materialSymbolStyle} aria-hidden="true">
             call_split
           </span>
+        </button>
+        <button
+          type="button"
+          data-testid="distribute-selection"
+          aria-label="Distribute selection"
+          title="Distribute selection"
+          disabled={!canDistribute}
+          onClick={onDistributeRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            ...(!canDistribute ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <span style={materialSymbolStyle} aria-hidden="true">
+            ramp_left
+          </span>
+        </button>
+        <button
+          type="button"
+          data-testid="cleanup-selection"
+          aria-label="Clean up selection"
+          title="Clean up selection"
+          disabled={!canCleanup}
+          onClick={onCleanupRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            ...(!canCleanup ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <img
+            src="/icons/clean.png"
+            alt=""
+            aria-hidden="true"
+            style={{
+              width: 22,
+              height: 22,
+              display: "block",
+              filter: "invert(1)",
+            }}
+          />
         </button>
       </div>
     </div>

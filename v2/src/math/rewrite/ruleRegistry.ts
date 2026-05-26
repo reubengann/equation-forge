@@ -1,4 +1,5 @@
 import { extractFactorFromProduct } from "./rules/extractFactorFromProduct";
+import { extractThroughDisplayGroup } from "./rules/extractThroughDisplayGroup";
 import { extractDenominatorFactorFromFraction } from "./rules/extractDenominatorFactorFromFraction";
 import { extractNumeratorFromFraction } from "./rules/extractNumeratorFromFraction";
 import { extractTermFromSum } from "./rules/extractTermFromSum";
@@ -22,6 +23,7 @@ export const UPWARD_REWRITE_RULES: UpwardRewriteRule[] = [
   extractNumeratorFromFraction(),
   extractDenominatorFactorFromFraction(),
   extractFactorFromProduct(),
+  extractThroughDisplayGroup(),
 ];
 
 export const PIVOT_REWRITE_RULES: PivotRewriteRule[] = [
