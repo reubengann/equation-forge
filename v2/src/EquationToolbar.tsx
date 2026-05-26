@@ -324,7 +324,7 @@ export function EquationToolbar({
           }}
         >
           <img
-            src="/icons/clean.png"
+            src="/icons/clean.svg"
             alt=""
             aria-hidden="true"
             style={{
