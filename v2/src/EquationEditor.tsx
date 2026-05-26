@@ -18,6 +18,7 @@ import { exprToLatex, parseLatexToExpr } from "./math/adapters/latex";
 import { canRun as canFlipRelation, run as flipRelation } from "./math/rewrite/flipRelation";
 import { autoRewriteSelection, canAutoRewrite } from "./math/rewrite/autoRewrite";
 import { canExecuteMove, executeMove } from "./math/rewrite/rewriteEngine";
+import { canToggleNegateSelection, toggleNegateSelection } from "./math/rewrite/toggleNegate";
 import {
   getSubstitutionSelection,
   isValidSubstitutionReplacement,
@@ -111,6 +112,8 @@ export function EquationEditor({
   const canFactor = canAutoRewrite(compiledDoc, selection, "factor");
   const canDistribute = canAutoRewrite(compiledDoc, selection, "distribute");
   const canCleanup = canAutoRewrite(compiledDoc, selection, "cleanup");
+  const canToggleNegate =
+    selection?.kind === "single" ? canToggleNegateSelection(compiledDoc, selection.nodeId) : false;
 
   const updateSelection = useCallback(
     (nextSelection: TermSelection | null) => {
@@ -303,6 +306,14 @@ export function EquationEditor({
     updateSelection(null);
     onCanonicalLatexChanged(exprToLatex(nextExpr, false));
   }, [canCleanup, compiledDoc, onCanonicalLatexChanged, selection, updateSelection]);
+
+  const onToggleNegateRequested = useCallback(() => {
+    if (!selection || selection.kind !== "single" || !canToggleNegate) return;
+    const nextExpr = toggleNegateSelection(compiledDoc, selection.nodeId);
+    if (!nextExpr) return;
+    updateSelection(null);
+    onCanonicalLatexChanged(exprToLatex(nextExpr, false));
+  }, [canToggleNegate, compiledDoc, onCanonicalLatexChanged, selection, updateSelection]);
 
   const resolveInsertionPreviewAtPoint = (pointer: { x: number; y: number }): InsertionPreview | null => {
     if (!selection) return null;
@@ -630,6 +641,8 @@ export function EquationEditor({
         onDistributeRequested={onDistributeRequested}
         canCleanup={canCleanup}
         onCleanupRequested={onCleanupRequested}
+        canToggleNegate={canToggleNegate}
+        onToggleNegateRequested={onToggleNegateRequested}
       />
       <div
         ref={editorRootRef}

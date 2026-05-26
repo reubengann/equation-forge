@@ -18,6 +18,8 @@ type EquationToolbarProps = {
   onDistributeRequested: () => void;
   canCleanup: boolean;
   onCleanupRequested: () => void;
+  canToggleNegate: boolean;
+  onToggleNegateRequested: () => void;
 };
 
 const iconButtonBaseStyle: CSSProperties = {
@@ -100,6 +102,8 @@ export function EquationToolbar({
   onDistributeRequested,
   canCleanup,
   onCleanupRequested,
+  canToggleNegate,
+  onToggleNegateRequested,
 }: EquationToolbarProps) {
   return (
     <div
@@ -334,6 +338,22 @@ export function EquationToolbar({
               filter: "invert(1)",
             }}
           />
+        </button>
+        <button
+          type="button"
+          data-testid="toggle-negate-selection"
+          aria-label="Toggle negation"
+          title="Toggle negation"
+          disabled={!canToggleNegate}
+          onClick={onToggleNegateRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            ...(!canToggleNegate ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <span style={materialSymbolStyle} aria-hidden="true">
+            exposure_neg_1
+          </span>
         </button>
       </div>
     </div>
