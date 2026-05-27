@@ -75,6 +75,10 @@ class LatexGenerator {
         if (expr.callee.kind !== "symbol") {
           throw new Error(`Unsupported callee kind: ${expr.callee.kind}`);
         }
+        // Function callees are represented in the compiled AST, but render as
+        // LaTeX macros (for example, `\sin`) rather than separate selectable text.
+        // Reserve the callee id so subsequent rendered ids stay aligned.
+        this.generate(expr.callee);
         switch (expr.delimiter) {
           case "paren":
             return this.wrap(
@@ -183,7 +187,7 @@ class LatexGenerator {
         );
       case "display_group": {
         const [open, close] = this.delimiterPair(expr.delimiter);
-        return this.wrap(`\\left${open}${this.generate(expr.expression)}\\right${close}`, id);
+        return `\\left${open}${this.wrap(this.generate(expr.expression), id)}\\right${close}`;
       }
       case "second_order_partial_derivative":
         return this.wrap(
@@ -208,8 +212,10 @@ class LatexGenerator {
     return terms
       .map((term, index) => {
         if (term.kind === "negate" && term.notation !== "prefix") {
+          const id = this.newId();
           const renderedValue = this.generate(term.value);
-          return index === 0 ? `-${renderedValue}` : `- ${renderedValue}`;
+          const wrappedValue = this.wrap(renderedValue, id);
+          return index === 0 ? `-${wrappedValue}` : `- ${wrappedValue}`;
         }
         const renderedTerm = this.generate(term);
         return index === 0 ? renderedTerm : `+ ${renderedTerm}`;

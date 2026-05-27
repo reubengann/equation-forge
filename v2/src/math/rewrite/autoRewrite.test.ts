@@ -126,6 +126,81 @@ describe("autoRewriteSelection cleanup", () => {
     expect(exprToLatex(next!, false)).toBe("a b");
   });
 
+  it("folds numeric sums", () => {
+    const document = buildDocument(String.raw`5+1`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("6");
+  });
+
+  it("folds numeric terms inside mixed sums", () => {
+    const document = buildDocument(String.raw`5+1+a`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("6 + a");
+  });
+
+  it("folds numeric subtraction", () => {
+    const document = buildDocument(String.raw`5-1`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("4");
+  });
+
+  it("enables cleanup for selected numeric subtraction on equation side", () => {
+    const document = buildDocument(String.raw`a+b=5-1`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n5" }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n5" }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("a + b = 4");
+  });
+
+  it("cleans nested numeric multiplication before folding selected subtraction", () => {
+    const document = buildDocument(String.raw`a+b=5-1\left(5\right)`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n5" }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n5" }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("a + b = 0");
+  });
+
+  it("folds numeric products", () => {
+    const document = buildDocument(String.raw`2 3 a`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("6 a");
+  });
+
+  it("folds numeric quotients", () => {
+    const document = buildDocument(String.raw`\frac{6}{3}`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("2");
+  });
+
+  it("folds numeric powers", () => {
+    const document = buildDocument(String.raw`a+b=5^3`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n5" }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n5" }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("a + b = 125");
+  });
+
+  it("folds numeric negation", () => {
+    const document = buildDocument(String.raw`-5`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("-5");
+  });
+
   it("cancels exact fraction factors", () => {
     const document = buildDocument(String.raw`\frac{b a}{a}`);
     const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");

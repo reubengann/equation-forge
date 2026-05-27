@@ -8,6 +8,12 @@ type EquationToolbarProps = {
   onUndoRequested?: () => void;
   canRedo: boolean;
   onRedoRequested?: () => void;
+  canCopyEquation: boolean;
+  onCopyEquationRequested: () => void;
+  copyEquationFeedback: "idle" | "done";
+  canCopySelection: boolean;
+  onCopySelectionRequested: () => void;
+  copySelectionFeedback: "idle" | "done";
   canFlip: boolean;
   onFlipRelationRequested: () => void;
   canSubstitute: boolean;
@@ -98,6 +104,12 @@ export function EquationToolbar({
   onUndoRequested,
   canRedo,
   onRedoRequested,
+  canCopyEquation,
+  onCopyEquationRequested,
+  copyEquationFeedback,
+  canCopySelection,
+  onCopySelectionRequested,
+  copySelectionFeedback,
   canFlip,
   onFlipRelationRequested,
   canSubstitute,
@@ -208,6 +220,40 @@ export function EquationToolbar({
               d="M14.3 6.3a1 1 0 0 0 0 1.4l2.3 2.3H9a5 5 0 1 0 0 10h2a1 1 0 1 0 0-2H9a3 3 0 1 1 0-6h7.6l-2.3 2.3a1 1 0 1 0 1.4 1.4l4-4a1 1 0 0 0 0-1.4l-4-4a1 1 0 0 0-1.4 0z"
             />
           </svg>
+        </button>
+        <button
+          type="button"
+          data-testid="copy-equation-latex"
+          aria-label={copyEquationFeedback === "done" ? "Equation copied" : "Copy equation"}
+          title="Copy equation LaTeX (no shortcut)"
+          disabled={!canCopyEquation}
+          onClick={onCopyEquationRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            borderRightWidth: 0,
+            ...(!canCopyEquation ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <span style={materialSymbolStyle} aria-hidden="true">
+            {copyEquationFeedback === "done" ? "check" : "content_copy"}
+          </span>
+        </button>
+        <button
+          type="button"
+          data-testid="copy-selection-latex"
+          aria-label={copySelectionFeedback === "done" ? "Selection copied" : "Copy selection"}
+          title="Copy selection LaTeX (no shortcut)"
+          disabled={!canCopySelection}
+          onClick={onCopySelectionRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            borderRightWidth: 0,
+            ...(!canCopySelection ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <span style={materialSymbolStyle} aria-hidden="true">
+            {copySelectionFeedback === "done" ? "check" : "content_copy"}
+          </span>
         </button>
         <button
           type="button"

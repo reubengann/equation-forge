@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseLatexToExpr } from "./parseLatexToExpr";
 import { exprToLatex } from "./exprToLatex";
+import { compileMathDocumentFromExpr } from "../../compile/compileMathDocument";
 
 describe("exprToLatex", () => {
   it("wraps number in tags", () => {
@@ -137,21 +138,39 @@ describe("exprToLatex", () => {
     for (const [input, expected] of [
       [
         String.raw`\sin(x)`,
-        String.raw`\htmlData{node-id="n1"}{\sin\left(\htmlData{node-id="n2"}{x}\right)}`,
+        String.raw`\htmlData{node-id="n1"}{\sin\left(\htmlData{node-id="n3"}{x}\right)}`,
       ],
       [
         String.raw`\cos x`,
-        String.raw`\htmlData{node-id="n1"}{\cos \htmlData{node-id="n2"}{x}} `,
+        String.raw`\htmlData{node-id="n1"}{\cos \htmlData{node-id="n3"}{x}} `,
       ],
       [
         String.raw`\tan[x]`,
-        String.raw`\htmlData{node-id="n1"}{\tan\left[\htmlData{node-id="n2"}{x}\right]}`,
+        String.raw`\htmlData{node-id="n1"}{\tan\left[\htmlData{node-id="n3"}{x}\right]}`,
       ],
     ]) {
       const expr = parseLatexToExpr(input);
       const latex = exprToLatex(expr, true);
       expect(latex).toBe(expected);
     }
+  });
+
+  it("keeps tagged call ids aligned with compiled index ids", () => {
+    const expr = parseLatexToExpr(String.raw`5-2\left(5+3\right)=\sin\pi`);
+    const latex = exprToLatex(expr, true);
+    const doc = compileMathDocumentFromExpr(String.raw`5-2\left(5+3\right)=\sin\pi`, expr);
+    const callNodeId = Object.entries(doc.index.nodeById).find(
+      ([, node]) => node.kind === "call",
+    )?.[0];
+    const piNodeId = Object.entries(doc.index.nodeById).find(
+      ([, node]) => node.kind === "symbol" && node.name === String.raw`\pi`,
+    )?.[0];
+
+    expect(callNodeId).toBeTruthy();
+    expect(piNodeId).toBeTruthy();
+    expect(latex).toContain(
+      String.raw`\htmlData{node-id="${callNodeId}"}{\sin \htmlData{node-id="${piNodeId}"}{\pi}}`,
+    );
   });
 
   it("converts text", () => {

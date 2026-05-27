@@ -73,6 +73,32 @@ function normalizeApplyOperationLatex(latex: string): string {
     .replace(/\\mathrm\{part\}/g, String.raw`\part`);
 }
 
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  try {
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Fall back below for browsers that block async clipboard access.
+  }
+
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "true");
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
+    document.body.append(textarea);
+    textarea.select();
+    const copied = document.execCommand("copy");
+    textarea.remove();
+    return copied;
+  } catch {
+    return false;
+  }
+}
+
 function isSelectionValidInDocument(document: CompiledMathDocument, selection: TermSelection): boolean {
   const { nodeById } = document.index;
   if (selection.kind === "single") {
@@ -117,6 +143,8 @@ export function EquationEditor({
   const [substituteError, setSubstituteError] = useState<string | null>(null);
   const [applyOperationLatex, setApplyOperationLatex] = useState("");
   const [applyOperationError, setApplyOperationError] = useState<string | null>(null);
+  const [copyEquationFeedback, setCopyEquationFeedback] = useState<"idle" | "done">("idle");
+  const [copySelectionFeedback, setCopySelectionFeedback] = useState<"idle" | "done">("idle");
   const [insertionLineStyle, setInsertionLineStyle] = useState<InsertionLineStyle | null>(null);
   const lastSelectionKeyRef = useRef<string>("null");
   const selectionStateRef = useRef(createSelectionControllerState());
@@ -125,6 +153,8 @@ export function EquationEditor({
   const lastSnapshotKeyRef = useRef<string | null>(null);
   const currentDomSnapshotIdRef = useRef<string | null>(null);
   const dragStartPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const copyEquationFeedbackTimeoutRef = useRef<number | null>(null);
+  const copySelectionFeedbackTimeoutRef = useRef<number | null>(null);
   const substituteModalSessionRef = useRef(0);
   const applyOperationModalSessionRef = useRef(0);
   const compiledDoc = useMemo(() => compileMathDocument(latex), [latex]);
@@ -136,6 +166,9 @@ export function EquationEditor({
     () => getSubstitutionSelection(compiledDoc, selection),
     [compiledDoc, selection],
   );
+  const selectionLatexForCopy = substitutionSelection?.latex ?? "";
+  const canCopyEquation = compiledDoc.plainLatex.trim().length > 0;
+  const canCopySelection = selectionLatexForCopy.trim().length > 0;
   const canSubstitute = substitutionSelection !== null;
   const canFactor = canAutoRewrite(compiledDoc, selection, "factor");
   const canDistribute = canAutoRewrite(compiledDoc, selection, "distribute");
@@ -240,6 +273,17 @@ export function EquationEditor({
   }, [compiledDoc, selection, updateSelection]);
 
   useEffect(() => {
+    return () => {
+      if (copyEquationFeedbackTimeoutRef.current !== null) {
+        window.clearTimeout(copyEquationFeedbackTimeoutRef.current);
+      }
+      if (copySelectionFeedbackTimeoutRef.current !== null) {
+        window.clearTimeout(copySelectionFeedbackTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!insertionPreview) {
       setInsertionLineStyle(null);
       return;
@@ -304,6 +348,38 @@ export function EquationEditor({
     if (moveType === nextMoveType) return;
     setMoveType(nextMoveType);
   };
+
+  const markCopyEquationSuccess = () => {
+    setCopyEquationFeedback("done");
+    if (copyEquationFeedbackTimeoutRef.current !== null) {
+      window.clearTimeout(copyEquationFeedbackTimeoutRef.current);
+    }
+    copyEquationFeedbackTimeoutRef.current = window.setTimeout(() => {
+      setCopyEquationFeedback("idle");
+    }, 900);
+  };
+
+  const markCopySelectionSuccess = () => {
+    setCopySelectionFeedback("done");
+    if (copySelectionFeedbackTimeoutRef.current !== null) {
+      window.clearTimeout(copySelectionFeedbackTimeoutRef.current);
+    }
+    copySelectionFeedbackTimeoutRef.current = window.setTimeout(() => {
+      setCopySelectionFeedback("idle");
+    }, 900);
+  };
+
+  const onCopyEquationRequested = useCallback(async () => {
+    if (!canCopyEquation) return;
+    const copied = await copyTextToClipboard(compiledDoc.plainLatex);
+    if (copied) markCopyEquationSuccess();
+  }, [canCopyEquation, compiledDoc.plainLatex]);
+
+  const onCopySelectionRequested = useCallback(async () => {
+    if (!canCopySelection) return;
+    const copied = await copyTextToClipboard(selectionLatexForCopy);
+    if (copied) markCopySelectionSuccess();
+  }, [canCopySelection, selectionLatexForCopy]);
 
   const openSubstituteModal = useCallback(() => {
     if (!substitutionSelection) return;
@@ -741,6 +817,12 @@ export function EquationEditor({
         onUndoRequested={onUndoRequested}
         canRedo={canRedo}
         onRedoRequested={onRedoRequested}
+        canCopyEquation={canCopyEquation}
+        onCopyEquationRequested={onCopyEquationRequested}
+        copyEquationFeedback={copyEquationFeedback}
+        canCopySelection={canCopySelection}
+        onCopySelectionRequested={onCopySelectionRequested}
+        copySelectionFeedback={copySelectionFeedback}
         canFlip={canFlip}
         onFlipRelationRequested={onFlipRelationRequested}
         canSubstitute={canSubstitute}
