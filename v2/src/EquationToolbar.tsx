@@ -22,6 +22,8 @@ type EquationToolbarProps = {
   onToggleNegateRequested: () => void;
   canToggleDelimiter: boolean;
   onToggleDelimiterRequested: () => void;
+  canCycleDelimiter: boolean;
+  onCycleDelimiterRequested: () => void;
 };
 
 const iconButtonBaseStyle: CSSProperties = {
@@ -108,6 +110,8 @@ export function EquationToolbar({
   onToggleNegateRequested,
   canToggleDelimiter,
   onToggleDelimiterRequested,
+  canCycleDelimiter,
+  onCycleDelimiterRequested,
 }: EquationToolbarProps) {
   return (
     <div
@@ -373,6 +377,22 @@ export function EquationToolbar({
         >
           <span style={materialSymbolStyle} aria-hidden="true">
             data_object
+          </span>
+        </button>
+        <button
+          type="button"
+          data-testid="cycle-delimiter-selection"
+          aria-label="Cycle delimiter"
+          title="Cycle delimiter"
+          disabled={!canCycleDelimiter}
+          onClick={onCycleDelimiterRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            ...(!canCycleDelimiter ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <span style={materialSymbolStyle} aria-hidden="true">
+            data_array
           </span>
         </button>
       </div>

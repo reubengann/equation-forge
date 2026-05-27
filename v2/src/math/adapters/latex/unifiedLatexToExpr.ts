@@ -230,6 +230,15 @@ function delimiterFromOpen(open: string): DelimiterKind {
   return "other";
 }
 
+function delimiterStringFromNode(node: UnifiedNode | undefined): string {
+  if (!node) return "";
+  const content = node.content;
+  if (node.type === "string" && typeof content === "string") return content;
+  if (node.type === "macro" && content === "{") return "{";
+  if (node.type === "macro" && content === "}") return "}";
+  return "";
+}
+
 function parseNumberString(value: string): number | string {
   if (/^\d+(?:\.\d+)?$/.test(value)) return Number(value);
   return value;
@@ -461,7 +470,7 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
 
     if (macro === "left") {
       const next = nodes[i + 1];
-      const open = next?.type === "string" ? next.content ?? "" : "";
+      const open = delimiterStringFromNode(next);
       if (open === "(" || open === "[" || open === "{") {
         const close = open === "(" ? ")" : open === "[" ? "]" : "}";
         tokens.push({
@@ -477,8 +486,9 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
 
     if (macro === "right") {
       const next = nodes[i + 1];
-      if (next?.type === "string" && typeof next.content === "string") {
-        tokens.push({ kind: "close_group", value: next.content });
+      const close = delimiterStringFromNode(next);
+      if (close) {
+        tokens.push({ kind: "close_group", value: close });
         i += 1;
       }
       continue;

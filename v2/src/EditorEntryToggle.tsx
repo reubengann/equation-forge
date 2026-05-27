@@ -52,7 +52,6 @@ export function EditorEntryToggle({
   const lastAcceptedLatexRef = useRef<string | null>(null);
   const canonicalLatexRef = useRef(latex);
   const entryLatexRef = useRef(latex);
-  const skipNextCanonicalHistoryRef = useRef(false);
   const slotRef = useRef<HTMLDivElement | null>(null);
 
   const updateMathFieldValue = (nextValue: string) => {
@@ -100,7 +99,6 @@ export function EditorEntryToggle({
       entryLatexRef.current = nextLatex;
       canonicalLatexRef.current = nextLatex;
       setEquationHistory(createEquationHistory(nextLatex));
-      skipNextCanonicalHistoryRef.current = true;
       setLatex(nextLatex);
       onLatexAccepted({
         previousLatex,
@@ -113,16 +111,12 @@ export function EditorEntryToggle({
 
   const handleCanonicalLatexChanged = (nextLatex: string) => {
     const previousLatex = canonicalLatexRef.current;
-    const shouldSkipHistory = skipNextCanonicalHistoryRef.current;
-    skipNextCanonicalHistoryRef.current = false;
-    if (previousLatex !== nextLatex && !shouldSkipHistory) {
+    if (previousLatex !== nextLatex) {
       setEquationHistory((currentHistory) => ({
         past: [...currentHistory.past, currentHistory.present],
         present: { latex: nextLatex },
         future: [],
       }));
-    } else if (previousLatex !== nextLatex) {
-      setEquationHistory(createEquationHistory(nextLatex));
     }
     canonicalLatexRef.current = nextLatex;
     setLatex(nextLatex);

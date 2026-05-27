@@ -17,6 +17,7 @@ import { compileMathDocument, type CompiledMathDocument } from "./math/compile/c
 import { exprToLatex, parseLatexToExpr } from "./math/adapters/latex";
 import { canRun as canFlipRelation, run as flipRelation } from "./math/rewrite/flipRelation";
 import { autoRewriteSelection, canAutoRewrite } from "./math/rewrite/autoRewrite";
+import { canCycleDelimiterSelection, cycleDelimiterSelection } from "./math/rewrite/cycleDelimiter";
 import { canExecuteMove, executeMove } from "./math/rewrite/rewriteEngine";
 import { canToggleDelimiterSelection, toggleDelimiterSelection } from "./math/rewrite/toggleDelimiter";
 import { canToggleNegateSelection, toggleNegateSelection } from "./math/rewrite/toggleNegate";
@@ -116,6 +117,7 @@ export function EquationEditor({
   const canToggleNegate =
     selection?.kind === "single" ? canToggleNegateSelection(compiledDoc, selection.nodeId) : false;
   const canToggleDelimiter = canToggleDelimiterSelection(compiledDoc, selection);
+  const canCycleDelimiter = canCycleDelimiterSelection(compiledDoc, selection);
 
   const updateSelection = useCallback(
     (nextSelection: TermSelection | null) => {
@@ -324,6 +326,14 @@ export function EquationEditor({
     updateSelection(null);
     onCanonicalLatexChanged(exprToLatex(nextExpr, false));
   }, [canToggleDelimiter, compiledDoc, onCanonicalLatexChanged, selection, updateSelection]);
+
+  const onCycleDelimiterRequested = useCallback(() => {
+    if (!selection || !canCycleDelimiter) return;
+    const nextExpr = cycleDelimiterSelection(compiledDoc, selection);
+    if (!nextExpr) return;
+    updateSelection(null);
+    onCanonicalLatexChanged(exprToLatex(nextExpr, false));
+  }, [canCycleDelimiter, compiledDoc, onCanonicalLatexChanged, selection, updateSelection]);
 
   const resolveInsertionPreviewAtPoint = (pointer: { x: number; y: number }): InsertionPreview | null => {
     if (!selection) return null;
@@ -655,6 +665,8 @@ export function EquationEditor({
         onToggleNegateRequested={onToggleNegateRequested}
         canToggleDelimiter={canToggleDelimiter}
         onToggleDelimiterRequested={onToggleDelimiterRequested}
+        canCycleDelimiter={canCycleDelimiter}
+        onCycleDelimiterRequested={onCycleDelimiterRequested}
       />
       <div
         ref={editorRootRef}

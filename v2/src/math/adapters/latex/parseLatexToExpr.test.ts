@@ -89,6 +89,16 @@ describe("parseLatexToExpr", () => {
     expect(bracketExpr.factors[1].delimiter).toBe("bracket");
   });
 
+  it("parses escaped brace grouping as a delimiter", () => {
+    const expr = parseLatexToExpr(String.raw`g\left\{c\right\}`);
+
+    expectExprKind(expr, "multiply");
+    expectExprKind(expr.factors[1], "display_group");
+    expect(expr.factors[1].delimiter).toBe("brace");
+    expectExprKind(expr.factors[1].expression, "symbol");
+    expect(expr.factors[1].expression.name).toBe("c");
+  });
+
   it("parses inferred differentials", () => {
     const expr = parseLatexToExpr(String.raw`dx`);
     expectExprKind(expr, "differential");
