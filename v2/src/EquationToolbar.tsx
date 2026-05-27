@@ -131,7 +131,7 @@ export function EquationToolbar({
           type="button"
           data-testid="move-mode-additive"
           aria-label="Additive move mode"
-          title="Additive move mode"
+          title="Additive move mode (A)"
           aria-pressed={moveType === "additive"}
           onClick={() => onMoveTypeChanged("additive")}
           style={{
@@ -151,7 +151,7 @@ export function EquationToolbar({
           type="button"
           data-testid="move-mode-multiplicative"
           aria-label="Multiplicative move mode"
-          title="Multiplicative move mode"
+          title="Multiplicative move mode (A)"
           aria-pressed={moveType === "multiplicative"}
           onClick={() => onMoveTypeChanged("multiplicative")}
           style={{
@@ -173,7 +173,7 @@ export function EquationToolbar({
           type="button"
           data-testid="undo-equation-rewrite"
           aria-label="Undo"
-          title="Undo"
+          title="Undo (Ctrl+Z)"
           disabled={!canUndo}
           onClick={onUndoRequested}
           style={{
@@ -193,7 +193,7 @@ export function EquationToolbar({
           type="button"
           data-testid="redo-equation-rewrite"
           aria-label="Redo"
-          title="Redo"
+          title="Redo (Ctrl+Y or Ctrl+Shift+Z)"
           disabled={!canRedo}
           onClick={onRedoRequested}
           style={{
@@ -253,7 +253,7 @@ export function EquationToolbar({
           type="button"
           data-testid="substitute-selection"
           aria-label="Substitute"
-          title="Substitute"
+          title="Substitute (S)"
           disabled={!canSubstitute}
           onClick={onSubstituteRequested}
           style={{
@@ -315,7 +315,7 @@ export function EquationToolbar({
           type="button"
           data-testid="factor-selection"
           aria-label="Factor selection"
-          title="Factor selection"
+          title="Factor selection (F)"
           disabled={!canFactor}
           onClick={onFactorRequested}
           style={{
@@ -331,7 +331,7 @@ export function EquationToolbar({
           type="button"
           data-testid="distribute-selection"
           aria-label="Distribute selection"
-          title="Distribute selection"
+          title="Distribute selection (D)"
           disabled={!canDistribute}
           onClick={onDistributeRequested}
           style={{
