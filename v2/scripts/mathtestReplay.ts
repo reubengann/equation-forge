@@ -1,12 +1,14 @@
+/// <reference types="node" />
+
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import {
-  SelectionGeometry,
   buildNodeResolutionSource,
   createSelectionControllerState,
   DRAG_COMMIT_THRESHOLD_PX,
   DRAG_PREVIEW_HIT_TEST_PADDING_PX,
   type NodeResolutionSource,
+  type SelectionGeometry,
   resolveSelectableNodeAtPoint,
   resolveSelectionFromEvent,
   selectionNodeIds,

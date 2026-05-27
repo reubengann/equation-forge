@@ -17,8 +17,8 @@ export function cycleDelimiterSelection(
   const target = resolveCycleDelimiterTarget(document, selection);
   if (!target) return null;
 
-  const nextExpr = cloneExpr(target.expr);
-  nextExpr.delimiter = nextDelimiterKind(target.expr.delimiter);
+  const nextExpr = cloneExpr(target.expr) as typeof target.expr;
+  nextExpr.delimiter = nextDelimiterKind(target.delimiter);
   return replaceCompiledNode(document, target.nodeId, nextExpr);
 }
 
@@ -26,16 +26,16 @@ function resolveCycleDelimiterTarget(
   document: CompiledMathDocument,
   selection: TermSelection | null,
 ):
-  | { nodeId: string; expr: Extract<Expr, { kind: "display_group" }> }
-  | { nodeId: string; expr: Extract<Expr, { kind: "call" }> }
+  | { nodeId: string; expr: Extract<Expr, { kind: "display_group" }>; delimiter: "paren" | "bracket" }
+  | { nodeId: string; expr: Extract<Expr, { kind: "call" }>; delimiter: "paren" | "bracket" }
   | null {
   if (!selection || selection.kind !== "single") return null;
   const expr = document.index.nodeById[selection.nodeId];
   if (expr?.kind === "display_group" && isCyclableDelimiter(expr.delimiter)) {
-    return { nodeId: selection.nodeId, expr };
+    return { nodeId: selection.nodeId, expr, delimiter: expr.delimiter };
   }
   if (expr?.kind === "call" && isCyclableDelimiter(expr.delimiter)) {
-    return { nodeId: selection.nodeId, expr };
+    return { nodeId: selection.nodeId, expr, delimiter: expr.delimiter };
   }
   return null;
 }

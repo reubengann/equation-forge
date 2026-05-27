@@ -7,19 +7,17 @@ export function canRun(expr: Expr): boolean {
 
 export function run(expr: Expr): Expr {
   if (expr.kind === "equation") {
-    return {
-      ...cloneExpr(expr),
-      sides: expr.sides.map(cloneExpr).reverse(),
-    };
+    const nextExpr = cloneExpr(expr) as typeof expr;
+    nextExpr.sides = expr.sides.map(cloneExpr).reverse();
+    return nextExpr;
   }
 
   if (expr.kind === "inequality") {
-    return {
-      ...cloneExpr(expr),
-      operator: flipInequalityOperator(expr.operator),
-      lhs: cloneExpr(expr.rhs),
-      rhs: cloneExpr(expr.lhs),
-    };
+    const nextExpr = cloneExpr(expr) as typeof expr;
+    nextExpr.operator = flipInequalityOperator(expr.operator);
+    nextExpr.lhs = cloneExpr(expr.rhs);
+    nextExpr.rhs = cloneExpr(expr.lhs);
+    return nextExpr;
   }
 
   return cloneExpr(expr);

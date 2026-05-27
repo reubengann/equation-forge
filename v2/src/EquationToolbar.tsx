@@ -12,6 +12,8 @@ type EquationToolbarProps = {
   onFlipRelationRequested: () => void;
   canSubstitute: boolean;
   onSubstituteRequested: () => void;
+  canApplyOperation: boolean;
+  onApplyOperationRequested: () => void;
   canFactor: boolean;
   onFactorRequested: () => void;
   canDistribute: boolean;
@@ -100,6 +102,8 @@ export function EquationToolbar({
   onFlipRelationRequested,
   canSubstitute,
   onSubstituteRequested,
+  canApplyOperation,
+  onApplyOperationRequested,
   canFactor,
   onFactorRequested,
   canDistribute,
@@ -287,6 +291,22 @@ export function EquationToolbar({
               strokeWidth="1.6"
             />
           </svg>
+        </button>
+        <button
+          type="button"
+          data-testid="apply-operation"
+          aria-label="Apply operation to relation"
+          title="Apply operation to relation"
+          disabled={!canApplyOperation}
+          onClick={onApplyOperationRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            ...(!canApplyOperation ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <span style={materialSymbolStyle} aria-hidden="true">
+            functions
+          </span>
         </button>
       </div>
 

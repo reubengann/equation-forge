@@ -18,6 +18,11 @@ import { exprToLatex, parseLatexToExpr } from "./math/adapters/latex";
 import { canRun as canFlipRelation, run as flipRelation } from "./math/rewrite/flipRelation";
 import { autoRewriteSelection, canAutoRewrite } from "./math/rewrite/autoRewrite";
 import { canCycleDelimiterSelection, cycleDelimiterSelection } from "./math/rewrite/cycleDelimiter";
+import {
+  applyOperationToRelation,
+  canApplyOperationToRelation,
+  validateOperationTemplate,
+} from "./math/rewrite/applyOperation";
 import { canExecuteMove, executeMove } from "./math/rewrite/rewriteEngine";
 import { canToggleDelimiterSelection, toggleDelimiterSelection } from "./math/rewrite/toggleDelimiter";
 import { canToggleNegateSelection, toggleNegateSelection } from "./math/rewrite/toggleNegate";
@@ -30,6 +35,7 @@ import type { InsertionPreview, MoveType, NodeHorizontalBounds } from "./math/re
 import type { EquationEditorRecordingHooks } from "./TestRecorder";
 import { EquationToolbar } from "./EquationToolbar";
 import { SubstituteModal } from "./SubstituteModal";
+import { ApplyOperationModal } from "./ApplyOperationModal";
 
 type InsertionLineStyle = {
   left: number;
@@ -53,6 +59,12 @@ function selectionKey(selection: TermSelection): string {
 
 function distanceBetweenPoints(a: { x: number; y: number }, b: { x: number; y: number }): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function normalizeApplyOperationLatex(latex: string): string {
+  return latex
+    .replace(/\\mathord\{\\mathrm\{eqn\}\}/g, String.raw`\eqn`)
+    .replace(/\\mathrm\{eqn\}/g, String.raw`\eqn`);
 }
 
 function isSelectionValidInDocument(document: CompiledMathDocument, selection: TermSelection): boolean {
@@ -93,8 +105,11 @@ export function EquationEditor({
   const [insertionPreview, setInsertionPreview] = useState<InsertionPreview | null>(null);
   const insertionPreviewRef = useRef<InsertionPreview | null>(null);
   const [isSubstituteModalOpen, setIsSubstituteModalOpen] = useState(false);
+  const [isApplyOperationModalOpen, setIsApplyOperationModalOpen] = useState(false);
   const [substituteLatex, setSubstituteLatex] = useState("");
   const [substituteError, setSubstituteError] = useState<string | null>(null);
+  const [applyOperationLatex, setApplyOperationLatex] = useState("");
+  const [applyOperationError, setApplyOperationError] = useState<string | null>(null);
   const [insertionLineStyle, setInsertionLineStyle] = useState<InsertionLineStyle | null>(null);
   const lastSelectionKeyRef = useRef<string>("null");
   const selectionStateRef = useRef(createSelectionControllerState());
@@ -104,8 +119,10 @@ export function EquationEditor({
   const currentDomSnapshotIdRef = useRef<string | null>(null);
   const dragStartPointerRef = useRef<{ x: number; y: number } | null>(null);
   const substituteModalSessionRef = useRef(0);
+  const applyOperationModalSessionRef = useRef(0);
   const compiledDoc = useMemo(() => compileMathDocument(latex), [latex]);
   const canFlip = canFlipRelation(compiledDoc.expr);
+  const canApplyOperation = canApplyOperationToRelation(compiledDoc.expr);
   const substitutionSelection = useMemo(
     () => getSubstitutionSelection(compiledDoc, selection),
     [compiledDoc, selection],
@@ -335,6 +352,14 @@ export function EquationEditor({
     onCanonicalLatexChanged(exprToLatex(nextExpr, false));
   }, [canCycleDelimiter, compiledDoc, onCanonicalLatexChanged, selection, updateSelection]);
 
+  const openApplyOperationModal = useCallback(() => {
+    if (!canApplyOperation) return;
+    setApplyOperationLatex("");
+    setApplyOperationError(null);
+    applyOperationModalSessionRef.current += 1;
+    setIsApplyOperationModalOpen(true);
+  }, [canApplyOperation]);
+
   const resolveInsertionPreviewAtPoint = (pointer: { x: number; y: number }): InsertionPreview | null => {
     if (!selection) return null;
 
@@ -390,7 +415,7 @@ export function EquationEditor({
         return;
       }
 
-      if (isSubstituteModalOpen) return;
+      if (isSubstituteModalOpen || isApplyOperationModalOpen) return;
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       if (key === "s") {
         if (!canSubstitute) return;
@@ -428,6 +453,7 @@ export function EquationEditor({
     canRedo,
     canSubstitute,
     canUndo,
+    isApplyOperationModalOpen,
     isSubstituteModalOpen,
     onDistributeRequested,
     onFactorRequested,
@@ -591,6 +617,11 @@ export function EquationEditor({
     setSubstituteError(null);
   };
 
+  const closeApplyOperationModal = () => {
+    setIsApplyOperationModalOpen(false);
+    setApplyOperationError(null);
+  };
+
   const acceptSubstitution = (latestLatex?: string) => {
     if (!selection) {
       setSubstituteError("Select an expression to substitute.");
@@ -635,6 +666,46 @@ export function EquationEditor({
     onCanonicalLatexChanged(nextEquationLatex);
   };
 
+  const acceptApplyOperation = (latestLatex?: string) => {
+    const nextLatex = normalizeApplyOperationLatex(
+      typeof latestLatex === "string" ? latestLatex : applyOperationLatex,
+    );
+    if (!nextLatex.trim()) {
+      setApplyOperationError("Enter an operation template.");
+      return;
+    }
+
+    let template;
+    try {
+      template = parseLatexToExpr(nextLatex, { onError: "throw" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to parse operation template.";
+      setApplyOperationError(
+        message.includes("still contains placeholders")
+          ? "Fill or remove every placeholder before applying the operation."
+          : message,
+      );
+      return;
+    }
+
+    const validationError = validateOperationTemplate(template);
+    if (validationError) {
+      setApplyOperationError(validationError);
+      return;
+    }
+
+    const nextExpr = applyOperationToRelation(compiledDoc.expr, template);
+    if (!nextExpr) {
+      setApplyOperationError("Apply operation failed for this relation.");
+      return;
+    }
+
+    setApplyOperationError(null);
+    setIsApplyOperationModalOpen(false);
+    updateSelection(null);
+    onCanonicalLatexChanged(exprToLatex(nextExpr, false));
+  };
+
   return (
     <div
       style={{
@@ -655,6 +726,8 @@ export function EquationEditor({
         onFlipRelationRequested={onFlipRelationRequested}
         canSubstitute={canSubstitute}
         onSubstituteRequested={openSubstituteModal}
+        canApplyOperation={canApplyOperation}
+        onApplyOperationRequested={openApplyOperationModal}
         canFactor={canFactor}
         onFactorRequested={onFactorRequested}
         canDistribute={canDistribute}
@@ -730,6 +803,19 @@ export function EquationEditor({
           }}
           onAccept={acceptSubstitution}
           onCancel={closeSubstituteModal}
+        />
+      )}
+      {isApplyOperationModalOpen && (
+        <ApplyOperationModal
+          operationLatex={applyOperationLatex}
+          error={applyOperationError}
+          focusSession={applyOperationModalSessionRef.current}
+          onOperationLatexChange={(nextLatex) => {
+            setApplyOperationLatex(nextLatex);
+            setApplyOperationError(null);
+          }}
+          onAccept={acceptApplyOperation}
+          onCancel={closeApplyOperationModal}
         />
       )}
     </div>

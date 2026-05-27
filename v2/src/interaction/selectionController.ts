@@ -209,7 +209,7 @@ function walkUpToDirectlySelectableNode(nodeId: string | null, index: ExprIndex)
   if (!nodeId) return null;
   let cursor: string | null = nodeId;
   while (cursor) {
-    const parentId = index.parentById[cursor];
+    const parentId: string | null = index.parentById[cursor] ?? null;
     const parentExpr = parentId ? index.nodeById[parentId] : undefined;
     if (parentId && shouldEscalateFromChildToParent(parentExpr)) {
       cursor = parentId;
@@ -310,7 +310,7 @@ type SelectionControllerInputs = {
 function handleMultiSelectionWithExistingSelection(
   event: PointerDownControllerEvent,
   nodeResolutionSource: NodeResolutionSource,
-  index: ExprIndex | null,
+  index: ExprIndex,
   currentSelection: TermSelection | null,
   state: SelectionControllerState,
 ): SelectionControllerState {
@@ -430,6 +430,10 @@ export function resolveSelectionFromEvent({
   index,
   state,
 }: SelectionControllerInputs): SelectionControllerState {
+  if (!index) {
+    return { ...state, pendingPointerDown: null };
+  }
+
   const currentSelectedNodes = selectionSet(currentSelection);
 
   if (event.type === "pointer_down") {
@@ -541,7 +545,7 @@ function singlySelect(
   event: PointerControllerEvent,
   nodeResolutionSource: NodeResolutionSource,
   index: ExprIndex,
-  currentSelection: TermSelection,
+  currentSelection: TermSelection | null,
   state: SelectionControllerState,
 ) {
   const resolvedAtPoint = resolveSelectableNodeAtPoint(event.pointer, nodeResolutionSource, index);

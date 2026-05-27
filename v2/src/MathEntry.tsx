@@ -4,6 +4,7 @@ import { MATH_ENTRY_MACROS, type MathEntryMacro } from "./mathEntry/mathEntryMac
 
 type MathfieldElementLike = HTMLElement & {
   value?: string;
+  macros?: Record<string, string>;
   getValue?: (format: "latex") => string;
   insert?: (
     latex: string,
@@ -23,6 +24,7 @@ type MathEntryProps = {
   onLatexChange: (nextLatex: string) => void;
   onAccept: (latestLatex?: string) => void;
   macros?: MathEntryMacro[];
+  mathfieldMacros?: Record<string, string>;
   autoFocus?: boolean;
   focusSession?: number;
   mathFieldId?: string;
@@ -38,11 +40,18 @@ export function MathEntry({
   onLatexChange,
   onAccept,
   macros = MATH_ENTRY_MACROS,
+  mathfieldMacros,
   autoFocus = false,
   focusSession,
   mathFieldId = "equation-mathfield",
 }: MathEntryProps) {
   const mathFieldRef = useRef<MathfieldElementLike | null>(null);
+
+  useEffect(() => {
+    const field = mathFieldRef.current;
+    if (!field || !mathfieldMacros) return;
+    field.macros = { ...(field.macros ?? {}), ...mathfieldMacros };
+  }, [mathfieldMacros]);
 
   useEffect(() => {
     if (!autoFocus || focusSession == null) return;
@@ -176,6 +185,10 @@ export function MathEntry({
         <math-field
           ref={(field) => {
             mathFieldRef.current = field as MathfieldElementLike | null;
+            if (field && mathfieldMacros) {
+              const mathField = field as MathfieldElementLike;
+              mathField.macros = { ...(mathField.macros ?? {}), ...mathfieldMacros };
+            }
             if (autoFocus && field && focusSession != null) {
               requestAnimationFrame(() => focusMathField(field as MathfieldElementLike));
             }

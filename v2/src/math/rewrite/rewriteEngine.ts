@@ -81,7 +81,7 @@ export function findPath(document: CompiledMathDocument, nodeId1: string, nodeId
 
 export class RulesPipeline {
   document: CompiledMathDocument;
-  execute: boolean;
+  execute = false;
   rules: SingleContainerRule[];
   selection: TermSelection;
   destinationId: string;
