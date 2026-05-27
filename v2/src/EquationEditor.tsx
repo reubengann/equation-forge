@@ -18,6 +18,7 @@ import { exprToLatex, parseLatexToExpr } from "./math/adapters/latex";
 import { canRun as canFlipRelation, run as flipRelation } from "./math/rewrite/flipRelation";
 import { autoRewriteSelection, canAutoRewrite } from "./math/rewrite/autoRewrite";
 import { canExecuteMove, executeMove } from "./math/rewrite/rewriteEngine";
+import { canToggleDelimiterSelection, toggleDelimiterSelection } from "./math/rewrite/toggleDelimiter";
 import { canToggleNegateSelection, toggleNegateSelection } from "./math/rewrite/toggleNegate";
 import {
   getSubstitutionSelection,
@@ -114,6 +115,7 @@ export function EquationEditor({
   const canCleanup = canAutoRewrite(compiledDoc, selection, "cleanup");
   const canToggleNegate =
     selection?.kind === "single" ? canToggleNegateSelection(compiledDoc, selection.nodeId) : false;
+  const canToggleDelimiter = canToggleDelimiterSelection(compiledDoc, selection);
 
   const updateSelection = useCallback(
     (nextSelection: TermSelection | null) => {
@@ -314,6 +316,14 @@ export function EquationEditor({
     updateSelection(null);
     onCanonicalLatexChanged(exprToLatex(nextExpr, false));
   }, [canToggleNegate, compiledDoc, onCanonicalLatexChanged, selection, updateSelection]);
+
+  const onToggleDelimiterRequested = useCallback(() => {
+    if (!selection || !canToggleDelimiter) return;
+    const nextExpr = toggleDelimiterSelection(compiledDoc, selection);
+    if (!nextExpr) return;
+    updateSelection(null);
+    onCanonicalLatexChanged(exprToLatex(nextExpr, false));
+  }, [canToggleDelimiter, compiledDoc, onCanonicalLatexChanged, selection, updateSelection]);
 
   const resolveInsertionPreviewAtPoint = (pointer: { x: number; y: number }): InsertionPreview | null => {
     if (!selection) return null;
@@ -643,6 +653,8 @@ export function EquationEditor({
         onCleanupRequested={onCleanupRequested}
         canToggleNegate={canToggleNegate}
         onToggleNegateRequested={onToggleNegateRequested}
+        canToggleDelimiter={canToggleDelimiter}
+        onToggleDelimiterRequested={onToggleDelimiterRequested}
       />
       <div
         ref={editorRootRef}

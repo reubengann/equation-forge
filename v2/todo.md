@@ -1,3 +1,4 @@
+- (a+b)(c) How should force negation work on (c)? Right now we disallow it.
 - Force negation on a square term (b - a)^2 should just be (-b + a)^2, not -(-b + a)^2
 - Rubber-band selection
 - Provide a way to force a thinspace in mathlive? Do we want that?

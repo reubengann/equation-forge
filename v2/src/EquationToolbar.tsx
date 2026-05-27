@@ -20,6 +20,8 @@ type EquationToolbarProps = {
   onCleanupRequested: () => void;
   canToggleNegate: boolean;
   onToggleNegateRequested: () => void;
+  canToggleDelimiter: boolean;
+  onToggleDelimiterRequested: () => void;
 };
 
 const iconButtonBaseStyle: CSSProperties = {
@@ -104,6 +106,8 @@ export function EquationToolbar({
   onCleanupRequested,
   canToggleNegate,
   onToggleNegateRequested,
+  canToggleDelimiter,
+  onToggleDelimiterRequested,
 }: EquationToolbarProps) {
   return (
     <div
@@ -353,6 +357,22 @@ export function EquationToolbar({
         >
           <span style={materialSymbolStyle} aria-hidden="true">
             exposure_neg_1
+          </span>
+        </button>
+        <button
+          type="button"
+          data-testid="toggle-delimiter-selection"
+          aria-label="Toggle delimiters"
+          title="Toggle delimiters"
+          disabled={!canToggleDelimiter}
+          onClick={onToggleDelimiterRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            ...(!canToggleDelimiter ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <span style={materialSymbolStyle} aria-hidden="true">
+            data_object
           </span>
         </button>
       </div>
