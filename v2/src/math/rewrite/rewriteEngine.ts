@@ -284,7 +284,11 @@ export class RulesPipeline {
     // Walk down into the destination side and insert the transformed payload at the target.
     const destinationSideId = path.downNodes[0] ?? this.destinationId;
     const destinationSideNode = this.nodeForPipeline(state, destinationSideId);
-    const destinationNode = this.nodeForPipeline(state, this.destinationId);
+    const effectiveDestinationId =
+      this.moveType === "additive" && destinationSideNode?.kind !== "add"
+        ? destinationSideId
+        : this.destinationId;
+    const destinationNode = this.nodeForPipeline(state, effectiveDestinationId);
     if (!destinationSideNode || !destinationNode) return null;
 
     const downRule = DOWNWARD_REWRITE_RULES.find(
@@ -296,7 +300,7 @@ export class RulesPipeline {
           {
             sideId: destinationSideId,
             sideNode: destinationSideNode,
-            destinationId: this.destinationId,
+            destinationId: effectiveDestinationId,
             destinationNode,
           },
         ),
@@ -308,7 +312,7 @@ export class RulesPipeline {
       {
         sideId: destinationSideId,
         sideNode: destinationSideNode,
-        destinationId: this.destinationId,
+        destinationId: effectiveDestinationId,
         destinationNode,
       },
     );

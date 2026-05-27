@@ -502,6 +502,21 @@ export function EquationEditor({
       }
 
       if (isSubstituteModalOpen || isApplyOperationModalOpen) return;
+
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.shiftKey && key === "c") {
+        if (!canCopySelection) return;
+        event.preventDefault();
+        void onCopySelectionRequested();
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && key === "c") {
+        if (!canCopyEquation) return;
+        event.preventDefault();
+        void onCopyEquationRequested();
+        return;
+      }
+
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       if (key === "s") {
         if (!canSubstitute) return;
@@ -514,6 +529,13 @@ export function EquationEditor({
         if (!canFactor) return;
         event.preventDefault();
         onFactorRequested();
+        return;
+      }
+
+      if (key === "c") {
+        if (!canCleanup) return;
+        event.preventDefault();
+        onCleanupRequested();
         return;
       }
 
@@ -536,11 +558,17 @@ export function EquationEditor({
   }, [
     canDistribute,
     canFactor,
+    canCleanup,
+    canCopyEquation,
+    canCopySelection,
     canRedo,
     canSubstitute,
     canUndo,
     isApplyOperationModalOpen,
     isSubstituteModalOpen,
+    onCleanupRequested,
+    onCopyEquationRequested,
+    onCopySelectionRequested,
     onDistributeRequested,
     onFactorRequested,
     onRedoRequested,

@@ -163,6 +163,7 @@ function shouldEscalateFromChildToParent(parentExpr: Expr | undefined): boolean 
   switch (parentExpr.kind) {
     case "primed":
     case "dotted_expr":
+    case "negate":
     case "hat":
     case "vector":
     case "special_font":

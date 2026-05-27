@@ -225,7 +225,7 @@ export function EquationToolbar({
           type="button"
           data-testid="copy-equation-latex"
           aria-label={copyEquationFeedback === "done" ? "Equation copied" : "Copy equation"}
-          title="Copy equation LaTeX (no shortcut)"
+          title="Copy equation LaTeX (Ctrl+C)"
           disabled={!canCopyEquation}
           onClick={onCopyEquationRequested}
           style={{
@@ -242,7 +242,7 @@ export function EquationToolbar({
           type="button"
           data-testid="copy-selection-latex"
           aria-label={copySelectionFeedback === "done" ? "Selection copied" : "Copy selection"}
-          title="Copy selection LaTeX (no shortcut)"
+          title="Copy selection LaTeX (Ctrl+Shift+C)"
           disabled={!canCopySelection}
           onClick={onCopySelectionRequested}
           style={{
@@ -393,7 +393,7 @@ export function EquationToolbar({
           type="button"
           data-testid="cleanup-selection"
           aria-label="Clean up selection"
-          title="Clean up selection"
+          title="Clean up selection (C)"
           disabled={!canCleanup}
           onClick={onCleanupRequested}
           style={{

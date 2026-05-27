@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "exportedAtIso": "2026-05-27T23:51:21.166Z",
+  "domSnapshots": {
+    "s1": {
+      "hostRect": {
+        "left": 92.08332824707031,
+        "top": 144.53334045410156,
+        "right": 1020.0833282470703,
+        "bottom": 173.8000030517578,
+        "width": 928,
+        "height": 29.26666259765625
+      },
+      "nodeRects": [
+        {
+          "nodeId": "n1",
+          "left": 92.08332824707031,
+          "top": 142.9166717529297,
+          "right": 202.76666259765625,
+          "bottom": 172.0833282470703,
+          "width": 110.68333435058594,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n2",
+          "left": 92.08332824707031,
+          "top": 142.9166717529297,
+          "right": 130.48333740234375,
+          "bottom": 172.0833282470703,
+          "width": 38.40000915527344,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n3",
+          "left": 108.88333129882812,
+          "top": 142.9166717529297,
+          "right": 130.48333740234375,
+          "bottom": 172.0833282470703,
+          "width": 21.600006103515625,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n4",
+          "left": 159.38333129882812,
+          "top": 142.9166717529297,
+          "right": 202.76666259765625,
+          "bottom": 172.0833282470703,
+          "width": 43.383331298828125,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n6",
+          "left": 189.5833282470703,
+          "top": 142.9166717529297,
+          "right": 202.76666259765625,
+          "bottom": 172.0833282470703,
+          "width": 13.183334350585938,
+          "height": 29.166656494140625
+        }
+      ]
+    }
+  },
+  "events": [
+    {
+      "type": "move_mode_changed",
+      "moveType": "additive",
+      "ts": 1779925867840
+    },
+    {
+      "type": "latex_accepted",
+      "previousLatex": "5 - 2 \\left(5 + 3\\right) = \\sin \\pi ",
+      "nextLatex": "-11 = \\sin \\pi ",
+      "ts": 1779925869268
+    },
+    {
+      "type": "dom_changed",
+      "source": "accept",
+      "domSnapshotId": "s1",
+      "ts": 1779925869275
+    },
+    {
+      "type": "pointer_down",
+      "pointer": {
+        "x": 113.33333587646484,
+        "y": 162.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1779925871606
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 155,
+        "y": 163.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1779925873966
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 182.5,
+        "y": 163.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1779925874065
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 190,
+        "y": 164.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1779925874182
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 196.6666717529297,
+        "y": 164.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1779925874265
+    },
+    {
+      "type": "pointer_up",
+      "pointer": {
+        "x": 203.3333282470703,
+        "y": 163.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 0,
+      "ctrlKey": false,
+      "ts": 1779925876350
+    }
+  ],
+  "expected": {
+    "selectedNodeIds": [
+      "n2"
+    ],
+    "insertionPreview": null,
+    "moveType": "additive",
+    "latex": "0 = \\sin \\pi  + 11"
+  }
+}
