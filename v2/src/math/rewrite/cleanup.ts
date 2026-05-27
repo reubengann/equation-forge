@@ -80,6 +80,9 @@ function cleanupDivide(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
   if (isNumberValue(expr.denominator, 1)) return cloneExpr(expr.numerator);
   if (cleanupKey(expr.numerator) === cleanupKey(expr.denominator)) return num(1);
 
+  const unnestedFraction = unnestFraction(expr);
+  if (unnestedFraction) return unnestedFraction;
+
   const numeratorFactors = multiplicativeFactors(expr.numerator);
   const denominatorFactors = multiplicativeFactors(expr.denominator);
   const remainingNumerator = numeratorFactors.map(cloneExpr);
@@ -104,6 +107,36 @@ function cleanupDivide(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
   const nextDenominator = collapseProduct(remainingDenominator);
   if (isNumberValue(nextDenominator, 1)) return nextNumerator;
   return divide(nextNumerator, nextDenominator);
+}
+
+function unnestFraction(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
+  const numerator = cloneExpr(expr.numerator);
+  const denominator = cloneExpr(expr.denominator);
+
+  if (numerator.kind === "divide" && denominator.kind === "divide") {
+    return divide(
+      collapseProduct([numerator.numerator, denominator.denominator]),
+      collapseProduct([numerator.denominator, denominator.numerator]),
+    );
+  }
+
+  if (numerator.kind === "divide") {
+    return divide(numerator.numerator, collapseProduct([numerator.denominator, denominator]));
+  }
+
+  if (denominator.kind === "divide") {
+    return divide(
+      cleanupProductFactors([numerator, denominator.denominator]),
+      denominator.numerator,
+    );
+  }
+
+  return null;
+}
+
+function cleanupProductFactors(factors: Expr[]): Expr {
+  const product = collapseProduct(factors);
+  return product.kind === "multiply" ? cleanupMultiply(product) ?? product : product;
 }
 
 function cleanupNegate(expr: Extract<Expr, { kind: "negate" }>): Expr | null {

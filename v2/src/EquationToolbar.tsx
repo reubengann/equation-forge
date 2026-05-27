@@ -295,8 +295,8 @@ export function EquationToolbar({
         <button
           type="button"
           data-testid="apply-operation"
-          aria-label="Apply operation to relation"
-          title="Apply operation to relation"
+          aria-label="Apply operation"
+          title="Apply operation to relation or selected fraction (no shortcut)"
           disabled={!canApplyOperation}
           onClick={onApplyOperationRequested}
           style={{

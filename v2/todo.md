@@ -9,3 +9,4 @@
     and translate back when we get an answer out. Then we don't have to worry about how it will handle
     things like mathscr, integrals, etc. This enables full CE rewrites
 - Not sure about something like \frac{a b c}{e b a}. Should we be able to cancel only a? What if someone wants to leave one common factor but not another? I guess this is probably rare.
+- Apply modal should give an option to switch the inequality symbol

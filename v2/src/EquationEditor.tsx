@@ -19,8 +19,12 @@ import { canRun as canFlipRelation, run as flipRelation } from "./math/rewrite/f
 import { autoRewriteSelection, canAutoRewrite } from "./math/rewrite/autoRewrite";
 import { canCycleDelimiterSelection, cycleDelimiterSelection } from "./math/rewrite/cycleDelimiter";
 import {
+  applyOperationToFraction,
   applyOperationToRelation,
+  canApplyOperationToFraction,
   canApplyOperationToRelation,
+  operationPlaceholderForTarget,
+  type ApplyOperationTargetKind,
   validateOperationTemplate,
 } from "./math/rewrite/applyOperation";
 import { canExecuteMove, executeMove } from "./math/rewrite/rewriteEngine";
@@ -64,7 +68,9 @@ function distanceBetweenPoints(a: { x: number; y: number }, b: { x: number; y: n
 function normalizeApplyOperationLatex(latex: string): string {
   return latex
     .replace(/\\mathord\{\\mathrm\{eqn\}\}/g, String.raw`\eqn`)
-    .replace(/\\mathrm\{eqn\}/g, String.raw`\eqn`);
+    .replace(/\\mathrm\{eqn\}/g, String.raw`\eqn`)
+    .replace(/\\mathord\{\\mathrm\{part\}\}/g, String.raw`\part`)
+    .replace(/\\mathrm\{part\}/g, String.raw`\part`);
 }
 
 function isSelectionValidInDocument(document: CompiledMathDocument, selection: TermSelection): boolean {
@@ -106,6 +112,7 @@ export function EquationEditor({
   const insertionPreviewRef = useRef<InsertionPreview | null>(null);
   const [isSubstituteModalOpen, setIsSubstituteModalOpen] = useState(false);
   const [isApplyOperationModalOpen, setIsApplyOperationModalOpen] = useState(false);
+  const [applyOperationTargetKind, setApplyOperationTargetKind] = useState<ApplyOperationTargetKind>("relation");
   const [substituteLatex, setSubstituteLatex] = useState("");
   const [substituteError, setSubstituteError] = useState<string | null>(null);
   const [applyOperationLatex, setApplyOperationLatex] = useState("");
@@ -122,7 +129,9 @@ export function EquationEditor({
   const applyOperationModalSessionRef = useRef(0);
   const compiledDoc = useMemo(() => compileMathDocument(latex), [latex]);
   const canFlip = canFlipRelation(compiledDoc.expr);
-  const canApplyOperation = canApplyOperationToRelation(compiledDoc.expr);
+  const canApplyOperationToCurrentRelation = canApplyOperationToRelation(compiledDoc.expr);
+  const canApplyOperationToSelectedFraction = canApplyOperationToFraction(compiledDoc, selection);
+  const canApplyOperation = canApplyOperationToCurrentRelation || canApplyOperationToSelectedFraction;
   const substitutionSelection = useMemo(
     () => getSubstitutionSelection(compiledDoc, selection),
     [compiledDoc, selection],
@@ -354,11 +363,12 @@ export function EquationEditor({
 
   const openApplyOperationModal = useCallback(() => {
     if (!canApplyOperation) return;
+    setApplyOperationTargetKind(canApplyOperationToSelectedFraction ? "fraction" : "relation");
     setApplyOperationLatex("");
     setApplyOperationError(null);
     applyOperationModalSessionRef.current += 1;
     setIsApplyOperationModalOpen(true);
-  }, [canApplyOperation]);
+  }, [canApplyOperation, canApplyOperationToSelectedFraction]);
 
   const resolveInsertionPreviewAtPoint = (pointer: { x: number; y: number }): InsertionPreview | null => {
     if (!selection) return null;
@@ -667,6 +677,8 @@ export function EquationEditor({
   };
 
   const acceptApplyOperation = (latestLatex?: string) => {
+    const targetKind = applyOperationTargetKind;
+    const placeholder = operationPlaceholderForTarget(targetKind);
     const nextLatex = normalizeApplyOperationLatex(
       typeof latestLatex === "string" ? latestLatex : applyOperationLatex,
     );
@@ -688,15 +700,22 @@ export function EquationEditor({
       return;
     }
 
-    const validationError = validateOperationTemplate(template);
+    const validationError = validateOperationTemplate(template, placeholder);
     if (validationError) {
       setApplyOperationError(validationError);
       return;
     }
 
-    const nextExpr = applyOperationToRelation(compiledDoc.expr, template);
+    const nextExpr =
+      targetKind === "relation"
+        ? applyOperationToRelation(compiledDoc.expr, template)
+        : applyOperationToFraction(compiledDoc, selection, template);
     if (!nextExpr) {
-      setApplyOperationError("Apply operation failed for this relation.");
+      setApplyOperationError(
+        targetKind === "relation"
+          ? "Apply operation failed for this relation."
+          : "Apply operation failed for this fraction.",
+      );
       return;
     }
 
@@ -807,6 +826,8 @@ export function EquationEditor({
       )}
       {isApplyOperationModalOpen && (
         <ApplyOperationModal
+          targetKind={applyOperationTargetKind}
+          placeholder={operationPlaceholderForTarget(applyOperationTargetKind)}
           operationLatex={applyOperationLatex}
           error={applyOperationError}
           focusSession={applyOperationModalSessionRef.current}

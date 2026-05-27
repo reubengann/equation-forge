@@ -1,52 +1,107 @@
-import { equation, inequality, type Expr } from "../ast";
-import { cloneExpr } from "../ast/utils";
+import { displayGroup, equation, inequality, type Expr } from "../ast";
+import { cloneExpr, replaceCompiledNode } from "../ast/utils";
+import type { TermSelection } from "../../selection/types";
+import type { CompiledMathDocument } from "../compile/compileMathDocument";
 
 const EQUATION_PLACEHOLDER = "eqn";
+const FRACTION_PART_PLACEHOLDER = "part";
+
+export type ApplyOperationTargetKind = "relation" | "fraction";
+
+export function operationPlaceholderForTarget(targetKind: ApplyOperationTargetKind): string {
+  return targetKind === "relation" ? EQUATION_PLACEHOLDER : FRACTION_PART_PLACEHOLDER;
+}
 
 export function canApplyOperationToRelation(expr: Expr): boolean {
   return expr.kind === "equation" || expr.kind === "inequality";
 }
 
-export function validateOperationTemplate(template: Expr): string | null {
+export function canApplyOperationToFraction(
+  document: CompiledMathDocument,
+  selection: TermSelection | null,
+): boolean {
+  return resolveSelectedFraction(document, selection) !== null;
+}
+
+export function validateOperationTemplate(
+  template: Expr,
+  placeholder = EQUATION_PLACEHOLDER,
+): string | null {
   if (containsRelation(template)) return "Enter an operation expression, not an equation or inequality.";
 
-  const placeholderCount = countEquationPlaceholders(template);
-  if (placeholderCount === 0) return String.raw`Include \eqn where the current side should go.`;
-  if (placeholderCount > 1) return String.raw`Use exactly one \eqn placeholder.`;
+  const placeholderCount = countPlaceholders(template, placeholder);
+  if (placeholderCount === 0) {
+    return `Include \\${placeholder} where the current ${placeholder === EQUATION_PLACEHOLDER ? "side" : "part"} should go.`;
+  }
+  if (placeholderCount > 1) return `Use exactly one \\${placeholder} placeholder.`;
 
   return null;
 }
 
 export function applyOperationToRelation(relation: Expr, template: Expr): Expr | null {
   if (!canApplyOperationToRelation(relation)) return null;
-  if (validateOperationTemplate(template)) return null;
+  if (validateOperationTemplate(template, EQUATION_PLACEHOLDER)) return null;
 
   if (relation.kind === "equation") {
-    return equation(relation.sides.map((side) => applyOperationToSide(template, side)));
+    return equation(relation.sides.map((side) => applyOperationToPart(template, side, EQUATION_PLACEHOLDER)));
   }
 
   if (relation.kind === "inequality") {
     return inequality(
-      applyOperationToSide(template, relation.lhs),
+      applyOperationToPart(template, relation.lhs, EQUATION_PLACEHOLDER),
       relation.operator,
-      applyOperationToSide(template, relation.rhs),
+      applyOperationToPart(template, relation.rhs, EQUATION_PLACEHOLDER),
     );
   }
 
   return null;
 }
 
-function applyOperationToSide(template: Expr, side: Expr): Expr {
-  return replaceEquationPlaceholder(template, side) ?? cloneExpr(template);
+export function applyOperationToFraction(
+  document: CompiledMathDocument,
+  selection: TermSelection | null,
+  template: Expr,
+): Expr | null {
+  if (validateOperationTemplate(template, FRACTION_PART_PLACEHOLDER)) return null;
+
+  const target = resolveSelectedFraction(document, selection);
+  if (!target) return null;
+
+  const nextFraction = cloneExpr(target.expr) as typeof target.expr;
+  nextFraction.numerator = applyOperationToPart(
+    template,
+    target.expr.numerator,
+    FRACTION_PART_PLACEHOLDER,
+  );
+  nextFraction.denominator = applyOperationToPart(
+    template,
+    target.expr.denominator,
+    FRACTION_PART_PLACEHOLDER,
+  );
+  return replaceCompiledNode(document, target.nodeId, nextFraction);
 }
 
-function isEquationPlaceholder(expr: Expr): boolean {
-  return expr.kind === "symbol" && expr.name === EQUATION_PLACEHOLDER;
+function resolveSelectedFraction(
+  document: CompiledMathDocument,
+  selection: TermSelection | null,
+): { nodeId: string; expr: Extract<Expr, { kind: "divide" }> } | null {
+  if (!selection || selection.kind !== "single") return null;
+  const expr = document.index.nodeById[selection.nodeId];
+  if (expr?.kind !== "divide") return null;
+  return { nodeId: selection.nodeId, expr };
 }
 
-function countEquationPlaceholders(expr: Expr): number {
-  if (isEquationPlaceholder(expr)) return 1;
-  return childExprs(expr).reduce((sum, child) => sum + countEquationPlaceholders(child), 0);
+function applyOperationToPart(template: Expr, part: Expr, placeholder: string): Expr {
+  return replacePlaceholder(template, part, placeholder) ?? cloneExpr(template);
+}
+
+function isPlaceholder(expr: Expr, placeholder: string): boolean {
+  return expr.kind === "symbol" && expr.name === placeholder;
+}
+
+function countPlaceholders(expr: Expr, placeholder: string): number {
+  if (isPlaceholder(expr, placeholder)) return 1;
+  return childExprs(expr).reduce((sum, child) => sum + countPlaceholders(child, placeholder), 0);
 }
 
 function containsRelation(expr: Expr): boolean {
@@ -54,8 +109,8 @@ function containsRelation(expr: Expr): boolean {
   return childExprs(expr).some(containsRelation);
 }
 
-function replaceEquationPlaceholder(expr: Expr, side: Expr): Expr | null {
-  if (isEquationPlaceholder(expr)) return cloneExpr(side);
+function replacePlaceholder(expr: Expr, part: Expr, placeholder: string): Expr | null {
+  if (isPlaceholder(expr, placeholder)) return cloneExpr(part);
 
   const nextExpr = cloneExpr(expr);
   let changed = false;
@@ -64,7 +119,7 @@ function replaceEquationPlaceholder(expr: Expr, side: Expr): Expr | null {
     if (key === "kind" || key === "error") continue;
 
     if (isExpr(value)) {
-      const replacement = replaceEquationPlaceholder(value, side);
+      const replacement = replacePlaceholder(value, part, placeholder);
       if (replacement) {
         (nextExpr as Record<string, unknown>)[key] = replacement;
         changed = true;
@@ -75,10 +130,12 @@ function replaceEquationPlaceholder(expr: Expr, side: Expr): Expr | null {
     if (Array.isArray(value)) {
       const nextChildren = value.map((child) => {
         if (!isExpr(child)) return child;
-        const replacement = replaceEquationPlaceholder(child, side);
+        const replacement = replacePlaceholder(child, part, placeholder);
         if (replacement) {
           changed = true;
-          return replacement;
+          return shouldWrapReplacementInArray(expr, key, child, replacement)
+            ? displayGroup("paren", replacement)
+            : replacement;
         }
         return child;
       });
@@ -87,6 +144,19 @@ function replaceEquationPlaceholder(expr: Expr, side: Expr): Expr | null {
   }
 
   return changed ? nextExpr : null;
+}
+
+function shouldWrapReplacementInArray(
+  parent: Expr,
+  key: string,
+  originalChild: Expr,
+  replacement: Expr,
+): boolean {
+  if (parent.kind !== "multiply" || key !== "factors") return false;
+  if (!isPlaceholder(originalChild, EQUATION_PLACEHOLDER) && !isPlaceholder(originalChild, FRACTION_PART_PLACEHOLDER)) {
+    return false;
+  }
+  return replacement.kind === "add" || replacement.kind === "number" || replacement.kind === "negate";
 }
 
 function childExprs(expr: Expr): Expr[] {

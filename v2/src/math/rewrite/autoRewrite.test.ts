@@ -142,6 +142,30 @@ describe("autoRewriteSelection cleanup", () => {
     expect(exprToLatex(next!, false)).toBe("b");
   });
 
+  it("unnests a fraction in the denominator", () => {
+    const document = buildDocument(String.raw`\frac{1}{\frac{2}{a+1}}`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\frac{a + 1}{2}`);
+  });
+
+  it("unnests a fraction in the numerator", () => {
+    const document = buildDocument(String.raw`\frac{\frac{a}{b}}{c}`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\frac{a}{b c}`);
+  });
+
+  it("unnests fractions in both numerator and denominator", () => {
+    const document = buildDocument(String.raw`\frac{\frac{a}{b}}{\frac{c}{d}}`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\frac{a d}{b c}`);
+  });
+
   it("does not reorder additive terms to cancel fractions", () => {
     const document = buildDocument(String.raw`\frac{b+a}{a+b}`);
 
