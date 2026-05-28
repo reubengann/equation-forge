@@ -155,6 +155,13 @@ describe("exprToLatex", () => {
     }
   });
 
+  it("prints trig powers before the argument", () => {
+    const expr = parseLatexToExpr(String.raw`\sin^2x+\cos^2x`);
+    const latex = exprToLatex(expr, false);
+
+    expect(latex).toBe(String.raw`\sin^{2} x + \cos^{2} x`);
+  });
+
   it("keeps tagged call ids aligned with compiled index ids", () => {
     const expr = parseLatexToExpr(String.raw`5-2\left(5+3\right)=\sin\pi`);
     const latex = exprToLatex(expr, true);

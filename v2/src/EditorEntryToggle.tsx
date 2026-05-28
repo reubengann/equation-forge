@@ -1,8 +1,9 @@
-import { useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { EquationEditor } from "./EquationEditor";
 import { MathliveEditor } from "./MathliveEditor";
 import type { EquationEditorRecordingHooks } from "./TestRecorder";
 import { parseLatexToExpr } from "./math/adapters/latex";
+import { compileMathDocument } from "./math/compile/compileMathDocument";
 
 const DEBUG_EQUATION_PRESETS = [
   String.raw`a+b=c`,
@@ -53,6 +54,7 @@ export function EditorEntryToggle({
   const canonicalLatexRef = useRef(latex);
   const entryLatexRef = useRef(latex);
   const slotRef = useRef<HTMLDivElement | null>(null);
+  const compiledDoc = useMemo(() => compileMathDocument(latex), [latex]);
 
   const updateMathFieldValue = (nextValue: string) => {
     const valueChanged = nextValue !== entryLatexRef.current;
@@ -71,10 +73,11 @@ export function EditorEntryToggle({
       (presetIndex + offset + presetCount) % presetCount;
     const nextLatex = DEBUG_EQUATION_PRESETS[normalizedIndex];
     setPresetIndex(normalizedIndex);
-    setLatex(nextLatex);
-    entryLatexRef.current = nextLatex;
-    canonicalLatexRef.current = nextLatex;
-    setEquationHistory(createEquationHistory(nextLatex));
+    const compiled = compileMathDocument(nextLatex);
+    setLatex(compiled.plainLatex);
+    entryLatexRef.current = compiled.plainLatex;
+    canonicalLatexRef.current = compiled.plainLatex;
+    setEquationHistory(createEquationHistory(compiled.plainLatex));
   };
 
   const handleAcceptToggle = (latestLatex?: unknown) => {
@@ -82,8 +85,10 @@ export function EditorEntryToggle({
       const previousLatex = lastAcceptedLatexRef.current;
       // Accept should use the current MathLive edit buffer, not the last rendered canonical value.
       const nextLatex = typeof latestLatex === "string" ? latestLatex : latex;
+      let acceptedLatex = nextLatex;
       try {
         parseLatexToExpr(nextLatex, { onError: "throw" });
+        acceptedLatex = compileMathDocument(nextLatex).plainLatex;
       } catch (error) {
         entryLatexRef.current = nextLatex;
         setLatex(nextLatex);
@@ -96,32 +101,38 @@ export function EditorEntryToggle({
         return;
       }
       setEntryError(null);
-      entryLatexRef.current = nextLatex;
-      canonicalLatexRef.current = nextLatex;
-      setEquationHistory(createEquationHistory(nextLatex));
-      setLatex(nextLatex);
+      entryLatexRef.current = acceptedLatex;
+      canonicalLatexRef.current = acceptedLatex;
+      setEquationHistory(createEquationHistory(acceptedLatex));
+      setLatex(acceptedLatex);
       onLatexAccepted({
         previousLatex,
-        nextLatex,
+        nextLatex: acceptedLatex,
       });
-      lastAcceptedLatexRef.current = nextLatex;
+      lastAcceptedLatexRef.current = acceptedLatex;
     }
     setShowMathDisplay((prev) => !prev);
   };
 
-  const handleCanonicalLatexChanged = (nextLatex: string) => {
+  const handleCanonicalLatexChanged = useCallback((nextLatex: string) => {
     const previousLatex = canonicalLatexRef.current;
-    if (previousLatex !== nextLatex) {
-      setEquationHistory((currentHistory) => ({
-        past: [...currentHistory.past, currentHistory.present],
-        present: { latex: nextLatex },
-        future: [],
-      }));
+    const canonicalNextLatex = compileMathDocument(nextLatex).plainLatex;
+
+    if (previousLatex !== canonicalNextLatex) {
+      setEquationHistory((currentHistory) => {
+        if (currentHistory.present.latex === canonicalNextLatex) return currentHistory;
+        return {
+          past: [...currentHistory.past, currentHistory.present],
+          present: { latex: canonicalNextLatex },
+          future: [],
+        };
+      });
     }
-    canonicalLatexRef.current = nextLatex;
-    setLatex(nextLatex);
-    onCanonicalLatexChanged?.(nextLatex);
-  };
+    canonicalLatexRef.current = canonicalNextLatex;
+    entryLatexRef.current = canonicalNextLatex;
+    setLatex(canonicalNextLatex);
+    onCanonicalLatexChanged?.(canonicalNextLatex);
+  }, [onCanonicalLatexChanged]);
 
   const handleUndoRequested = () => {
     const previousStep = equationHistory.past.at(-1);
@@ -174,7 +185,7 @@ export function EditorEntryToggle({
       >
         {showMathDisplay ? (
           <EquationEditor
-            latex={latex}
+            compiledDoc={compiledDoc}
             recordingHooks={recordingHooks}
             canUndo={equationHistory.past.length > 0}
             onUndoRequested={handleUndoRequested}

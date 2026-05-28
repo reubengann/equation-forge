@@ -34,6 +34,35 @@ class LatexGenerator {
     }
   }
 
+  isTrigPowerBase(expr: Expr): expr is Extract<Expr, { kind: "call" }> & {
+    callee: Extract<Expr, { kind: "symbol" }>;
+  } {
+    return (
+      expr.kind === "call" &&
+      expr.callee.kind === "symbol" &&
+      (expr.callee.name === "sin" || expr.callee.name === "cos" || expr.callee.name === "tan") &&
+      expr.args.length === 1
+    );
+  }
+
+  generateTrigPower(expr: Extract<Expr, { kind: "power" }>, id: string): string {
+    const base = expr.base;
+    if (!this.isTrigPowerBase(base)) return this.wrap(this.generate(base) + "^" + `{${this.generate(expr.exponent)}}`, id);
+
+    // Trig powers are conventionally written as \sin^{2} x, meaning (\sin x)^2.
+    this.generate(base.callee);
+    const renderedExponent = this.generate(expr.exponent);
+    const renderedArg = base.args.map((arg) => this.generate(arg)).join(", ");
+    switch (base.delimiter) {
+      case "paren":
+        return this.wrap(`\\${base.callee.name}^{${renderedExponent}}\\left(${renderedArg}\\right)`, id);
+      case "bracket":
+        return this.wrap(`\\${base.callee.name}^{${renderedExponent}}\\left[${renderedArg}\\right]`, id);
+      case "bare":
+        return this.wrap(`\\${base.callee.name}^{${renderedExponent}} ${renderedArg}`, id);
+    }
+  }
+
   generate(expr?: Expr): string {
     expr = expr ?? this.expr;
     const id = this.newId();
@@ -47,7 +76,7 @@ class LatexGenerator {
       case "multiply":
         return this.wrap(expr.factors.map((factor) => this.generate(factor)).join(" "), id);
       case "power":
-        return this.wrap(this.generate(expr.base) + "^" + `{${this.generate(expr.exponent)}}`, id);
+        return this.generateTrigPower(expr, id);
       case "negate":
         return this.wrap("-" + this.generate(expr.value), id);
       case "divide":

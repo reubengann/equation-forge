@@ -53,6 +53,7 @@ type UnifiedNode = {
 type Token =
   | { kind: "number"; value: number | string }
   | { kind: "symbol"; name: string }
+  | { kind: "function_symbol"; name: string }
   | { kind: "text"; value: string }
   | { kind: "absolute_bar" }
   | { kind: "vector"; value: UnifiedNode[] }
@@ -751,7 +752,7 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
     }
 
     if (FUNCTION_MACROS.has(macro)) {
-      tokens.push({ kind: "symbol", name: macro });
+      tokens.push({ kind: "function_symbol", name: macro });
       continue;
     }
 
@@ -815,6 +816,7 @@ class TokenParser {
     if (
       token.kind === "number" ||
       token.kind === "symbol" ||
+      token.kind === "function_symbol" ||
       token.kind === "text" ||
       token.kind === "absolute_bar" ||
       token.kind === "vector" ||
@@ -887,6 +889,44 @@ class TokenParser {
           : NaN;
     if (!Number.isInteger(value) || value <= 0) return null;
     return value;
+  }
+
+  private parseFunctionCall(tokenName: string): Expr | null {
+    const next = this.peek();
+    if (next?.kind === "open_group") {
+      const groupToken = this.next();
+      if (!groupToken || groupToken.kind !== "open_group") return sym("missing");
+      const inner = this.parseAdditive();
+      const maybeClose = this.peek();
+      if (maybeClose?.kind === "close_group") {
+        if (maybeClose.value === groupToken.close) {
+          this.next();
+        } else {
+          throw new UnsupportedLatexError(
+            this.functionCallDelimiterMismatchMessage(
+              tokenName,
+              groupToken.close,
+              maybeClose.value,
+            ),
+          );
+        }
+      } else {
+        throw new UnsupportedLatexError(
+          this.unclosedDelimiterErrorMessage(groupToken.close),
+        );
+      }
+      const delimiter = this.delimiterFromArgExpr(
+        displayGroup(groupToken.delimiter, inner),
+      );
+      return call(sym(tokenName), [inner], delimiter);
+    }
+
+    if (this.canStartPrimary(next)) {
+      const argExpr = this.parseUnary();
+      return call(sym(tokenName), [argExpr], "bare");
+    }
+
+    return null;
   }
 
   private factorList(expr: Expr): Expr[] {
@@ -1479,42 +1519,20 @@ class TokenParser {
       return specialFont(value, token.font);
     }
     if (token.kind === "symbol") {
+      return sym(token.name);
+    }
+    if (token.kind === "function_symbol") {
       const tokenName = token.name;
       const next = this.peek();
-      if (FUNCTION_MACROS.has(tokenName)) {
-        if (next?.kind === "open_group") {
-          const groupToken = this.next();
-          if (!groupToken || groupToken.kind !== "open_group") return sym("missing");
-          const inner = this.parseAdditive();
-          const maybeClose = this.peek();
-          if (maybeClose?.kind === "close_group") {
-            if (maybeClose.value === groupToken.close) {
-              this.next();
-            } else {
-              throw new UnsupportedLatexError(
-                this.functionCallDelimiterMismatchMessage(
-                  tokenName,
-                  groupToken.close,
-                  maybeClose.value,
-                ),
-              );
-            }
-          } else {
-            throw new UnsupportedLatexError(
-              this.unclosedDelimiterErrorMessage(groupToken.close),
-            );
-          }
-          const delimiter = this.delimiterFromArgExpr(
-            displayGroup(groupToken.delimiter, inner),
-          );
-          return call(sym(tokenName), [inner], delimiter);
-        }
-        if (this.canStartPrimary(next)) {
-          const argExpr = this.parseUnary();
-          return call(sym(tokenName), [argExpr], "bare");
-        }
+
+      if (next?.kind === "exponent") {
+        this.next();
+        const exponent = parseGroupNodes(next.value) ?? sym("missing");
+        const functionCall = this.parseFunctionCall(tokenName);
+        return functionCall ? power(functionCall, exponent) : power(sym(tokenName), exponent);
       }
-      return sym(tokenName);
+
+      return this.parseFunctionCall(tokenName) ?? sym(tokenName);
     }
 
     return sym("unexpected");

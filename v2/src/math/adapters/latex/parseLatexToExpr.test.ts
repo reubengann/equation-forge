@@ -615,6 +615,26 @@ describe("parseLatexToExpr", () => {
     expect(expr.args[0].value.name).toBe("H");
   });
 
+  it("parses powers on trig function macros", () => {
+    const expr = parseLatexToExpr(String.raw`\sin^2x+\cos^2x`);
+    expectExprKind(expr, "add");
+    expect(expr.terms).toHaveLength(2);
+
+    for (const [term, calleeName] of [
+      [expr.terms[0], "sin"],
+      [expr.terms[1], "cos"],
+    ] as const) {
+      expectExprKind(term, "power");
+      expectExprKind(term.base, "call");
+      expectExprKind(term.base.callee, "symbol");
+      expect(term.base.callee.name).toBe(calleeName);
+      expectExprKind(term.base.args[0], "symbol");
+      expect(term.base.args[0].name).toBe("x");
+      expectExprKind(term.exponent, "number");
+      expect(term.exponent.value).toBe(2);
+    }
+  });
+
   it("rejects calls with mismatched delimiters", () => {
     const expr = parseLatexToExpr(String.raw`\sin(x]`);
     expectExprKind(expr, "immutable_expression");

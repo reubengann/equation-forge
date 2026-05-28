@@ -13,11 +13,16 @@ import {
   selectionSet,
 } from "./interaction/selectionController";
 import { type TermSelection } from "./selection/types";
-import { compileMathDocument, type CompiledMathDocument } from "./math/compile/compileMathDocument";
+import type { CompiledMathDocument } from "./math/compile/compileMathDocument";
 import { exprToLatex, parseLatexToExpr } from "./math/adapters/latex";
 import { canRun as canFlipRelation, run as flipRelation } from "./math/rewrite/flipRelation";
 import { autoRewriteSelection, canAutoRewrite } from "./math/rewrite/autoRewrite";
 import { canCycleDelimiterSelection, cycleDelimiterSelection } from "./math/rewrite/cycleDelimiter";
+import {
+  applyDefaultIdentityRewriteToSelection,
+  applyIdentityRewriteToSelection,
+  getApplicableIdentityRewritesForSelection,
+} from "./math/rewrite/identity";
 import {
   applyOperationToFraction,
   applyOperationToRelation,
@@ -109,7 +114,7 @@ function isSelectionValidInDocument(document: CompiledMathDocument, selection: T
 }
 
 type EquationEditorProps = {
-  latex: string;
+  compiledDoc: CompiledMathDocument;
   onCanonicalLatexChanged: (nextLatex: string) => void;
   canUndo?: boolean;
   onUndoRequested?: () => void;
@@ -119,7 +124,7 @@ type EquationEditorProps = {
 };
 
 export function EquationEditor({
-  latex,
+  compiledDoc,
   onCanonicalLatexChanged,
   canUndo = false,
   onUndoRequested,
@@ -157,7 +162,6 @@ export function EquationEditor({
   const copySelectionFeedbackTimeoutRef = useRef<number | null>(null);
   const substituteModalSessionRef = useRef(0);
   const applyOperationModalSessionRef = useRef(0);
-  const compiledDoc = useMemo(() => compileMathDocument(latex), [latex]);
   const canFlip = canFlipRelation(compiledDoc.expr);
   const canApplyOperationToCurrentRelation = canApplyOperationToRelation(compiledDoc.expr);
   const canApplyOperationToSelectedFraction = canApplyOperationToFraction(compiledDoc, selection);
@@ -173,6 +177,11 @@ export function EquationEditor({
   const canFactor = canAutoRewrite(compiledDoc, selection, "factor");
   const canDistribute = canAutoRewrite(compiledDoc, selection, "distribute");
   const canCleanup = canAutoRewrite(compiledDoc, selection, "cleanup");
+  const identityRewriteOptions = useMemo(
+    () => getApplicableIdentityRewritesForSelection(compiledDoc, selection),
+    [compiledDoc, selection],
+  );
+  const canApplyIdentityRewrite = identityRewriteOptions.length > 0;
   const canToggleNegate =
     selection?.kind === "single" ? canToggleNegateSelection(compiledDoc, selection.nodeId) : false;
   const canToggleDelimiter = canToggleDelimiterSelection(compiledDoc, selection);
@@ -204,10 +213,6 @@ export function EquationEditor({
       el.style.outline = "";
     }
   };
-
-  useEffect(() => {
-    onCanonicalLatexChanged(compiledDoc.plainLatex);
-  }, [compiledDoc, onCanonicalLatexChanged]);
 
   useEffect(() => {
     recordingHooks?.onMoveTypeChanged(moveType);
@@ -265,7 +270,7 @@ export function EquationEditor({
 
   useEffect(() => {
     applySelectionHighlight(selection);
-  }, [latex, selection]);
+  }, [compiledDoc, selection]);
 
   useEffect(() => {
     if (!selection || isSelectionValidInDocument(compiledDoc, selection)) return;
@@ -413,6 +418,25 @@ export function EquationEditor({
     onCanonicalLatexChanged(exprToLatex(nextExpr, false));
   }, [canCleanup, compiledDoc, onCanonicalLatexChanged, selection, updateSelection]);
 
+  const onApplyDefaultIdentityRequested = useCallback(() => {
+    if (!selection || !canApplyIdentityRewrite) return;
+    const nextExpr = applyDefaultIdentityRewriteToSelection(compiledDoc, selection);
+    if (!nextExpr) return;
+    updateSelection(null);
+    onCanonicalLatexChanged(exprToLatex(nextExpr, false));
+  }, [canApplyIdentityRewrite, compiledDoc, onCanonicalLatexChanged, selection, updateSelection]);
+
+  const onApplyIdentityRequested = useCallback(
+    (identityId: string) => {
+      if (!selection || !canApplyIdentityRewrite) return;
+      const nextExpr = applyIdentityRewriteToSelection(compiledDoc, selection, identityId);
+      if (!nextExpr) return;
+      updateSelection(null);
+      onCanonicalLatexChanged(exprToLatex(nextExpr, false));
+    },
+    [canApplyIdentityRewrite, compiledDoc, onCanonicalLatexChanged, selection, updateSelection],
+  );
+
   const onToggleNegateRequested = useCallback(() => {
     if (!selection || selection.kind !== "single" || !canToggleNegate) return;
     const nextExpr = toggleNegateSelection(compiledDoc, selection.nodeId);
@@ -557,6 +581,7 @@ export function EquationEditor({
     };
   }, [
     canDistribute,
+    canApplyIdentityRewrite,
     canFactor,
     canCleanup,
     canCopyEquation,
@@ -570,6 +595,7 @@ export function EquationEditor({
     onCopyEquationRequested,
     onCopySelectionRequested,
     onDistributeRequested,
+    onApplyDefaultIdentityRequested,
     onFactorRequested,
     onRedoRequested,
     onUndoRequested,
@@ -875,6 +901,10 @@ export function EquationEditor({
         onDistributeRequested={onDistributeRequested}
         canCleanup={canCleanup}
         onCleanupRequested={onCleanupRequested}
+        identityRewriteOptions={identityRewriteOptions}
+        canApplyIdentityRewrite={canApplyIdentityRewrite}
+        onApplyDefaultIdentityRequested={onApplyDefaultIdentityRequested}
+        onApplyIdentityRequested={onApplyIdentityRequested}
         canToggleNegate={canToggleNegate}
         onToggleNegateRequested={onToggleNegateRequested}
         canToggleDelimiter={canToggleDelimiter}

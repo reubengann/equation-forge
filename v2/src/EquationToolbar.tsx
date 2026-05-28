@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import type { IdentityRewriteOption } from "./math/rewrite/identity";
 import type { MoveType } from "./math/rewrite/types";
 
 type EquationToolbarProps = {
@@ -26,6 +27,10 @@ type EquationToolbarProps = {
   onDistributeRequested: () => void;
   canCleanup: boolean;
   onCleanupRequested: () => void;
+  identityRewriteOptions: IdentityRewriteOption[];
+  canApplyIdentityRewrite: boolean;
+  onApplyDefaultIdentityRequested: () => void;
+  onApplyIdentityRequested: (identityId: string) => void;
   canToggleNegate: boolean;
   onToggleNegateRequested: () => void;
   canToggleDelimiter: boolean;
@@ -77,7 +82,55 @@ const toolbarGroupStyle: CSSProperties = {
   display: "flex",
   border: "1px solid #757575",
   borderRadius: "3px",
-  overflow: "hidden",
+  overflow: "visible",
+};
+
+const menuContainerStyle: CSSProperties = {
+  position: "relative",
+  display: "inline-flex",
+};
+
+const menuSummaryStyle: CSSProperties = {
+  ...iconButtonBaseStyle,
+  listStyle: "none",
+};
+
+const menuPanelStyle: CSSProperties = {
+  position: "absolute",
+  top: "calc(100% + 4px)",
+  left: 0,
+  zIndex: 10,
+  minWidth: 260,
+  padding: 6,
+  border: "1px solid #757575",
+  borderRadius: 4,
+  background: "#303030",
+  boxShadow: "0 8px 18px rgba(0, 0, 0, 0.35)",
+};
+
+const menuItemStyle: CSSProperties = {
+  width: "100%",
+  padding: "8px 10px",
+  border: 0,
+  borderRadius: 3,
+  background: "transparent",
+  color: "rgba(255, 255, 255, 0.87)",
+  cursor: "pointer",
+  textAlign: "left",
+};
+
+const menuItemLabelStyle: CSSProperties = {
+  display: "block",
+  fontSize: 13,
+  lineHeight: 1.2,
+};
+
+const menuItemCaveatStyle: CSSProperties = {
+  display: "block",
+  marginTop: 3,
+  color: "rgba(255, 255, 255, 0.62)",
+  fontSize: 11,
+  lineHeight: 1.25,
 };
 
 const materialSymbolStyle: CSSProperties = {
@@ -122,6 +175,10 @@ export function EquationToolbar({
   onDistributeRequested,
   canCleanup,
   onCleanupRequested,
+  identityRewriteOptions,
+  canApplyIdentityRewrite,
+  onApplyDefaultIdentityRequested,
+  onApplyIdentityRequested,
   canToggleNegate,
   onToggleNegateRequested,
   canToggleDelimiter,
@@ -413,6 +470,59 @@ export function EquationToolbar({
             }}
           />
         </button>
+        <button
+          type="button"
+          data-testid="apply-default-identity"
+          aria-label="Apply identity"
+          title="Apply best identity"
+          disabled={!canApplyIdentityRewrite}
+          onClick={onApplyDefaultIdentityRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            ...(!canApplyIdentityRewrite ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <span style={materialSymbolStyle} aria-hidden="true">
+            rule
+          </span>
+        </button>
+        <details style={menuContainerStyle}>
+          <summary
+            role="button"
+            aria-label="Choose identity"
+            title="Choose identity"
+            data-testid="identity-rewrite-menu"
+            style={{
+              ...menuSummaryStyle,
+              ...(!canApplyIdentityRewrite ? iconButtonDisabledStyle : {}),
+            }}
+            onClick={(event) => {
+              if (!canApplyIdentityRewrite) event.preventDefault();
+            }}
+          >
+            <span style={materialSymbolStyle} aria-hidden="true">
+              arrow_drop_down
+            </span>
+          </summary>
+          <div role="menu" style={menuPanelStyle}>
+            {identityRewriteOptions.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                role="menuitem"
+                data-testid={`identity-rewrite-${option.id}`}
+                onClick={(event) => {
+                  onApplyIdentityRequested(option.id);
+                  event.currentTarget.closest("details")?.removeAttribute("open");
+                }}
+                style={menuItemStyle}
+              >
+                <span style={menuItemLabelStyle}>{option.label}</span>
+                {option.caveat && <span style={menuItemCaveatStyle}>{option.caveat}</span>}
+              </button>
+            ))}
+          </div>
+        </details>
         <button
           type="button"
           data-testid="toggle-negate-selection"
