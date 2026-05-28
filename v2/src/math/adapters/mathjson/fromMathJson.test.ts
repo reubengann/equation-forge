@@ -37,4 +37,60 @@ describe("fromMathJson", () => {
     expect(expr.kind).toBe("invalid_input");
     expect(expr.error).toContain("Unsupported MathJSON: unsupported_mathjson_record");
   });
+
+  it("maps CE rational and function heads back into internal AST", () => {
+    const expr = fromMathJson(["Multiply", ["Rational", 1, 2], ["Sin", "x"]]);
+
+    expect(expr).toEqual({
+      kind: "multiply",
+      factors: [
+        {
+          kind: "divide",
+          numerator: { kind: "number", value: 1 },
+          denominator: { kind: "number", value: 2 },
+        },
+        {
+          kind: "call",
+          callee: { kind: "symbol", name: "sin" },
+          args: [{ kind: "symbol", name: "x" }],
+          delimiter: "paren",
+        },
+      ],
+    });
+  });
+
+  it("preserves parentheses for CE function calls with compound arguments", () => {
+    const expr = fromMathJson(["Cos", ["Multiply", 2, "x"]]);
+
+    expect(expr).toEqual({
+      kind: "call",
+      callee: { kind: "symbol", name: "cos" },
+      args: [
+        {
+          kind: "multiply",
+          factors: [{ kind: "number", value: 2 }, { kind: "symbol", name: "x" }],
+        },
+      ],
+      delimiter: "paren",
+    });
+  });
+
+  it("maps CE derivative and integral heads back into internal AST", () => {
+    const derivative = fromMathJson(["D", ["Power", "x", 2], "x"]);
+    const integral = fromMathJson(["Integrate", "x", ["Limits", "x", "Nothing", "Nothing"]]);
+
+    expect(derivative.kind).toBe("full_derivative_operator");
+    expect(integral.kind).toBe("integral");
+    if (integral.kind === "integral") {
+      expect(integral.lowerBound).toBeNull();
+      expect(integral.upperBound).toBeNull();
+      expect(integral.integrand).toEqual({
+        kind: "multiply",
+        factors: [
+          { kind: "symbol", name: "x" },
+          { kind: "differential", variable: { kind: "symbol", name: "x" } },
+        ],
+      });
+    }
+  });
 });

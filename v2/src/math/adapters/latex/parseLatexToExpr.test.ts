@@ -669,6 +669,15 @@ describe("parseLatexToExpr", () => {
     expectExprKind(expr.operand, "multiply");
   });
 
+  it("parses full derivative operator with MathLive roman differential syntax", () => {
+    const expr = parseLatexToExpr(String.raw`\dfrac{\mathrm{d}}{\mathrm{d}{}x}\left(2x+1\right)`);
+    expectExprKind(expr, "full_derivative_operator");
+    expectExprKind(expr.variable, "symbol");
+    expect(expr.variable.name).toBe("x");
+    expectExprKind(expr.operand, "display_group");
+    expectExprKind(expr.operand.expression, "add");
+  });
+
   it("parses partial derivative operator", () => {
     const expr = parseLatexToExpr(String.raw`\frac{\partial}{\partial x} f`);
     expectExprKind(expr, "partial_derivative_operator");

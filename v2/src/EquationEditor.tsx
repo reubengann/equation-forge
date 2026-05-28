@@ -24,6 +24,10 @@ import {
   getApplicableIdentityRewritesForSelection,
 } from "./math/rewrite/identity";
 import {
+  canEvaluateWithComputeEngine,
+  evaluateSelectionWithComputeEngine,
+} from "./math/rewrite/computeEngine";
+import {
   applyOperationToFraction,
   applyOperationToRelation,
   canApplyOperationToFraction,
@@ -177,6 +181,7 @@ export function EquationEditor({
   const canFactor = canAutoRewrite(compiledDoc, selection, "factor");
   const canDistribute = canAutoRewrite(compiledDoc, selection, "distribute");
   const canCleanup = canAutoRewrite(compiledDoc, selection, "cleanup");
+  const canEvaluateSelectionWithComputeEngine = canEvaluateWithComputeEngine(compiledDoc, selection);
   const identityRewriteOptions = useMemo(
     () => getApplicableIdentityRewritesForSelection(compiledDoc, selection),
     [compiledDoc, selection],
@@ -418,6 +423,20 @@ export function EquationEditor({
     onCanonicalLatexChanged(exprToLatex(nextExpr, false));
   }, [canCleanup, compiledDoc, onCanonicalLatexChanged, selection, updateSelection]);
 
+  const onEvaluateWithComputeEngineRequested = useCallback(() => {
+    if (!selection || !canEvaluateSelectionWithComputeEngine) return;
+    const result = evaluateSelectionWithComputeEngine(compiledDoc, selection);
+    if (!result.ok) return;
+    updateSelection(null);
+    onCanonicalLatexChanged(exprToLatex(result.expr, false));
+  }, [
+    canEvaluateSelectionWithComputeEngine,
+    compiledDoc,
+    onCanonicalLatexChanged,
+    selection,
+    updateSelection,
+  ]);
+
   const onApplyDefaultIdentityRequested = useCallback(() => {
     if (!selection || !canApplyIdentityRewrite) return;
     const nextExpr = applyDefaultIdentityRewriteToSelection(compiledDoc, selection);
@@ -582,6 +601,7 @@ export function EquationEditor({
   }, [
     canDistribute,
     canApplyIdentityRewrite,
+    canEvaluateSelectionWithComputeEngine,
     canFactor,
     canCleanup,
     canCopyEquation,
@@ -595,6 +615,7 @@ export function EquationEditor({
     onCopyEquationRequested,
     onCopySelectionRequested,
     onDistributeRequested,
+    onEvaluateWithComputeEngineRequested,
     onApplyDefaultIdentityRequested,
     onFactorRequested,
     onRedoRequested,
@@ -901,6 +922,8 @@ export function EquationEditor({
         onDistributeRequested={onDistributeRequested}
         canCleanup={canCleanup}
         onCleanupRequested={onCleanupRequested}
+        canEvaluateWithComputeEngine={canEvaluateSelectionWithComputeEngine}
+        onEvaluateWithComputeEngineRequested={onEvaluateWithComputeEngineRequested}
         identityRewriteOptions={identityRewriteOptions}
         canApplyIdentityRewrite={canApplyIdentityRewrite}
         onApplyDefaultIdentityRequested={onApplyDefaultIdentityRequested}

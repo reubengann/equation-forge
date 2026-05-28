@@ -1,13 +1,17 @@
 import {
   add,
   call,
+  differential,
   displayGroup,
   divide,
   equation,
+  fullDerivativeOperator,
   invalidInput,
+  integral,
   multiply,
   negate,
   num,
+  partialDerivative,
   power,
   sym,
   type DelimiterKind,
@@ -52,7 +56,7 @@ function fromMathJsonRecord(record: MathJsonRecord): Expr {
 
   const symValue = record.sym;
   if (typeof symValue === "string") {
-    return sym(symValue);
+    return sym(normalizeSymbolName(symValue));
   }
 
   const strValue = record.str;
@@ -83,6 +87,9 @@ function mapHeadCall(head: string, args: MathJsonValue[]): Expr {
     case "Divide":
       if (args.length !== 2) return fallbackInvalid("divide_arity_mismatch", [head, ...args]);
       return divide(fromMathJson(args[0]), fromMathJson(args[1]));
+    case "Rational":
+      if (args.length !== 2) return fallbackInvalid("rational_arity_mismatch", [head, ...args]);
+      return divide(fromMathJson(args[0]), fromMathJson(args[1]));
     case "Subtract":
       if (args.length !== 2) return fallbackInvalid("subtract_arity_mismatch", [head, ...args]);
       return add([fromMathJson(args[0]), negate(fromMathJson(args[1]))]);
@@ -100,6 +107,33 @@ function mapHeadCall(head: string, args: MathJsonValue[]): Expr {
         );
       }
       return fallbackInvalid("delimiter_shape_mismatch", [head, ...args]);
+    case "Integrate": {
+      if (args.length !== 2 || !Array.isArray(args[1])) {
+        return fallbackInvalid("integrate_shape_mismatch", [head, ...args]);
+      }
+      const [limitsHead, variable, lowerBound, upperBound] = args[1];
+      if (limitsHead !== "Limits" || variable == null) {
+        return fallbackInvalid("integrate_limits_mismatch", [head, ...args]);
+      }
+      return integral(
+        multiply([fromMathJson(args[0]), differential(fromMathJson(variable))]),
+        lowerBound === "Nothing" ? null : fromMathJson(lowerBound),
+        upperBound === "Nothing" ? null : fromMathJson(upperBound),
+      );
+    }
+    case "D":
+      if (args.length !== 2) return fallbackInvalid("d_arity_mismatch", [head, ...args]);
+      return fullDerivativeOperator(fromMathJson(args[1]), fromMathJson(args[0]));
+    case "PartialDerivative":
+      if (args.length !== 2) return fallbackInvalid("partial_derivative_arity_mismatch", [head, ...args]);
+      return partialDerivative(fromMathJson(args[0]), fromMathJson(args[1]));
+    case "Sin":
+    case "Cos":
+    case "Tan":
+    case "Log":
+    case "Ln":
+    case "Exp":
+      return call(sym(head === "Ln" ? "ln" : head.toLowerCase()), args.map(fromMathJson), "paren");
     default:
       return call(sym(head), args.map(fromMathJson));
   }
@@ -107,7 +141,7 @@ function mapHeadCall(head: string, args: MathJsonValue[]): Expr {
 
 export function fromMathJson(value: MathJsonValue): Expr {
   if (typeof value === "number") return num(value);
-  if (typeof value === "string") return sym(value);
+  if (typeof value === "string") return sym(normalizeSymbolName(value));
   if (value === null || typeof value === "boolean") {
     return fallbackInvalid("non_expression_atom", value);
   }
@@ -124,4 +158,9 @@ export function fromMathJson(value: MathJsonValue): Expr {
   const record = asRecord(value);
   if (!record) return fallbackInvalid("invalid_mathjson_value", value);
   return fromMathJsonRecord(record);
+}
+
+function normalizeSymbolName(value: string): string {
+  if (value === "Pi") return String.raw`\pi`;
+  return value;
 }

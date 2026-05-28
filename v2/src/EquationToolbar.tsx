@@ -27,6 +27,8 @@ type EquationToolbarProps = {
   onDistributeRequested: () => void;
   canCleanup: boolean;
   onCleanupRequested: () => void;
+  canEvaluateWithComputeEngine: boolean;
+  onEvaluateWithComputeEngineRequested: () => void;
   identityRewriteOptions: IdentityRewriteOption[];
   canApplyIdentityRewrite: boolean;
   onApplyDefaultIdentityRequested: () => void;
@@ -175,6 +177,8 @@ export function EquationToolbar({
   onDistributeRequested,
   canCleanup,
   onCleanupRequested,
+  canEvaluateWithComputeEngine,
+  onEvaluateWithComputeEngineRequested,
   identityRewriteOptions,
   canApplyIdentityRewrite,
   onApplyDefaultIdentityRequested,
@@ -469,6 +473,22 @@ export function EquationToolbar({
               filter: "invert(1)",
             }}
           />
+        </button>
+        <button
+          type="button"
+          data-testid="evaluate-selection"
+          aria-label="Evaluate selection"
+          title="Evaluate selection"
+          disabled={!canEvaluateWithComputeEngine}
+          onClick={onEvaluateWithComputeEngineRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            ...(!canEvaluateWithComputeEngine ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <span style={materialSymbolStyle} aria-hidden="true">
+            calculate
+          </span>
         </button>
         <button
           type="button"

@@ -607,6 +607,10 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
         i = differentialStartIndex + inferred.consumedNodes;
         continue;
       }
+      if (argIsPlainD) {
+        tokens.push({ kind: "symbol", name: "d" });
+        continue;
+      }
     }
 
     if (macro === "differentialD") {
