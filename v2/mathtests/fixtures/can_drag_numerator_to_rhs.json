@@ -186,9 +186,7 @@
     }
   ],
   "expected": {
-    "selectedNodeIds": [
-      "n3"
-    ],
+    "selectedNodeIds": [],
     "insertionPreview": null,
     "moveType": "multiplicative",
     "latex": "\\frac{1}{m a} = \\frac{1}{F}"

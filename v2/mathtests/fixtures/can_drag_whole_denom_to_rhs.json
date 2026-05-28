@@ -264,9 +264,7 @@
     }
   ],
   "expected": {
-    "selectedNodeIds": [
-      "n4"
-    ],
+    "selectedNodeIds": [],
     "insertionPreview": null,
     "moveType": "multiplicative",
     "latex": "F = m a"

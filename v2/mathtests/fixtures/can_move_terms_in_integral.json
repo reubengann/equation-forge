@@ -259,9 +259,7 @@
     }
   ],
   "expected": {
-    "selectedNodeIds": [
-      "n5"
-    ],
+    "selectedNodeIds": [],
     "insertionPreview": null,
     "moveType": "multiplicative",
     "latex": "\\int_{0}^{1} x a \\,\\mathrm{d}{x}"

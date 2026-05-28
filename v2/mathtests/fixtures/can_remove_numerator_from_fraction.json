@@ -129,9 +129,7 @@
     }
   ],
   "expected": {
-    "selectedNodeIds": [
-      "n3"
-    ],
+    "selectedNodeIds": [],
     "insertionPreview": null,
     "moveType": "multiplicative",
     "latex": "a \\frac{1}{b} + c"

@@ -163,9 +163,7 @@
     }
   ],
   "expected": {
-    "selectedNodeIds": [
-      "n4"
-    ],
+    "selectedNodeIds": [],
     "insertionPreview": null,
     "moveType": "additive",
     "latex": "\\frac{b + a}{c} + c"

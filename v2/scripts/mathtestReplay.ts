@@ -208,6 +208,13 @@ export function replayEvents(fixture: EventFixture) {
         state.insertionPreview = null;
         if (nextLatex != null) {
           state.latex = nextLatex;
+          selectionState = {
+            ...selectionState,
+            selection: null,
+            pendingPointerDown: null,
+            suppressSelectionOnNextPointerUp: false,
+          };
+          state.selectedNodeIds = [];
           currentCompiledDoc = compileMathDocument(state.latex);
           currentCompiledIndex = currentCompiledDoc.index;
           currentDomSnapshotId = null;

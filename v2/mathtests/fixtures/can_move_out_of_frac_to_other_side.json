@@ -160,9 +160,7 @@
     }
   ],
   "expected": {
-    "selectedNodeIds": [
-      "n5"
-    ],
+    "selectedNodeIds": [],
     "insertionPreview": null,
     "moveType": "multiplicative",
     "latex": "\\frac{m}{V} = \\frac{1}{v}"

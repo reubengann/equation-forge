@@ -165,9 +165,7 @@
     }
   ],
   "expected": {
-    "selectedNodeIds": [
-      "n8"
-    ],
+    "selectedNodeIds": [],
     "insertionPreview": null,
     "moveType": "multiplicative",
     "latex": "\\frac{1}{a} b \\frac{1}{c} = 5"

@@ -608,6 +608,7 @@ export function EquationEditor({
       !!dragStartPointerRef.current &&
       distanceBetweenPoints(dragStartPointerRef.current, pointerUp) >= DRAG_COMMIT_THRESHOLD_PX;
     const previewToApply = event.ctrlKey || !hasDragged ? null : resolveInsertionPreviewAtPoint(pointerUp);
+    let didApplyMove = false;
     if (selection && previewToApply) {
       const moveResult = executeMove({
         document: compiledDoc,
@@ -617,19 +618,30 @@ export function EquationEditor({
         destinationSlot: previewToApply.destinationSlot,
       });
       if (moveResult) {
+        didApplyMove = true;
         onCanonicalLatexChanged(moveResult.latex);
       }
     }
 
-    applySelectionEvent({
-      type: "pointer_up",
-      pointer: { x: event.clientX, y: event.clientY },
-      pointerId: event.pointerId,
-      ts: event.timeStamp,
-      buttons: event.buttons,
-      ctrlKey: event.ctrlKey,
-      suppressClickSelectionWhenDragging: !!selection,
-    });
+    if (didApplyMove) {
+      selectionStateRef.current = {
+        ...selectionStateRef.current,
+        selection: null,
+        pendingPointerDown: null,
+        suppressSelectionOnNextPointerUp: false,
+      };
+      updateSelection(null);
+    } else {
+      applySelectionEvent({
+        type: "pointer_up",
+        pointer: { x: event.clientX, y: event.clientY },
+        pointerId: event.pointerId,
+        ts: event.timeStamp,
+        buttons: event.buttons,
+        ctrlKey: event.ctrlKey,
+        suppressClickSelectionWhenDragging: !!selection,
+      });
+    }
     if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }

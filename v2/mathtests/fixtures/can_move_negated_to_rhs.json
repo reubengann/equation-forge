@@ -158,9 +158,7 @@
     }
   ],
   "expected": {
-    "selectedNodeIds": [
-      "n2"
-    ],
+    "selectedNodeIds": [],
     "insertionPreview": null,
     "moveType": "additive",
     "latex": "0 = \\sin \\pi  + 11"

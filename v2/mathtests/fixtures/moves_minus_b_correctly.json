@@ -208,9 +208,7 @@
     }
   ],
   "expected": {
-    "selectedNodeIds": [
-      "n5"
-    ],
+    "selectedNodeIds": [],
     "insertionPreview": null,
     "moveType": "additive",
     "latex": "a + b = c"

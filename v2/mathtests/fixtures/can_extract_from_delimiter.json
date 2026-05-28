@@ -138,9 +138,7 @@
     }
   ],
   "expected": {
-    "selectedNodeIds": [
-      "n5"
-    ],
+    "selectedNodeIds": [],
     "insertionPreview": null,
     "moveType": "multiplicative",
     "latex": "\\frac{b}{b \\left(c\\right)}"
