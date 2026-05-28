@@ -162,6 +162,19 @@ describe("exprToLatex", () => {
     expect(latex).toBe(String.raw`\sin^{2} x + \cos^{2} x`);
   });
 
+  it("keeps tagged trig power ids aligned with compiled index ids", () => {
+    const expr = parseLatexToExpr(String.raw`\sin^{2}\left(x+y\right)+\cos^{2}\left(x+y\right)`);
+    const latex = exprToLatex(expr, true);
+    const doc = compileMathDocumentFromExpr(String.raw`\sin^{2}\left(x+y\right)+\cos^{2}\left(x+y\right)`, expr);
+    const cosPowerNodeId = Object.entries(doc.index.nodeById).find(([, node]) => {
+      if (node.kind !== "power" || node.base.kind !== "call") return false;
+      return node.base.callee.kind === "symbol" && node.base.callee.name === "cos";
+    })?.[0];
+
+    expect(cosPowerNodeId).toBeTruthy();
+    expect(latex).toContain(String.raw`\htmlData{node-id="${cosPowerNodeId}"}{\cos^`);
+  });
+
   it("keeps tagged call ids aligned with compiled index ids", () => {
     const expr = parseLatexToExpr(String.raw`5-2\left(5+3\right)=\sin\pi`);
     const latex = exprToLatex(expr, true);

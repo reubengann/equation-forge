@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "exportedAtIso": "2026-05-28T01:44:20.777Z",
+  "domSnapshots": {
+    "s1": {
+      "hostRect": {
+        "left": 92.08332824707031,
+        "top": 146.81666564941406,
+        "right": 1020.0833282470703,
+        "bottom": 174.8333282470703,
+        "width": 928,
+        "height": 28.01666259765625
+      },
+      "nodeRects": [
+        {
+          "nodeId": "n1",
+          "left": 92.08332824707031,
+          "top": 145.1999969482422,
+          "right": 326.18333435058594,
+          "bottom": 174.36666870117188,
+          "width": 234.10000610351562,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n2",
+          "left": 92.08332824707031,
+          "top": 145.1999969482422,
+          "right": 194.5833282470703,
+          "bottom": 174.36666870117188,
+          "width": 102.5,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n8",
+          "left": 118.61666870117188,
+          "top": 143.01666259765625,
+          "right": 126.16667175292969,
+          "bottom": 163.85000610351562,
+          "width": 7.5500030517578125,
+          "height": 20.833343505859375
+        },
+        {
+          "nodeId": "n5",
+          "left": 135.64999389648438,
+          "top": 145.1999969482422,
+          "right": 186.18333435058594,
+          "bottom": 174.36666870117188,
+          "width": 50.53334045410156,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n6",
+          "left": 135.64999389648438,
+          "top": 145.1999969482422,
+          "right": 148,
+          "bottom": 174.36666870117188,
+          "width": 12.350006103515625,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n7",
+          "left": 174.73333740234375,
+          "top": 145.1999969482422,
+          "right": 186.18333435058594,
+          "bottom": 174.36666870117188,
+          "width": 11.449996948242188,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n9",
+          "left": 221.31666564941406,
+          "top": 145.1999969482422,
+          "right": 326.18333435058594,
+          "bottom": 174.36666870117188,
+          "width": 104.86666870117188,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n15",
+          "left": 250.21665954589844,
+          "top": 143.01666259765625,
+          "right": 257.76666259765625,
+          "bottom": 163.85000610351562,
+          "width": 7.5500030517578125,
+          "height": 20.833343505859375
+        },
+        {
+          "nodeId": "n12",
+          "left": 267.25,
+          "top": 145.1999969482422,
+          "right": 317.78334045410156,
+          "bottom": 174.36666870117188,
+          "width": 50.53334045410156,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n13",
+          "left": 267.25,
+          "top": 145.1999969482422,
+          "right": 279.6000061035156,
+          "bottom": 174.36666870117188,
+          "width": 12.350006103515625,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n14",
+          "left": 306.33331298828125,
+          "top": 145.1999969482422,
+          "right": 317.7833251953125,
+          "bottom": 174.36666870117188,
+          "width": 11.45001220703125,
+          "height": 29.166671752929688
+        }
+      ]
+    }
+  },
+  "events": [
+    {
+      "type": "move_mode_changed",
+      "moveType": "additive",
+      "ts": 1779932652988
+    },
+    {
+      "type": "latex_accepted",
+      "previousLatex": "\\sin^{2}\\left(x + y\\right) + \\cos^{2}\\left(x + y\\right)",
+      "nextLatex": "\\sin^{2}\\left(x + y\\right) + \\cos^{2}\\left(x + y\\right)",
+      "ts": 1779932654838
+    },
+    {
+      "type": "dom_changed",
+      "source": "accept",
+      "domSnapshotId": "s1",
+      "ts": 1779932654846
+    },
+    {
+      "type": "pointer_down",
+      "pointer": {
+        "x": 233.3333282470703,
+        "y": 160
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1779932656915
+    },
+    {
+      "type": "pointer_up",
+      "pointer": {
+        "x": 233.3333282470703,
+        "y": 160
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 0,
+      "ctrlKey": false,
+      "ts": 1779932656996
+    },
+    {
+      "type": "pointer_down",
+      "pointer": {
+        "x": 233.3333282470703,
+        "y": 160
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1779932657065
+    },
+    {
+      "type": "pointer_up",
+      "pointer": {
+        "x": 233.3333282470703,
+        "y": 160
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 0,
+      "ctrlKey": false,
+      "ts": 1779932657201
+    }
+  ],
+  "expected": {
+    "selectedNodeIds": [
+      "n1"
+    ],
+    "insertionPreview": null,
+    "moveType": "additive",
+    "latex": "\\sin^{2}\\left(x + y\\right) + \\cos^{2}\\left(x + y\\right)"
+  }
+}

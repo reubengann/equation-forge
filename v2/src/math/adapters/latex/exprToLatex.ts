@@ -50,16 +50,18 @@ class LatexGenerator {
     if (!this.isTrigPowerBase(base)) return this.wrap(this.generate(base) + "^" + `{${this.generate(expr.exponent)}}`, id);
 
     // Trig powers are conventionally written as \sin^{2} x, meaning (\sin x)^2.
+    this.newId(); // Reserve the call id so subsequent rendered ids stay aligned with the compiled index.
     this.generate(base.callee);
-    const renderedExponent = this.generate(expr.exponent);
     const renderedArg = base.args.map((arg) => this.generate(arg)).join(", ");
+    const renderedExponent = this.generate(expr.exponent);
+    const macro = `\\${base.callee.name}^{${renderedExponent}}`;
     switch (base.delimiter) {
       case "paren":
-        return this.wrap(`\\${base.callee.name}^{${renderedExponent}}\\left(${renderedArg}\\right)`, id);
+        return this.wrap(`${macro}\\left(${renderedArg}\\right)`, id);
       case "bracket":
-        return this.wrap(`\\${base.callee.name}^{${renderedExponent}}\\left[${renderedArg}\\right]`, id);
+        return this.wrap(`${macro}\\left[${renderedArg}\\right]`, id);
       case "bare":
-        return this.wrap(`\\${base.callee.name}^{${renderedExponent}} ${renderedArg}`, id);
+        return this.wrap(`${macro} ${renderedArg}`, id);
     }
   }
 
