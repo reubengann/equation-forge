@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { exprToLatex } from "../adapters/latex";
 import { parseLatexToExpr } from "../adapters/latex/parseLatexToExpr";
 import { compileMathDocumentFromExpr, type CompiledMathDocument } from "../compile/compileMathDocument";
+import { displayGroup, num, type Expr } from "../ast";
 import { autoRewriteSelection, canAutoRewrite } from "./autoRewrite";
+import { CleanupRecursionError, canCleanupExpr } from "./cleanup";
 
 function buildDocument(latex: string): CompiledMathDocument {
   const expr = parseLatexToExpr(latex, { onError: "throw" });
@@ -140,6 +142,63 @@ describe("autoRewriteSelection cleanup", () => {
 
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe("6 + a");
+  });
+
+  it("collects a symbol with a numeric multiple", () => {
+    const document = buildDocument(String.raw`x+2 x`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("3 x");
+  });
+
+  it("collects exact product like terms without reordering factors", () => {
+    const document = buildDocument(String.raw`a b+2 a b`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("3 a b");
+  });
+
+  it("collects negative like-term coefficients", () => {
+    const document = buildDocument(String.raw`2 x-x`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("x");
+  });
+
+  it("collects like terms to zero", () => {
+    const document = buildDocument(String.raw`2 x-2 x`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("0");
+  });
+
+  it("does not collect products with different factor order", () => {
+    const document = buildDocument(String.raw`a b+2 b a`);
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBe(false);
+    expect(autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBeNull();
+  });
+
+  it("does not repeatedly rebuild unrelated coefficient terms", () => {
+    const document = buildDocument(String.raw`x+a+2 x`);
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBe(true);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("3 x + a");
+  });
+
+  it("throws if cleanup recursion exceeds its guard", () => {
+    let expr: Expr = num(1);
+    for (let index = 0; index < 105; index += 1) {
+      expr = displayGroup("paren", expr);
+    }
+
+    expect(() => canCleanupExpr(expr)).toThrow(CleanupRecursionError);
   });
 
   it("folds numeric subtraction", () => {

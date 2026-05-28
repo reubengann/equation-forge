@@ -2,26 +2,61 @@ import { add, divide, num, type Expr } from "../ast";
 import { cloneExpr } from "../ast/utils";
 import { collapseProduct, isNumberValue, structuralKeyIgnoringDisplayGroups } from "./algebraUtils";
 
+const DEFAULT_MAX_CLEANUP_DEPTH = 100;
+const DEFAULT_MAX_LOCAL_CLEANUP_ITERATIONS = 50;
+
+export class CleanupRecursionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CleanupRecursionError";
+  }
+}
+
+type CleanupContext = {
+  maxDepth: number;
+  maxLocalIterations: number;
+};
+
 export function canCleanupExpr(expr: Expr): boolean {
   return cleanupExpr(expr) !== null;
 }
 
 export function cleanupExpr(expr: Expr): Expr | null {
-  return cleanupBottomUp(expr);
+  const context = createCleanupContext();
+  return cleanupBottomUp(expr, context, 0);
 }
 
-function cleanupBottomUp(expr: Expr): Expr | null {
-  const withCleanChildren = cleanupChildren(expr);
+function createCleanupContext(): CleanupContext {
+  return {
+    maxDepth: DEFAULT_MAX_CLEANUP_DEPTH,
+    maxLocalIterations: DEFAULT_MAX_LOCAL_CLEANUP_ITERATIONS,
+  };
+}
+
+function cleanupBottomUp(expr: Expr, context: CleanupContext, depth: number): Expr | null {
+  if (depth > context.maxDepth) {
+    throw new CleanupRecursionError(`Cleanup exceeded maximum recursive depth of ${context.maxDepth}.`);
+  }
+
+  const withCleanChildren = cleanupChildren(expr, context, depth);
   const candidate = withCleanChildren ?? cloneExpr(expr);
-  const local = cleanupLocallyUntilStable(candidate);
+  const local = cleanupLocallyUntilStable(candidate, context);
   return local ?? withCleanChildren;
 }
 
-function cleanupLocallyUntilStable(expr: Expr): Expr | null {
+function cleanupLocallyUntilStable(expr: Expr, context: CleanupContext): Expr | null {
   let current = cloneExpr(expr);
   let changed = false;
+  let iterations = 0;
 
   while (true) {
+    iterations += 1;
+    if (iterations > context.maxLocalIterations) {
+      throw new CleanupRecursionError(
+        `Cleanup exceeded maximum local rewrite iterations of ${context.maxLocalIterations}.`,
+      );
+    }
+
     const next = cleanupLocalExpr(current);
     if (!next) break;
     current = next;
@@ -48,28 +83,28 @@ function cleanupLocalExpr(expr: Expr): Expr | null {
   }
 }
 
-function cleanupChildren(expr: Expr): Expr | null {
+function cleanupChildren(expr: Expr, context: CleanupContext, depth: number): Expr | null {
   const next = cloneExpr(expr);
   let changed = false;
 
   switch (next.kind) {
     case "add":
       next.terms = next.terms.map((term) => {
-        const cleaned = cleanupBottomUp(term);
+        const cleaned = cleanupBottomUp(term, context, depth + 1);
         if (cleaned) changed = true;
         return cleaned ?? term;
       });
       break;
     case "multiply":
       next.factors = next.factors.map((factor) => {
-        const cleaned = cleanupBottomUp(factor);
+        const cleaned = cleanupBottomUp(factor, context, depth + 1);
         if (cleaned) changed = true;
         return cleaned ?? factor;
       });
       break;
     case "divide": {
-      const numerator = cleanupBottomUp(next.numerator);
-      const denominator = cleanupBottomUp(next.denominator);
+      const numerator = cleanupBottomUp(next.numerator, context, depth + 1);
+      const denominator = cleanupBottomUp(next.denominator, context, depth + 1);
       if (numerator) {
         next.numerator = numerator;
         changed = true;
@@ -81,7 +116,7 @@ function cleanupChildren(expr: Expr): Expr | null {
       break;
     }
     case "negate": {
-      const value = cleanupBottomUp(next.value);
+      const value = cleanupBottomUp(next.value, context, depth + 1);
       if (value) {
         next.value = value;
         changed = true;
@@ -89,8 +124,8 @@ function cleanupChildren(expr: Expr): Expr | null {
       break;
     }
     case "power": {
-      const base = cleanupBottomUp(next.base);
-      const exponent = cleanupBottomUp(next.exponent);
+      const base = cleanupBottomUp(next.base, context, depth + 1);
+      const exponent = cleanupBottomUp(next.exponent, context, depth + 1);
       if (base) {
         next.base = base;
         changed = true;
@@ -102,7 +137,7 @@ function cleanupChildren(expr: Expr): Expr | null {
       break;
     }
     case "display_group": {
-      const expression = cleanupBottomUp(next.expression);
+      const expression = cleanupBottomUp(next.expression, context, depth + 1);
       if (expression) {
         next.expression = expression;
         changed = true;
@@ -110,13 +145,13 @@ function cleanupChildren(expr: Expr): Expr | null {
       break;
     }
     case "call": {
-      const callee = cleanupBottomUp(next.callee);
+      const callee = cleanupBottomUp(next.callee, context, depth + 1);
       if (callee) {
         next.callee = callee;
         changed = true;
       }
       next.args = next.args.map((arg) => {
-        const cleaned = cleanupBottomUp(arg);
+        const cleaned = cleanupBottomUp(arg, context, depth + 1);
         if (cleaned) changed = true;
         return cleaned ?? arg;
       });
@@ -166,10 +201,116 @@ function cleanupAdd(expr: Extract<Expr, { kind: "add" }>): Expr | null {
   }
   if (numericTermCount > 1 || (numericTermCount === 1 && numericSum === 0)) changed = true;
 
+  const likeTerms = collectLikeTerms(keptTerms);
+  if (likeTerms) {
+    keptTerms.splice(0, keptTerms.length, ...likeTerms);
+    changed = true;
+  }
+
   if (!changed) return null;
   if (keptTerms.length === 0) return num(0);
   if (keptTerms.length === 1) return keptTerms[0];
   return add(keptTerms);
+}
+
+type CoefficientTerm = {
+  coefficient: number;
+  base: Expr;
+  key: string;
+};
+
+function collectLikeTerms(terms: Expr[]): Expr[] | null {
+  const grouped = new Map<string, { coefficient: number; base: Expr; firstIndex: number; count: number }>();
+
+  terms.forEach((term, index) => {
+    const split = splitCoefficientTerm(term);
+    if (!split) return;
+
+    const existing = grouped.get(split.key);
+    if (existing) {
+      existing.coefficient += split.coefficient;
+      existing.count += 1;
+      return;
+    }
+    grouped.set(split.key, {
+      coefficient: split.coefficient,
+      base: split.base,
+      firstIndex: index,
+      count: 1,
+    });
+  });
+
+  const replacementByIndex = new Map<number, Expr | null>();
+  const collectedKeys = new Set<string>();
+  let changed = false;
+  for (const group of grouped.values()) {
+    if (group.count < 2) continue;
+    collectedKeys.add(cleanupKey(group.base));
+    replacementByIndex.set(
+      group.firstIndex,
+      group.coefficient === 0 ? null : buildCoefficientTerm(group.coefficient, group.base),
+    );
+    changed = true;
+  }
+
+  if (!changed) return null;
+
+  const result: Expr[] = [];
+  const seenKeys = new Set<string>();
+  for (let index = 0; index < terms.length; index += 1) {
+    const term = terms[index];
+    const split = splitCoefficientTerm(term);
+    if (split && collectedKeys.has(split.key)) {
+      if (seenKeys.has(split.key)) continue;
+      seenKeys.add(split.key);
+      if (replacementByIndex.has(index)) {
+        const replacement = replacementByIndex.get(index);
+        if (replacement) result.push(replacement);
+        continue;
+      }
+    }
+    result.push(term);
+  }
+
+  return result;
+}
+
+function splitCoefficientTerm(term: Expr): CoefficientTerm | null {
+  const sign = unwrapNegate(term);
+  const value = sign.value;
+
+  if (value.kind === "number") return null;
+
+  if (value.kind !== "multiply") {
+    return {
+      coefficient: sign.sign,
+      base: cloneExpr(value),
+      key: cleanupKey(value),
+    };
+  }
+
+  const factors = value.factors.map(cloneExpr);
+  const firstFactor = factors[0];
+  const coefficient =
+    firstFactor?.kind === "number" && typeof firstFactor.value === "number" && Number.isFinite(firstFactor.value)
+      ? firstFactor.value
+      : 1;
+  const baseFactors = coefficient === 1 ? factors : factors.slice(1);
+  if (baseFactors.length === 0) return null;
+  const base = collapseProduct(baseFactors);
+  if (base.kind === "number") return null;
+
+  return {
+    coefficient: sign.sign * coefficient,
+    base,
+    key: cleanupKey(base),
+  };
+}
+
+function buildCoefficientTerm(coefficient: number, base: Expr): Expr {
+  if (coefficient === 1) return cloneExpr(base);
+  if (coefficient === -1) return { kind: "negate", notation: "subtraction", value: cloneExpr(base) };
+  return collapseProduct([num(coefficient), base]);
 }
 
 function cleanupMultiply(expr: Extract<Expr, { kind: "multiply" }>): Expr | null {
