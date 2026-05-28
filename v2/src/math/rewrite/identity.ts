@@ -3,6 +3,7 @@ import {
   add,
   call,
   displayGroup,
+  divide,
   multiply,
   negate,
   num,
@@ -12,6 +13,7 @@ import {
 } from "../ast";
 import { cloneExpr } from "../ast/utils";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
+import { structuralKeyIgnoringDisplayGroups } from "./algebraUtils";
 import { getSelectionRewriteTarget, replaceSelectionWithExpr } from "./selectionRewrite";
 
 export type IdentityRewrite = {
@@ -29,6 +31,24 @@ const POWER_BRANCH_CAVEAT = "Branch/domain-sensitive; generally safe for positiv
 const ANGLE_IDENTITY_CAVEAT = "Uses the standard angle identity.";
 
 const IDENTITY_REWRITES: IdentityRewrite[] = [
+  {
+    id: "pythagorean-trig-identity",
+    label: "sin^2(theta) + cos^2(theta) -> 1",
+    defaultPriority: 110,
+    apply: pythagoreanTrigIdentity,
+  },
+  {
+    id: "cos-square-power-reduction",
+    label: "cos^2(theta) -> (1 + cos(2 theta))/2",
+    defaultPriority: 45,
+    apply: cosSquarePowerReduction,
+  },
+  {
+    id: "sin-square-power-reduction",
+    label: "sin^2(theta) -> (1 - cos(2 theta))/2",
+    defaultPriority: 45,
+    apply: sinSquarePowerReduction,
+  },
   {
     id: "combine-natural-logs",
     label: "ln a + ln b -> ln(a b)",
@@ -151,6 +171,22 @@ function combineNaturalLogs(expr: Expr): Expr | null {
   return naturalLog(displayGroup("paren", multiply([left, right])));
 }
 
+function pythagoreanTrigIdentity(expr: Expr): Expr | null {
+  const unwrapped = unwrapDisplayGroup(expr);
+  if (unwrapped.kind !== "add" || unwrapped.terms.length !== 2) return null;
+
+  const terms = unwrapped.terms.map(squaredTrigCall);
+  const [left, right] = terms;
+  if (!left || !right) return null;
+  if (left.name === right.name) return null;
+  if (!((left.name === "sin" && right.name === "cos") || (left.name === "cos" && right.name === "sin"))) {
+    return null;
+  }
+  return structuralKeyIgnoringDisplayGroups(left.argument) === structuralKeyIgnoringDisplayGroups(right.argument)
+    ? num(1)
+    : null;
+}
+
 function expandNaturalLogProduct(expr: Expr): Expr | null {
   const argument = naturalLogArgument(expr);
   if (!argument) return null;
@@ -212,6 +248,45 @@ function cosToSinComplement(expr: Expr): Expr | null {
   return namedCall("sin", add([piOverTwo(), negate(arg, "subtraction")]));
 }
 
+function cosSquarePowerReduction(expr: Expr): Expr | null {
+  const squared = squaredTrigCall(expr);
+  if (!squared || squared.name !== "cos") return null;
+  return divide(
+    displayGroup("paren", add([num(1), namedCallWithDelimiter("cos", multiply([num(2), squared.argument]), "paren")])),
+    num(2),
+  );
+}
+
+function sinSquarePowerReduction(expr: Expr): Expr | null {
+  const squared = squaredTrigCall(expr);
+  if (!squared || squared.name !== "sin") return null;
+  return divide(
+    displayGroup(
+      "paren",
+      add([num(1), negate(namedCallWithDelimiter("cos", multiply([num(2), squared.argument]), "paren"), "subtraction")]),
+    ),
+    num(2),
+  );
+}
+
+function squaredTrigCall(expr: Expr): { name: "sin" | "cos"; argument: Expr } | null {
+  const unwrapped = unwrapDisplayGroup(expr);
+  if (unwrapped.kind !== "power") return null;
+  if (!isNumberTwo(unwrapped.exponent)) return null;
+
+  const base = unwrapDisplayGroup(unwrapped.base);
+  if (base.kind !== "call" || base.args.length !== 1) return null;
+  const name = trigName(base.callee);
+  const [argument] = base.args;
+  return name && argument ? { name, argument: cloneExpr(argument) } : null;
+}
+
+function trigName(expr: Expr): "sin" | "cos" | null {
+  if (isNamedSymbol(expr, "sin")) return "sin";
+  if (isNamedSymbol(expr, "cos")) return "cos";
+  return null;
+}
+
 function naturalLogArgument(expr: Expr): Expr | null {
   return singleNamedCallArgument(expr, "ln");
 }
@@ -257,7 +332,11 @@ function buildExponentialKind(kind: ExponentialArgument["kind"], argument: Expr)
 }
 
 function namedCall(name: string, argument: Expr): Expr {
-  return call(sym(name), [cloneExpr(argument)], "bare");
+  return namedCallWithDelimiter(name, argument, "bare");
+}
+
+function namedCallWithDelimiter(name: string, argument: Expr, delimiter: "paren" | "bracket" | "bare"): Expr {
+  return call(sym(name), [cloneExpr(argument)], delimiter);
 }
 
 function complementArgument(expr: Expr): Expr | null {

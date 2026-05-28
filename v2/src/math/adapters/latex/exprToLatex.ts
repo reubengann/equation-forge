@@ -218,7 +218,7 @@ class LatexGenerator {
         );
       case "display_group": {
         const [open, close] = this.delimiterPair(expr.delimiter);
-        return `\\left${open}${this.wrap(this.generate(expr.expression), id)}\\right${close}`;
+        return this.wrap(`\\left${open}${this.generate(expr.expression)}\\right${close}`, id);
       }
       case "second_order_partial_derivative":
         return this.wrap(

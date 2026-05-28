@@ -335,6 +335,16 @@ describe("exprToLatex", () => {
     expect(latex).toBe(String.raw`\left(a + b\right)`);
   });
 
+  it("wraps display group delimiters with the group node id", () => {
+    const expr = parseLatexToExpr(String.raw`\frac{\left(1 + \cos\left(2 x\right)\right)}{2}`);
+    const latex = exprToLatex(expr, true);
+    const doc = compileMathDocumentFromExpr(String.raw`\frac{\left(1 + \cos\left(2 x\right)\right)}{2}`, expr);
+    const numeratorGroupId = Object.entries(doc.index.nodeById).find(([, node]) => node.kind === "display_group")?.[0];
+
+    expect(numeratorGroupId).toBeTruthy();
+    expect(latex).toContain(String.raw`\htmlData{node-id="${numeratorGroupId}"}{\left(`);
+  });
+
   it("converts second-order partial and partial-at-constant without tags", () => {
     const secondOrderExpr = parseLatexToExpr(
       String.raw`\frac{\partial^{2}{s}}{\partial{P} \partial{T}}`,

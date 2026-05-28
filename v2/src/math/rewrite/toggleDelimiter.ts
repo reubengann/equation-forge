@@ -97,6 +97,7 @@ function canRemoveDisplayGroup(expr: Expr, parent: Expr | null): boolean {
   if (!parent) return true;
   if (parent.kind === "add") return true;
   if (parent.kind === "multiply") return expr.kind !== "add" && expr.kind !== "negate";
+  if (parent.kind === "divide") return true;
   return false;
 }
 

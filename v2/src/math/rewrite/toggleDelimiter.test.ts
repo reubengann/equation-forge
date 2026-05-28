@@ -49,6 +49,15 @@ describe("toggleDelimiterSelection", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`\left(a + b\right)`);
   });
 
+  it("removes delimiters around a whole fraction numerator", () => {
+    const document = buildDocument(String.raw`\frac{\left(1+\cos\left(2 x\right)\right)}{2}`);
+    const next = toggleDelimiterSelection(document, { kind: "single", nodeId: "n2" });
+
+    expect(canToggleDelimiterSelection(document, { kind: "single", nodeId: "n2" })).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\frac{1 + \cos\left(2 x\right)}{2}`);
+  });
+
   it("adds delimiters around contiguous selected additive terms", () => {
     const document = buildDocument(String.raw`a+b+c`);
     const next = toggleDelimiterSelection(

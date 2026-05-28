@@ -29,6 +29,32 @@ function roundTripLatex(latex: string): string {
 }
 
 describe("identity rewrites", () => {
+  it("applies the Pythagorean trig identity", () => {
+    const input = String.raw`\sin^{2}\left(x+y\right)+\cos^{2}\left(x+y\right)`;
+    const options = getApplicableIdentityRewrites(parse(input));
+
+    expect(options[0]).toMatchObject({
+      id: "pythagorean-trig-identity",
+      label: "sin^2(theta) + cos^2(theta) -> 1",
+    });
+    expect(rewriteLatex(input, "pythagorean-trig-identity")).toBe("1");
+  });
+
+  it("does not apply the Pythagorean trig identity to different arguments", () => {
+    const input = String.raw`\sin^{2}\left(x+y\right)+\cos^{2}\left(x-y\right)`;
+
+    expect(applyIdentityRewrite(parse(input), "pythagorean-trig-identity")).toBeNull();
+  });
+
+  it("applies trig square power-reduction identities", () => {
+    expect(rewriteLatex(String.raw`\sin^{2}x`, "sin-square-power-reduction")).toBe(
+      String.raw`\frac{\left(1 - \cos\left(2 x\right)\right)}{2}`,
+    );
+    expect(rewriteLatex(String.raw`\cos^{2}x`, "cos-square-power-reduction")).toBe(
+      String.raw`\frac{\left(1 + \cos\left(2 x\right)\right)}{2}`,
+    );
+  });
+
   it("combines natural logs with caveat metadata", () => {
     const expr = parse(String.raw`\ln a+\ln b`);
     const options = getApplicableIdentityRewrites(expr);
@@ -91,6 +117,18 @@ describe("identity rewrites", () => {
 });
 
 describe("identity rewrites for selections", () => {
+  it("replaces a selected Pythagorean trig sum", () => {
+    const document = buildDocument(String.raw`z+\sin^{2}\left(x+y\right)+\cos^{2}\left(x+y\right)`);
+    const next = applyDefaultIdentityRewriteToSelection(document, {
+      kind: "multi",
+      containerNodeId: "n1",
+      nodeIds: ["n3", "n10"],
+    });
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("z + 1");
+  });
+
   it("replaces a selected single node", () => {
     const document = buildDocument(String.raw`x=\ln a+\ln b`);
     const next = applyIdentityRewriteToSelection(document, { kind: "single", nodeId: "n3" }, "combine-natural-logs");
