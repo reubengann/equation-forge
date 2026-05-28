@@ -11,13 +11,4 @@
 - Not sure about something like \frac{a b c}{e b a}. Should we be able to cancel only a? Right now we don't allow the multi-selection via ctrl click of just the a terms at all.
   What if someone wants to leave one common factor but not another? I guess this is probably rare.
 - Apply modal should give an option to switch the inequality symbol
-- Application of identities via a submenu or something? Transforms:
-  - ln a + ln b -> ln (a b)
-  - sin (\pi/2 - \theta) -> \cos \theta
-  - e^{x+y} -> e^x e^y
-  - (a^b)^c -> a^{b c}
-  - etc.
-    How would it work? Would we check every identity when selected, and apply the first found? What about more complicated identities like sin^2 x + \cos^2 x = 1?
-    Do we apply identities assuming quantities are positive, or meet other criteria like principle branch? Some are pretty one-way, like (a^b)^c = a^{b c}. It's clear how we
-    encode from the left to the right; not so much the other way. Or $\cos \theta$. But some have clear two-way operations, like $ ln a + ln b -> ln (a b) $
 - vector operations
