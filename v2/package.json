@@ -19,6 +19,7 @@
     "@cortex-js/compute-engine": "^0.55.6",
     "@unified-latex/unified-latex-util-parse": "^1.8.4",
     "@unified-latex/unified-latex-util-print-raw": "^1.8.4",
+    "algebrite": "^1.4.0",
     "mathlive": "^0.109.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"

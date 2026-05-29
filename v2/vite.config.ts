@@ -5,6 +5,18 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   build: {
     chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      onwarn(warning, warn) {
+        if (
+          warning.code === 'EVAL' &&
+          warning.id?.includes('node_modules/algebrite/')
+        ) {
+          return
+        }
+
+        warn(warning)
+      },
+    },
   },
   plugins: [react()],
 })

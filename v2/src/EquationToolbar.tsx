@@ -27,8 +27,8 @@ type EquationToolbarProps = {
   onDistributeRequested: () => void;
   canCleanup: boolean;
   onCleanupRequested: () => void;
-  canEvaluateWithComputeEngine: boolean;
-  onEvaluateWithComputeEngineRequested: () => void;
+  canEvaluate: boolean;
+  onEvaluateRequested: () => void;
   identityRewriteOptions: IdentityRewriteOption[];
   canApplyIdentityRewrite: boolean;
   onApplyDefaultIdentityRequested: () => void;
@@ -177,8 +177,8 @@ export function EquationToolbar({
   onDistributeRequested,
   canCleanup,
   onCleanupRequested,
-  canEvaluateWithComputeEngine,
-  onEvaluateWithComputeEngineRequested,
+  canEvaluate,
+  onEvaluateRequested,
   identityRewriteOptions,
   canApplyIdentityRewrite,
   onApplyDefaultIdentityRequested,
@@ -479,11 +479,11 @@ export function EquationToolbar({
           data-testid="evaluate-selection"
           aria-label="Evaluate selection"
           title="Evaluate selection"
-          disabled={!canEvaluateWithComputeEngine}
-          onClick={onEvaluateWithComputeEngineRequested}
+          disabled={!canEvaluate}
+          onClick={onEvaluateRequested}
           style={{
             ...iconButtonBaseStyle,
-            ...(!canEvaluateWithComputeEngine ? iconButtonDisabledStyle : {}),
+            ...(!canEvaluate ? iconButtonDisabledStyle : {}),
           }}
         >
           <span style={materialSymbolStyle} aria-hidden="true">

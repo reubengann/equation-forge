@@ -24,9 +24,9 @@ import {
   getApplicableIdentityRewritesForSelection,
 } from "./math/rewrite/identity";
 import {
-  canEvaluateWithComputeEngine,
-  evaluateSelectionWithComputeEngine,
-} from "./math/rewrite/computeEngine";
+  canEvaluateWithAlgebrite,
+  evaluateSelectionWithAlgebrite,
+} from "./math/rewrite/algebrite";
 import {
   applyOperationToFraction,
   applyOperationToRelation,
@@ -181,7 +181,7 @@ export function EquationEditor({
   const canFactor = canAutoRewrite(compiledDoc, selection, "factor");
   const canDistribute = canAutoRewrite(compiledDoc, selection, "distribute");
   const canCleanup = canAutoRewrite(compiledDoc, selection, "cleanup");
-  const canEvaluateSelectionWithComputeEngine = canEvaluateWithComputeEngine(compiledDoc, selection);
+  const canEvaluateSelectionWithAlgebrite = canEvaluateWithAlgebrite(compiledDoc, selection);
   const identityRewriteOptions = useMemo(
     () => getApplicableIdentityRewritesForSelection(compiledDoc, selection),
     [compiledDoc, selection],
@@ -423,14 +423,14 @@ export function EquationEditor({
     onCanonicalLatexChanged(exprToLatex(nextExpr, false));
   }, [canCleanup, compiledDoc, onCanonicalLatexChanged, selection, updateSelection]);
 
-  const onEvaluateWithComputeEngineRequested = useCallback(() => {
-    if (!selection || !canEvaluateSelectionWithComputeEngine) return;
-    const result = evaluateSelectionWithComputeEngine(compiledDoc, selection);
+  const onEvaluateWithAlgebriteRequested = useCallback(() => {
+    if (!selection || !canEvaluateSelectionWithAlgebrite) return;
+    const result = evaluateSelectionWithAlgebrite(compiledDoc, selection);
     if (!result.ok) return;
     updateSelection(null);
     onCanonicalLatexChanged(exprToLatex(result.expr, false));
   }, [
-    canEvaluateSelectionWithComputeEngine,
+    canEvaluateSelectionWithAlgebrite,
     compiledDoc,
     onCanonicalLatexChanged,
     selection,
@@ -601,7 +601,7 @@ export function EquationEditor({
   }, [
     canDistribute,
     canApplyIdentityRewrite,
-    canEvaluateSelectionWithComputeEngine,
+    canEvaluateSelectionWithAlgebrite,
     canFactor,
     canCleanup,
     canCopyEquation,
@@ -615,7 +615,7 @@ export function EquationEditor({
     onCopyEquationRequested,
     onCopySelectionRequested,
     onDistributeRequested,
-    onEvaluateWithComputeEngineRequested,
+    onEvaluateWithAlgebriteRequested,
     onApplyDefaultIdentityRequested,
     onFactorRequested,
     onRedoRequested,
@@ -922,8 +922,8 @@ export function EquationEditor({
         onDistributeRequested={onDistributeRequested}
         canCleanup={canCleanup}
         onCleanupRequested={onCleanupRequested}
-        canEvaluateWithComputeEngine={canEvaluateSelectionWithComputeEngine}
-        onEvaluateWithComputeEngineRequested={onEvaluateWithComputeEngineRequested}
+        canEvaluate={canEvaluateSelectionWithAlgebrite}
+        onEvaluateRequested={onEvaluateWithAlgebriteRequested}
         identityRewriteOptions={identityRewriteOptions}
         canApplyIdentityRewrite={canApplyIdentityRewrite}
         onApplyDefaultIdentityRequested={onApplyDefaultIdentityRequested}
