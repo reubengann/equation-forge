@@ -1,0 +1,200 @@
+{
+  "schemaVersion": 1,
+  "exportedAtIso": "2026-05-29T19:27:32.785Z",
+  "domSnapshots": {
+    "s1": {
+      "hostRect": {
+        "left": 92.08332824707031,
+        "top": 146.1999969482422,
+        "right": 1020.0833282470703,
+        "bottom": 175.46665954589844,
+        "width": 928,
+        "height": 29.26666259765625
+      },
+      "nodeRects": [
+        {
+          "nodeId": "n1",
+          "left": 92.08332824707031,
+          "top": 144.5833282470703,
+          "right": 198.36666870117188,
+          "bottom": 173.75,
+          "width": 106.28334045410156,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n2",
+          "left": 92.08332824707031,
+          "top": 144.5833282470703,
+          "right": 147.76666259765625,
+          "bottom": 173.75,
+          "width": 55.68333435058594,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n4",
+          "left": 127.01666259765625,
+          "top": 144.5833282470703,
+          "right": 139.36666870117188,
+          "bottom": 173.75,
+          "width": 12.350006103515625,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n5",
+          "left": 176.6666717529297,
+          "top": 144.5833282470703,
+          "right": 198.36666870117188,
+          "bottom": 173.75,
+          "width": 21.699996948242188,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n6",
+          "left": 176.6666717529297,
+          "top": 144.5833282470703,
+          "right": 186.01666259765625,
+          "bottom": 173.75,
+          "width": 9.349990844726562,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n7",
+          "left": 186.01666259765625,
+          "top": 144.5833282470703,
+          "right": 198.36666870117188,
+          "bottom": 173.75,
+          "width": 12.350006103515625,
+          "height": 29.166671752929688
+        }
+      ]
+    },
+    "s2": {
+      "hostRect": {
+        "left": 92.08332824707031,
+        "top": 146.1999969482422,
+        "right": 1020.0833282470703,
+        "bottom": 175.46665954589844,
+        "width": 928,
+        "height": 29.26666259765625
+      },
+      "nodeRects": [
+        {
+          "nodeId": "n1",
+          "left": 92.08332824707031,
+          "top": 144.5833282470703,
+          "right": 189.01666259765625,
+          "bottom": 173.75,
+          "width": 96.93333435058594,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n2",
+          "left": 92.08332824707031,
+          "top": 144.5833282470703,
+          "right": 147.76666259765625,
+          "bottom": 173.75,
+          "width": 55.68333435058594,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n4",
+          "left": 127.01666259765625,
+          "top": 144.5833282470703,
+          "right": 139.36666870117188,
+          "bottom": 173.75,
+          "width": 12.350006103515625,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n5",
+          "left": 176.6666717529297,
+          "top": 144.5833282470703,
+          "right": 189.01666259765625,
+          "bottom": 173.75,
+          "width": 12.349990844726562,
+          "height": 29.166671752929688
+        }
+      ]
+    }
+  },
+  "events": [
+    {
+      "type": "move_mode_changed",
+      "moveType": "multiplicative",
+      "ts": 1780082842756
+    },
+    {
+      "type": "latex_accepted",
+      "previousLatex": "\\frac{1}{c} \\sin\\left(x\\right) = x",
+      "nextLatex": "\\sin\\left(x\\right) = c x",
+      "ts": 1780082844246
+    },
+    {
+      "type": "move_mode_changed",
+      "moveType": "additive",
+      "ts": 1780082844252
+    },
+    {
+      "type": "dom_changed",
+      "source": "accept",
+      "domSnapshotId": "s1",
+      "ts": 1780082844257
+    },
+    {
+      "type": "move_mode_changed",
+      "moveType": "multiplicative",
+      "ts": 1780082845492
+    },
+    {
+      "type": "pointer_down",
+      "pointer": {
+        "x": 176.6666717529297,
+        "y": 164.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780082846466
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 186.6666717529297,
+        "y": 164.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780082848263
+    },
+    {
+      "type": "pointer_up",
+      "pointer": {
+        "x": 188.3333282470703,
+        "y": 164.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 0,
+      "ctrlKey": false,
+      "ts": 1780082850245
+    },
+    {
+      "type": "dom_changed",
+      "source": "accept",
+      "domSnapshotId": "s2",
+      "ts": 1780082850250
+    }
+  ],
+  "expected": {
+    "selectedNodeIds": ["n6"],
+    "insertionPreview": null,
+    "moveType": "multiplicative",
+    "latex": "\\sin\\left(x\\right) = c x"
+  }
+}

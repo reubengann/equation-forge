@@ -153,6 +153,7 @@ export class RulesPipeline {
         destinationSlot: context.destinationSlot ?? "before",
       });
       if (!containerIndexes) return null;
+      if (containerIndexes.insertionIndex === containerIndexes.sourceIndex) return null;
       context.sourceContainerIndex = containerIndexes.sourceIndex;
       context.destinationInsertionIndex = containerIndexes.insertionIndex;
 

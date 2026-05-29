@@ -64,6 +64,19 @@ describe("RulesPipeline", () => {
     expect(result).toBe(true);
   });
 
+  it("rejects no-op multiplicative reorder within the same product", () => {
+    const document = buildDocument(String.raw`a b`);
+    const result = new RulesPipeline(
+      document,
+      null,
+      { kind: "single", nodeId: "n2" },
+      "n3",
+      "multiplicative",
+      "before",
+    ).canMove();
+    expect(result).toBe(false);
+  });
+
   it("returns insertion preview with container and orientation", () => {
     const document = buildDocument(String.raw`a+b`);
     const preview = new RulesPipeline(
