@@ -16,6 +16,7 @@ describe("evaluateAlgebrite", () => {
   test.for([
     [String.raw`x_0+2 \mu_s`, String.raw`x_0 + 2 \mu_s`],
     [String.raw`\frac{d}{dx} x^2`, "2 x"],
+    [String.raw`\frac{d}{dx} \tan x`, String.raw`\cos^{-2}\left(x\right)`],
     [String.raw`\frac{d}{dx} (2 x + 1)`, "2"],
     [String.raw`\frac{d}{dx} (2 x + 1 + e^x)`, String.raw`2 + e^{x}`],
     [String.raw`\int x\,\mathrm{d}{x}`, String.raw`\frac{1}{2} x^{2}`],
