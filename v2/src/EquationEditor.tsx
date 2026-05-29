@@ -394,7 +394,7 @@ export function EquationEditor({
   const openSubstituteModal = useCallback(() => {
     if (!substitutionSelection) return;
     substituteModalSessionRef.current += 1;
-    setSubstituteLatex("");
+    setSubstituteLatex(substitutionSelection.latex);
     setSubstituteError(null);
     setIsSubstituteModalOpen(true);
   }, [substitutionSelection]);

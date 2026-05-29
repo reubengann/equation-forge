@@ -10,7 +10,9 @@ export function extractFactorFromProduct(): UpwardRewriteRule {
     fromKind: "*",
     toKind: "multiply",
     canApply: (context, edge) => {
-      if (context.payload) return false;
+      if (context.payload) {
+        return edge.parentNode.kind === "multiply" && isMultiplicativeIdentity(edge.childNode);
+      }
       if (context.document.index.locationById[edge.parentId]?.field === "denominator") return false;
       if (context.selection.kind === "single") {
         return (
@@ -23,7 +25,14 @@ export function extractFactorFromProduct(): UpwardRewriteRule {
       return edge.parentNode.kind === "multiply" && context.selection.containerNodeId === edge.parentId;
     },
     apply: (context: MoveContext, edge) => {
-      if (context.payload) return null;
+      if (context.payload) {
+        if (edge.parentNode.kind !== "multiply" || !isMultiplicativeIdentity(edge.childNode)) return null;
+        return {
+          payload: cloneExpr(context.payload),
+          updatedNodeId: edge.parentId,
+          updatedNode: productWithoutChild(context, edge.parentId, edge.parentNode, edge.childId),
+        };
+      }
 
       if (edge.parentNode.kind !== "multiply") {
         if (context.selection.kind !== "single") return null;
@@ -76,11 +85,19 @@ function selectedFactorIndexes(context: MoveContext, factorIds: string[]): numbe
 }
 
 function collapseMultiplicativeFactors(factors: Expr[]): Expr {
-  if (factors.length === 0) return { kind: "number", value: 1 };
-  if (factors.length === 1) return factors[0];
-  return { kind: "multiply", factors };
+  const keptFactors = factors.filter((factor) => !isMultiplicativeIdentity(factor));
+  if (keptFactors.length === 0) return { kind: "number", value: 1 };
+  if (keptFactors.length === 1) return keptFactors[0]!;
+  return { kind: "multiply", factors: keptFactors };
 }
 
 function isMultiplicativeIdentity(expr: Expr): boolean {
   return expr.kind === "number" && expr.value === 1;
+}
+
+function productWithoutChild(context: MoveContext, parentId: string, parentNode: Extract<Expr, { kind: "multiply" }>, childId: string): Expr {
+  const childIds = context.document.index.childrenById[parentId] ?? [];
+  const childIndex = childIds.indexOf(childId);
+  if (childIndex < 0) return cloneExpr(parentNode);
+  return collapseMultiplicativeFactors(parentNode.factors.filter((_, index) => index !== childIndex).map(cloneExpr));
 }

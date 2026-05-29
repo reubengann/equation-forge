@@ -431,6 +431,19 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe("F = m a");
   });
 
+  it("executes moving a denominator through a product across an equation", () => {
+    const document = buildDocument(String.raw`\frac{1}{c} \sin\left(x\right) = x`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n5" },
+      destinationId: "n9",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\sin\left(x\right) = x c`);
+  });
+
   it("executes extracting a single denominator from one factor of a product", () => {
     const document = buildDocument(String.raw`\frac{1}{a} \frac{b}{c}=5`);
     const result = executeMove({

@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "exportedAtIso": "2026-05-29T04:16:16.112Z",
+  "domSnapshots": {
+    "s1": {
+      "hostRect": {
+        "left": 92.08332824707031,
+        "top": 140.85000610351562,
+        "right": 1020.0833282470703,
+        "bottom": 180.81666564941406,
+        "width": 928,
+        "height": 39.96665954589844
+      },
+      "nodeRects": [
+        {
+          "nodeId": "n1",
+          "left": 92.08332824707031,
+          "top": 142.5833282470703,
+          "right": 205.01666259765625,
+          "bottom": 171.75,
+          "width": 112.93333435058594,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n2",
+          "left": 92.08332824707031,
+          "top": 142.5833282470703,
+          "right": 163.76666259765625,
+          "bottom": 171.75,
+          "width": 71.68333435058594,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n3",
+          "left": 92.08332824707031,
+          "top": 142.5833282470703,
+          "right": 108.08332824707031,
+          "bottom": 171.75,
+          "width": 16,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n5",
+          "left": 95.39999389648438,
+          "top": 157.48333740234375,
+          "right": 104.75,
+          "bottom": 186.64999389648438,
+          "width": 9.350006103515625,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n4",
+          "left": 94.68333435058594,
+          "top": 131.78334045410156,
+          "right": 105.48333740234375,
+          "bottom": 160.9499969482422,
+          "width": 10.800003051757812,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n6",
+          "left": 108.08332824707031,
+          "top": 142.5833282470703,
+          "right": 163.76666259765625,
+          "bottom": 171.75,
+          "width": 55.68333435058594,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n8",
+          "left": 143.01666259765625,
+          "top": 142.5833282470703,
+          "right": 155.36666870117188,
+          "bottom": 171.75,
+          "width": 12.350006103515625,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n9",
+          "left": 192.6666717529297,
+          "top": 142.5833282470703,
+          "right": 205.01666259765625,
+          "bottom": 171.75,
+          "width": 12.349990844726562,
+          "height": 29.166671752929688
+        }
+      ]
+    }
+  },
+  "events": [
+    {
+      "type": "move_mode_changed",
+      "moveType": "multiplicative",
+      "ts": 1780028166794
+    },
+    {
+      "type": "latex_accepted",
+      "previousLatex": "\\cos\\left(x\\right) = c",
+      "nextLatex": "\\frac{1}{c} \\sin\\left(x\\right) = x",
+      "ts": 1780028168494
+    },
+    {
+      "type": "move_mode_changed",
+      "moveType": "additive",
+      "ts": 1780028168497
+    },
+    {
+      "type": "dom_changed",
+      "source": "accept",
+      "domSnapshotId": "s1",
+      "ts": 1780028168507
+    },
+    {
+      "type": "move_mode_changed",
+      "moveType": "multiplicative",
+      "ts": 1780028169803
+    },
+    {
+      "type": "pointer_down",
+      "pointer": {
+        "x": 97.5,
+        "y": 178.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780028171201
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 115,
+        "y": 175.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780028171692
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 137.5,
+        "y": 172.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780028171760
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 145,
+        "y": 170.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780028171793
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 153.3333282470703,
+        "y": 170.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780028171826
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 158.3333282470703,
+        "y": 170
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780028171842
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 183.3333282470703,
+        "y": 163.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780028172076
+    },
+    {
+      "type": "pointer_up",
+      "pointer": {
+        "x": 194.1666717529297,
+        "y": 160.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 0,
+      "ctrlKey": false,
+      "ts": 1780028173849
+    }
+  ],
+  "expected": {
+    "selectedNodeIds": [
+    ],
+    "insertionPreview": null,
+    "moveType": "multiplicative",
+    "latex": "\\sin\\left(x\\right) = c x"
+  }
+}
