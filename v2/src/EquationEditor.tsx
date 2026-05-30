@@ -7,10 +7,13 @@ import {
   captureGeometryFromMathdiv,
   DRAG_COMMIT_THRESHOLD_PX,
   DRAG_PREVIEW_HIT_TEST_PADDING_PX,
+  rectFromPoints,
+  resolveNodeAtPoint,
   resolveSelectableNodeAtPoint,
   resolveSelectionFromEvent,
   type SelectionControllerEvent,
   selectionSet,
+  type RectBounds,
 } from "./interaction/selectionController";
 import { type TermSelection } from "./selection/types";
 import type { CompiledMathDocument } from "./math/compile/compileMathDocument";
@@ -55,6 +58,12 @@ type InsertionLineStyle = {
   top: number;
   width: number;
   height: number;
+};
+
+type MarqueeDraft = {
+  pointerId: number;
+  origin: { x: number; y: number };
+  current: { x: number; y: number };
 };
 
 function resolveHorizontalInsertionSlot(pointerX: number, rect: NodeHorizontalBounds) {
@@ -155,6 +164,7 @@ export function EquationEditor({
   const [copyEquationFeedback, setCopyEquationFeedback] = useState<"idle" | "done">("idle");
   const [copySelectionFeedback, setCopySelectionFeedback] = useState<"idle" | "done">("idle");
   const [insertionLineStyle, setInsertionLineStyle] = useState<InsertionLineStyle | null>(null);
+  const [marqueeDraft, setMarqueeDraft] = useState<MarqueeDraft | null>(null);
   const lastSelectionKeyRef = useRef<string>("null");
   const selectionStateRef = useRef(createSelectionControllerState());
   const lastDragEngineQueryKeyRef = useRef<string | null>(null);
@@ -162,6 +172,7 @@ export function EquationEditor({
   const lastSnapshotKeyRef = useRef<string | null>(null);
   const currentDomSnapshotIdRef = useRef<string | null>(null);
   const dragStartPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const marqueeDraftRef = useRef<MarqueeDraft | null>(null);
   const copyEquationFeedbackTimeoutRef = useRef<number | null>(null);
   const copySelectionFeedbackTimeoutRef = useRef<number | null>(null);
   const substituteModalSessionRef = useRef(0);
@@ -346,6 +357,11 @@ export function EquationEditor({
     });
     selectionStateRef.current = result;
     updateSelection(result.selection);
+  };
+
+  const updateMarqueeDraft = (draft: MarqueeDraft | null) => {
+    marqueeDraftRef.current = draft;
+    setMarqueeDraft(draft);
   };
 
   const updateInsertionPreview = (preview: InsertionPreview | null) => {
@@ -624,9 +640,30 @@ export function EquationEditor({
   ]);
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    dragStartPointerRef.current = { x: event.clientX, y: event.clientY };
+    const pointer = { x: event.clientX, y: event.clientY };
+    dragStartPointerRef.current = pointer;
     if (event.currentTarget.hasPointerCapture?.(event.pointerId) === false) {
       event.currentTarget.setPointerCapture(event.pointerId);
+    }
+    const hit = resolveNodeAtPoint(pointer, nodeResolutionRef.current, compiledDoc.index);
+    if (!hit.treeHitNodeId && !event.ctrlKey) {
+      updateMarqueeDraft({
+        pointerId: event.pointerId,
+        origin: pointer,
+        current: pointer,
+      });
+      lastDragEngineQueryKeyRef.current = null;
+      updateInsertionPreview(null);
+      recordingHooks?.onPointerDownEvent?.({
+        x: event.clientX,
+        y: event.clientY,
+        domSnapshotId: currentDomSnapshotIdRef.current,
+        pointerType: event.pointerType,
+        button: event.button,
+        buttons: event.buttons,
+        ctrlKey: event.ctrlKey,
+      });
+      return;
     }
     applySelectionEvent({
       type: "pointer_down",
@@ -651,6 +688,44 @@ export function EquationEditor({
 
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     const pointerUp = { x: event.clientX, y: event.clientY };
+    const marqueeDraft = marqueeDraftRef.current;
+    if (marqueeDraft && marqueeDraft.pointerId === event.pointerId) {
+      const hasDragged =
+        distanceBetweenPoints(marqueeDraft.origin, pointerUp) >= DRAG_COMMIT_THRESHOLD_PX;
+      if (hasDragged) {
+        applySelectionEvent({
+          type: "marquee_select",
+          marqueeRect: rectFromPoints(marqueeDraft.origin, pointerUp),
+        });
+      } else {
+        applySelectionEvent({
+          type: "pointer_up",
+          pointer: { x: event.clientX, y: event.clientY },
+          pointerId: event.pointerId,
+          ts: event.timeStamp,
+          buttons: event.buttons,
+          ctrlKey: event.ctrlKey,
+          suppressClickSelectionWhenDragging: false,
+        });
+      }
+      if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      dragStartPointerRef.current = null;
+      updateMarqueeDraft(null);
+      lastDragEngineQueryKeyRef.current = null;
+      updateInsertionPreview(null);
+      recordingHooks?.onPointerUpEvent?.({
+        x: event.clientX,
+        y: event.clientY,
+        domSnapshotId: currentDomSnapshotIdRef.current,
+        pointerType: event.pointerType,
+        button: event.button,
+        buttons: event.buttons,
+        ctrlKey: event.ctrlKey,
+      });
+      return;
+    }
     const hasDragged =
       !!dragStartPointerRef.current &&
       distanceBetweenPoints(dragStartPointerRef.current, pointerUp) >= DRAG_COMMIT_THRESHOLD_PX;
@@ -707,6 +782,23 @@ export function EquationEditor({
   };
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const marqueeDraft = marqueeDraftRef.current;
+    if (marqueeDraft && marqueeDraft.pointerId === event.pointerId) {
+      updateMarqueeDraft({
+        ...marqueeDraft,
+        current: { x: event.clientX, y: event.clientY },
+      });
+      recordingHooks?.onPointerMoveEvent?.({
+        x: event.clientX,
+        y: event.clientY,
+        domSnapshotId: currentDomSnapshotIdRef.current,
+        pointerType: event.pointerType,
+        button: event.button,
+        buttons: event.buttons,
+        ctrlKey: event.ctrlKey,
+      });
+      return;
+    }
     if (!selection) return;
     if (!event.currentTarget.hasPointerCapture?.(event.pointerId)) return;
 
@@ -760,6 +852,7 @@ export function EquationEditor({
 
   const onPointerCancel = (event: React.PointerEvent<HTMLDivElement>) => {
     dragStartPointerRef.current = null;
+    updateMarqueeDraft(null);
     applySelectionEvent({
       type: "pointer_cancel",
       pointerId: event.pointerId,
@@ -771,6 +864,7 @@ export function EquationEditor({
 
   const onLostPointerCapture = (event: React.PointerEvent<HTMLDivElement>) => {
     dragStartPointerRef.current = null;
+    updateMarqueeDraft(null);
     applySelectionEvent({
       type: "lost_pointer_capture",
       pointerId: event.pointerId,
@@ -888,6 +982,18 @@ export function EquationEditor({
     onCanonicalLatexChanged(exprToLatex(nextExpr, false));
   };
 
+  const editorRootRect = editorRootRef.current?.getBoundingClientRect();
+  const marqueeRect: RectBounds | null = marqueeDraft ? rectFromPoints(marqueeDraft.origin, marqueeDraft.current) : null;
+  const marqueeStyle =
+    marqueeRect && editorRootRect
+      ? {
+          left: marqueeRect.left - editorRootRect.left,
+          top: marqueeRect.top - editorRootRect.top,
+          width: marqueeRect.width,
+          height: marqueeRect.height,
+        }
+      : null;
+
   return (
     <div
       style={{
@@ -981,6 +1087,24 @@ export function EquationEditor({
               transform: `translate(${insertionLineStyle.left}px, ${insertionLineStyle.top}px)`,
               width: `${insertionLineStyle.width}px`,
               height: `${insertionLineStyle.height}px`,
+            }}
+          />
+        )}
+        {marqueeStyle && (
+          <div
+            data-testid="selection-marquee"
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              pointerEvents: "none",
+              border: "1px dashed rgba(255, 152, 0, 0.95)",
+              background: "rgba(255, 152, 0, 0.16)",
+              borderRadius: "2px",
+              zIndex: 2,
+              transform: `translate(${marqueeStyle.left}px, ${marqueeStyle.top}px)`,
+              width: `${marqueeStyle.width}px`,
+              height: `${marqueeStyle.height}px`,
             }}
           />
         )}

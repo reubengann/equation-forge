@@ -1,0 +1,708 @@
+{
+  "schemaVersion": 1,
+  "exportedAtIso": "2026-05-30T20:18:26.257Z",
+  "domSnapshots": {
+    "s1": {
+      "hostRect": {
+        "left": 92.08332824707031,
+        "top": 146.1999969482422,
+        "right": 1020.0833282470703,
+        "bottom": 175.46665954589844,
+        "width": 928,
+        "height": 29.26666259765625
+      },
+      "nodeRects": [
+        {
+          "nodeId": "n1",
+          "left": 92.08332824707031,
+          "top": 144.5833282470703,
+          "right": 208,
+          "bottom": 173.75,
+          "width": 115.91667175292969,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n2",
+          "left": 92.08332824707031,
+          "top": 144.5833282470703,
+          "right": 114.31666564941406,
+          "bottom": 173.75,
+          "width": 22.23333740234375,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n3",
+          "left": 92.08332824707031,
+          "top": 144.5833282470703,
+          "right": 102.88333129882812,
+          "bottom": 173.75,
+          "width": 10.800003051757812,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n4",
+          "left": 102.88333129882812,
+          "top": 144.5833282470703,
+          "right": 114.31666564941406,
+          "bottom": 173.75,
+          "width": 11.433334350585938,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n5",
+          "left": 141.0500030517578,
+          "top": 144.5833282470703,
+          "right": 161.11666870117188,
+          "bottom": 173.75,
+          "width": 20.066665649414062,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n6",
+          "left": 141.0500030517578,
+          "top": 144.5833282470703,
+          "right": 151.85000610351562,
+          "bottom": 173.75,
+          "width": 10.800003051757812,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n7",
+          "left": 151.85000610351562,
+          "top": 144.5833282470703,
+          "right": 161.11666870117188,
+          "bottom": 173.75,
+          "width": 9.26666259765625,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n8",
+          "left": 187.85000610351562,
+          "top": 144.5833282470703,
+          "right": 208,
+          "bottom": 173.75,
+          "width": 20.149993896484375,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n9",
+          "left": 187.85000610351562,
+          "top": 144.5833282470703,
+          "right": 198.64999389648438,
+          "bottom": 173.75,
+          "width": 10.79998779296875,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n10",
+          "left": 198.64999389648438,
+          "top": 144.5833282470703,
+          "right": 208,
+          "bottom": 173.75,
+          "width": 9.350006103515625,
+          "height": 29.166671752929688
+        }
+      ]
+    }
+  },
+  "events": [
+    {
+      "type": "move_mode_changed",
+      "moveType": "additive",
+      "ts": 1780172298326
+    },
+    {
+      "type": "latex_accepted",
+      "previousLatex": "2 a + 2 b + 2 c",
+      "nextLatex": "2 a + 2 b + 2 c",
+      "ts": 1780172299259
+    },
+    {
+      "type": "dom_changed",
+      "source": "accept",
+      "domSnapshotId": "s1",
+      "ts": 1780172299265
+    },
+    {
+      "type": "pointer_up",
+      "pointer": {
+        "x": 161.6666717529297,
+        "y": 145
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 0,
+      "ctrlKey": false,
+      "ts": 1780172301388
+    },
+    {
+      "type": "pointer_down",
+      "pointer": {
+        "x": 95,
+        "y": 181.6666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303140
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 95,
+        "y": 180.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303197
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 95.83333587646484,
+        "y": 179.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303214
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 96.66666412353516,
+        "y": 177.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303231
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 98.33333587646484,
+        "y": 175.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303248
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 99.16666412353516,
+        "y": 175
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303264
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 100,
+        "y": 173.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303281
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 100.83333587646484,
+        "y": 172.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303297
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 102.5,
+        "y": 170.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303314
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 103.33333587646484,
+        "y": 169.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303332
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 105,
+        "y": 168.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303348
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 107.5,
+        "y": 165.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303364
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 109.16666412353516,
+        "y": 165
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303382
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 112.5,
+        "y": 162.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303398
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 114.16666412353516,
+        "y": 160.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303415
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 116.66666412353516,
+        "y": 159.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303431
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 118.33333587646484,
+        "y": 157.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303448
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 120,
+        "y": 156.6666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303465
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 121.66666412353516,
+        "y": 155
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303482
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 125,
+        "y": 154.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303498
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 127.5,
+        "y": 153.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303515
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 129.1666717529297,
+        "y": 152.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303531
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 132.5,
+        "y": 151.6666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303549
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 136.6666717529297,
+        "y": 150
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303565
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 139.1666717529297,
+        "y": 149.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303582
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 141.6666717529297,
+        "y": 148.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303598
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 144.1666717529297,
+        "y": 147.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303615
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 147.5,
+        "y": 145.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303632
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 149.1666717529297,
+        "y": 145.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303649
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 150.8333282470703,
+        "y": 145
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303665
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 151.6666717529297,
+        "y": 144.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303682
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 152.5,
+        "y": 144.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303699
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 153.3333282470703,
+        "y": 143.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303715
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 154.1666717529297,
+        "y": 142.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303748
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 155,
+        "y": 142.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303766
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 155.8333282470703,
+        "y": 142.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303782
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 155.8333282470703,
+        "y": 141.6666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303799
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 157.5,
+        "y": 141.6666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303815
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 159.1666717529297,
+        "y": 140.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303832
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 160.8333282470703,
+        "y": 140.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303849
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 162.5,
+        "y": 140
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303866
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 162.5,
+        "y": 139.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172303898
+    },
+    {
+      "type": "pointer_up",
+      "pointer": {
+        "x": 162.5,
+        "y": 139.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 0,
+      "ctrlKey": false,
+      "ts": 1780172304264
+    }
+  ],
+  "expected": {
+    "selectedNodeIds": [
+      "n2",
+      "n5"
+    ],
+    "insertionPreview": null,
+    "moveType": "additive",
+    "latex": "2 a + 2 b + 2 c"
+  }
+}

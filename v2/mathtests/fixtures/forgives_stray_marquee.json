@@ -1,0 +1,803 @@
+{
+  "schemaVersion": 1,
+  "exportedAtIso": "2026-05-30T20:17:21.805Z",
+  "domSnapshots": {
+    "s1": {
+      "hostRect": {
+        "left": 92.08332824707031,
+        "top": 147.26666259765625,
+        "right": 1020.0833282470703,
+        "bottom": 174.38333129882812,
+        "width": 928,
+        "height": 27.116668701171875
+      },
+      "nodeRects": [
+        {
+          "nodeId": "n1",
+          "left": 92.08332824707031,
+          "top": 145.64999389648438,
+          "right": 219.26666259765625,
+          "bottom": 174.81666564941406,
+          "width": 127.18333435058594,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n2",
+          "left": 92.08332824707031,
+          "top": 145.64999389648438,
+          "right": 156.31666564941406,
+          "bottom": 174.81666564941406,
+          "width": 64.23333740234375,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n3",
+          "left": 100.48333740234375,
+          "top": 145.64999389648438,
+          "right": 147.9166717529297,
+          "bottom": 174.81666564941406,
+          "width": 47.43333435058594,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n4",
+          "left": 100.48333740234375,
+          "top": 145.64999389648438,
+          "right": 111.91667175292969,
+          "bottom": 174.81666564941406,
+          "width": 11.433334350585938,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n5",
+          "left": 138.64999389648438,
+          "top": 145.64999389648438,
+          "right": 147.9166717529297,
+          "bottom": 174.81666564941406,
+          "width": 9.266677856445312,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n6",
+          "left": 156.31666564941406,
+          "top": 145.64999389648438,
+          "right": 219.26666259765625,
+          "bottom": 174.81666564941406,
+          "width": 62.94999694824219,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n7",
+          "left": 164.71665954589844,
+          "top": 145.64999389648438,
+          "right": 210.86666870117188,
+          "bottom": 174.81666564941406,
+          "width": 46.15000915527344,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n8",
+          "left": 164.71665954589844,
+          "top": 145.64999389648438,
+          "right": 174.06666564941406,
+          "bottom": 174.81666564941406,
+          "width": 9.350006103515625,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n9",
+          "left": 200.8000030517578,
+          "top": 145.64999389648438,
+          "right": 210.86666870117188,
+          "bottom": 174.81666564941406,
+          "width": 10.066665649414062,
+          "height": 29.166671752929688
+        }
+      ]
+    }
+  },
+  "events": [
+    {
+      "type": "move_mode_changed",
+      "moveType": "additive",
+      "ts": 1780172230246
+    },
+    {
+      "type": "latex_accepted",
+      "previousLatex": "\\left(a + b\\right) \\left(c + e\\right)",
+      "nextLatex": "\\left(a + b\\right) \\left(c + e\\right)",
+      "ts": 1780172231833
+    },
+    {
+      "type": "dom_changed",
+      "source": "accept",
+      "domSnapshotId": "s1",
+      "ts": 1780172231841
+    },
+    {
+      "type": "pointer_down",
+      "pointer": {
+        "x": 227.5,
+        "y": 190.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172233509
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 227.5,
+        "y": 190
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172233724
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 227.5,
+        "y": 189.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172233755
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 226.6666717529297,
+        "y": 188.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172233771
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 225,
+        "y": 187.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172233788
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 222.5,
+        "y": 185.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172233805
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 220,
+        "y": 184.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172233822
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 215.8333282470703,
+        "y": 181.6666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172233838
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 212.5,
+        "y": 179.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172233855
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 209.1666717529297,
+        "y": 177.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172233872
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 205,
+        "y": 175.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172233889
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 201.6666717529297,
+        "y": 173.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172233906
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 198.3333282470703,
+        "y": 171.6666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172233922
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 194.1666717529297,
+        "y": 169.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172233938
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 191.6666717529297,
+        "y": 167.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172233955
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 189.1666717529297,
+        "y": 166.6666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172233972
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 188.3333282470703,
+        "y": 165.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172233989
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 186.6666717529297,
+        "y": 164.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234005
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 185.8333282470703,
+        "y": 164.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234022
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 185,
+        "y": 163.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234039
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 183.3333282470703,
+        "y": 162.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234056
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 182.5,
+        "y": 162.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234072
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 180,
+        "y": 160.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234089
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 178.3333282470703,
+        "y": 159.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234106
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 176.6666717529297,
+        "y": 158.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234121
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 175,
+        "y": 157.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234138
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 174.1666717529297,
+        "y": 156.6666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234156
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 172.5,
+        "y": 155.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234172
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 171.6666717529297,
+        "y": 155
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234188
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 170.8333282470703,
+        "y": 154.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234206
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 169.1666717529297,
+        "y": 153.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234238
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 168.3333282470703,
+        "y": 152.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234256
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 167.5,
+        "y": 150.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234272
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 165,
+        "y": 150
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234289
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 163.3333282470703,
+        "y": 149.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234305
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 161.6666717529297,
+        "y": 147.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234322
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 158.3333282470703,
+        "y": 146.6666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234339
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 155.8333282470703,
+        "y": 145
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234356
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 154.1666717529297,
+        "y": 143.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234372
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 152.5,
+        "y": 142.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234389
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 151.6666717529297,
+        "y": 142.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234406
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 150.8333282470703,
+        "y": 142.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234439
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 150.8333282470703,
+        "y": 141.6666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172234472
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 150,
+        "y": 140.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172236632
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 150,
+        "y": 140
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172236641
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 147.5,
+        "y": 139.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172236658
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 146.6666717529297,
+        "y": 138.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172236675
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 146.6666717529297,
+        "y": 137.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172236691
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 145,
+        "y": 136.6666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172236707
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 145,
+        "y": 135.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172237024
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 144.1666717529297,
+        "y": 135.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780172237041
+    },
+    {
+      "type": "pointer_up",
+      "pointer": {
+        "x": 144.1666717529297,
+        "y": 135.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 0,
+      "ctrlKey": false,
+      "ts": 1780172237777
+    }
+  ],
+  "expected": {
+    "selectedNodeIds": [
+      "n8",
+      "n9"
+    ],
+    "insertionPreview": null,
+    "moveType": "additive",
+    "latex": "\\left(a + b\\right) \\left(c + e\\right)"
+  }
+}

@@ -221,6 +221,7 @@ export function EditorEntryToggle({
             <button
               type="button"
               data-testid="preset-prev-equation"
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => applyPresetByOffset(-1)}
               style={{
                 width: "40px",
@@ -239,6 +240,7 @@ export function EditorEntryToggle({
             <button
               type="button"
               data-testid="preset-next-equation"
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => applyPresetByOffset(1)}
               style={{
                 width: "40px",
@@ -259,6 +261,7 @@ export function EditorEntryToggle({
         <button
           type="button"
           data-testid="accept-equation"
+          onMouseDown={(event) => event.preventDefault()}
           onClick={handleAcceptToggle}
           style={{
             width: "40px",

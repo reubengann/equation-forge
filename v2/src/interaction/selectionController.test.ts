@@ -3,6 +3,8 @@ import { compileMathDocument } from "../math/compile/compileMathDocument";
 import {
   buildNodeResolutionSource,
   createSelectionControllerState,
+  rectFromPoints,
+  resolveMarqueeNodeIds,
   resolveSelectionFromEvent,
   selectionNodeIds,
   type NodeRect,
@@ -332,5 +334,46 @@ describe("selectionController", () => {
     );
 
     expect(upResult.selection).toEqual({ kind: "single", nodeId: "n1" });
+  });
+
+  it("marquee selection uses overlapping rectangles", () => {
+    const compiled = compileMathDocument(String.raw`a+b+c`);
+    const rects = makeRect([
+      ["n1", 0, 150],
+      ["n2", 0, 40],
+      ["n3", 55, 95],
+      ["n4", 110, 150],
+    ]);
+
+    const nodeIds = resolveMarqueeNodeIds(
+      { left: 90, top: 0, right: 112, bottom: 20, width: 22, height: 20 },
+      buildNodeResolutionSource(rects, compiled.index),
+      compiled.index,
+    );
+
+    expect(nodeIds).toEqual(["n3", "n4"]);
+  });
+
+  it("commits marquee selection on a marquee_select event", () => {
+    const result = runEvent(
+      createSelectionControllerState(),
+      {
+        type: "marquee_select",
+        marqueeRect: rectFromPoints({ x: 50, y: 0 }, { x: 130, y: 20 }),
+      },
+      makeRect([
+        ["n1", 0, 150],
+        ["n2", 0, 40],
+        ["n3", 55, 95],
+        ["n4", 110, 150],
+      ]),
+      String.raw`a+b+c`,
+    );
+
+    expect(result.selection).toEqual({
+      kind: "multi",
+      nodeIds: ["n3", "n4"],
+      containerNodeId: "n1",
+    });
   });
 });

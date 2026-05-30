@@ -9,6 +9,8 @@ import {
   DRAG_PREVIEW_HIT_TEST_PADDING_PX,
   type NodeResolutionSource,
   type SelectionGeometry,
+  rectFromPoints,
+  resolveNodeAtPoint,
   resolveSelectableNodeAtPoint,
   resolveSelectionFromEvent,
   selectionNodeIds,
@@ -82,6 +84,7 @@ export function replayEvents(fixture: EventFixture) {
   );
   let selectionState = createSelectionControllerState();
   let dragStartPointer: { x: number; y: number } | null = null;
+  let marqueeStartPointer: { x: number; y: number } | null = null;
 
   for (const event of fixture.events) {
     switch (event.type) {
@@ -145,6 +148,36 @@ export function replayEvents(fixture: EventFixture) {
           );
         }
         const selection = selectionState.selection;
+        if (marqueeStartPointer) {
+          const hasDragged =
+            Math.hypot(event.pointer.x - marqueeStartPointer.x, event.pointer.y - marqueeStartPointer.y) >=
+              DRAG_COMMIT_THRESHOLD_PX;
+          const result = resolveSelectionFromEvent({
+            event: hasDragged
+              ? {
+                  type: "marquee_select",
+                  marqueeRect: rectFromPoints(marqueeStartPointer, event.pointer),
+                }
+              : {
+                  type: "pointer_up",
+                  pointer: { x: event.pointer.x, y: event.pointer.y },
+                  ts: event.ts,
+                  buttons: event.buttons,
+                  ctrlKey: event.ctrlKey ?? false,
+                  suppressClickSelectionWhenDragging: false,
+                },
+            currentSelection: selectionState.selection,
+            nodeResolutionSource: currentNodeResolution,
+            index: currentCompiledIndex,
+            state: selectionState,
+          });
+          selectionState = result;
+          dragStartPointer = null;
+          marqueeStartPointer = null;
+          state.selectedNodeIds = selectionNodeIds(result.selection);
+          state.insertionPreview = null;
+          break;
+        }
         let previewToApply = state.insertionPreview;
         const hasDragged =
           !!dragStartPointer &&
@@ -204,6 +237,7 @@ export function replayEvents(fixture: EventFixture) {
         });
         selectionState = result;
         dragStartPointer = null;
+        marqueeStartPointer = null;
         state.selectedNodeIds = selectionNodeIds(result.selection);
         state.insertionPreview = null;
         if (nextLatex != null) {
@@ -239,6 +273,10 @@ export function replayEvents(fixture: EventFixture) {
         }
 
         const selection = selectionState.selection;
+        if (marqueeStartPointer) {
+          state.insertionPreview = null;
+          break;
+        }
         if (!selection) {
           state.insertionPreview = null;
           break;
@@ -271,6 +309,7 @@ export function replayEvents(fixture: EventFixture) {
       }
       case "pointer_down": {
         dragStartPointer = { x: event.pointer.x, y: event.pointer.y };
+        marqueeStartPointer = null;
         if (!currentDomSnapshot) {
           replayFailures.push(
             "pointer_down occurred before dom_changed established current DOM snapshot",
@@ -284,6 +323,17 @@ export function replayEvents(fixture: EventFixture) {
             `pointer_down domSnapshotId mismatch: event=${event.domSnapshotId} current=${currentDomSnapshotId}`,
           );
         }
+        const hit = resolveNodeAtPoint(
+          { x: event.pointer.x, y: event.pointer.y },
+          currentNodeResolution,
+          currentCompiledIndex,
+        );
+        if (!hit.treeHitNodeId && !(event.ctrlKey ?? false)) {
+          marqueeStartPointer = { x: event.pointer.x, y: event.pointer.y };
+          state.insertionPreview = null;
+          break;
+        }
+
         const result = resolveSelectionFromEvent({
           event: {
             type: "pointer_down",

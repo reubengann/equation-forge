@@ -1,6 +1,6 @@
 import type { CompiledExprIndex as ExprIndex, Expr } from "../math/ast";
 import type { TermSelection } from "../selection/types";
-import { applyCtrlClickIntent } from "./multiSelectionController";
+import { applyCtrlClickIntent, applyMarqueeSelectIntent } from "./multiSelectionController";
 
 type MathDivHost = HTMLElement & { shadowRoot?: ShadowRoot | null };
 
@@ -28,11 +28,17 @@ type PointerUpControllerEvent = {
   suppressClickSelectionWhenDragging?: boolean;
 };
 
+type MarqueeSelectControllerEvent = {
+  type: "marquee_select";
+  marqueeRect: RectBounds;
+};
+
 type PointerControllerEvent = PointerDownControllerEvent | PointerUpControllerEvent;
 
 export type SelectionControllerEvent =
   | PointerDownControllerEvent
   | PointerUpControllerEvent
+  | MarqueeSelectControllerEvent
   | {
       type: "pointer_cancel";
       pointerId?: number;
@@ -146,6 +152,25 @@ function containsPointWithPadding(rect: NodeRect, point: PointerLike, paddingPx:
     point.y >= rect.top - paddingPx &&
     point.y <= rect.bottom + paddingPx
   );
+}
+
+export function rectFromPoints(a: PointerLike, b: PointerLike): RectBounds {
+  const left = Math.min(a.x, b.x);
+  const top = Math.min(a.y, b.y);
+  const right = Math.max(a.x, b.x);
+  const bottom = Math.max(a.y, b.y);
+  return {
+    left,
+    top,
+    right,
+    bottom,
+    width: right - left,
+    height: bottom - top,
+  };
+}
+
+function rectsOverlap(a: RectBounds, b: RectBounds): boolean {
+  return a.left <= b.right && a.right >= b.left && a.top <= b.bottom && a.bottom >= b.top;
 }
 
 function distanceToRect(rect: NodeRect, point: PointerLike): number {
@@ -288,7 +313,7 @@ export function resolveSelectableNodeAtPoint(
   return best?.nodeId ?? null;
 }
 
-function resolveNodeAtPoint(
+export function resolveNodeAtPoint(
   point: PointerLike,
   nodeResolution: NodeResolutionSource,
   index: ExprIndex,
@@ -298,6 +323,37 @@ function resolveNodeAtPoint(
     treeHitNodeId,
     selectableNodeId: walkUpToDirectlySelectableNode(treeHitNodeId, index),
   };
+}
+
+export function resolveMarqueeNodeIds(
+  marqueeRect: RectBounds,
+  nodeResolution: NodeResolutionSource,
+  index: ExprIndex,
+): string[] {
+  const candidateIds = new Set(
+    nodeResolution.nodeRects
+      .filter((rect) => rectsOverlap(rect, marqueeRect))
+      .map((rect) => rect.nodeId),
+  );
+
+  const selectedIds: string[] = [];
+  const visit = (nodeId: string): boolean => {
+    const children = index.childrenById[nodeId] ?? [];
+    let selectedChild = false;
+    for (const childId of children) {
+      selectedChild = visit(childId) || selectedChild;
+    }
+    if (selectedChild) return true;
+
+    if (candidateIds.has(nodeId) && isDirectlySelectableNode(index.nodeById[nodeId])) {
+      selectedIds.push(nodeId);
+      return true;
+    }
+    return false;
+  };
+
+  visit(index.rootId);
+  return selectedIds;
 }
 
 type SelectionControllerInputs = {
@@ -433,6 +489,22 @@ export function resolveSelectionFromEvent({
 }: SelectionControllerInputs): SelectionControllerState {
   if (!index) {
     return { ...state, pendingPointerDown: null };
+  }
+
+  if (event.type === "marquee_select") {
+    const nodeIds = resolveMarqueeNodeIds(event.marqueeRect, nodeResolutionSource, index);
+    const decision = applyMarqueeSelectIntent({
+      nodeIds,
+      currentSelection,
+      index,
+    });
+    return {
+      ...state,
+      selection: decision.accepted ? decision.nextSelection : currentSelection,
+      pendingPointerDown: null,
+      suppressSelectionOnNextPointerUp: false,
+      lastCommittedClick: null,
+    };
   }
 
   const currentSelectedNodes = selectionSet(currentSelection);
