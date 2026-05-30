@@ -1,6 +1,8 @@
 - (a+b)(c) How should force negation work on (c)? Right now we disallow it.
 - Force negation on a square term (b - a)^2 should just be (-b + a)^2, not -(-b + a)^2.
-- Rubber-band selection
+- Full-container multi-selections: if ctrl-click/marquee selects every direct child of an add/product,
+  should that become parent-equivalent or a parent node selection? Need to define demotion behavior for
+  deselecting a child afterward, e.g. ctrl-clicking `a` while `(a+b)c` is selected as a product.
 - Provide a way to force a thinspace in mathlive? Do we want that?
 - Is there a way to represent function in latex? Maybe some invisible character? Otherwise, we can never
   round-trip these.
