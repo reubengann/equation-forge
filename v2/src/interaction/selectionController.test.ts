@@ -56,6 +56,22 @@ function findNodeIdByKind(
 }
 
 describe("selectionController", () => {
+  it("explains stale geometry when rect node ids are not in the compiled expression", () => {
+    const compiled = compileMathDocument(String.raw`a+b`);
+
+    expect(() =>
+      buildNodeResolutionSource(
+        makeRect([
+          ["n1", 0, 100],
+          ["n99", 20, 40],
+        ]),
+        compiled.index,
+      ),
+    ).toThrow(
+      /Selection geometry includes node id n99, but the compiled expression does not contain it.*DOM snapshot\/rect cache is stale.*Unknown rect ids: n99.*Compiled ids: n1, n2, n3.*Rect ids: n1, n99/s,
+    );
+  });
+
   it("selects a single node on pointer_down", () => {
     const result = runEvent(
       createSelectionControllerState(),

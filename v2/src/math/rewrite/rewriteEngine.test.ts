@@ -327,6 +327,19 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe(String.raw`\frac{m v}{V} = 1`);
   });
 
+  it("executes moving a whole side across an equation into a denominator", () => {
+    const document = buildDocument(String.raw`a=c`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n3" },
+      destinationId: "n2",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\frac{a}{c} = 1`);
+  });
+
   it("executes extracting a numerator factor from a fraction", () => {
     const document = buildDocument(String.raw`\frac{a}{b}+c`);
     const result = executeMove({

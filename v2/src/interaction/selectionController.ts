@@ -572,7 +572,7 @@ export function buildNodeResolutionSource(
   const rectById: Record<string, NodeRect> = {};
   for (const rect of nodeRects) {
     if (index && !index.nodeById[rect.nodeId]) {
-      throw new Error(`selectionController received unknown rect nodeId ${rect.nodeId}`);
+      throw new Error(formatUnknownRectNodeIdError(rect.nodeId, nodeRects, index));
     }
     if (rectById[rect.nodeId]) {
       throw new Error(`selectionController received duplicate rect nodeId ${rect.nodeId}`);
@@ -580,6 +580,29 @@ export function buildNodeResolutionSource(
     rectById[rect.nodeId] = rect;
   }
   return { nodeRects, rectById };
+}
+
+function formatUnknownRectNodeIdError(
+  nodeId: string,
+  nodeRects: NodeRect[],
+  index: ExprIndex,
+): string {
+  const rectNodeIds = nodeRects.map((rect) => rect.nodeId);
+  const indexNodeIds = Object.keys(index.nodeById);
+  const unknownRectNodeIds = rectNodeIds.filter((rectNodeId) => !index.nodeById[rectNodeId]);
+  return [
+    `Selection geometry includes node id ${nodeId}, but the compiled expression does not contain it.`,
+    "This usually means the DOM snapshot/rect cache is stale for the current LaTeX or compiled AST.",
+    `Unknown rect ids: ${formatIdList(unknownRectNodeIds)}.`,
+    `Compiled ids: ${formatIdList(indexNodeIds)}.`,
+    `Rect ids: ${formatIdList(rectNodeIds)}.`,
+  ].join(" ");
+}
+
+function formatIdList(ids: string[]): string {
+  const maxIdsToShow = 12;
+  if (ids.length <= maxIdsToShow) return ids.join(", ") || "(none)";
+  return `${ids.slice(0, maxIdsToShow).join(", ")} ... (${ids.length} total)`;
 }
 
 /**

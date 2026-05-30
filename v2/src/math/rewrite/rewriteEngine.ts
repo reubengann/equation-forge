@@ -153,7 +153,12 @@ export class RulesPipeline {
         destinationSlot: context.destinationSlot ?? "before",
       });
       if (!containerIndexes) return null;
-      if (containerIndexes.insertionIndex === containerIndexes.sourceIndex) return null;
+      if (
+        isReorderContainer(containerNode) &&
+        containerIndexes.insertionIndex === containerIndexes.sourceIndex
+      ) {
+        return null;
+      }
       context.sourceContainerIndex = containerIndexes.sourceIndex;
       context.destinationInsertionIndex = containerIndexes.insertionIndex;
 
@@ -436,6 +441,10 @@ function lineOrientationForContainer(containerKind: Expr["kind"]): "vertical" | 
     default:
       return "horizontal";
   }
+}
+
+function isReorderContainer(expr: Expr): boolean {
+  return expr.kind === "add" || expr.kind === "multiply";
 }
 
 function resolveContainerIndexes({
