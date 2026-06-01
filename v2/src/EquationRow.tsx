@@ -1,0 +1,333 @@
+import { useCallback, useMemo, useRef, useState } from "react";
+import { EquationEditor } from "./EquationEditor";
+import { MathliveEditor } from "./MathliveEditor";
+import type { EquationEditorRecordingHooks } from "./TestRecorder";
+import { parseLatexToExpr } from "./math/adapters/latex";
+import { compileMathDocument } from "./math/compile/compileMathDocument";
+import type { PadDefinitionSource } from "./substituteSuggestions";
+
+export type EquationMode = "entry" | "display";
+
+export type EquationHistoryStep = {
+  latex: string;
+};
+
+export type EquationHistory = {
+  past: EquationHistoryStep[];
+  present: EquationHistoryStep;
+  future: EquationHistoryStep[];
+};
+
+export type EquationRowState = {
+  latex: string;
+  history: EquationHistory;
+  mode: EquationMode;
+};
+
+type EquationRowProps = {
+  state: EquationRowState;
+  onStateChange: (updater: (current: EquationRowState) => EquationRowState) => void;
+  onLatexAccepted?: (payload: {
+    previousLatex: string | null;
+    nextLatex: string;
+  }) => void;
+  onCanonicalLatexChanged?: (nextLatex: string) => void;
+  recordingHooks?: EquationEditorRecordingHooks;
+  presets?: string[];
+  isActive?: boolean;
+  onActivate?: () => void;
+  substituteSuggestionSources?: PadDefinitionSource[];
+};
+
+export function createEquationHistory(latex: string): EquationHistory {
+  return {
+    past: [],
+    present: { latex },
+    future: [],
+  };
+}
+
+export function createEquationRowState(latex: string, mode: EquationMode = "entry"): EquationRowState {
+  const canonicalLatex = compileMathDocument(latex).plainLatex;
+  return {
+    latex: canonicalLatex,
+    history: createEquationHistory(canonicalLatex),
+    mode,
+  };
+}
+
+export function createDraftEquationRowState(latex: string): EquationRowState {
+  return {
+    latex,
+    history: createEquationHistory(latex),
+    mode: "entry",
+  };
+}
+
+function acceptButtonLabel(mode: EquationMode) {
+  return mode === "display" ? "Edit" : "✓";
+}
+
+export function EquationRow({
+  state,
+  onStateChange,
+  onLatexAccepted,
+  onCanonicalLatexChanged,
+  recordingHooks,
+  presets,
+  isActive = true,
+  onActivate,
+  substituteSuggestionSources = [],
+}: EquationRowProps) {
+  const [entryError, setEntryError] = useState<string | null>(null);
+  const [presetIndex, setPresetIndex] = useState(0);
+  const lastAcceptedLatexRef = useRef<string | null>(null);
+  const slotRef = useRef<HTMLDivElement | null>(null);
+  const compiledDoc = useMemo(() => {
+    try {
+      return compileMathDocument(state.latex);
+    } catch {
+      return null;
+    }
+  }, [state.latex]);
+
+  const updateMathFieldValue = (nextValue: string) => {
+    const valueChanged = nextValue !== state.latex;
+    if (valueChanged) setEntryError(null);
+    onStateChange((current) => ({ ...current, latex: nextValue }));
+    if (presets) {
+      const matchedPresetIndex = presets.indexOf(nextValue);
+      if (matchedPresetIndex >= 0) setPresetIndex(matchedPresetIndex);
+    }
+  };
+
+  const applyPresetByOffset = (offset: number) => {
+    if (!presets || presets.length === 0) return;
+    const normalizedIndex = (presetIndex + offset + presets.length) % presets.length;
+    const nextLatex = presets[normalizedIndex];
+    const compiled = compileMathDocument(nextLatex);
+    setPresetIndex(normalizedIndex);
+    onStateChange(() => ({
+      latex: compiled.plainLatex,
+      history: createEquationHistory(compiled.plainLatex),
+      mode: state.mode,
+    }));
+  };
+
+  const handleAcceptToggle = (latestLatex?: unknown) => {
+    if (state.mode === "entry") {
+      const previousLatex = lastAcceptedLatexRef.current;
+      const nextLatex = typeof latestLatex === "string" ? latestLatex : state.latex;
+      let acceptedLatex = nextLatex;
+      try {
+        parseLatexToExpr(nextLatex, { onError: "throw" });
+        acceptedLatex = compileMathDocument(nextLatex).plainLatex;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to parse LaTeX input.";
+        onStateChange((current) => ({ ...current, latex: nextLatex }));
+        setEntryError(
+          message.includes("still contains placeholders")
+            ? "Fill or remove every placeholder before accepting."
+            : message,
+        );
+        return;
+      }
+      setEntryError(null);
+      onStateChange(() => ({
+        latex: acceptedLatex,
+        history: createEquationHistory(acceptedLatex),
+        mode: "display",
+      }));
+      onLatexAccepted?.({
+        previousLatex,
+        nextLatex: acceptedLatex,
+      });
+      lastAcceptedLatexRef.current = acceptedLatex;
+      return;
+    }
+
+    onStateChange((current) => ({ ...current, mode: "entry" }));
+  };
+
+  const handleCanonicalLatexChanged = useCallback(
+    (nextLatex: string) => {
+      const canonicalNextLatex = compileMathDocument(nextLatex).plainLatex;
+      onStateChange((current) => {
+        const previousLatex = current.history.present.latex;
+        const nextHistory =
+          previousLatex === canonicalNextLatex
+            ? current.history
+            : {
+                past: [...current.history.past, current.history.present],
+                present: { latex: canonicalNextLatex },
+                future: [],
+              };
+        return {
+          ...current,
+          latex: canonicalNextLatex,
+          history: nextHistory,
+        };
+      });
+      onCanonicalLatexChanged?.(canonicalNextLatex);
+    },
+    [onCanonicalLatexChanged, onStateChange],
+  );
+
+  const handleUndoRequested = () => {
+    const previousStep = state.history.past.at(-1);
+    if (!previousStep) return;
+    onStateChange((current) => ({
+      ...current,
+      latex: previousStep.latex,
+      history: {
+        past: current.history.past.slice(0, -1),
+        present: previousStep,
+        future: [current.history.present, ...current.history.future],
+      },
+    }));
+    onCanonicalLatexChanged?.(previousStep.latex);
+  };
+
+  const handleRedoRequested = () => {
+    const nextStep = state.history.future[0];
+    if (!nextStep) return;
+    onStateChange((current) => ({
+      ...current,
+      latex: nextStep.latex,
+      history: {
+        past: [...current.history.past, current.history.present],
+        present: nextStep,
+        future: current.history.future.slice(1),
+      },
+    }));
+    onCanonicalLatexChanged?.(nextStep.latex);
+  };
+
+  return (
+    <section
+      className="equation-editor"
+      onPointerDownCapture={onActivate}
+      onFocusCapture={onActivate}
+      style={{
+        width: "100%",
+        maxWidth: "1000px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "12px",
+        alignItems: "stretch",
+        textAlign: "left",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          display: "flex",
+          gap: "8px",
+          alignItems: "stretch",
+        }}
+      >
+        {state.mode === "display" ? (
+          compiledDoc ? (
+            <EquationEditor
+              compiledDoc={compiledDoc}
+              recordingHooks={recordingHooks}
+              canUndo={state.history.past.length > 0}
+              onUndoRequested={handleUndoRequested}
+              canRedo={state.history.future.length > 0}
+              onRedoRequested={handleRedoRequested}
+              onCanonicalLatexChanged={handleCanonicalLatexChanged}
+              isActive={isActive}
+              substituteSuggestionSources={substituteSuggestionSources}
+            />
+          ) : (
+            <div role="alert" style={{ flex: 1, color: "#ffb4ab", alignSelf: "center" }}>
+              Unable to render this equation. Edit it to fix the LaTeX.
+            </div>
+          )
+        ) : (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
+            <MathliveEditor
+              slotRef={slotRef}
+              latex={state.latex}
+              updateMathFieldValue={updateMathFieldValue}
+              onAccept={handleAcceptToggle}
+            />
+            {entryError && (
+              <div
+                role="alert"
+                style={{
+                  color: "#ffb4ab",
+                  fontSize: "0.9rem",
+                  lineHeight: 1.35,
+                }}
+              >
+                {entryError}
+              </div>
+            )}
+          </div>
+        )}
+        {state.mode === "entry" && presets && (
+          <>
+            <button
+              type="button"
+              data-testid="preset-prev-equation"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => applyPresetByOffset(-1)}
+              style={{
+                width: "40px",
+                height: "40px",
+                alignSelf: "center",
+                boxSizing: "border-box",
+                border: "1px solid #757575",
+                borderRadius: "3px",
+                background: "#424242",
+                color: "rgba(255, 255, 255, 0.87)",
+                padding: "8px",
+              }}
+            >
+              {"<"}
+            </button>
+            <button
+              type="button"
+              data-testid="preset-next-equation"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => applyPresetByOffset(1)}
+              style={{
+                width: "40px",
+                height: "40px",
+                alignSelf: "center",
+                boxSizing: "border-box",
+                border: "1px solid #757575",
+                borderRadius: "3px",
+                background: "#424242",
+                color: "rgba(255, 255, 255, 0.87)",
+                padding: "8px",
+              }}
+            >
+              {">"}
+            </button>
+          </>
+        )}
+        <button
+          type="button"
+          data-testid="accept-equation"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => handleAcceptToggle()}
+          style={{
+            width: "40px",
+            height: "40px",
+            alignSelf: "center",
+            boxSizing: "border-box",
+            border: "1px solid #757575",
+            borderRadius: "3px",
+            background: "#424242",
+            color: "rgba(255, 255, 255, 0.87)",
+            padding: "8px",
+          }}
+        >
+          {acceptButtonLabel(state.mode)}
+        </button>
+      </div>
+    </section>
+  );
+}

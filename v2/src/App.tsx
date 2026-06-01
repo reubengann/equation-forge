@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import EditorEntryToggle from "./EditorEntryToggle";
+import { PadView } from "./PadView";
 import type { EventFixture, ExportedEvent } from "./interaction/eventFixture";
 import type {
   DomSnapshotObservedPayload,
@@ -84,6 +85,7 @@ function App() {
   const [recordedEventCount, setRecordedEventCount] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const [view, setView] = useState<"pad" | "debug">("pad");
 
   const syncRecordedEvents = () => {
     const nextEvents = recorderRef.current.getEvents();
@@ -239,6 +241,44 @@ function App() {
       }}
     >
       <div style={{ display: "flex", gap: "8px" }}>
+        <button
+          type="button"
+          data-testid="show-pad-view"
+          onClick={() => setView("pad")}
+          style={{
+            boxSizing: "border-box",
+            border: "1px solid #757575",
+            borderRadius: "3px",
+            background: view === "pad" ? "#7c4dff" : "#424242",
+            color: "rgba(255, 255, 255, 0.87)",
+            padding: "8px 12px",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Pad
+        </button>
+        <button
+          type="button"
+          data-testid="show-debug-view"
+          onClick={() => setView("debug")}
+          style={{
+            boxSizing: "border-box",
+            border: "1px solid #757575",
+            borderRadius: "3px",
+            background: view === "debug" ? "#7c4dff" : "#424242",
+            color: "rgba(255, 255, 255, 0.87)",
+            padding: "8px 12px",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Debug
+        </button>
+      </div>
+      {view === "pad" ? (
+        <PadView />
+      ) : (
+        <>
+          <div style={{ display: "flex", gap: "8px" }}>
         <button
           type="button"
           data-testid="start-recording"
@@ -431,6 +471,8 @@ function App() {
             })}
         </div>
       </div>
+        </>
+      )}
     </main>
   );
 }

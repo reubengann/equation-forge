@@ -52,6 +52,7 @@ import type { EquationEditorRecordingHooks } from "./TestRecorder";
 import { EquationToolbar } from "./EquationToolbar";
 import { SubstituteModal } from "./SubstituteModal";
 import { ApplyOperationModal } from "./ApplyOperationModal";
+import { buildPadSubstituteSuggestions, type PadDefinitionSource } from "./substituteSuggestions";
 
 type InsertionLineStyle = {
   left: number;
@@ -134,6 +135,8 @@ type EquationEditorProps = {
   canRedo?: boolean;
   onRedoRequested?: () => void;
   recordingHooks?: EquationEditorRecordingHooks;
+  isActive?: boolean;
+  substituteSuggestionSources?: PadDefinitionSource[];
 };
 
 export function EquationEditor({
@@ -144,6 +147,8 @@ export function EquationEditor({
   canRedo = false,
   onRedoRequested,
   recordingHooks,
+  isActive = true,
+  substituteSuggestionSources = [],
 }: EquationEditorProps) {
   const editorRootRef = useRef<HTMLDivElement | null>(null);
   const mathDivRef = useRef<HTMLElement | null>(null);
@@ -184,6 +189,10 @@ export function EquationEditor({
   const substitutionSelection = useMemo(
     () => getSubstitutionSelection(compiledDoc, selection),
     [compiledDoc, selection],
+  );
+  const substituteSuggestions = useMemo(
+    () => buildPadSubstituteSuggestions(substitutionSelection, substituteSuggestionSources),
+    [substituteSuggestionSources, substitutionSelection],
   );
   const selectionLatexForCopy = substitutionSelection?.latex ?? "";
   const canCopyEquation = compiledDoc.plainLatex.trim().length > 0;
@@ -536,6 +545,7 @@ export function EquationEditor({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (!isActive) return;
       if (event.defaultPrevented) return;
       const key = event.key.toLowerCase();
 
@@ -625,6 +635,7 @@ export function EquationEditor({
     canRedo,
     canSubstitute,
     canUndo,
+    isActive,
     isApplyOperationModalOpen,
     isSubstituteModalOpen,
     onCleanupRequested,
@@ -638,6 +649,12 @@ export function EquationEditor({
     onUndoRequested,
     openSubstituteModal,
   ]);
+
+  useEffect(() => {
+    if (isActive) return;
+    updateSelection(null);
+    updateInsertionPreview(null);
+  }, [isActive, updateInsertionPreview, updateSelection]);
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const pointer = { x: event.clientX, y: event.clientY };
@@ -1115,6 +1132,11 @@ export function EquationEditor({
           replacementLatex={substituteLatex}
           error={substituteError}
           focusSession={substituteModalSessionRef.current}
+          suggestions={substituteSuggestions}
+          onSuggestionSelected={(suggestion) => {
+            setSubstituteLatex(suggestion.rhsLatex);
+            setSubstituteError(null);
+          }}
           onReplacementLatexChange={(nextLatex) => {
             setSubstituteLatex(nextLatex);
             setSubstituteError(null);

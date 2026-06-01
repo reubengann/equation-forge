@@ -11,6 +11,12 @@ type SubstituteModalProps = {
   replacementLatex: string;
   error: string | null;
   focusSession: number;
+  suggestions?: Array<{
+    equationId: string;
+    label: string;
+    rhsLatex: string;
+  }>;
+  onSuggestionSelected?: (suggestion: { equationId: string; label: string; rhsLatex: string }) => void;
   onReplacementLatexChange: (nextLatex: string) => void;
   onAccept: (latestLatex?: string) => void;
   onCancel: () => void;
@@ -105,6 +111,8 @@ export function SubstituteModal({
   replacementLatex,
   error,
   focusSession,
+  suggestions = [],
+  onSuggestionSelected,
   onReplacementLatexChange,
   onAccept,
   onCancel,
@@ -170,6 +178,25 @@ export function SubstituteModal({
             </div>
           )}
         </div>
+
+        {suggestions.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={labelStyle}>Use definition from another equation</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {suggestions.map((suggestion) => (
+                <button
+                  key={suggestion.equationId}
+                  type="button"
+                  data-testid={`substitute-suggestion-${suggestion.equationId}`}
+                  onClick={() => onSuggestionSelected?.(suggestion)}
+                  style={actionButtonStyle}
+                >
+                  {suggestion.label}: {suggestion.rhsLatex}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
           <button type="button" onClick={onCancel} style={actionButtonStyle}>
