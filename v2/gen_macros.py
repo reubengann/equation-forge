@@ -3,6 +3,7 @@
 import argparse
 import pathlib
 import re
+import shutil
 import subprocess
 
 ICON_CANVAS_PT = 24.0
@@ -14,9 +15,16 @@ SVG_TAG_RE = re.compile(
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("latex", help="The latex input to generate an svg for")
+    parser.add_argument(
+        "--output", help="The output file to save the svg to", required=False
+    )
     args = parser.parse_args()
     latex = args.latex
-    return generate_svg(latex)
+    generate_svg(latex)
+    if args.output:
+        temp_folder = pathlib.Path(".") / "svg_temp"
+        shutil.copy2(temp_folder / "temp.svg", args.output)
+    return 0
 
 
 def generate_svg(latex: str) -> int:
@@ -27,6 +35,7 @@ def generate_svg(latex: str) -> int:
     content = Rf"""
 \documentclass[border=0pt]{{standalone}}
 \usepackage{{amsmath, amsfonts}}
+\usepackage{{newtxtext,newtxmath}}
 
 \begin{{document}}
 \( \displaystyle {latex} \)
@@ -54,7 +63,9 @@ def generate_svg(latex: str) -> int:
         )
     svg_content = svg_file.read_text()
     svg_file.write_text(
-        normalize_svg_canvas(svg_content).replace("fill='#000000'", "fill='currentColor'"),
+        normalize_svg_canvas(svg_content).replace(
+            "fill='#000000'", "fill='currentColor'"
+        ),
         encoding="utf-8",
     )
     return 0
@@ -64,7 +75,9 @@ def normalize_svg_canvas(svg_content: str) -> str:
     """Center the generated math in a fixed square viewport to keep icon scale consistent."""
     match = SVG_TAG_RE.search(svg_content)
     if not match:
-        raise ValueError("Could not find an SVG root tag with pt dimensions and a viewBox.")
+        raise ValueError(
+            "Could not find an SVG root tag with pt dimensions and a viewBox."
+        )
 
     x = float(match.group("x"))
     y = float(match.group("y"))

@@ -28,7 +28,7 @@ function macroIcon(src: string, size = 22) {
   );
 }
 
-const fractionMacroIconSize = 34;
+const fractionMacroIconSize = 44;
 
 export const MATH_ENTRY_MACROS: MathEntryMacro[] = [
   {
