@@ -34,6 +34,30 @@ describe("toggleNegateSelection", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`\left(-a - b\right)`);
   });
 
+  it("pushes a negated product sign into a selected additive factor", () => {
+    const document = buildDocument(
+      String.raw`s=\left(c_P-R\right)\ln\left(\frac{T}{T_0}\right)-R\left(\ln v_0-\ln v\right)+s_0`,
+    );
+    const selectedNodeId = Object.entries(document.index.nodeById).find(
+      ([nodeId, expr]) =>
+        expr.kind === "display_group" &&
+        expr.expression.kind === "add" &&
+        expr.expression.terms.every((term) => {
+          const value = term.kind === "negate" ? term.value : term;
+          return value.kind === "call" && value.callee.kind === "symbol" && value.callee.name === "ln";
+        }) &&
+        document.index.nodeById[document.index.parentById[nodeId] ?? ""]?.kind === "multiply",
+    )?.[0];
+
+    expect(selectedNodeId).toBeDefined();
+    const next = toggleNegateSelection(document, selectedNodeId!);
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`s = \left(c_P - R\right) \ln\left(\frac{T}{T_0}\right) + R \left(-\ln v_0  + \ln v \right) + s_0`,
+    );
+  });
+
   it("rejects non-delimiter selections", () => {
     const document = buildDocument(String.raw`-a-b`);
 

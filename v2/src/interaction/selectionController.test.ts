@@ -143,6 +143,26 @@ describe("selectionController", () => {
     expect(selectionNodeIds(null)).toEqual([]);
   });
 
+  it("marquee descends through display groups around sums", () => {
+    const latex = String.raw`(a+b)(c+e)`;
+    const compiled = compileMathDocument(latex);
+    const rects = makeRect([
+      ["n1", 0, 130],
+      ["n6", 65, 130],
+      ["n7", 70, 120],
+      ["n8", 70, 85],
+      ["n9", 105, 120],
+    ]);
+
+    expect(
+      resolveMarqueeNodeIds(
+        rectFromPoints({ x: 60, y: 0 }, { x: 130, y: 20 }),
+        buildNodeResolutionSource(rects, compiled.index),
+        compiled.index,
+      ),
+    ).toEqual(["n8", "n9"]);
+  });
+
   it("clicking non-selectable equals does not clear existing selection", () => {
     const latex = String.raw`a=b`;
     const rects = makeRect([

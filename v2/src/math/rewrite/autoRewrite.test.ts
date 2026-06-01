@@ -32,6 +32,21 @@ describe("autoRewriteSelection factor", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`b \left(a + c\right) + d`);
   });
 
+  it("factors selected sum terms when one selection is inside a negated term", () => {
+    const document = buildDocument(
+      String.raw`s=c_P\ln\left(\frac{T}{T_0}\right)-R\ln\left(\frac{T}{T_0}\right)+R\ln v_0-R\ln v+s_0`,
+    );
+    const selection = { kind: "multi" as const, nodeIds: ["n4", "n12"], containerNodeId: "n3" };
+
+    expect(canAutoRewrite(document, selection, "factor")).toBe(true);
+    const next = autoRewriteSelection(document, selection, "factor");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`s = \ln\left(\frac{T}{T_0}\right) \left(c_P - R\right) + R \ln v_0  - R \ln v  + s_0`,
+    );
+  });
+
   it("preserves negative remainders when factoring", () => {
     const document = buildDocument(String.raw`a b-c b`);
     const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "factor");
@@ -71,6 +86,48 @@ describe("autoRewriteSelection distribute", () => {
 
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(String.raw`b a + b c`);
+  });
+
+  it("distributes a factor across negative add terms", () => {
+    const document = buildDocument(String.raw`b\left(a-c\right)`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "distribute");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`b a - b c`);
+  });
+
+  it("distributes a selected subtraction term across an additive group", () => {
+    const document = buildDocument(
+      String.raw`s=c_P\ln\left(\frac{T}{T_0}\right)-R\left(\ln\left(\frac{T}{T_0}\right)+\ln v_0-\ln v\right)+s_0`,
+    );
+    const selectedNodeId = Object.entries(document.index.nodeById).find(
+      ([, expr]) => expr.kind === "negate" && expr.value.kind === "multiply",
+    )?.[0];
+
+    expect(selectedNodeId).toBeDefined();
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: selectedNodeId! }, "distribute");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`s = c_P \ln\left(\frac{T}{T_0}\right) - R \ln\left(\frac{T}{T_0}\right) - R \ln v_0  + R \ln v  + s_0`,
+    );
+  });
+
+  it("distributes a selected product inside a subtraction term", () => {
+    const document = buildDocument(
+      String.raw`s=c_P\ln\left(\frac{T}{T_0}\right)-R\left(\ln\left(\frac{T}{T_0}\right)+\ln\left(\frac{v_0}{v}\right)\right)+s_0`,
+    );
+    const selectedNodeId = Object.entries(document.index.nodeById).find(
+      ([nodeId, expr]) => expr.kind === "multiply" && document.index.nodeById[document.index.parentById[nodeId] ?? ""]?.kind === "negate",
+    )?.[0];
+
+    expect(selectedNodeId).toBeDefined();
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: selectedNodeId! }, "distribute");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`s = c_P \ln\left(\frac{T}{T_0}\right) - R \ln\left(\frac{T}{T_0}\right) - R \ln\left(\frac{v_0}{v}\right) + s_0`,
+    );
   });
 
   it("distributes a selected product slice inside a larger product", () => {

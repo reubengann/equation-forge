@@ -1,4 +1,5 @@
 import { cloneExpr } from "../../ast/utils";
+import type { Expr } from "../../ast/expr";
 import type { MoveContext, DownwardRewriteRule } from "../types";
 
 export function insertTermIntoSum(): DownwardRewriteRule {
@@ -17,15 +18,18 @@ export function insertTermIntoSum(): DownwardRewriteRule {
       if (downContext.sideNode.kind !== "add") {
         if (downContext.sideId !== downContext.destinationId) return null;
         const destination = cloneExpr(downContext.sideNode);
+        const nextNode = isAdditiveIdentity(destination)
+          ? cloneExpr(context.payload)
+          : {
+              kind: "add" as const,
+              terms:
+                context.destinationSlot === "after"
+                  ? [destination, cloneExpr(context.payload)]
+                  : [cloneExpr(context.payload), destination],
+            };
         return {
           updatedNodeId: downContext.sideId,
-          updatedNode: {
-            kind: "add",
-            terms:
-              context.destinationSlot === "after"
-                ? [destination, cloneExpr(context.payload)]
-                : [cloneExpr(context.payload), destination],
-          },
+          updatedNode: nextNode,
           insertionPreview: {
             containerId: downContext.sideId,
             containerKind: "add",
@@ -61,4 +65,8 @@ export function insertTermIntoSum(): DownwardRewriteRule {
       };
     },
   };
+}
+
+function isAdditiveIdentity(expr: Expr): boolean {
+  return expr.kind === "number" && Number(expr.value) === 0;
 }

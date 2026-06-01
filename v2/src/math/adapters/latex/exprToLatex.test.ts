@@ -42,10 +42,10 @@ describe("exprToLatex", () => {
     expect(latex).toBe("c - a");
   });
 
-  it("preserves explicit prefix negation in sums", () => {
+  it("prints prefix negation after the first sum term as subtraction", () => {
     const expr = parseLatexToExpr("c + -a");
     const latex = exprToLatex(expr, false);
-    expect(latex).toBe("c + -a");
+    expect(latex).toBe("c - a");
   });
 
   it("wraps product", () => {

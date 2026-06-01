@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { exprToLatex, parseLatexToExpr } from "../adapters/latex";
+import type { Expr } from "../ast";
 import { compileMathDocumentFromExpr, type CompiledMathDocument } from "../compile/compileMathDocument";
 import {
   applyDefaultIdentityRewrite,
@@ -26,6 +27,10 @@ function buildDocument(latex: string): CompiledMathDocument {
 
 function roundTripLatex(latex: string): string {
   return exprToLatex(parse(latex), false);
+}
+
+function naturalLogName(expr: Expr): boolean {
+  return expr.kind === "call" && expr.callee.kind === "symbol" && expr.callee.name === "ln";
 }
 
 describe("identity rewrites", () => {
@@ -68,8 +73,40 @@ describe("identity rewrites", () => {
     );
   });
 
+  it("combines a natural log difference into a quotient", () => {
+    const expr = parse(String.raw`\ln a-\ln b`);
+    const options = getApplicableIdentityRewrites(expr);
+
+    expect(options.map((option) => option.id)).toContain("combine-natural-log-quotient");
+    expect(rewriteLatex(String.raw`\ln a-\ln b`, "combine-natural-log-quotient")).toBe(
+      String.raw`\ln \left(\frac{a}{b}\right) `,
+    );
+  });
+
   it("expands a natural log product", () => {
     expect(rewriteLatex(String.raw`\ln(a b)`, "expand-natural-log-product")).toBe(String.raw`\ln a  + \ln b `);
+  });
+
+  it("expands a natural log quotient", () => {
+    const expr = parse(String.raw`\ln\left(\frac{a}{b}\right)`);
+    const options = getApplicableIdentityRewrites(expr);
+
+    expect(options.map((option) => option.id)).toContain("expand-natural-log-quotient");
+    expect(options.find((option) => option.id === "expand-natural-log-quotient")).toMatchObject({
+      caveat: "Assumes the log arguments are positive.",
+    });
+    expect(rewriteLatex(String.raw`\ln\left(\frac{a}{b}\right)`, "expand-natural-log-quotient")).toBe(
+      String.raw`\ln a  - \ln b `,
+    );
+  });
+
+  it("expands a natural log quotient with product numerator and denominator", () => {
+    expect(
+      rewriteLatex(
+        String.raw`\ln\left(\frac{T v_0}{T_0 v}\right)`,
+        "expand-natural-log-quotient",
+      ),
+    ).toBe(String.raw`\ln\left(T v_0\right) - \ln\left(T_0 v\right)`);
   });
 
   it("expands and combines exponential sums", () => {
@@ -155,6 +192,38 @@ describe("identity rewrites for selections", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`x + \ln \left(a b\right)  + y`);
   });
 
+  it("combines a selected natural log difference inside a product", () => {
+    const document = buildDocument(
+      String.raw`s=c_P\ln\left(\frac{T}{T_0}\right)-R\left(\ln T-\ln T_0+\ln v_0-\ln v\right)+s_0`,
+    );
+    const sumEntry = Object.entries(document.index.nodeById).find(([, expr]) => {
+      if (expr.kind !== "add" || expr.terms.length < 4) return false;
+      const [first, second] = expr.terms;
+      return Boolean(first && second?.kind === "negate" && naturalLogName(first) && naturalLogName(second.value));
+    });
+    const [containerNodeId, sumExpr] = sumEntry ?? [];
+    const termNodeIds = containerNodeId
+      ? document.index.childrenById[containerNodeId]?.slice(0, 2)
+      : undefined;
+
+    expect(sumExpr).toBeDefined();
+    expect(termNodeIds).toHaveLength(2);
+    const options = getApplicableIdentityRewritesForSelection(document, {
+      kind: "multi",
+      containerNodeId: containerNodeId!,
+      nodeIds: termNodeIds!,
+    });
+    const next = applyDefaultIdentityRewriteToSelection(document, {
+      kind: "multi",
+      containerNodeId: containerNodeId!,
+      nodeIds: termNodeIds!,
+    });
+
+    expect(options.map((option) => option.id)).toContain("combine-natural-log-quotient");
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toContain(String.raw`\ln \left(\frac{T}{T_0}\right) `);
+  });
+
   it("keeps combined log products inside the log after reparsing", () => {
     const document = buildDocument(String.raw`x+\ln x+\ln b`);
     const next = applyDefaultIdentityRewriteToSelection(document, {
@@ -167,5 +236,24 @@ describe("identity rewrites for selections", () => {
     const latex = exprToLatex(next!, false);
     expect(latex).toBe(String.raw`x + \ln \left(x b\right) `);
     expect(roundTripLatex(latex)).toBe(String.raw`x + \ln\left(x b\right)`);
+  });
+
+  it("expands a selected negative natural log product", () => {
+    const document = buildDocument(String.raw`\ln T+\ln v_0-\ln\left(T_0 v\right)`);
+    const selectedNodeId = Object.entries(document.index.nodeById).find(([, expr]) => expr.kind === "negate")?.[0];
+
+    expect(selectedNodeId).toBeDefined();
+    const options = getApplicableIdentityRewritesForSelection(document, {
+      kind: "single",
+      nodeId: selectedNodeId!,
+    });
+    const next = applyDefaultIdentityRewriteToSelection(document, {
+      kind: "single",
+      nodeId: selectedNodeId!,
+    });
+
+    expect(options.map((option) => option.id)).toContain("expand-natural-log-product");
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\ln T  + \ln v_0  - \ln T_0  - \ln v `);
   });
 });

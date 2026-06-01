@@ -70,6 +70,12 @@ function normalizeMarqueeNodeToContainerChild(
   }
 }
 
+function normalizeSelectedContainerChild(nodeId: string, index: ExprIndex): string {
+  const expr = index.nodeById[nodeId];
+  const [childId] = index.childrenById[nodeId] ?? [];
+  return expr?.kind === "negate" && childId ? childId : nodeId;
+}
+
 function compareByContainerIndex(a: string, b: string, index: ExprIndex): number {
   const aIndex = index.locationById[a]?.index;
   const bIndex = index.locationById[b]?.index;
@@ -178,9 +184,10 @@ export function applyMarqueeSelectIntent(args: {
       if (container.kind === "add" || container.kind === "multiply") {
         const selectableNodeId = normalizeMarqueeNodeToContainerChild(nodeId, cursor, args.index);
         if (selectableNodeId) {
+          const selectedNodeId = normalizeSelectedContainerChild(selectableNodeId, args.index);
           const entry =
             containersById.get(cursor) ?? { selectedNodeIds: new Set<string>(), sourceNodeIds: new Set<string>() };
-          entry.selectedNodeIds.add(selectableNodeId);
+          entry.selectedNodeIds.add(selectedNodeId);
           entry.sourceNodeIds.add(nodeId);
           containersById.set(cursor, entry);
           foundContainer = true;
@@ -216,7 +223,8 @@ export function applyMarqueeSelectIntent(args: {
   const chosenContainerEntry =
     uniqueNodeIds.length === 1
       ? completeContainerEntries[0]
-      : (multiContainerEntries[0] ??
+      : (completeContainerEntries[0] ??
+        multiContainerEntries[0] ??
         cleanMultiContainerEntries[0] ??
         completeContainerEntries[completeContainerEntries.length - 1]);
   const totalSelectionGroups = (chosenContainerEntry ? 1 : 0) + standaloneNodeIds.size;

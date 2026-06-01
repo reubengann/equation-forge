@@ -38,6 +38,17 @@ describe("substituteSelection", () => {
     expect(exprToLatex(next!, false)).toBe("z + c");
   });
 
+  it("displays a multi-selection that targets the value inside a negated sum term", () => {
+    const document = buildDocument(
+      String.raw`s=c_P\ln\left(\frac{T}{T_0}\right)-R\ln\left(\frac{T}{T_0}\right)+R\ln v_0-R\ln v+s_0`,
+    );
+    const selection = { kind: "multi" as const, nodeIds: ["n4", "n12"], containerNodeId: "n3" };
+
+    expect(getSubstitutionSelection(document, selection)?.latex).toBe(
+      String.raw`c_P \ln\left(\frac{T}{T_0}\right) - R \ln\left(\frac{T}{T_0}\right)`,
+    );
+  });
+
   it("rejects non-contiguous multi-selections", () => {
     const document = buildDocument(String.raw`a+b+c`);
     const selection = { kind: "multi" as const, nodeIds: ["n2", "n4"], containerNodeId: "n1" };

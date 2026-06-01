@@ -57,11 +57,25 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
     apply: combineNaturalLogs,
   },
   {
+    id: "combine-natural-log-quotient",
+    label: "ln a - ln b -> ln(a / b)",
+    caveat: POSITIVE_LOG_CAVEAT,
+    defaultPriority: 100,
+    apply: combineNaturalLogQuotient,
+  },
+  {
     id: "expand-natural-log-product",
     label: "ln(a b) -> ln a + ln b",
     caveat: POSITIVE_LOG_CAVEAT,
     defaultPriority: 90,
     apply: expandNaturalLogProduct,
+  },
+  {
+    id: "expand-natural-log-quotient",
+    label: "ln(a / b) -> ln a - ln b",
+    caveat: POSITIVE_LOG_CAVEAT,
+    defaultPriority: 90,
+    apply: expandNaturalLogQuotient,
   },
   {
     id: "expand-exponential-sum",
@@ -171,6 +185,19 @@ function combineNaturalLogs(expr: Expr): Expr | null {
   return naturalLog(displayGroup("paren", multiply([left, right])));
 }
 
+function combineNaturalLogQuotient(expr: Expr): Expr | null {
+  const unwrapped = unwrapDisplayGroup(expr);
+  if (unwrapped.kind !== "add" || unwrapped.terms.length !== 2) return null;
+
+  const [leftTerm, rightTerm] = unwrapped.terms;
+  if (!leftTerm || !rightTerm || rightTerm.kind !== "negate") return null;
+
+  const numerator = naturalLogArgument(leftTerm);
+  const denominator = naturalLogArgument(rightTerm.value);
+  if (!numerator || !denominator) return null;
+  return naturalLog(displayGroup("paren", divide(numerator, denominator)));
+}
+
 function pythagoreanTrigIdentity(expr: Expr): Expr | null {
   const unwrapped = unwrapDisplayGroup(expr);
   if (unwrapped.kind !== "add" || unwrapped.terms.length !== 2) return null;
@@ -188,6 +215,12 @@ function pythagoreanTrigIdentity(expr: Expr): Expr | null {
 }
 
 function expandNaturalLogProduct(expr: Expr): Expr | null {
+  if (expr.kind === "negate") {
+    const expanded = expandNaturalLogProduct(expr.value);
+    if (!expanded || expanded.kind !== "add") return null;
+    return add(expanded.terms.map((term) => negate(term, "subtraction")));
+  }
+
   const argument = naturalLogArgument(expr);
   if (!argument) return null;
 
@@ -196,6 +229,18 @@ function expandNaturalLogProduct(expr: Expr): Expr | null {
   const [left, right] = unwrappedArgument.factors;
   if (!left || !right) return null;
   return add([naturalLog(left), naturalLog(right)]);
+}
+
+function expandNaturalLogQuotient(expr: Expr): Expr | null {
+  const argument = naturalLogArgument(expr);
+  if (!argument) return null;
+
+  const unwrappedArgument = unwrapDisplayGroup(argument);
+  if (unwrappedArgument.kind !== "divide") return null;
+  return add([
+    naturalLogWithCompoundParens(unwrappedArgument.numerator),
+    negate(naturalLogWithCompoundParens(unwrappedArgument.denominator), "subtraction"),
+  ]);
 }
 
 function expandExponentialSum(expr: Expr): Expr | null {
@@ -293,6 +338,13 @@ function naturalLogArgument(expr: Expr): Expr | null {
 
 function naturalLog(argument: Expr): Expr {
   return namedCall("ln", argument);
+}
+
+function naturalLogWithCompoundParens(argument: Expr): Expr {
+  const unwrapped = unwrapDisplayGroup(argument);
+  return unwrapped.kind === "multiply" || unwrapped.kind === "divide" || unwrapped.kind === "add"
+    ? namedCallWithDelimiter("ln", argument, "paren")
+    : naturalLog(argument);
 }
 
 function singleNamedCallArgument(expr: Expr, name: string): Expr | null {

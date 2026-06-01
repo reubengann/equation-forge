@@ -615,6 +615,13 @@ export function EquationEditor({
         return;
       }
 
+      if (key === "t") {
+        if (!canApplyIdentityRewrite) return;
+        event.preventDefault();
+        onApplyDefaultIdentityRequested();
+        return;
+      }
+
       if (key !== "a") return;
       event.preventDefault();
       setMoveType((currentMoveType) => (currentMoveType === "additive" ? "multiplicative" : "additive"));

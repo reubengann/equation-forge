@@ -1,5 +1,5 @@
 import type { TermSelection } from "../../selection/types";
-import { add, displayGroup, multiply, type Expr } from "../ast";
+import { add, displayGroup, multiply, negate, type Expr } from "../ast";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import { cloneExpr, replaceCompiledNode } from "../ast/utils";
 
@@ -38,6 +38,8 @@ export function replaceSelectionWithExpr(
   if (selection.kind === "single") {
     const existing = document.index.nodeById[selection.nodeId];
     if (!existing) return null;
+    const spliceResult = replaceSingleContainerChildWithExpr(document, selection.nodeId, replacement);
+    if (spliceResult) return spliceResult;
     return replaceCompiledNode(document, selection.nodeId, wrapReplacementForLocation(document, selection.nodeId, replacement));
   }
 
@@ -65,6 +67,52 @@ export function replaceSelectionWithExpr(
   return replaceCompiledNode(document, range.parentId, nextParent);
 }
 
+function replaceSingleContainerChildWithExpr(
+  document: CompiledMathDocument,
+  nodeId: string,
+  replacement: Expr,
+): Expr | null {
+  const location = document.index.locationById[nodeId];
+  if (!location?.parentId) return null;
+
+  const parent = document.index.nodeById[location.parentId];
+  if (!parent) return null;
+
+  const nextParent = cloneExpr(parent);
+  if (nextParent.kind === "add" && replacement.kind === "add" && location.index != null) {
+    nextParent.terms = [
+      ...nextParent.terms.slice(0, location.index),
+      ...replacement.terms.map(cloneExpr),
+      ...nextParent.terms.slice(location.index + 1),
+    ];
+    return replaceCompiledNode(document, location.parentId, nextParent);
+  }
+
+  const parentLocation = document.index.locationById[location.parentId];
+  const grandparent = parentLocation?.parentId ? document.index.nodeById[parentLocation.parentId] : null;
+  if (
+    parent.kind === "negate" &&
+    parentLocation?.parentId &&
+    parentLocation.index != null &&
+    grandparent?.kind === "add" &&
+    replacement.kind === "add"
+  ) {
+    const nextGrandparent = cloneExpr(grandparent);
+    nextGrandparent.terms = [
+      ...nextGrandparent.terms.slice(0, parentLocation.index),
+      ...replacement.terms.map(flipAdditiveSign),
+      ...nextGrandparent.terms.slice(parentLocation.index + 1),
+    ];
+    return replaceCompiledNode(document, parentLocation.parentId, nextGrandparent);
+  }
+
+  return null;
+}
+
+function flipAdditiveSign(term: Expr): Expr {
+  return term.kind === "negate" ? cloneExpr(term.value) : negate(term, "subtraction");
+}
+
 function resolveMultiSelectionRange(
   document: CompiledMathDocument,
   selection: Extract<TermSelection, { kind: "multi" }>,
@@ -77,14 +125,14 @@ function resolveMultiSelectionRange(
 
   const indexedChildren = selection.nodeIds
     .map((nodeId) => {
-      const location = document.index.locationById[nodeId];
-      if (location?.parentId !== containerNodeId || location.index == null) return null;
-      return { index: location.index };
+      const normalized = normalizeSelectedContainerChild(document, nodeId, containerNodeId);
+      return normalized?.index == null ? null : { index: normalized.index, nodeId: normalized.nodeId };
     })
-    .filter((child): child is { index: number } => child !== null)
+    .filter((child): child is { index: number; nodeId: string } => child !== null)
     .sort((a, b) => a.index - b.index);
 
   if (indexedChildren.length !== selection.nodeIds.length) return null;
+  if (new Set(indexedChildren.map((child) => child.nodeId)).size !== indexedChildren.length) return null;
 
   const start = indexedChildren[0]?.index;
   const end = indexedChildren[indexedChildren.length - 1]?.index;
@@ -97,6 +145,25 @@ function resolveMultiSelectionRange(
 
   const selectedExpr = parent.kind === "add" ? add(selectedChildren) : multiply(selectedChildren);
   return { parentId: containerNodeId, parent, start, end, selectedExpr };
+}
+
+function normalizeSelectedContainerChild(
+  document: CompiledMathDocument,
+  nodeId: string,
+  containerNodeId: string,
+): { nodeId: string; index: number } | null {
+  const location = document.index.locationById[nodeId];
+  if (location?.parentId === containerNodeId && location.index != null) return { nodeId, index: location.index };
+
+  const parentId = location?.parentId;
+  if (!parentId) return null;
+  const parent = document.index.nodeById[parentId];
+  const parentLocation = document.index.locationById[parentId];
+  if (parent?.kind === "negate" && parentLocation?.parentId === containerNodeId && parentLocation.index != null) {
+    return { nodeId: parentId, index: parentLocation.index };
+  }
+
+  return null;
 }
 
 function wrapReplacementForLocation(document: CompiledMathDocument, nodeId: string, replacement: Expr): Expr {

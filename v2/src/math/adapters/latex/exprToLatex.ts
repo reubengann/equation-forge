@@ -242,7 +242,7 @@ class LatexGenerator {
   generateAddTerms(terms: Expr[]): string {
     return terms
       .map((term, index) => {
-        if (term.kind === "negate" && term.notation !== "prefix") {
+        if (term.kind === "negate" && (index > 0 || term.notation !== "prefix")) {
           const id = this.newId();
           const renderedValue = this.generate(term.value);
           const wrappedValue = this.wrap(renderedValue, id);

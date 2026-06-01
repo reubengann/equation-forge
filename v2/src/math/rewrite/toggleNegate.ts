@@ -1,4 +1,4 @@
-import { add, displayGroup, negate, type Expr } from "../ast";
+import { add, displayGroup, multiply, negate, type Expr } from "../ast";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import { cloneExpr, replaceCompiledNode } from "../ast/utils";
 
@@ -36,6 +36,17 @@ function resolveToggleNegateTarget(document: CompiledMathDocument, nodeId: strin
   const parent = parentId ? document.index.nodeById[parentId] : null;
   const location = document.index.locationById[nodeId];
   const flippedGroup = displayGroup(selected.delimiter, flipAdditiveSigns(selected.expression));
+
+  if (parentId && parent?.kind === "multiply" && location?.field === "factors" && location.index != null) {
+    const grandparentId = document.index.parentById[parentId];
+    const grandparent = grandparentId ? document.index.nodeById[grandparentId] : null;
+    if (grandparent?.kind === "negate") {
+      return {
+        nodeId: grandparentId,
+        replacement: multiply(parent.factors.map((factor, index) => (index === location.index ? flippedGroup : cloneExpr(factor)))),
+      };
+    }
+  }
 
   if (parentId && parent?.kind === "negate" && location?.field === "value") {
     return {

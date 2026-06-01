@@ -225,6 +225,26 @@ describe("multi-selection add/product", () => {
     });
   });
 
+  it("selects full additive terms instead of nested product factors", () => {
+    const latex = String.raw`s=c_P\ln\left(\frac{T}{T_0}\right)-R\ln\left(\frac{T}{T_0}\right)+R\ln v_0-R\ln v+s_0`;
+    const doc = compileMathDocument(latex);
+    const firstProductId = "n4";
+    const negatedProductId = "n12";
+
+    const result = applyMarqueeSelectIntent({
+      nodeIds: ["n4", "n5", "n6", "n11", "n12", "n13", "n14"],
+      currentSelection: null,
+      index: doc.index,
+    });
+
+    expect(result.accepted).toBe(true);
+    expect(result.nextSelection).toEqual({
+      kind: "multi",
+      nodeIds: [firstProductId, negatedProductId],
+      containerNodeId: "n3",
+    });
+  });
+
   it("ignores a stray overlapping term when a coherent nested sum was marquee selected", () => {
     const latex = String.raw`(a+b)(c+e)`;
     const doc = compileMathDocument(latex);

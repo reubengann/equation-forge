@@ -34,7 +34,29 @@ describe("insertTermIntoSum", () => {
       destinationId: "n5",
       destinationSlot: "after",
     });
-    expect(exprToLatex(result!.updatedNode!, false)).toBe("c + -b");
+    expect(exprToLatex(result!.updatedNode!, false)).toBe("c - b");
+  });
+
+  it("replaces additive identity destination with the inserted payload", () => {
+    const document = buildDocument("a=0");
+    const rule = insertTermIntoSum();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "single", nodeId: "n2" },
+        payload: sym("a"),
+        destinationId: "n3",
+        destinationSlot: "after",
+      },
+      {
+        sideId: "n3",
+        sideNode: document.index.nodeById.n3!,
+        destinationId: "n3",
+        destinationNode: document.index.nodeById.n3!,
+      },
+    );
+
+    expect(exprToLatex(result!.updatedNode!, false)).toBe("a");
   });
 
   it("inserts payload before a term in an existing sum", () => {

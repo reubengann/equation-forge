@@ -494,7 +494,7 @@ export function EquationToolbar({
           type="button"
           data-testid="apply-default-identity"
           aria-label="Apply identity"
-          title="Apply best identity"
+          title="Apply best identity (t)"
           disabled={!canApplyIdentityRewrite}
           onClick={onApplyDefaultIdentityRequested}
           style={{

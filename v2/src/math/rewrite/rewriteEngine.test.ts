@@ -185,6 +185,23 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe("b + a = c");
   });
 
+  it("prints moved prefix-negated additive terms as subtraction", () => {
+    const document = buildDocument(
+      String.raw`s=\left(c_P-R\right)\ln\left(\frac{T}{T_0}\right)+R\left(-\ln v_0+\ln v\right)+s_0`,
+    );
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n23" },
+      destinationId: "n19",
+      moveType: "additive",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(
+      String.raw`s = \left(c_P - R\right) \ln\left(\frac{T}{T_0}\right) + R \left(\ln v  - \ln v_0 \right) + s_0`,
+    );
+  });
+
   it("allows moving an additive term to the other side of an equation", () => {
     const document = buildDocument(String.raw`a+b=c`);
     const preview = canExecuteMove({
@@ -215,6 +232,19 @@ describe("canExecuteMove", () => {
     });
 
     expect(result?.latex).toBe("a = c - b");
+  });
+
+  it("removes zero when moving the only remaining term to the other side", () => {
+    const document = buildDocument(String.raw`c_P-R-c_v=0`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n7" },
+      destinationId: "n8",
+      moveType: "additive",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe("c_P - R = c_v");
   });
 
   it("inserts a cross-equation additive move into an existing sum", () => {
