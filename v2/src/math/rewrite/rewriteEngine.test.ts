@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseLatexToExpr } from "../adapters/latex/parseLatexToExpr";
 import { compileMathDocumentFromExpr, type CompiledMathDocument } from "../compile/compileMathDocument";
+import { resolveHorizontalInsertionSlot } from "./types";
 import {
   canExecuteMove,
   executeMove,
@@ -109,35 +110,13 @@ describe("treeTools", () => {
   });
 });
 
-describe("canExecuteMove slot resolution", () => {
+describe("resolveHorizontalInsertionSlot", () => {
   it("returns before when pointer is left of center", () => {
-    const document = buildDocument(String.raw`a+b`);
-    const preview = canExecuteMove({
-      document,
-      selection: { kind: "single", nodeId: "n3" },
-      destinationId: "n2",
-      moveType: "additive",
-      pointerX: 15,
-      rectById: {
-        n2: { left: 10, right: 30 },
-      },
-    });
-    expect(preview?.destinationSlot).toBe("before");
+    expect(resolveHorizontalInsertionSlot(15, { left: 10, right: 30 })).toBe("before");
   });
 
   it("returns after when pointer is right of center", () => {
-    const document = buildDocument(String.raw`a+b`);
-    const preview = canExecuteMove({
-      document,
-      selection: { kind: "single", nodeId: "n2" },
-      destinationId: "n3",
-      moveType: "additive",
-      pointerX: 30,
-      rectById: {
-        n3: { left: 10, right: 30 },
-      },
-    });
-    expect(preview?.destinationSlot).toBe("after");
+    expect(resolveHorizontalInsertionSlot(30, { left: 10, right: 30 })).toBe("after");
   });
 });
 

@@ -47,7 +47,7 @@ import {
   isValidSubstitutionReplacement,
   substituteSelection,
 } from "./math/rewrite/substitute";
-import type { InsertionPreview, MoveType, NodeHorizontalBounds } from "./math/rewrite/types";
+import { resolveHorizontalInsertionSlot, type InsertionPreview, type MoveType, type NodeHorizontalBounds } from "./math/rewrite/types";
 import type { EquationEditorRecordingHooks } from "./TestRecorder";
 import { EquationToolbar } from "./EquationToolbar";
 import { SubstituteModal } from "./SubstituteModal";
@@ -66,11 +66,6 @@ type MarqueeDraft = {
   origin: { x: number; y: number };
   current: { x: number; y: number };
 };
-
-function resolveHorizontalInsertionSlot(pointerX: number, rect: NodeHorizontalBounds) {
-  const centerX = (rect.left + rect.right) / 2;
-  return pointerX >= centerX ? "after" : "before";
-}
 
 function selectionContainsNode(selection: TermSelection, nodeId: string): boolean {
   return selection.kind === "single" ? selection.nodeId === nodeId : selection.nodeIds.includes(nodeId);

@@ -15,7 +15,6 @@ import type {
   MoveContext,
   MoveResult,
   MoveType,
-  NodeHorizontalBounds,
   PipelineRuleResult,
   SingleContainerRule,
 } from "./types";
@@ -127,6 +126,23 @@ export class RulesPipeline {
     }
     const applicableRules = this.rules.filter((rule) => rule.moveType === this.moveType);
     if (this.selection.kind === "single") {
+      const normalizedSelection = normalizeSingleSelectionForMove(
+        this.document,
+        this.selection,
+        this.destinationId,
+        this.moveType,
+      );
+      if (normalizedSelection && normalizedSelection.nodeId !== this.selection.nodeId) {
+        return new RulesPipeline(
+          this.document,
+          this.rules,
+          normalizedSelection,
+          this.destinationId,
+          this.moveType,
+          this.destinationSlot,
+        ).runEngine(shouldExecute);
+      }
+
       const context: MoveContext = {
         document: this.document,
         selection: this.selection,
@@ -136,20 +152,24 @@ export class RulesPipeline {
       };
       const sourceParentId = this.document.index.parentById[this.selection.nodeId];
       const destinationParentId = this.document.index.parentById[this.destinationId];
-      if (!sourceParentId || sourceParentId !== destinationParentId) {
+      if (!sourceParentId || !destinationParentId) {
+        return this.runGeneralPipeline(context, shouldExecute);
+      }
+      const normalizedDestinationId = directChildIdUnderContainer(this.document, sourceParentId, this.destinationId);
+      if (!normalizedDestinationId) {
         return this.runGeneralPipeline(context, shouldExecute);
       }
 
       const containerNode = this.document.index.nodeById[sourceParentId];
       const selectedNode = this.document.index.nodeById[this.selection.nodeId];
-      const destinationNode = this.document.index.nodeById[this.destinationId];
+      const destinationNode = this.document.index.nodeById[normalizedDestinationId];
       if (!containerNode || !selectedNode || !destinationNode) return null;
 
       const containerIndexes = resolveContainerIndexes({
         document: this.document,
         containerId: sourceParentId,
         selectionNodeId: this.selection.nodeId,
-        destinationId: this.destinationId,
+        destinationId: normalizedDestinationId,
         destinationSlot: context.destinationSlot ?? "before",
       });
       if (!containerIndexes) return null;
@@ -185,7 +205,7 @@ export class RulesPipeline {
         insertionPreview: {
           containerId: sourceParentId,
           containerKind: containerNode.kind,
-          destinationId: this.destinationId,
+          destinationId: normalizedDestinationId,
           destinationSlot: context.destinationSlot ?? "before",
           lineOrientation: lineOrientationForContainer(containerNode.kind),
         },
@@ -481,6 +501,46 @@ function resolveContainerIndexes({
   return { sourceIndex, destinationIndex, insertionIndex };
 }
 
+function directChildIdUnderContainer(
+  document: CompiledMathDocument,
+  containerId: string,
+  nodeId: string,
+): string | null {
+  let cursor: string | null = nodeId;
+  while (cursor) {
+    const parentId = document.index.parentById[cursor] ?? null;
+    if (parentId === containerId) return cursor;
+    cursor = parentId;
+  }
+  return null;
+}
+
+function normalizeSingleSelectionForMove(
+  document: CompiledMathDocument,
+  selection: Extract<TermSelection, { kind: "single" }>,
+  destinationId: string,
+  moveType: MoveType,
+): Extract<TermSelection, { kind: "single" }> | null {
+  if (moveType !== "additive") return null;
+  const sourceParentId = document.index.parentById[selection.nodeId];
+  if (!sourceParentId) return null;
+
+  let cursor: string | null = selection.nodeId;
+  while (cursor) {
+    const parentId = document.index.parentById[cursor] ?? null;
+    if (!parentId) return null;
+    const parent = document.index.nodeById[parentId];
+    if (parent?.kind === "add") {
+      const destinationTermId = directChildIdUnderContainer(document, parentId, destinationId);
+      if (!destinationTermId) return null;
+      return cursor === selection.nodeId ? null : { kind: "single", nodeId: cursor };
+    }
+    cursor = parentId;
+  }
+
+  return null;
+}
+
 /* 
     At some point we need to resolve an actual concrete destination inferred from the destinationId.
 
@@ -499,40 +559,20 @@ export function canExecuteMove({
   destinationId,
   moveType,
   destinationSlot,
-  pointerX,
-  rectById,
-  rightOfCenterMarginPx,
 }: {
   document: CompiledMathDocument;
   selection: TermSelection;
   destinationId: string;
   moveType: MoveType;
   destinationSlot?: InsertionSlot;
-  pointerX?: number;
-  rectById?: Record<string, NodeHorizontalBounds>;
-  rightOfCenterMarginPx?: number;
 }): InsertionPreview | null {
-  const resolvedSlot =
-    destinationSlot ??
-    (pointerX != null && rectById
-      ? resolveSingleContainerSlot({
-          document,
-          selection,
-          destinationId,
-          pointerX,
-          rectById,
-          rightOfCenterMarginPx,
-        })
-      : null) ??
-    "before";
-
   return new RulesPipeline(
     document,
     SINGLE_CONTAINER_RULES,
     selection,
     destinationId,
     moveType,
-    resolvedSlot,
+    destinationSlot ?? "before",
   ).getInsertionPreview();
 }
 
@@ -559,31 +599,3 @@ export function executeMove({
   ).executeMove();
 }
 
-function resolveSingleContainerSlot({
-  document,
-  selection,
-  destinationId,
-  pointerX,
-  rectById,
-  rightOfCenterMarginPx = 0,
-}: {
-  document: CompiledMathDocument;
-  selection: TermSelection;
-  destinationId: string;
-  pointerX: number;
-  rectById: Record<string, NodeHorizontalBounds>;
-  rightOfCenterMarginPx?: number;
-}): InsertionSlot | null {
-  if (selection.kind !== "single") return null;
-  if (selection.nodeId === destinationId) return null;
-
-  const sourceParentId = document.index.parentById[selection.nodeId];
-  const destinationParentId = document.index.parentById[destinationId];
-  if (!sourceParentId || !destinationParentId) return null;
-
-  const destinationRect = rectById[destinationId];
-  if (!destinationRect) return null;
-  const centerX = (destinationRect.left + destinationRect.right) / 2;
-
-  return pointerX >= centerX + rightOfCenterMarginPx ? "after" : "before";
-}

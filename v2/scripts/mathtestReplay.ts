@@ -18,7 +18,12 @@ import {
 import type { EventFixture } from "../src/interaction/eventFixture";
 import { compileMathDocument } from "../src/math/compile/compileMathDocument";
 import { canExecuteMove, executeMove } from "../src/math/rewrite/rewriteEngine";
-import type { InsertionPreview, MoveType, NodeHorizontalBounds } from "../src/math/rewrite/types";
+import {
+  resolveHorizontalInsertionSlot,
+  type InsertionPreview,
+  type MoveType,
+  type NodeHorizontalBounds,
+} from "../src/math/rewrite/types";
 
 export const ROOT_DIR = process.cwd();
 export const FIXTURE_DIR = path.join(ROOT_DIR, "mathtests", "fixtures");
@@ -199,13 +204,18 @@ export function replayEvents(fixture: EventFixture) {
             for (const [nodeId, rect] of Object.entries(currentNodeResolution.rectById)) {
               rectById[nodeId] = { left: rect.left, right: rect.right };
             }
+            const destinationRect = rectById[destinationId];
+            if (!destinationRect) {
+              previewToApply = null;
+              break;
+            }
+            const destinationSlot = resolveHorizontalInsertionSlot(event.pointer.x, destinationRect);
             previewToApply = canExecuteMove({
               document: currentCompiledDoc,
               selection,
               destinationId,
               moveType: state.moveType,
-              pointerX: event.pointer.x,
-              rectById,
+              destinationSlot,
             });
           }
         }
@@ -297,13 +307,18 @@ export function replayEvents(fixture: EventFixture) {
         for (const [nodeId, rect] of Object.entries(currentNodeResolution.rectById)) {
           rectById[nodeId] = { left: rect.left, right: rect.right };
         }
+        const destinationRect = rectById[destinationId];
+        if (!destinationRect) {
+          state.insertionPreview = null;
+          break;
+        }
+        const destinationSlot = resolveHorizontalInsertionSlot(event.pointer.x, destinationRect);
         state.insertionPreview = canExecuteMove({
           document: currentCompiledDoc,
           selection,
           destinationId,
           moveType: state.moveType,
-          pointerX: event.pointer.x,
-          rectById,
+          destinationSlot,
         });
         break;
       }

@@ -73,7 +73,8 @@ function normalizeMarqueeNodeToContainerChild(
 function normalizeSelectedContainerChild(nodeId: string, index: ExprIndex): string {
   const expr = index.nodeById[nodeId];
   const [childId] = index.childrenById[nodeId] ?? [];
-  return expr?.kind === "negate" && childId ? childId : nodeId;
+  const child = childId ? index.nodeById[childId] : null;
+  return expr?.kind === "negate" && child?.kind === "multiply" ? childId : nodeId;
 }
 
 function compareByContainerIndex(a: string, b: string, index: ExprIndex): number {

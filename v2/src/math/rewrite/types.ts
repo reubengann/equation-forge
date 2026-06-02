@@ -11,6 +11,11 @@ export type NodeHorizontalBounds = {
   right: number;
 };
 
+export function resolveHorizontalInsertionSlot(pointerX: number, rect: NodeHorizontalBounds): InsertionSlot {
+  const centerX = (rect.left + rect.right) / 2;
+  return pointerX >= centerX ? "after" : "before";
+}
+
 export type InsertionPreview = {
   containerId: string;
   containerKind: Expr["kind"];

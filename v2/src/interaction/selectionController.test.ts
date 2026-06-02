@@ -163,6 +163,28 @@ describe("selectionController", () => {
     ).toEqual(["n8", "n9"]);
   });
 
+  it("marquee descends into delimited sum factors inside products", () => {
+    const latex = String.raw`c_P\left(\ln P-\ln P_0+\ln v-\ln v_0\right)`;
+    const compiled = compileMathDocument(latex);
+    const rects = makeRect([
+      ["n1", 0, 300],
+      ["n2", 0, 30],
+      ["n3", 30, 300],
+      ["n4", 40, 290],
+      ["n5", 40, 80],
+      ["n8", 100, 150],
+      ["n12", 170, 210],
+    ]);
+
+    expect(
+      resolveMarqueeNodeIds(
+        rectFromPoints({ x: 90, y: 0 }, { x: 155, y: 20 }),
+        buildNodeResolutionSource(rects, compiled.index),
+        compiled.index,
+      ),
+    ).toEqual(["n8"]);
+  });
+
   it("clicking non-selectable equals does not clear existing selection", () => {
     const latex = String.raw`a=b`;
     const rects = makeRect([

@@ -340,10 +340,12 @@ export function resolveMarqueeNodeIds(
   const visit = (nodeId: string): boolean => {
     const parentId = index.parentById[nodeId] ?? null;
     const parent = parentId ? index.nodeById[parentId] : null;
+    const expr = index.nodeById[nodeId];
     const shouldPreferParent =
       (parent?.kind === "add" || parent?.kind === "multiply" || parent?.kind === "negate") &&
-      !isDisplayGroupAroundContainer(index.nodeById[nodeId]);
-    if (shouldPreferParent && candidateIds.has(nodeId) && isDirectlySelectableNode(index.nodeById[nodeId])) {
+      !isDisplayGroupAroundContainer(expr) &&
+      !hasDisplayGroupContainerChild(nodeId, index);
+    if (shouldPreferParent && candidateIds.has(nodeId) && isDirectlySelectableNode(expr)) {
       selectedIds.push(nodeId);
       return true;
     }
@@ -367,6 +369,10 @@ export function resolveMarqueeNodeIds(
 
 function isDisplayGroupAroundContainer(expr: Expr | undefined): boolean {
   return expr?.kind === "display_group" && (expr.expression.kind === "add" || expr.expression.kind === "multiply");
+}
+
+function hasDisplayGroupContainerChild(nodeId: string, index: ExprIndex): boolean {
+  return (index.childrenById[nodeId] ?? []).some((childId) => isDisplayGroupAroundContainer(index.nodeById[childId]));
 }
 
 type SelectionControllerInputs = {
