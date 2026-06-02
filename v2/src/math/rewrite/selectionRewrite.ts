@@ -1,5 +1,5 @@
 import type { TermSelection } from "../../selection/types";
-import { add, displayGroup, multiply, negate, type Expr } from "../ast";
+import { add, displayGroup, divide, multiply, negate, type Expr } from "../ast";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import { cloneExpr, replaceCompiledNode } from "../ast/utils";
 
@@ -78,6 +78,11 @@ function replaceSingleContainerChildWithExpr(
   const parent = document.index.nodeById[location.parentId];
   if (!parent) return null;
 
+  if (parent.kind === "multiply" && replacement.kind === "multiply" && location.index != null) {
+    const mergedProduct = mergeReciprocalReplacementIntoProduct(parent, location.index, replacement);
+    if (mergedProduct) return replaceCompiledNode(document, location.parentId, mergedProduct);
+  }
+
   const nextParent = cloneExpr(parent);
   if (nextParent.kind === "add" && replacement.kind === "add" && location.index != null) {
     nextParent.terms = [
@@ -111,6 +116,33 @@ function replaceSingleContainerChildWithExpr(
 
 function flipAdditiveSign(term: Expr): Expr {
   return term.kind === "negate" ? cloneExpr(term.value) : negate(term, "subtraction");
+}
+
+function mergeReciprocalReplacementIntoProduct(
+  parent: Extract<Expr, { kind: "multiply" }>,
+  replacementIndex: number,
+  replacement: Extract<Expr, { kind: "multiply" }>,
+): Expr | null {
+  const [firstReplacementFactor, ...remainingReplacementFactors] = replacement.factors;
+  if (!firstReplacementFactor || firstReplacementFactor.kind !== "divide") return null;
+  if (firstReplacementFactor.numerator.kind !== "number" || Number(firstReplacementFactor.numerator.value) !== 1) {
+    return null;
+  }
+
+  const precedingFactors = parent.factors.slice(0, replacementIndex).map(cloneExpr);
+  if (precedingFactors.length === 0) return null;
+
+  return multiply([
+    divide(collapseProduct(precedingFactors), firstReplacementFactor.denominator),
+    ...remainingReplacementFactors.map(cloneExpr),
+    ...parent.factors.slice(replacementIndex + 1).map(cloneExpr),
+  ]);
+}
+
+function collapseProduct(factors: Expr[]): Expr {
+  if (factors.length === 0) return { kind: "number", value: 1 };
+  if (factors.length === 1) return cloneExpr(factors[0]);
+  return multiply(factors.map(cloneExpr));
 }
 
 function resolveMultiSelectionRange(

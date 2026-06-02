@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import {
   EquationRow,
   createDraftEquationRowState,
@@ -12,6 +12,47 @@ import type { PadDefinitionSource } from "./substituteSuggestions";
 
 const STORAGE_KEY = "v2-pad-equations";
 const STORAGE_SCHEMA_VERSION = 1;
+const materialSymbolStyle: CSSProperties = {
+  fontVariationSettings: `"FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24`,
+  fontFamily: `"Material Symbols Rounded"`,
+  fontWeight: "normal",
+  fontStyle: "normal",
+  fontSize: 21,
+  lineHeight: 1,
+  letterSpacing: "normal",
+  textTransform: "none",
+  display: "inline-block",
+  whiteSpace: "nowrap",
+  wordWrap: "normal",
+  direction: "ltr",
+  WebkitFontFeatureSettings: `"liga"`,
+  WebkitFontSmoothing: "antialiased",
+};
+const sideControlStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "6px",
+  padding: "4px",
+  border: "1px solid #575757",
+  borderRadius: "6px",
+  background: "rgba(255, 255, 255, 0.03)",
+  alignItems: "center",
+  alignSelf: "center",
+};
+const PAD_ICON_BUTTON_STYLE: CSSProperties = {
+  width: "32px",
+  height: "32px",
+  padding: 0,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  boxSizing: "border-box",
+  border: "1px solid #757575",
+  borderRadius: "6px",
+  background: "#424242",
+  color: "rgba(255, 255, 255, 0.87)",
+  cursor: "pointer",
+};
 
 type PadEquation = {
   id: string;
@@ -30,6 +71,36 @@ type StoredPadState = {
   equations: unknown;
 };
 
+type PadIconButtonProps = {
+  label: string;
+  icon: string;
+  onClick: () => void;
+  testId: string;
+  disabled?: boolean;
+};
+
+function PadIconButton({ label, icon, onClick, testId, disabled = false }: PadIconButtonProps) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      data-testid={testId}
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        ...PAD_ICON_BUTTON_STYLE,
+        opacity: disabled ? 0.45 : 1,
+        cursor: disabled ? "not-allowed" : "pointer",
+      }}
+    >
+      <span style={materialSymbolStyle} aria-hidden="true">
+        {icon}
+      </span>
+    </button>
+  );
+}
+
 function createEquationId(): string {
   return `eq-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -38,6 +109,25 @@ function createEmptyEquation(): PadEquation {
   return {
     id: createEquationId(),
     state: createDraftEquationRowState(String.raw`a+b=c`),
+  };
+}
+
+function cloneEquationState(state: EquationRowState): EquationRowState {
+  return {
+    latex: state.latex,
+    mode: state.mode,
+    history: {
+      past: state.history.past.map((step) => ({ ...step })),
+      present: { ...state.history.present },
+      future: state.history.future.map((step) => ({ ...step })),
+    },
+  };
+}
+
+function duplicateEquation(equation: PadEquation): PadEquation {
+  return {
+    id: createEquationId(),
+    state: cloneEquationState(equation.state),
   };
 }
 
@@ -157,6 +247,45 @@ export function PadView() {
     setActiveEquationId(nextActiveId);
   };
 
+  const moveEquation = (id: string, offset: -1 | 1) => {
+    updateEquations((current) => {
+      const sourceIndex = current.findIndex((equation) => equation.id === id);
+      const destinationIndex = sourceIndex + offset;
+      if (sourceIndex < 0 || destinationIndex < 0 || destinationIndex >= current.length) return current;
+
+      const next = [...current];
+      const [movedEquation] = next.splice(sourceIndex, 1);
+      if (!movedEquation) return current;
+      next.splice(destinationIndex, 0, movedEquation);
+      return next;
+    });
+  };
+
+  const duplicateEquationAfter = (id: string) => {
+    const sourceEquation = equations.find((equation) => equation.id === id);
+    if (!sourceEquation) return;
+    const duplicatedEquation = duplicateEquation(sourceEquation);
+    updateEquations((current) => {
+      const sourceIndex = current.findIndex((equation) => equation.id === id);
+      if (sourceIndex < 0) return current;
+
+      const next = [...current];
+      next.splice(sourceIndex + 1, 0, duplicatedEquation);
+      return next;
+    });
+    setActiveEquationId(duplicatedEquation.id);
+  };
+
+  const duplicateEquationToEnd = (id: string) => {
+    const sourceEquation = equations.find((equation) => equation.id === id);
+    if (!sourceEquation) return;
+    const duplicatedEquation = duplicateEquation(sourceEquation);
+    updateEquations((current) =>
+      current.some((equation) => equation.id === id) ? [...current, duplicatedEquation] : current,
+    );
+    setActiveEquationId(duplicatedEquation.id);
+  };
+
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: "14px", alignItems: "stretch" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" }}>
@@ -186,6 +315,8 @@ export function PadView() {
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
         {equations.map((equation, index) => {
           const isActive = activeEquationId === equation.id;
+          const isFirstEquation = index === 0;
+          const isLastEquation = index === equations.length - 1;
           const definitionSources = [...compiledSourcesByEquationId.values()].filter(
             (source) => source.equationId !== equation.id,
           );
@@ -195,55 +326,82 @@ export function PadView() {
               data-testid="pad-equation"
               style={{
                 display: "flex",
-                gap: "10px",
-                alignItems: "stretch",
-                padding: "12px",
+                gap: "8px",
+                alignItems: "center",
+                padding: "8px",
                 border: `1px solid ${isActive ? "#7c4dff" : "#575757"}`,
                 borderRadius: "6px",
                 background: isActive ? "rgba(124, 77, 255, 0.08)" : "rgba(255, 255, 255, 0.03)",
               }}
             >
               <div
-                style={{
-                  minWidth: "72px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "8px",
-                  alignItems: "stretch",
-                }}
+                style={sideControlStyle}
               >
-                <div style={{ fontSize: "0.85rem", opacity: 0.75 }}>#{index + 1}</div>
-                <button
-                  type="button"
-                  data-testid="remove-pad-equation"
-                  onClick={() => removeEquation(equation.id)}
+                <PadIconButton
+                  label="Move equation up"
+                  icon="arrow_upward"
+                  onClick={() => moveEquation(equation.id, -1)}
+                  disabled={isFirstEquation}
+                  testId="move-pad-equation-up"
+                />
+                <PadIconButton
+                  label="Move equation down"
+                  icon="arrow_downward"
+                  onClick={() => moveEquation(equation.id, 1)}
+                  disabled={isLastEquation}
+                  testId="move-pad-equation-down"
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+                <EquationRow
+                  state={equation.state}
+                  onStateChange={(rowUpdater) => {
+                    updateEquations((current) =>
+                      current.map((candidate) =>
+                        candidate.id === equation.id
+                          ? { ...candidate, state: rowUpdater(candidate.state) }
+                          : candidate,
+                      ),
+                    );
+                  }}
+                  onActivate={() => setActiveEquationId(equation.id)}
+                  isActive={isActive}
+                  substituteSuggestionSources={definitionSources}
+                />
+                <span
                   style={{
-                    boxSizing: "border-box",
-                    border: "1px solid #757575",
-                    borderRadius: "3px",
-                    background: "#424242",
-                    color: "rgba(255, 255, 255, 0.87)",
-                    padding: "6px 8px",
+                    fontSize: "0.8rem",
+                    color: "rgba(255, 255, 255, 0.62)",
+                    padding: "2px 6px",
+                    borderRadius: "6px",
+                    background: "rgba(255, 255, 255, 0.06)",
+                    lineHeight: 1.2,
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  Remove
-                </button>
+                  ({index + 1})
+                </span>
               </div>
-              <EquationRow
-                state={equation.state}
-                onStateChange={(rowUpdater) => {
-                  updateEquations((current) =>
-                    current.map((candidate) =>
-                      candidate.id === equation.id
-                        ? { ...candidate, state: rowUpdater(candidate.state) }
-                        : candidate,
-                    ),
-                  );
-                }}
-                onActivate={() => setActiveEquationId(equation.id)}
-                isActive={isActive}
-                substituteSuggestionSources={definitionSources}
-              />
+              <div style={sideControlStyle}>
+                <PadIconButton
+                  label="Duplicate equation"
+                  icon="content_copy"
+                  onClick={() => duplicateEquationAfter(equation.id)}
+                  testId="duplicate-pad-equation"
+                />
+                <PadIconButton
+                  label="Duplicate equation to end"
+                  icon="vertical_align_bottom"
+                  onClick={() => duplicateEquationToEnd(equation.id)}
+                  testId="duplicate-pad-equation-to-end"
+                />
+                <PadIconButton
+                  label="Remove equation"
+                  icon="delete"
+                  onClick={() => removeEquation(equation.id)}
+                  testId="remove-pad-equation"
+                />
+              </div>
             </article>
           );
         })}

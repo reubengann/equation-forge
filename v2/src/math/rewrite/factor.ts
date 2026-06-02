@@ -1,4 +1,4 @@
-import { add, displayGroup, multiply, negate, num, power, type Expr } from "../ast";
+import { add, displayGroup, divide, multiply, negate, num, power, type Expr } from "../ast";
 import { cloneExpr } from "../ast/utils";
 import { collapseProduct, structuralKey } from "./algebraUtils";
 
@@ -34,14 +34,47 @@ export function factorExpr(expr: Expr): Expr | null {
 }
 
 function canFactorAdd(expr: Extract<Expr, { kind: "add" }>): boolean {
-  return canFactorPerfectSquare(expr) || canFactorCommonProduct(expr);
+  return canFactorPerfectSquare(expr) || canFactorCommonDenominator(expr) || canFactorCommonProduct(expr);
 }
 
 function factorAdd(expr: Extract<Expr, { kind: "add" }>): Expr | null {
   const perfectSquare = factorPerfectSquare(expr);
   if (perfectSquare) return perfectSquare;
 
+  const commonDenominator = factorCommonDenominator(expr);
+  if (commonDenominator) return commonDenominator;
+
   return factorCommonProduct(expr);
+}
+
+function factorCommonDenominator(expr: Extract<Expr, { kind: "add" }>): Expr | null {
+  if (expr.terms.length < 2) return null;
+
+  const terms = expr.terms.map(splitSign);
+  const denominator = commonFractionDenominator(terms);
+  if (!denominator) return null;
+
+  const remainderTerms = terms.map((term) => {
+    if (term.value.kind !== "divide") return null;
+    return applySign(term.sign, term.value.numerator);
+  });
+  if (remainderTerms.some((term) => term === null)) return null;
+
+  return multiply([divide(num(1), denominator), displayGroup("paren", add(remainderTerms as Expr[]))]);
+}
+
+function canFactorCommonDenominator(expr: Extract<Expr, { kind: "add" }>): boolean {
+  return factorCommonDenominator(expr) !== null;
+}
+
+function commonFractionDenominator(terms: SignedTerm[]): Expr | null {
+  const first = terms[0]?.value;
+  if (!first || first.kind !== "divide") return null;
+
+  const denominatorKey = structuralKey(first.denominator);
+  return terms.every((term) => term.value.kind === "divide" && structuralKey(term.value.denominator) === denominatorKey)
+    ? cloneExpr(first.denominator)
+    : null;
 }
 
 function factorCommonProduct(expr: Extract<Expr, { kind: "add" }>): Expr | null {

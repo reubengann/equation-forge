@@ -47,6 +47,18 @@ describe("autoRewriteSelection factor", () => {
     );
   });
 
+  it("factors a common denominator from a selected delimited sum", () => {
+    const document = buildDocument(String.raw`h=c_P\left(\frac{P v}{R}-\frac{P_0 v_0}{R}\right)+h_0`);
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n6" }, "factor")).toBe(true);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n6" }, "factor");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`h = \frac{c_P}{R} \left(P v - P_0 v_0\right) + h_0`,
+    );
+  });
+
   it("preserves negative remainders when factoring", () => {
     const document = buildDocument(String.raw`a b-c b`);
     const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "factor");
