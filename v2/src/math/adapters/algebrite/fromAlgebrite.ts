@@ -105,15 +105,21 @@ function mapMultiply(args: AlgebriteNode[], symbols: SymbolSubstitution | undefi
   if (denominatorFactors.length === 0) return normalizeProduct(numeratorFactors);
   const numerator = numeratorFactors.length === 0 ? num(1) : normalizeProduct(numeratorFactors);
   const denominator = denominatorFactors.length === 1 ? denominatorFactors[0]! : multiply(denominatorFactors);
+  if (numerator.kind === "negate") {
+    return negate(divide(numerator.value, denominator), "subtraction");
+  }
   return divide(numerator, denominator);
 }
 
 function normalizeProduct(factors: Expr[]): Expr {
   if (factors.length === 0) return num(1);
   const [first, ...rest] = factors;
-  if (first && isNumberValue(first, -1)) {
-    if (rest.length === 0) return num(-1);
-    const value = rest.length === 1 ? rest[0]! : multiply(rest);
+  const numericValue = first?.kind === "number" ? numericValueOrNull(first.value) : null;
+  if (numericValue !== null && numericValue < 0) {
+    const positiveFirst = num(Math.abs(numericValue));
+    const positiveFactors = numericValue === -1 ? rest : [positiveFirst, ...rest];
+    if (positiveFactors.length === 0) return num(-1);
+    const value = positiveFactors.length === 1 ? positiveFactors[0]! : multiply(positiveFactors);
     return negate(value, "subtraction");
   }
   if (first?.kind === "negate") {
@@ -153,6 +159,11 @@ function absNumericAtom(value: number | string): number | string {
 
 function numericValue(value: number | string): number {
   return typeof value === "number" ? value : Number(value);
+}
+
+function numericValueOrNull(value: number | string): number | null {
+  const numeric = numericValue(value);
+  return Number.isFinite(numeric) ? numeric : null;
 }
 
 function isNumberValue(expr: Expr, value: number): boolean {

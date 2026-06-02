@@ -1,4 +1,5 @@
 import { extractFactorFromProduct } from "./rules/extractFactorFromProduct";
+import { extractFactorFromIntegral } from "./rules/extractFactorFromIntegral";
 import { extractThroughDisplayGroup } from "./rules/extractThroughDisplayGroup";
 import { extractDenominatorFactorFromFraction } from "./rules/extractDenominatorFactorFromFraction";
 import { extractNumeratorTermFromFraction } from "./rules/extractNumeratorTermFromFraction";
@@ -25,6 +26,7 @@ export const UPWARD_REWRITE_RULES: UpwardRewriteRule[] = [
   extractNumeratorFromFraction(),
   extractDenominatorFactorFromFraction(),
   extractFactorFromProduct(),
+  extractFactorFromIntegral(),
   extractThroughDisplayGroup(),
 ];
 

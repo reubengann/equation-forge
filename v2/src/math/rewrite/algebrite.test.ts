@@ -54,6 +54,20 @@ describe("evaluateSelectionWithAlgebrite", () => {
     }
   });
 
+  it("prints negative symbolic fraction numerators as subtraction", () => {
+    const document = buildDocument(
+      String.raw`h = c_v \left(T - T_0\right) - a \left(\frac{1}{v} - \frac{1}{v_0}\right) + u_0 + \left(\frac{R T}{\left(v - b\right)} - \frac{a}{v^{2}}\right) v`,
+    );
+    const result = evaluateSelectionWithAlgebrite(document, { kind: "single", nodeId: "n3" });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(exprToLatex(result.expr, false)).toBe(
+        String.raw`h = u_0 + c_v T - c_v T_0 + \frac{T v R}{v - b} - \frac{2 a}{v} + \frac{a}{v_0}`,
+      );
+    }
+  });
+
   it("does not enable unsupported vector expressions", () => {
     const document = buildDocument(String.raw`\vec{v}`);
 

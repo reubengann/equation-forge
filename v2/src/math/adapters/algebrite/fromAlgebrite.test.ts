@@ -51,6 +51,26 @@ describe("fromAlgebrite", () => {
     });
   });
 
+  it("lifts negative fraction numerators into a subtraction term", () => {
+    const expr = fromAlgebrite(Algebrite.parse("-2*a/v"));
+
+    expect(expr).toEqual({
+      kind: "negate",
+      notation: "subtraction",
+      value: {
+        kind: "divide",
+        numerator: {
+          kind: "multiply",
+          factors: [
+            { kind: "number", value: 2 },
+            { kind: "symbol", name: "a" },
+          ],
+        },
+        denominator: { kind: "symbol", name: "v" },
+      },
+    });
+  });
+
   it("restores substituted symbol names", () => {
     const symbols = createSymbolSubstitution();
     symbols.originalBySafe.set("__pdp0", String.raw`\mu_s`);

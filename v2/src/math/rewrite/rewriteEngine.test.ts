@@ -377,6 +377,32 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe(String.raw`\frac{a}{c} = 1`);
   });
 
+  it("executes extracting a multiplicative factor out of an uniterated integral", () => {
+    const document = buildDocument(String.raw`\Delta s = \int \frac{1}{T} P \,\mathrm{d}{v}`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n5" },
+      destinationId: "n3",
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`\Delta s = \frac{1}{T} \int P \mathrm{d}{v}`);
+  });
+
+  it("executes extracting a multiplicative factor out of a bounded integral", () => {
+    const document = buildDocument(String.raw`\int_a^b c P \,\mathrm{d}{v}`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n5" },
+      destinationId: "n1",
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`c \int_{a}^{b} P \,\mathrm{d}{v}`);
+  });
+
   it("executes extracting a numerator factor from a fraction", () => {
     const document = buildDocument(String.raw`\frac{a}{b}+c`);
     const result = executeMove({
