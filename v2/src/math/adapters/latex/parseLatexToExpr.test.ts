@@ -465,6 +465,36 @@ describe("parseLatexToExpr", () => {
     expect(trailing.variable.name).toBe("x");
   });
 
+  it("does not include trailing additive terms in an integral body", () => {
+    const expr = parseLatexToExpr(
+      String.raw`s=\int_{T_0}^{T}\frac{a+b T}{T}\mathrm{d}{T}-R\ln\left(\frac{P}{P_0}\right)+s_0`,
+    );
+
+    expectExprKind(expr, "equation");
+    const rhs = expr.sides[1];
+    expectExprKind(rhs, "add");
+    expect(rhs.terms).toHaveLength(3);
+    expectExprKind(rhs.terms[0], "integral");
+    expectExprKind(rhs.terms[0].integrand, "multiply");
+    const trailing = rhs.terms[0].integrand.factors.at(-1);
+    expectExprKind(trailing!, "differential");
+    expectExprKind(rhs.terms[1], "negate");
+    expectExprKind(rhs.terms[2], "symbol");
+    expect(rhs.terms[2].name).toBe("s_0");
+  });
+
+  it("keeps grouped additive expressions inside an integral body", () => {
+    const expr = parseLatexToExpr(String.raw`\int_{0}^{1}\left(2-a\right)\mathrm{d}{x}+b`);
+
+    expectExprKind(expr, "add");
+    expectExprKind(expr.terms[0], "integral");
+    expectExprKind(expr.terms[0].integrand, "multiply");
+    expectExprKind(expr.terms[0].integrand.factors[0], "display_group");
+    expectExprKind(expr.terms[0].integrand.factors[0].expression, "add");
+    expectExprKind(expr.terms[1], "symbol");
+    expect(expr.terms[1].name).toBe("b");
+  });
+
   it("parses integrals with unbraced roman differential variables", () => {
     const expr = parseLatexToExpr(String.raw`\int_{a}^{b}x\,\mathrm{d}x`);
     expectExprKind(expr, "integral");

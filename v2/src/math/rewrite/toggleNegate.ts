@@ -46,6 +46,15 @@ function resolveToggleNegateTarget(document: CompiledMathDocument, nodeId: strin
         replacement: multiply(parent.factors.map((factor, index) => (index === location.index ? flippedGroup : cloneExpr(factor)))),
       };
     }
+    if (grandparent?.kind === "add") {
+      const flippedProduct = multiply(
+        parent.factors.map((factor, index) => (index === location.index ? flippedGroup : cloneExpr(factor))),
+      );
+      return {
+        nodeId: parentId,
+        replacement: negate(flippedProduct, "subtraction"),
+      };
+    }
   }
 
   if (parentId && parent?.kind === "negate" && location?.field === "value") {

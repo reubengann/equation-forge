@@ -27,7 +27,12 @@ export function fromAlgebrite(value: AlgebriteNode, symbols?: SymbolSubstitution
     const denominator = value.q?.b.toString();
     if (!numerator || !denominator) return fallbackInvalid("malformed_rational", value);
     if (denominator === "1") return num(parseNumericAtom(numerator));
-    return divide(num(parseNumericAtom(numerator)), num(parseNumericAtom(denominator)));
+    const numeratorValue = parseNumericAtom(numerator);
+    const denominatorValue = parseNumericAtom(denominator);
+    if (isNegativeNumericAtom(numeratorValue) && isPositiveNumericAtom(denominatorValue)) {
+      return negate(divide(num(absNumericAtom(numeratorValue)), num(denominatorValue)), "subtraction");
+    }
+    return divide(num(numeratorValue), num(denominatorValue));
   }
 
   if (Algebrite.isdouble(value)) {
@@ -111,6 +116,10 @@ function normalizeProduct(factors: Expr[]): Expr {
     const value = rest.length === 1 ? rest[0]! : multiply(rest);
     return negate(value, "subtraction");
   }
+  if (first?.kind === "negate") {
+    const value = rest.length === 0 ? first.value : multiply([first.value, ...rest]);
+    return negate(value, "subtraction");
+  }
   if (factors.length === 1) return factors[0]!;
   return multiply(factors);
 }
@@ -128,6 +137,18 @@ function consItems(value: AlgebriteNode): AlgebriteNode[] {
 function parseNumericAtom(value: string): number | string {
   const numeric = Number(value);
   return Number.isSafeInteger(numeric) || value.includes(".") ? numeric : value;
+}
+
+function isNegativeNumericAtom(value: number | string): boolean {
+  return typeof value === "number" ? value < 0 : value.startsWith("-");
+}
+
+function isPositiveNumericAtom(value: number | string): boolean {
+  return typeof value === "number" ? value > 0 : !value.startsWith("-");
+}
+
+function absNumericAtom(value: number | string): number | string {
+  return typeof value === "number" ? Math.abs(value) : value.replace(/^-/, "");
 }
 
 function numericValue(value: number | string): number {

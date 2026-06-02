@@ -58,6 +58,18 @@ describe("toggleNegateSelection", () => {
     );
   });
 
+  it("pulls negation out to the product term when toggling an additive factor in a sum", () => {
+    const document = buildDocument(
+      String.raw`u = a \left(T - T_0\right) + \frac{1}{2} b \left(T^{2} - T_0^{2}\right) + R \left(T_0 - T\right) + u_0`,
+    );
+    const next = toggleNegateSelection(document, "n27");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`u = a \left(T - T_0\right) + \frac{1}{2} b \left(T^{2} - T_0^{2}\right) - R \left(-T_0 + T\right) + u_0`,
+    );
+  });
+
   it("rejects non-delimiter selections", () => {
     const document = buildDocument(String.raw`-a-b`);
 

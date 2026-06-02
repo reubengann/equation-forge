@@ -1083,7 +1083,8 @@ class TokenParser {
       const token = this.peek();
       if (!token) break;
       if (depth === 0) {
-        if (token.kind === "operator" && token.value === "=") break;
+        if (token.kind === "operator" && this.isBoundaryOperator(token.value)) break;
+        if (token.kind === "close_group") break;
       }
       this.next();
       if (token.kind === "open_group") depth += 1;
@@ -1111,13 +1112,31 @@ class TokenParser {
   }
 
   private consumeUniteratedIntegralBody(): { integrand: Expr } {
-    const bodyTokens = this.consumeUntilEquationBoundary();
+    const bodyTokens = this.consumeIntegralBodyTokens();
     if (bodyTokens.length === 0) {
       return { integrand: num(1) };
     }
 
     const integrand = this.parseFromSlice(bodyTokens);
     return { integrand };
+  }
+
+  private consumeIntegralBodyTokens(): Token[] {
+    const bodyTokens: Token[] = [];
+    let depth = 0;
+    while (true) {
+      const token = this.peek();
+      if (!token) break;
+      if (depth === 0) {
+        if (token.kind === "operator" && this.isBoundaryOperator(token.value)) break;
+        if (token.kind === "close_group") break;
+      }
+      this.next();
+      if (token.kind === "open_group") depth += 1;
+      if (token.kind === "close_group") depth = Math.max(0, depth - 1);
+      bodyTokens.push(token);
+    }
+    return bodyTokens;
   }
 
   private integralFromUniterated(body: { integrand: Expr }): Expr {

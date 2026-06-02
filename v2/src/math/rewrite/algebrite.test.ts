@@ -42,6 +42,18 @@ describe("evaluateSelectionWithAlgebrite", () => {
     if (result.ok) expect(exprToLatex(result.expr, false)).toBe("2");
   });
 
+  it("prints negative rational definite integral terms as subtraction", () => {
+    const document = buildDocument(String.raw`\int_{T_0}^{T} \left(a + b T\right) \,\mathrm{d}{T}`);
+    const result = evaluateSelectionWithAlgebrite(document, { kind: "single", nodeId: "n1" });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(exprToLatex(result.expr, false)).toBe(
+        String.raw`a T - a T_0 + \frac{1}{2} b T^{2} - \frac{1}{2} b T_0^{2}`,
+      );
+    }
+  });
+
   it("does not enable unsupported vector expressions", () => {
     const document = buildDocument(String.raw`\vec{v}`);
 

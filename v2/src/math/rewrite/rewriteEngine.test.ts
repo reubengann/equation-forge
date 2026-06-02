@@ -278,6 +278,34 @@ describe("canExecuteMove", () => {
     expect(preview).toBeNull();
   });
 
+  it("executes splitting a fraction over a selected numerator sum term", () => {
+    const document = buildDocument(String.raw`\frac{a + b T}{T}`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n4" },
+      destinationId: "n1",
+      moveType: "additive",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\frac{a}{T} + \frac{b T}{T}`);
+  });
+
+  it("delimits a split fraction sum inside an integral integrand product", () => {
+    const document = buildDocument(String.raw`\int_{T_0}^{T} \frac{a + b T}{T} \,\mathrm{d}{T}`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n8" },
+      destinationId: "n5",
+      moveType: "additive",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(
+      String.raw`\int_{T_0}^{T} \left(\frac{a}{T} + \frac{b T}{T}\right) \,\mathrm{d}{T}`,
+    );
+  });
+
   it("executes moving a subtraction term back across an equation", () => {
     const document = buildDocument(String.raw`a=c-b`);
     const result = executeMove({

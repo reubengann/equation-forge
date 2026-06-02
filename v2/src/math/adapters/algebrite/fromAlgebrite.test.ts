@@ -26,6 +26,31 @@ describe("fromAlgebrite", () => {
     });
   });
 
+  it("lifts negative rational product coefficients into a subtraction term", () => {
+    const expr = fromAlgebrite(Algebrite.parse("-1/2*b*T_0^2"));
+
+    expect(expr).toEqual({
+      kind: "negate",
+      notation: "subtraction",
+      value: {
+        kind: "multiply",
+        factors: [
+          {
+            kind: "divide",
+            numerator: { kind: "number", value: 1 },
+            denominator: { kind: "number", value: 2 },
+          },
+          { kind: "symbol", name: "b" },
+          {
+            kind: "power",
+            base: { kind: "symbol", name: "T_0" },
+            exponent: { kind: "number", value: 2 },
+          },
+        ],
+      },
+    });
+  });
+
   it("restores substituted symbol names", () => {
     const symbols = createSymbolSubstitution();
     symbols.originalBySafe.set("__pdp0", String.raw`\mu_s`);
