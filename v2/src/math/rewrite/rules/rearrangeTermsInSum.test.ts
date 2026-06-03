@@ -127,7 +127,7 @@ describe("rearrangeTermsInSum", () => {
     );
     expect(result?.updatedNodeId).toBe("n1");
     expect(exprToLatex(result!.updatedNode, false)).toBe("-b + a");
-    expect(result?.payload.kind).toBe("negate");
+    expect(result?.payload).toMatchObject({ kind: "symbol", sign: -1 });
     expect(exprToLatex(result!.payload, false)).toBe("-b");
   });
 });

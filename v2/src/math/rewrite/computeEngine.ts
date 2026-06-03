@@ -8,7 +8,6 @@ import {
   divide,
   findIntegralDifferentialVariable,
   multiply,
-  negate,
   num,
   power,
   type Expr,
@@ -17,7 +16,7 @@ import { cloneExpr } from "../ast/utils";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import type { TermSelection } from "../../selection/types";
 import type { MathJsonValue } from "../adapters/mathjson";
-import { structuralKeyIgnoringDisplayGroups } from "./algebraUtils";
+import { flipSign, structuralKeyIgnoringDisplayGroups, withSign } from "./algebraUtils";
 import { getSelectionRewriteTarget, replaceSelectionWithExpr } from "./selectionRewrite";
 
 export type ComputeEngineEvaluationFailureReason =
@@ -105,26 +104,26 @@ function rewriteDefiniteIntegrals(expr: Expr): { expr: Expr; changed: boolean } 
       const base = rewriteDefiniteIntegrals(expr.base);
       const exponent = rewriteDefiniteIntegrals(expr.exponent);
       return {
-        expr: power(base.expr, exponent.expr),
+        expr: withSign(power(base.expr, exponent.expr), expr.sign ?? 1),
         changed: base.changed || exponent.changed,
       };
     }
     case "negate": {
       const value = rewriteDefiniteIntegrals(expr.value);
-      return { expr: negate(value.expr, expr.notation), changed: value.changed };
+      return { expr: flipSign(value.expr), changed: true };
     }
     case "divide": {
       const numerator = rewriteDefiniteIntegrals(expr.numerator);
       const denominator = rewriteDefiniteIntegrals(expr.denominator);
       return {
-        expr: divide(numerator.expr, denominator.expr),
+        expr: withSign(divide(numerator.expr, denominator.expr), expr.sign ?? 1),
         changed: numerator.changed || denominator.changed,
       };
     }
     case "display_group": {
       const expression = rewriteDefiniteIntegrals(expr.expression);
       return {
-        expr: displayGroup(expr.delimiter, expression.expr),
+        expr: withSign(displayGroup(expr.delimiter, expression.expr), expr.sign ?? 1),
         changed: expression.changed,
       };
     }
@@ -132,7 +131,7 @@ function rewriteDefiniteIntegrals(expr: Expr): { expr: Expr; changed: boolean } 
       const callee = rewriteDefiniteIntegrals(expr.callee);
       const args = expr.args.map(rewriteDefiniteIntegrals);
       return {
-        expr: { kind: "call", callee: callee.expr, args: args.map((arg) => arg.expr), delimiter: expr.delimiter },
+        expr: withSign({ kind: "call", callee: callee.expr, args: args.map((arg) => arg.expr), delimiter: expr.delimiter }, expr.sign ?? 1),
         changed: callee.changed || args.some((arg) => arg.changed),
       };
     }
@@ -153,7 +152,7 @@ function rewriteDefiniteIntegral(expr: Extract<Expr, { kind: "integral" }>): { e
 
   const upper = substituteExpr(indefinite, variable, expr.upperBound);
   const lower = substituteExpr(indefinite, variable, expr.lowerBound);
-  return { expr: add([upper, negate(lower, "subtraction")]), changed: true };
+  return { expr: add([upper, flipSign(lower)]), changed: true };
 }
 
 function evaluateIndefiniteIntegral(integrand: Expr, variable: Expr): Expr | null {
@@ -205,66 +204,68 @@ function stripDifferential(expr: Expr): Expr {
 }
 
 function substituteExpr(expr: Expr, needle: Expr, replacement: Expr): Expr {
-  if (sameExpr(expr, needle)) return cloneExpr(replacement);
+  if (sameExpr(expr, needle)) return withSign(replacement, expr.sign ?? 1);
+  const sign = expr.sign ?? 1;
 
   switch (expr.kind) {
     case "add":
-      return add(expr.terms.map((term) => substituteExpr(term, needle, replacement)));
+      return withSign(add(expr.terms.map((term) => substituteExpr(term, needle, replacement))), sign);
     case "multiply":
-      return multiply(expr.factors.map((factor) => substituteExpr(factor, needle, replacement)));
+      return withSign(multiply(expr.factors.map((factor) => substituteExpr(factor, needle, replacement))), sign);
     case "power":
-      return power(
+      return withSign(power(
         substituteExpr(expr.base, needle, replacement),
         substituteExpr(expr.exponent, needle, replacement),
-      );
+      ), sign);
     case "negate":
-      return negate(substituteExpr(expr.value, needle, replacement), expr.notation);
+      return flipSign(substituteExpr(expr.value, needle, replacement));
     case "divide":
-      return divide(
+      return withSign(divide(
         substituteExpr(expr.numerator, needle, replacement),
         substituteExpr(expr.denominator, needle, replacement),
-      );
+      ), sign);
     case "display_group":
-      return displayGroup(expr.delimiter, substituteExpr(expr.expression, needle, replacement));
+      return withSign(displayGroup(expr.delimiter, substituteExpr(expr.expression, needle, replacement)), sign);
     case "call":
-      return {
+      return withSign({
         kind: "call",
         callee: substituteExpr(expr.callee, needle, replacement),
         args: expr.args.map((arg) => substituteExpr(arg, needle, replacement)),
         delimiter: expr.delimiter,
-      };
+      }, sign);
     default:
       return cloneExpr(expr);
   }
 }
 
 function cleanupExactDefiniteResult(expr: Expr): Expr {
+  const sign = expr.sign ?? 1;
   switch (expr.kind) {
     case "add":
-      return cleanupExactAdd(expr.terms.map(cleanupExactDefiniteResult));
+      return withSign(cleanupExactAdd(expr.terms.map(cleanupExactDefiniteResult)), sign);
     case "multiply":
-      return cleanupExactMultiply(expr.factors.map(cleanupExactDefiniteResult));
+      return withSign(cleanupExactMultiply(expr.factors.map(cleanupExactDefiniteResult)), sign);
     case "power":
-      return cleanupExactPower(
+      return withSign(cleanupExactPower(
         cleanupExactDefiniteResult(expr.base),
         cleanupExactDefiniteResult(expr.exponent),
-      );
+      ), sign);
     case "negate":
-      return cleanupExactNegate(cleanupExactDefiniteResult(expr.value), expr.notation);
+      return flipSign(cleanupExactDefiniteResult(expr.value));
     case "divide":
-      return divide(
+      return withSign(divide(
         cleanupExactDefiniteResult(expr.numerator),
         cleanupExactDefiniteResult(expr.denominator),
-      );
+      ), sign);
     case "display_group":
-      return displayGroup(expr.delimiter, cleanupExactDefiniteResult(expr.expression));
+      return withSign(displayGroup(expr.delimiter, cleanupExactDefiniteResult(expr.expression)), sign);
     case "call":
-      return cleanupExactCall({
+      return withSign(cleanupExactCall({
         kind: "call",
         callee: cleanupExactDefiniteResult(expr.callee),
         args: expr.args.map(cleanupExactDefiniteResult),
         delimiter: expr.delimiter,
-      });
+      }), sign);
     default:
       return cloneExpr(expr);
   }
@@ -276,8 +277,9 @@ function cleanupExactAdd(terms: Expr[]): Expr {
 
   for (const term of terms) {
     if (isNumberValue(term, 0)) continue;
-    if (term.kind === "number" && typeof term.value === "number" && Number.isInteger(term.value)) {
-      integerSum += term.value;
+    const numericTerm = signedIntegerValue(term);
+    if (numericTerm !== null) {
+      integerSum += numericTerm;
       continue;
     }
     keptTerms.push(normalizeAddTerm(term));
@@ -290,7 +292,7 @@ function cleanupExactAdd(terms: Expr[]): Expr {
 }
 
 function normalizeAddTerm(term: Expr): Expr {
-  return term.kind === "negate" ? negate(term.value, "subtraction") : term;
+  return term;
 }
 
 function cleanupExactMultiply(factors: Expr[]): Expr {
@@ -301,8 +303,9 @@ function cleanupExactMultiply(factors: Expr[]): Expr {
 
   for (const factor of factors) {
     if (isNumberValue(factor, 1)) continue;
-    if (factor.kind === "number" && typeof factor.value === "number" && Number.isInteger(factor.value)) {
-      integerProduct *= factor.value;
+    const numericFactor = signedIntegerValue(factor);
+    if (numericFactor !== null) {
+      integerProduct *= numericFactor;
       continue;
     }
     keptFactors.push(factor);
@@ -321,18 +324,11 @@ function cleanupExactPower(base: Expr, exponent: Expr): Expr {
     exponent.kind === "number" &&
     typeof base.value === "number" &&
     typeof exponent.value === "number" &&
-    Number.isInteger(exponent.value)
+    Number.isInteger(signedIntegerValue(exponent))
   ) {
-    return num(base.value ** exponent.value);
+    return num((signedIntegerValue(base) ?? base.value) ** (signedIntegerValue(exponent) ?? exponent.value));
   }
   return power(base, exponent);
-}
-
-function cleanupExactNegate(value: Expr, notation: "prefix" | "subtraction" = "prefix"): Expr {
-  if (isNumberValue(value, 0)) return num(0);
-  if (value.kind === "number" && typeof value.value === "number") return num(-value.value);
-  if (value.kind === "negate") return value.value;
-  return negate(value, notation);
 }
 
 function cleanupExactCall(expr: Extract<Expr, { kind: "call" }>): Expr {
@@ -354,7 +350,14 @@ function cleanupExactCall(expr: Extract<Expr, { kind: "call" }>): Expr {
 }
 
 function isNumberValue(expr: Expr, value: number): boolean {
-  return expr.kind === "number" && Number(expr.value) === value;
+  const sign = expr.sign === -1 ? -1 : 1;
+  return expr.kind === "number" && sign * Number(expr.value) === value;
+}
+
+function signedIntegerValue(expr: Expr): number | null {
+  if (expr.kind !== "number" || typeof expr.value !== "number") return null;
+  const value = (expr.sign === -1 ? -1 : 1) * expr.value;
+  return Number.isInteger(value) ? value : null;
 }
 
 function isPiSymbol(expr: Expr): boolean {

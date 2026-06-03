@@ -20,7 +20,7 @@ describe("toggleNegateSelection", () => {
 
   it("pushes an outer negation into a selected delimiter", () => {
     const document = buildDocument(String.raw`-\left(a+b\right)`);
-    const next = toggleNegateSelection(document, "n2");
+    const next = toggleNegateSelection(document, "n1");
 
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(String.raw`\left(-a - b\right)`);

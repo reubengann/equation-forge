@@ -33,6 +33,12 @@ function naturalLogName(expr: Expr): boolean {
   return expr.kind === "call" && expr.callee.kind === "symbol" && expr.callee.name === "ln";
 }
 
+function unsigned(expr: Expr): Expr {
+  const next = { ...expr };
+  delete next.sign;
+  return next;
+}
+
 describe("identity rewrites", () => {
   it("applies the Pythagorean trig identity", () => {
     const input = String.raw`\sin^{2}\left(x+y\right)+\cos^{2}\left(x+y\right)`;
@@ -199,7 +205,7 @@ describe("identity rewrites for selections", () => {
     const sumEntry = Object.entries(document.index.nodeById).find(([, expr]) => {
       if (expr.kind !== "add" || expr.terms.length < 4) return false;
       const [first, second] = expr.terms;
-      return Boolean(first && second?.kind === "negate" && naturalLogName(first) && naturalLogName(second.value));
+      return Boolean(first && second?.sign === -1 && naturalLogName(first) && naturalLogName(unsigned(second)));
     });
     const [containerNodeId, sumExpr] = sumEntry ?? [];
     const termNodeIds = containerNodeId
@@ -240,7 +246,9 @@ describe("identity rewrites for selections", () => {
 
   it("expands a selected negative natural log product", () => {
     const document = buildDocument(String.raw`\ln T+\ln v_0-\ln\left(T_0 v\right)`);
-    const selectedNodeId = Object.entries(document.index.nodeById).find(([, expr]) => expr.kind === "negate")?.[0];
+    const selectedNodeId = Object.entries(document.index.nodeById).find(
+      ([, expr]) => expr.sign === -1 && naturalLogName(unsigned(expr)),
+    )?.[0];
 
     expect(selectedNodeId).toBeDefined();
     const options = getApplicableIdentityRewritesForSelection(document, {

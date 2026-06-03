@@ -59,6 +59,16 @@ export function toAlgebrite(expr: Expr, symbols: SymbolSubstitution | null = nul
 }
 
 function translateExpr(expr: Expr, context: TranslationContext): AlgebriteNode | null {
+  if (expr.sign === -1) {
+    const positiveExpr = { ...expr };
+    delete positiveExpr.sign;
+    const translated = translatePositiveExpr(positiveExpr, context);
+    return translated ? Algebrite.multiply(Algebrite.parse(-1), translated) : null;
+  }
+  return translatePositiveExpr(expr, context);
+}
+
+function translatePositiveExpr(expr: Expr, context: TranslationContext): AlgebriteNode | null {
   switch (expr.kind) {
     case "number":
       return translateNumber(expr.value, context);

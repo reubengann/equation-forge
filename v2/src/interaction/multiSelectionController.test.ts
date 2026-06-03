@@ -229,7 +229,7 @@ describe("multi-selection add/product", () => {
     const latex = String.raw`s=c_P\ln\left(\frac{T}{T_0}\right)-R\ln\left(\frac{T}{T_0}\right)+R\ln v_0-R\ln v+s_0`;
     const doc = compileMathDocument(latex);
     const firstProductId = "n4";
-    const negatedProductId = "n12";
+    const negatedProductId = "n11";
 
     const result = applyMarqueeSelectIntent({
       nodeIds: ["n4", "n5", "n6", "n11", "n12", "n13", "n14"],

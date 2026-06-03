@@ -1,6 +1,6 @@
-import { add, negate, type Expr } from "../ast";
+import { add, type Expr } from "../ast";
 import { cloneExpr } from "../ast/utils";
-import { collapseProduct } from "./algebraUtils";
+import { collapseProduct, flipSign, splitSign } from "./algebraUtils";
 
 type DistributeParts = {
   factors: Expr[];
@@ -15,8 +15,9 @@ export function canDistributeExpr(expr: Expr): boolean {
 }
 
 export function distributeExpr(expr: Expr): Expr | null {
-  if (expr.kind === "negate") {
-    const distributed = distributeExpr(expr.value);
+  const signed = splitSign(expr);
+  if (signed.sign === -1) {
+    const distributed = distributeExpr(signed.value);
     if (!distributed || distributed.kind !== "add") return null;
     return add(distributed.terms.map(flipAdditiveSign));
   }
@@ -26,19 +27,20 @@ export function distributeExpr(expr: Expr): Expr | null {
 
   return add(
     parts.target.expression.terms.map((term) => {
-      const distributedTerm = term.kind === "negate" ? term.value : term;
+      const signedTerm = splitSign(term);
+      const distributedTerm = signedTerm.value;
       const product = collapseProduct(
         parts.factors.map((factor, index) =>
           index === parts.target.factorIndex ? cloneExpr(distributedTerm) : cloneExpr(factor),
         ),
       );
-      return term.kind === "negate" ? negate(product, "subtraction") : product;
+      return signedTerm.sign === -1 ? flipSign(product) : product;
     }),
   );
 }
 
 function flipAdditiveSign(term: Expr): Expr {
-  return term.kind === "negate" ? cloneExpr(term.value) : negate(term, "subtraction");
+  return flipSign(term);
 }
 
 function distributeParts(expr: Expr): DistributeParts | null {

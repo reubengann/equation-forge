@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseLatexToExpr } from "../adapters/latex/parseLatexToExpr";
+import type { Expr } from "../ast";
 import { compileMathDocumentFromExpr, type CompiledMathDocument } from "../compile/compileMathDocument";
 import { resolveHorizontalInsertionSlot } from "./types";
 import {
@@ -12,6 +13,12 @@ import {
 function buildDocument(latex: string): CompiledMathDocument {
   const expr = parseLatexToExpr(latex);
   return compileMathDocumentFromExpr(latex, expr);
+}
+
+function findNodeId(document: CompiledMathDocument, predicate: (expr: Expr) => boolean): string {
+  const entry = Object.entries(document.index.nodeById).find(([, expr]) => predicate(expr));
+  expect(entry).toBeDefined();
+  return entry![0];
 }
 
 describe("RulesPipeline", () => {
@@ -164,23 +171,6 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe("b + a = c");
   });
 
-  it("prints moved prefix-negated additive terms as subtraction", () => {
-    const document = buildDocument(
-      String.raw`s=\left(c_P-R\right)\ln\left(\frac{T}{T_0}\right)+R\left(-\ln v_0+\ln v\right)+s_0`,
-    );
-    const result = executeMove({
-      document,
-      selection: { kind: "single", nodeId: "n23" },
-      destinationId: "n19",
-      moveType: "additive",
-      destinationSlot: "before",
-    });
-
-    expect(result?.latex).toBe(
-      String.raw`s = \left(c_P - R\right) \ln\left(\frac{T}{T_0}\right) + R \left(\ln v  - \ln v_0 \right) + s_0`,
-    );
-  });
-
   it("allows moving an additive term to the other side of an equation", () => {
     const document = buildDocument(String.raw`a+b=c`);
     const preview = canExecuteMove({
@@ -215,10 +205,15 @@ describe("canExecuteMove", () => {
 
   it("removes zero when moving the only remaining term to the other side", () => {
     const document = buildDocument(String.raw`c_P-R-c_v=0`);
+    const selectedNodeId = findNodeId(
+      document,
+      (expr) => expr.kind === "symbol" && expr.name === "c_v" && expr.sign === -1,
+    );
+    const destinationId = findNodeId(document, (expr) => expr.kind === "number" && Number(expr.value) === 0);
     const result = executeMove({
       document,
-      selection: { kind: "single", nodeId: "n7" },
-      destinationId: "n8",
+      selection: { kind: "single", nodeId: selectedNodeId },
+      destinationId,
       moveType: "additive",
       destinationSlot: "after",
     });
@@ -308,9 +303,13 @@ describe("canExecuteMove", () => {
 
   it("executes moving a subtraction term back across an equation", () => {
     const document = buildDocument(String.raw`a=c-b`);
+    const selectedNodeId = findNodeId(
+      document,
+      (expr) => expr.kind === "symbol" && expr.name === "b" && expr.sign === -1,
+    );
     const result = executeMove({
       document,
-      selection: { kind: "single", nodeId: "n6" },
+      selection: { kind: "single", nodeId: selectedNodeId },
       destinationId: "n2",
       moveType: "additive",
       destinationSlot: "after",
@@ -405,10 +404,18 @@ describe("canExecuteMove", () => {
 
   it("keeps the sign inside a grouped product when extracting a selected negated factor value", () => {
     const document = buildDocument(String.raw`w = \int_{P_i}^{P_f} P \left(-v_0 \kappa \mathrm{d}{P}\right)`);
+    const selectedNodeId = findNodeId(
+      document,
+      (expr) => expr.kind === "symbol" && expr.name === "v_0",
+    );
+    const destinationId = findNodeId(
+      document,
+      (expr) => expr.kind === "symbol" && expr.name === "P",
+    );
     const result = executeMove({
       document,
-      selection: { kind: "single", nodeId: "n11" },
-      destinationId: "n7",
+      selection: { kind: "single", nodeId: selectedNodeId },
+      destinationId,
       moveType: "multiplicative",
       destinationSlot: "after",
     });

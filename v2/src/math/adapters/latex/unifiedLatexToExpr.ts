@@ -39,6 +39,7 @@ import {
   type DelimiterKind,
   type Expr,
 } from "../../ast";
+import { flipSign } from "../../rewrite/algebraUtils";
 
 type UnifiedArgument = {
   content?: UnifiedNode[];
@@ -1229,7 +1230,7 @@ class TokenParser {
         continue;
       }
       if (this.consumeOperator("-")) {
-        terms.push(negate(this.parseMultiplicative(), "subtraction"));
+        terms.push(flipSign(this.parseMultiplicative()));
         continue;
       }
       break;
@@ -1271,7 +1272,7 @@ class TokenParser {
 
   private parseUnary(): Expr {
     if (this.consumeOperator("+")) return this.parseUnary();
-    if (this.consumeOperator("-")) return negate(this.parseUnary());
+    if (this.consumeOperator("-")) return flipSign(this.parseUnary());
     let expr = this.parsePrimary();
     while (true) {
       const next = this.peek();

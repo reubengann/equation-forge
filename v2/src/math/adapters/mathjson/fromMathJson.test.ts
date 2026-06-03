@@ -38,6 +38,17 @@ describe("fromMathJson", () => {
     expect(expr.error).toContain("Unsupported MathJSON: unsupported_mathjson_record");
   });
 
+  it("maps MathJSON negation and subtraction into signed expressions", () => {
+    expect(fromMathJson(["Negate", "a"])).toEqual({ kind: "symbol", name: "a", sign: -1 });
+    expect(fromMathJson(["Subtract", "a", "b"])).toEqual({
+      kind: "add",
+      terms: [
+        { kind: "symbol", name: "a" },
+        { kind: "symbol", name: "b", sign: -1 },
+      ],
+    });
+  });
+
   it("maps CE rational and function heads back into internal AST", () => {
     const expr = fromMathJson(["Multiply", ["Rational", 1, 2], ["Sin", "x"]]);
 

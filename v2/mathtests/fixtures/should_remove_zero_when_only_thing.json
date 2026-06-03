@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "exportedAtIso": "2026-06-01T21:39:41.084Z",
+  "exportedAtIso": "2026-06-03T18:57:54.982Z",
   "domSnapshots": {
     "s1": {
       "hostRect": {
@@ -50,33 +50,15 @@
         },
         {
           "nodeId": "n5",
-          "left": 141.06666564941406,
+          "left": 184.4166717529297,
           "top": 188.0833282470703,
-          "right": 157.68333435058594,
+          "right": 202.78334045410156,
           "bottom": 217.25,
-          "width": 16.616668701171875,
+          "width": 18.366668701171875,
           "height": 29.166671752929688
         },
         {
           "nodeId": "n6",
-          "left": 184.4166717529297,
-          "top": 188.0833282470703,
-          "right": 202.78334045410156,
-          "bottom": 217.25,
-          "width": 18.366668701171875,
-          "height": 29.166671752929688
-        },
-        {
-          "nodeId": "n7",
-          "left": 184.4166717529297,
-          "top": 188.0833282470703,
-          "right": 202.78334045410156,
-          "bottom": 217.25,
-          "width": 18.366668701171875,
-          "height": 29.166671752929688
-        },
-        {
-          "nodeId": "n8",
           "left": 231.68333435058594,
           "top": 188.0833282470703,
           "right": 242.48333740234375,
@@ -134,15 +116,6 @@
         },
         {
           "nodeId": "n5",
-          "left": 141.06666564941406,
-          "top": 188.0833282470703,
-          "right": 157.68333435058594,
-          "bottom": 217.25,
-          "width": 16.616668701171875,
-          "height": 29.166671752929688
-        },
-        {
-          "nodeId": "n6",
           "left": 186.5833282470703,
           "top": 188.0833282470703,
           "right": 204.9499969482422,
@@ -157,37 +130,37 @@
     {
       "type": "move_mode_changed",
       "moveType": "additive",
-      "ts": 1780349958858
+      "ts": 1780513059077
     },
     {
       "type": "latex_accepted",
-      "previousLatex": null,
+      "previousLatex": "\\sin \\pi  = -11",
       "nextLatex": "c_P - R - c_v = 0",
-      "ts": 1780349959864
+      "ts": 1780513061249
     },
     {
       "type": "dom_changed",
       "source": "accept",
       "domSnapshotId": "s1",
-      "ts": 1780349959871
+      "ts": 1780513061256
     },
     {
       "type": "pointer_down",
       "pointer": {
-        "x": 194.1666717529297,
-        "y": 210
+        "x": 188.3333282470703,
+        "y": 206.6666717529297
       },
       "domSnapshotId": "s1",
       "pointerType": "mouse",
       "button": 0,
       "buttons": 1,
       "ctrlKey": false,
-      "ts": 1780349961572
+      "ts": 1780513067661
     },
     {
       "type": "pointer_move",
       "pointer": {
-        "x": 224.1666717529297,
+        "x": 222.5,
         "y": 209.1666717529297
       },
       "domSnapshotId": "s1",
@@ -195,39 +168,26 @@
       "button": -1,
       "buttons": 1,
       "ctrlKey": false,
-      "ts": 1780349962746
-    },
-    {
-      "type": "pointer_move",
-      "pointer": {
-        "x": 238.3333282470703,
-        "y": 208.3333282470703
-      },
-      "domSnapshotId": "s1",
-      "pointerType": "mouse",
-      "button": -1,
-      "buttons": 1,
-      "ctrlKey": false,
-      "ts": 1780349962846
+      "ts": 1780513068643
     },
     {
       "type": "pointer_up",
       "pointer": {
-        "x": 248.3333282470703,
-        "y": 207.5
+        "x": 228.3333282470703,
+        "y": 209.1666717529297
       },
       "domSnapshotId": "s1",
       "pointerType": "mouse",
       "button": 0,
       "buttons": 0,
       "ctrlKey": false,
-      "ts": 1780349963516
+      "ts": 1780513069210
     },
     {
       "type": "dom_changed",
       "source": "accept",
       "domSnapshotId": "s2",
-      "ts": 1780349963521
+      "ts": 1780513069214
     }
   ],
   "expected": {

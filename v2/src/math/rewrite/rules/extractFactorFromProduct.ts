@@ -1,5 +1,6 @@
 import { cloneExpr } from "../../ast/utils";
 import type { Expr } from "../../ast/expr";
+import { multiplySigns, splitSign, type Sign, withSign } from "../algebraUtils";
 import type { MoveContext, UpwardRewriteRule } from "../types";
 
 export function extractFactorFromProduct(): UpwardRewriteRule {
@@ -84,7 +85,7 @@ function splitProductFactors(factors: Expr[], sourceFactorIndexes: number[]): { 
   const selectedIndexSet = new Set(sourceFactorIndexes);
   const payloadFactors: Expr[] = [];
   const remainingFactors: Expr[] = [];
-  let remainingSign: 1 | -1 = 1;
+  let remainingSign: Sign = 1;
 
   factors.forEach((factor, index) => {
     if (!selectedIndexSet.has(index)) {
@@ -92,23 +93,15 @@ function splitProductFactors(factors: Expr[], sourceFactorIndexes: number[]): { 
       return;
     }
 
-    const signedFactor = splitSignedFactor(factor);
-    payloadFactors.push(signedFactor.payload);
-    remainingSign *= signedFactor.remainingSign;
+    const signedFactor = splitSign(factor);
+    payloadFactors.push(signedFactor.value);
+    remainingSign = multiplySigns(remainingSign, signedFactor.sign);
   });
 
   const remaining = collapseMultiplicativeFactors(remainingFactors);
   return {
     payload: collapseMultiplicativeFactors(payloadFactors),
-    remaining: remainingSign === -1 ? { kind: "negate", value: remaining } : remaining,
-  };
-}
-
-function splitSignedFactor(factor: Expr): { payload: Expr; remainingSign: 1 | -1 } {
-  if (factor.kind !== "negate") return { payload: cloneExpr(factor), remainingSign: 1 };
-  return {
-    payload: cloneExpr(factor.value),
-    remainingSign: -1,
+    remaining: withSign(remaining, remainingSign),
   };
 }
 

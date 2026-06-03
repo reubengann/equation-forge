@@ -1,6 +1,6 @@
-import { add, displayGroup, divide, multiply, negate, num, power, type Expr } from "../ast";
+import { add, displayGroup, divide, multiply, num, power, type Expr } from "../ast";
 import { cloneExpr } from "../ast/utils";
-import { collapseProduct, structuralKey } from "./algebraUtils";
+import { applySign, collapseProduct, flipSign, splitSign as splitExprSign, structuralKey } from "./algebraUtils";
 
 type SignedTerm = {
   sign: 1 | -1;
@@ -147,7 +147,7 @@ function factorPerfectSquare(expr: Extract<Expr, { kind: "add" }>): Expr | null 
 
   const innerTerms = [
     cloneExpr(leftBase),
-    middleEntry.term.coefficient > 0 ? cloneExpr(rightBase) : negate(cloneExpr(rightBase), "subtraction"),
+    middleEntry.term.coefficient > 0 ? cloneExpr(rightBase) : flipSign(rightBase),
   ];
   return power(displayGroup("paren", add(innerTerms)), num(2));
 }
@@ -189,14 +189,6 @@ function splitCoefficientTerm(term: Expr): CoefficientTerm {
 }
 
 function splitSign(term: Expr): SignedTerm {
-  if (term.kind === "negate") {
-    return { sign: -1, value: term.value };
-  }
-  return { sign: 1, value: term };
+  return splitExprSign(term);
 }
 
-function applySign(sign: 1 | -1, expr: Expr): Expr {
-  if (sign === 1) return expr;
-  if (expr.kind === "number" && typeof expr.value === "number") return num(-expr.value);
-  return negate(expr, "subtraction");
-}

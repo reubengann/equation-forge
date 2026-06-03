@@ -1,8 +1,7 @@
 import { exprToLatex } from "./math/adapters/latex";
 import type { CompiledMathDocument } from "./math/compile/compileMathDocument";
 import type { Expr } from "./math/ast";
-import { negate } from "./math/ast";
-import { structuralKeyIgnoringDisplayGroups } from "./math/rewrite/algebraUtils";
+import { flipSign, splitSign, structuralKeyIgnoringDisplayGroups } from "./math/rewrite/algebraUtils";
 import type { SubstitutionSelection } from "./math/rewrite/substitute";
 
 export type PadDefinitionSource = {
@@ -24,11 +23,13 @@ function expressionsMatch(left: Expr, right: Expr): boolean {
 
 function matchDefinitionRhs(lhs: Expr, rhs: Expr, selected: Expr): Expr | null {
   if (expressionsMatch(lhs, selected)) return rhs;
-  if (selected.kind === "negate" && expressionsMatch(lhs, selected.value)) {
-    return negate(rhs);
+  const selectedSign = splitSign(selected);
+  if (selectedSign.sign === -1 && expressionsMatch(lhs, selectedSign.value)) {
+    return flipSign(rhs);
   }
-  if (lhs.kind === "negate" && expressionsMatch(lhs.value, selected)) {
-    return negate(rhs);
+  const lhsSign = splitSign(lhs);
+  if (lhsSign.sign === -1 && expressionsMatch(lhsSign.value, selected)) {
+    return flipSign(rhs);
   }
   return null;
 }

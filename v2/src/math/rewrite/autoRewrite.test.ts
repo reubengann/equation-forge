@@ -11,6 +11,12 @@ function buildDocument(latex: string): CompiledMathDocument {
   return compileMathDocumentFromExpr(latex, expr);
 }
 
+function findNodeId(document: CompiledMathDocument, predicate: (expr: Expr, nodeId: string) => boolean): string {
+  const entry = Object.entries(document.index.nodeById).find(([nodeId, expr]) => predicate(expr, nodeId));
+  expect(entry).toBeDefined();
+  return entry![0];
+}
+
 describe("autoRewriteSelection factor", () => {
   it("factors a common symbol out of a selected sum", () => {
     const document = buildDocument(String.raw`a b+c b`);
@@ -36,7 +42,18 @@ describe("autoRewriteSelection factor", () => {
     const document = buildDocument(
       String.raw`s=c_P\ln\left(\frac{T}{T_0}\right)-R\ln\left(\frac{T}{T_0}\right)+R\ln v_0-R\ln v+s_0`,
     );
-    const selection = { kind: "multi" as const, nodeIds: ["n4", "n12"], containerNodeId: "n3" };
+    const firstTermId = findNodeId(
+      document,
+      (expr) => expr.kind === "multiply" && expr.factors.some((factor) => factor.kind === "symbol" && factor.name === "c_P"),
+    );
+    const secondTermId = findNodeId(
+      document,
+      (expr) =>
+        expr.kind === "multiply" &&
+        expr.sign === -1 &&
+        expr.factors.some((factor) => factor.kind === "symbol" && factor.name === "R"),
+    );
+    const selection = { kind: "multi" as const, nodeIds: [firstTermId, secondTermId], containerNodeId: "n3" };
 
     expect(canAutoRewrite(document, selection, "factor")).toBe(true);
     const next = autoRewriteSelection(document, selection, "factor");
@@ -120,12 +137,8 @@ describe("autoRewriteSelection distribute", () => {
     const document = buildDocument(
       String.raw`s=c_P\ln\left(\frac{T}{T_0}\right)-R\left(\ln\left(\frac{T}{T_0}\right)+\ln v_0-\ln v\right)+s_0`,
     );
-    const selectedNodeId = Object.entries(document.index.nodeById).find(
-      ([, expr]) => expr.kind === "negate" && expr.value.kind === "multiply",
-    )?.[0];
-
-    expect(selectedNodeId).toBeDefined();
-    const next = autoRewriteSelection(document, { kind: "single", nodeId: selectedNodeId! }, "distribute");
+    const selectedNodeId = findNodeId(document, (expr) => expr.kind === "multiply" && expr.sign === -1);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: selectedNodeId }, "distribute");
 
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(
@@ -137,12 +150,8 @@ describe("autoRewriteSelection distribute", () => {
     const document = buildDocument(
       String.raw`s=c_P\ln\left(\frac{T}{T_0}\right)-R\left(\ln\left(\frac{T}{T_0}\right)+\ln\left(\frac{v_0}{v}\right)\right)+s_0`,
     );
-    const selectedNodeId = Object.entries(document.index.nodeById).find(
-      ([nodeId, expr]) => expr.kind === "multiply" && document.index.nodeById[document.index.parentById[nodeId] ?? ""]?.kind === "negate",
-    )?.[0];
-
-    expect(selectedNodeId).toBeDefined();
-    const next = autoRewriteSelection(document, { kind: "single", nodeId: selectedNodeId! }, "distribute");
+    const selectedNodeId = findNodeId(document, (expr) => expr.kind === "multiply" && expr.sign === -1);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: selectedNodeId }, "distribute");
 
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(

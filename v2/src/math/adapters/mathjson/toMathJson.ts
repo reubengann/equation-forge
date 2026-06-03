@@ -77,6 +77,16 @@ function restoreUnknownMathJsonSymbols(value: unknown, symbols: SymbolSubstituti
 }
 
 function translateExpr(expr: Expr, context: TranslationContext): MathJsonValue | null {
+  if (expr.sign === -1) {
+    const positiveExpr = { ...expr };
+    delete positiveExpr.sign;
+    const translated = translatePositiveExpr(positiveExpr, context);
+    return translated === null ? null : ["Negate", translated];
+  }
+  return translatePositiveExpr(expr, context);
+}
+
+function translatePositiveExpr(expr: Expr, context: TranslationContext): MathJsonValue | null {
   switch (expr.kind) {
     case "number":
       return expr.value;

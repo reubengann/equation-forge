@@ -1,4 +1,7 @@
 import { type DelimiterKind, type Expr } from "../../ast";
+import { splitSign } from "../../rewrite/algebraUtils";
+
+type RenderContext = "default" | "sumTerm" | "productFactor" | "prefixOperand";
 
 class LatexGenerator {
   readonly expr: Expr;
@@ -65,9 +68,94 @@ class LatexGenerator {
     }
   }
 
-  generate(expr?: Expr): string {
+  generate(expr?: Expr, context: RenderContext = "default"): string {
     expr = expr ?? this.expr;
     const id = this.newId();
+    return this.generateWithId(expr, id, context);
+  }
+
+  generateUnsigned(expr: Expr, context: RenderContext = "default"): string {
+    const id = this.newId();
+    return this.generateUnsignedWithId(expr, id, context);
+  }
+
+  generateWithId(expr: Expr, id: string, context: RenderContext): string {
+    const signed = splitSign(expr);
+    if (signed.sign === -1) {
+      const positive = signed.value;
+      if (context === "sumTerm") return this.generateUnsignedWithId(positive, id, context);
+      if (context === "productFactor" && shouldGroupNegativeProductFactor(positive)) {
+        return this.wrap(`\\left(-${this.generateUnsignedBody(positive)}\\right)`, id);
+      }
+      return this.wrap("-" + this.generateUnsignedBody(positive), id);
+    }
+    return this.generateUnsignedWithId(signed.value, id, context);
+  }
+
+  generateUnsignedWithId(expr: Expr, id: string, _context: RenderContext): string {
+    return this.generateUnsignedWithIdLegacy(expr, id);
+  }
+
+  generateUnsignedBody(expr: Expr): string {
+    switch (expr.kind) {
+      case "number":
+        return expr.value.toString();
+      case "symbol":
+        return expr.name;
+      case "add":
+        return this.generateAddTerms(expr.terms);
+      case "multiply":
+        return expr.factors.map((factor) => this.generate(factor, "productFactor")).join(" ");
+      case "power":
+        return `${this.generate(expr.base)}^{${this.generate(expr.exponent)}}`;
+      case "negate":
+        return "-" + this.generate(expr.value, "prefixOperand");
+      case "divide":
+        return `\\frac{${this.generate(expr.numerator)}}{${this.generate(expr.denominator)}}`;
+      case "root":
+        if (expr.degree === 2) {
+          return `\\sqrt{${this.generate(expr.value)}}`;
+        } else {
+          return `\\sqrt[${expr.degree}]{${this.generate(expr.value)}}`;
+        }
+      case "equation":
+        return expr.sides.map((side) => this.generate(side)).join(" = ");
+      case "inequality":
+        switch (expr.operator) {
+          case "lt":
+            return `${this.generate(expr.lhs)} < ${this.generate(expr.rhs)}`;
+          case "gt":
+            return `${this.generate(expr.lhs)} > ${this.generate(expr.rhs)}`;
+          case "geq":
+            return `${this.generate(expr.lhs)} \\geq ${this.generate(expr.rhs)}`;
+          case "leq":
+            return `${this.generate(expr.lhs)} \\leq ${this.generate(expr.rhs)}`;
+        }
+      case "call":
+        if (expr.callee.kind !== "symbol") {
+          throw new Error(`Unsupported callee kind: ${expr.callee.kind}`);
+        }
+        this.generate(expr.callee);
+        switch (expr.delimiter) {
+          case "paren":
+            return `\\${expr.callee.name}\\left(${expr.args.map((x) => this.generate(x)).join(", ")}\\right)`;
+          case "bracket":
+            return `\\${expr.callee.name}\\left[${expr.args.map((x) => this.generate(x)).join(", ")}\\right]`;
+          case "bare":
+            return `\\${expr.callee.name} ${expr.args.map((x) => this.generate(x)).join(", ")} `;
+        }
+      case "display_group": {
+        const [open, close] = this.delimiterPair(expr.delimiter);
+        return `\\left${open}${this.generate(expr.expression)}\\right${close}`;
+      }
+      case "differential":
+        return `\\mathrm{d}{${this.generate(expr.variable)}}`;
+      default:
+        return this.generate(expr);
+    }
+  }
+
+  generateUnsignedWithIdLegacy(expr: Expr, id: string): string {
     switch (expr.kind) {
       case "number":
         return this.wrap(expr.value.toString(), id);
@@ -76,11 +164,11 @@ class LatexGenerator {
       case "add":
         return this.wrap(this.generateAddTerms(expr.terms), id);
       case "multiply":
-        return this.wrap(expr.factors.map((factor) => this.generate(factor)).join(" "), id);
+        return this.wrap(expr.factors.map((factor) => this.generate(factor, "productFactor")).join(" "), id);
       case "power":
         return this.generateTrigPower(expr, id);
       case "negate":
-        return this.wrap("-" + this.generate(expr.value), id);
+        return this.wrap("-" + this.generate(expr.value, "prefixOperand"), id);
       case "divide":
         return this.wrap(`\\frac{${this.generate(expr.numerator)}}{${this.generate(expr.denominator)}}`, id);
       case "root":
@@ -183,7 +271,7 @@ class LatexGenerator {
           integratedThing = expr.integrand.factors
             // If differential appears anywhere but the beginning, put a thinspace before it.
             .map((factor, index) => {
-              const rendered = this.generate(factor);
+              const rendered = this.generate(factor, "productFactor");
               if (index === 0) return rendered;
               return factor.kind === "differential" ? ` \\,${rendered}` : ` ${rendered}`;
             })
@@ -242,17 +330,20 @@ class LatexGenerator {
   generateAddTerms(terms: Expr[]): string {
     return terms
       .map((term, index) => {
-        if (term.kind === "negate" && (index > 0 || term.notation !== "prefix")) {
-          const id = this.newId();
-          const renderedValue = this.generate(term.value);
-          const wrappedValue = this.wrap(renderedValue, id);
-          return index === 0 ? `-${wrappedValue}` : `- ${wrappedValue}`;
+        const signedTerm = splitSign(term);
+        if (signedTerm.sign === -1 && (index > 0 || term.kind !== "negate" || term.notation !== "prefix")) {
+          const renderedValue = this.generateUnsigned(signedTerm.value, "sumTerm");
+          return index === 0 ? `-${renderedValue}` : `- ${renderedValue}`;
         }
-        const renderedTerm = this.generate(term);
+        const renderedTerm = this.generate(term, "sumTerm");
         return index === 0 ? renderedTerm : `+ ${renderedTerm}`;
       })
       .join(" ");
   }
+}
+
+function shouldGroupNegativeProductFactor(expr: Expr): boolean {
+  return expr.kind === "multiply" || expr.kind === "add" || expr.kind === "divide" || expr.kind === "display_group";
 }
 
 export function exprToLatex(expr: Expr, tags: boolean): string {

@@ -1,6 +1,7 @@
-import { add, displayGroup, multiply, negate, type Expr } from "../ast";
+import { add, displayGroup, multiply, type Expr } from "../ast";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import { cloneExpr, replaceCompiledNode } from "../ast/utils";
+import { flipSign, splitSign } from "./algebraUtils";
 
 type ToggleNegateTarget = {
   nodeId: string;
@@ -30,20 +31,60 @@ function resolveToggleNegateTarget(document: CompiledMathDocument, nodeId: strin
     };
   }
 
-  if (selected.kind !== "display_group" || selected.expression.kind !== "add") return null;
+  const selectedLocation = document.index.locationById[nodeId];
+  const selectedParent = selectedLocation?.parentId ? document.index.nodeById[selectedLocation.parentId] : null;
+  const selectedParentLocation = selectedLocation?.parentId ? document.index.locationById[selectedLocation.parentId] : null;
+  const selectedGrandparent = selectedParentLocation?.parentId ? document.index.nodeById[selectedParentLocation.parentId] : null;
+  const selectedGrandparentLocation = selectedParentLocation?.parentId
+    ? document.index.locationById[selectedParentLocation.parentId]
+    : null;
+  const selectedGreatGrandparent = selectedGrandparentLocation?.parentId
+    ? document.index.nodeById[selectedGrandparentLocation.parentId]
+    : null;
+  if (
+    selectedParent?.kind === "add" &&
+    selectedParentLocation?.field === "expression" &&
+    selectedGrandparent?.kind === "display_group" &&
+    selectedGrandparentLocation?.field === "factors" &&
+    selectedGrandparentLocation.index != null &&
+    selectedGreatGrandparent?.kind === "multiply"
+  ) {
+    const flippedGroup = displayGroup(selectedGrandparent.delimiter, flipAdditiveSigns(selectedParent));
+    return {
+      nodeId: selectedGrandparentLocation.parentId!,
+      replacement: flipSign(
+        multiply(
+          selectedGreatGrandparent.factors.map((factor, index) =>
+            index === selectedGrandparentLocation.index ? flippedGroup : cloneExpr(factor),
+          ),
+        ),
+      ),
+    };
+  }
+
+  const signedSelected = splitSign(selected);
+  if (signedSelected.value.kind !== "display_group" || signedSelected.value.expression.kind !== "add") return null;
+  if (signedSelected.sign === -1) {
+    return {
+      nodeId,
+      replacement: displayGroup(signedSelected.value.delimiter, flipAdditiveSigns(signedSelected.value.expression)),
+    };
+  }
 
   const parentId = document.index.parentById[nodeId];
   const parent = parentId ? document.index.nodeById[parentId] : null;
   const location = document.index.locationById[nodeId];
-  const flippedGroup = displayGroup(selected.delimiter, flipAdditiveSigns(selected.expression));
+  const flippedGroup = displayGroup(signedSelected.value.delimiter, flipAdditiveSigns(signedSelected.value.expression));
 
   if (parentId && parent?.kind === "multiply" && location?.field === "factors" && location.index != null) {
     const grandparentId = document.index.parentById[parentId];
     const grandparent = grandparentId ? document.index.nodeById[grandparentId] : null;
-    if (grandparent?.kind === "negate") {
+    if (parent.sign === -1) {
       return {
-        nodeId: grandparentId,
-        replacement: multiply(parent.factors.map((factor, index) => (index === location.index ? flippedGroup : cloneExpr(factor)))),
+        nodeId: parentId,
+        replacement: multiply(
+          parent.factors.map((factor, index) => (index === location.index ? flippedGroup : cloneExpr(factor))),
+        ),
       };
     }
     if (grandparent?.kind === "add") {
@@ -52,7 +93,7 @@ function resolveToggleNegateTarget(document: CompiledMathDocument, nodeId: strin
       );
       return {
         nodeId: parentId,
-        replacement: negate(flippedProduct, "subtraction"),
+        replacement: flipSign(flippedProduct),
       };
     }
   }
@@ -66,7 +107,7 @@ function resolveToggleNegateTarget(document: CompiledMathDocument, nodeId: strin
 
   return {
     nodeId,
-    replacement: negate(flippedGroup),
+    replacement: flipSign(flippedGroup),
   };
 }
 
@@ -75,6 +116,5 @@ function flipAdditiveSigns(expr: Extract<Expr, { kind: "add" }>): Expr {
 }
 
 function flipTermSign(term: Expr): Expr {
-  if (term.kind === "negate") return cloneExpr(term.value);
-  return negate(cloneExpr(term), "subtraction");
+  return flipSign(term);
 }

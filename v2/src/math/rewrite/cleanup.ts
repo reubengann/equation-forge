@@ -1,6 +1,18 @@
 import { add, divide, num, type Expr } from "../ast";
 import { cloneExpr } from "../ast/utils";
-import { collapseProduct, isNumberValue, structuralKeyIgnoringDisplayGroups } from "./algebraUtils";
+import {
+  applySign,
+  collapseProduct,
+  exprSign,
+  flipSign,
+  isNumberValue,
+  multiplySigns,
+  splitSign,
+  structuralKeyIgnoringDisplayGroups,
+  type Sign,
+  withSign,
+  withoutSign,
+} from "./algebraUtils";
 
 const DEFAULT_MAX_CLEANUP_DEPTH = 100;
 const DEFAULT_MAX_LOCAL_CLEANUP_ITERATIONS = 50;
@@ -67,6 +79,9 @@ function cleanupLocallyUntilStable(expr: Expr, context: CleanupContext): Expr | 
 }
 
 function cleanupLocalExpr(expr: Expr): Expr | null {
+  if (expr.sign === -1 && expr.kind === "number" && typeof expr.value === "number") {
+    return num(-expr.value);
+  }
   switch (expr.kind) {
     case "add":
       return cleanupAdd(expr);
@@ -276,7 +291,7 @@ function collectLikeTerms(terms: Expr[]): Expr[] | null {
 }
 
 function splitCoefficientTerm(term: Expr): CoefficientTerm | null {
-  const sign = unwrapNegate(term);
+  const sign = splitSign(term);
   const value = sign.value;
 
   if (value.kind === "number") return null;
@@ -309,7 +324,7 @@ function splitCoefficientTerm(term: Expr): CoefficientTerm | null {
 
 function buildCoefficientTerm(coefficient: number, base: Expr): Expr {
   if (coefficient === 1) return cloneExpr(base);
-  if (coefficient === -1) return { kind: "negate", notation: "subtraction", value: cloneExpr(base) };
+  if (coefficient === -1) return flipSign(base);
   return collapseProduct([num(coefficient), base]);
 }
 
@@ -318,13 +333,19 @@ function cleanupMultiply(expr: Extract<Expr, { kind: "multiply" }>): Expr | null
   if (factors.some((factor) => isNumberValue(factor, 0))) return num(0);
 
   const keptFactors: Expr[] = [];
+  let productSign: Sign = exprSign(expr);
   let numericProduct = 1;
   let numericFactorCount = 0;
   let firstNumericFactorIndex = 0;
   let changed = false;
 
   for (const factor of factors) {
-    const numericValue = numericLiteralValue(factor);
+    const signedFactor = splitSign(factor);
+    productSign = multiplySigns(productSign, signedFactor.sign);
+    const positiveFactor = signedFactor.value;
+    if (signedFactor.sign === -1) changed = true;
+
+    const numericValue = numericLiteralValue(positiveFactor);
     if (numericValue !== null) {
       if (numericFactorCount === 0) firstNumericFactorIndex = keptFactors.length;
       numericProduct *= numericValue;
@@ -332,28 +353,35 @@ function cleanupMultiply(expr: Extract<Expr, { kind: "multiply" }>): Expr | null
       continue;
     }
 
-    if (isNumberValue(factor, 1)) {
+    if (isNumberValue(positiveFactor, 1)) {
       changed = true;
       continue;
     }
 
-    const reciprocalIndex = keptFactors.findIndex((keptFactor) => areMultiplicativeReciprocals(keptFactor, factor));
+    const reciprocalIndex = keptFactors.findIndex((keptFactor) => areMultiplicativeReciprocals(keptFactor, positiveFactor));
     if (reciprocalIndex >= 0) {
       keptFactors.splice(reciprocalIndex, 1);
       changed = true;
       continue;
     }
 
-    keptFactors.push(factor);
+    keptFactors.push(positiveFactor);
+  }
+
+  if (numericProduct < 0) {
+    productSign = multiplySigns(productSign, -1);
+    numericProduct = Math.abs(numericProduct);
+    changed = true;
   }
 
   if (numericFactorCount > 0 && numericProduct !== 1) {
     keptFactors.splice(firstNumericFactorIndex, 0, num(numericProduct));
   }
   if (numericFactorCount > 1 || (numericFactorCount === 1 && numericProduct === 1)) changed = true;
+  if (productSign !== exprSign(expr)) changed = true;
 
   if (!changed) return null;
-  return collapseProduct(keptFactors);
+  return withSign(collapseProduct(keptFactors), productSign);
 }
 
 function cleanupDivide(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
@@ -430,8 +458,7 @@ function cleanupNegate(expr: Extract<Expr, { kind: "negate" }>): Expr | null {
   if (isNumberValue(expr.value, 0)) return num(0);
   const numericValue = numericLiteralValue(expr.value);
   if (numericValue !== null) return num(-numericValue);
-  if (expr.value.kind === "negate") return cloneExpr(expr.value.value);
-  return null;
+  return flipSign(expr.value);
 }
 
 function cleanupPower(expr: Extract<Expr, { kind: "power" }>): Expr | null {
@@ -445,21 +472,24 @@ function cleanupPower(expr: Extract<Expr, { kind: "power" }>): Expr | null {
 }
 
 function numericLiteralValue(expr: Expr): number | null {
-  if (expr.kind === "display_group") {
-    return numericLiteralValue(expr.expression);
+  const sign = exprSign(expr);
+  const positive = withoutSign(expr);
+  if (positive.kind === "display_group") {
+    const value = numericLiteralValue(positive.expression);
+    return value === null ? null : sign * value;
   }
-  if (expr.kind === "negate") {
-    const value = numericLiteralValue(expr.value);
-    return value === null ? null : -value;
+  if (positive.kind === "negate") {
+    const value = numericLiteralValue(positive.value);
+    return value === null ? null : sign * -value;
   }
-  if (expr.kind !== "number") return null;
-  if (typeof expr.value !== "number") return null;
-  return Number.isFinite(expr.value) ? expr.value : null;
+  if (positive.kind !== "number") return null;
+  if (typeof positive.value !== "number") return null;
+  return Number.isFinite(positive.value) ? sign * positive.value : null;
 }
 
 function areAdditiveInverses(left: Expr, right: Expr): boolean {
-  const leftPositive = unwrapNegate(left);
-  const rightPositive = unwrapNegate(right);
+  const leftPositive = splitSign(left);
+  const rightPositive = splitSign(right);
   if (leftPositive.sign === rightPositive.sign) return false;
   return cleanupKey(leftPositive.value) === cleanupKey(rightPositive.value);
 }
@@ -476,12 +506,11 @@ function areMultiplicativeReciprocals(left: Expr, right: Expr): boolean {
 }
 
 function multiplicativeFactors(expr: Expr): Expr[] {
-  return expr.kind === "multiply" ? expr.factors.map(cloneExpr) : [cloneExpr(expr)];
-}
-
-function unwrapNegate(expr: Expr): { sign: 1 | -1; value: Expr } {
-  if (expr.kind === "negate") return { sign: -1, value: expr.value };
-  return { sign: 1, value: expr };
+  const signed = splitSign(expr);
+  const factors = signed.value.kind === "multiply" ? signed.value.factors.map(cloneExpr) : [cloneExpr(signed.value)];
+  if (signed.sign === 1) return factors;
+  if (factors.length === 0) return [num(-1)];
+  return [applySign(-1, factors[0]!), ...factors.slice(1)];
 }
 
 function cleanupKey(expr: Expr): string {

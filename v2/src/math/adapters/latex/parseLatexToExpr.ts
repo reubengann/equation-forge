@@ -1,4 +1,5 @@
 import { immutableExpression, invalidInput, type Expr } from "../../ast";
+import { normalizeLegacyNegates } from "../../rewrite/algebraUtils";
 import { parseLatexToExprWithUnifiedLatexResult } from "./unifiedLatexToExpr";
 
 type ParseLatexOnError = "immutable_expression" | "null" | "throw";
@@ -25,7 +26,7 @@ export function parseLatexToExpr(
   options: ParseLatexToExprOptions = {},
 ): Expr | null {
   const { expr, error } = parseLatexToExprWithUnifiedLatexResult(latex);
-  if (expr) return { ...expr, error: null };
+  if (expr) return { ...normalizeLegacyNegates(expr), error: null };
 
   const onError = options.onError ?? "immutable_expression";
   if (onError === "null") return null;

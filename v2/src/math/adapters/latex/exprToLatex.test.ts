@@ -48,6 +48,35 @@ describe("exprToLatex", () => {
     expect(latex).toBe("c - a");
   });
 
+  it("parses subtraction into signed terms", () => {
+    const expr = parseLatexToExpr("a-b");
+
+    expect(expr).toEqual({
+      kind: "add",
+      terms: [
+        { kind: "symbol", name: "a" },
+        { kind: "symbol", name: "b", sign: -1 },
+      ],
+      error: null,
+    });
+  });
+
+  it("groups negative product factors when rendering products", () => {
+    const expr = {
+      kind: "multiply",
+      factors: [
+        { kind: "symbol", name: "P" },
+        {
+          kind: "multiply",
+          sign: -1,
+          factors: [{ kind: "symbol", name: "a" }, { kind: "symbol", name: "b" }],
+        },
+      ],
+    } as const;
+
+    expect(exprToLatex(expr, false)).toBe(String.raw`P \left(-a b\right)`);
+  });
+
   it("wraps product", () => {
     const expr = parseLatexToExpr("a b");
     const latex = exprToLatex(expr, true);
@@ -80,9 +109,15 @@ describe("exprToLatex", () => {
   it("wraps negate", () => {
     const expr = parseLatexToExpr("-a");
     const latex = exprToLatex(expr, true);
-    expect(latex).toBe(
-      '\\htmlData{node-id="n1"}{-\\htmlData{node-id="n2"}{a}}',
-    );
+    expect(latex).toBe('\\htmlData{node-id="n1"}{-a}');
+  });
+
+  it("keeps signed primitive ids aligned with the compiled index", () => {
+    const expr = parseLatexToExpr(String.raw`-11 = \sin \pi`);
+    const latex = exprToLatex(expr, true);
+
+    expect(latex).toContain('\\htmlData{node-id="n2"}{-11}');
+    expect(latex).not.toContain('\\htmlData{node-id="n3"}{11}');
   });
 
   it("wraps divide as fraction", () => {

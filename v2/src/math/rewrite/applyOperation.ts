@@ -1,5 +1,6 @@
 import { displayGroup, equation, inequality, type Expr } from "../ast";
 import { cloneExpr, replaceCompiledNode } from "../ast/utils";
+import { isNegativeExpr } from "./algebraUtils";
 import type { TermSelection } from "../../selection/types";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 
@@ -156,7 +157,7 @@ function shouldWrapReplacementInArray(
   if (!isPlaceholder(originalChild, EQUATION_PLACEHOLDER) && !isPlaceholder(originalChild, FRACTION_PART_PLACEHOLDER)) {
     return false;
   }
-  return replacement.kind === "add" || replacement.kind === "number" || replacement.kind === "negate";
+  return replacement.kind === "add" || replacement.kind === "number" || isNegativeExpr(replacement);
 }
 
 function childExprs(expr: Expr): Expr[] {

@@ -535,6 +535,15 @@ function normalizeSingleSelectionForMove(
       if (!destinationTermId) return null;
       return cursor === selection.nodeId ? null : { kind: "single", nodeId: cursor };
     }
+    if (parent?.kind === "multiply") {
+      const parentLocation = document.index.locationById[parentId];
+      const grandparent = parentLocation?.parentId ? document.index.nodeById[parentLocation.parentId] : null;
+      if (grandparent?.kind === "add") {
+        const destinationTermId = directChildIdUnderContainer(document, parentLocation.parentId, destinationId);
+        if (!destinationTermId) return null;
+        return { kind: "single", nodeId: parentId };
+      }
+    }
     cursor = parentId;
   }
 

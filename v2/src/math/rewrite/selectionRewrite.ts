@@ -1,7 +1,8 @@
 import type { TermSelection } from "../../selection/types";
-import { add, displayGroup, divide, multiply, negate, type Expr } from "../ast";
+import { add, displayGroup, divide, multiply, type Expr } from "../ast";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import { cloneExpr, replaceCompiledNode } from "../ast/utils";
+import { flipSign, isNegativeExpr } from "./algebraUtils";
 
 export type SelectionRewriteTarget = {
   expr: Expr;
@@ -127,12 +128,12 @@ function replaceSingleContainerChildWithExpr(
 }
 
 function flipAdditiveSign(term: Expr): Expr {
-  return term.kind === "negate" ? cloneExpr(term.value) : negate(term, "subtraction");
+  return flipSign(term);
 }
 
 function startsWithNegatedFactor(expr: Extract<Expr, { kind: "multiply" }>): boolean {
   const firstFactor = expr.factors[0];
-  return firstFactor?.kind === "negate";
+  return firstFactor ? isNegativeExpr(firstFactor) : false;
 }
 
 function mergeReciprocalReplacementIntoProduct(
@@ -230,7 +231,7 @@ function wrapReplacementForContainerChild(parent: Expr, replacement: Expr): Expr
   if (
     parent.kind === "multiply" &&
     (replacement.kind === "add" ||
-      replacement.kind === "negate" ||
+      isNegativeExpr(replacement) ||
       (replacement.kind === "multiply" && startsWithNegatedFactor(replacement)))
   ) {
     return displayGroup("paren", cloneExpr(replacement));

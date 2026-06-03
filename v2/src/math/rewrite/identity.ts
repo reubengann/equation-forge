@@ -5,7 +5,6 @@ import {
   displayGroup,
   divide,
   multiply,
-  negate,
   num,
   power,
   sym,
@@ -13,7 +12,7 @@ import {
 } from "../ast";
 import { cloneExpr } from "../ast/utils";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
-import { structuralKeyIgnoringDisplayGroups } from "./algebraUtils";
+import { flipSign, splitSign, structuralKeyIgnoringDisplayGroups } from "./algebraUtils";
 import { getSelectionRewriteTarget, replaceSelectionWithExpr } from "./selectionRewrite";
 
 export type IdentityRewrite = {
@@ -178,6 +177,8 @@ export function applyDefaultIdentityRewriteToSelection(
 function combineNaturalLogs(expr: Expr): Expr | null {
   const unwrapped = unwrapDisplayGroup(expr);
   if (unwrapped.kind !== "add" || unwrapped.terms.length !== 2) return null;
+  const [leftTerm, rightTerm] = unwrapped.terms;
+  if (!leftTerm || !rightTerm || splitSign(leftTerm).sign !== 1 || splitSign(rightTerm).sign !== 1) return null;
 
   const args = unwrapped.terms.map((term) => naturalLogArgument(term));
   const [left, right] = args;
@@ -190,10 +191,12 @@ function combineNaturalLogQuotient(expr: Expr): Expr | null {
   if (unwrapped.kind !== "add" || unwrapped.terms.length !== 2) return null;
 
   const [leftTerm, rightTerm] = unwrapped.terms;
-  if (!leftTerm || !rightTerm || rightTerm.kind !== "negate") return null;
+  if (!leftTerm || !rightTerm) return null;
+  const signedRight = splitSign(rightTerm);
+  if (signedRight.sign !== -1) return null;
 
   const numerator = naturalLogArgument(leftTerm);
-  const denominator = naturalLogArgument(rightTerm.value);
+  const denominator = naturalLogArgument(signedRight.value);
   if (!numerator || !denominator) return null;
   return naturalLog(displayGroup("paren", divide(numerator, denominator)));
 }
@@ -215,10 +218,11 @@ function pythagoreanTrigIdentity(expr: Expr): Expr | null {
 }
 
 function expandNaturalLogProduct(expr: Expr): Expr | null {
-  if (expr.kind === "negate") {
-    const expanded = expandNaturalLogProduct(expr.value);
+  const signed = splitSign(expr);
+  if (signed.sign === -1) {
+    const expanded = expandNaturalLogProduct(signed.value);
     if (!expanded || expanded.kind !== "add") return null;
-    return add(expanded.terms.map((term) => negate(term, "subtraction")));
+    return add(expanded.terms.map(flipSign));
   }
 
   const argument = naturalLogArgument(expr);
@@ -239,7 +243,7 @@ function expandNaturalLogQuotient(expr: Expr): Expr | null {
   if (unwrappedArgument.kind !== "divide") return null;
   return add([
     naturalLogWithCompoundParens(unwrappedArgument.numerator),
-    negate(naturalLogWithCompoundParens(unwrappedArgument.denominator), "subtraction"),
+    flipSign(naturalLogWithCompoundParens(unwrappedArgument.denominator)),
   ]);
 }
 
@@ -290,7 +294,7 @@ function cosToSinComplement(expr: Expr): Expr | null {
   const arg = singleNamedCallArgument(expr, "cos");
   if (!arg) return null;
 
-  return namedCall("sin", add([piOverTwo(), negate(arg, "subtraction")]));
+  return namedCall("sin", add([piOverTwo(), flipSign(arg)]));
 }
 
 function cosSquarePowerReduction(expr: Expr): Expr | null {
@@ -308,7 +312,7 @@ function sinSquarePowerReduction(expr: Expr): Expr | null {
   return divide(
     displayGroup(
       "paren",
-      add([num(1), negate(namedCallWithDelimiter("cos", multiply([num(2), squared.argument]), "paren"), "subtraction")]),
+      add([num(1), flipSign(namedCallWithDelimiter("cos", multiply([num(2), squared.argument]), "paren"))]),
     ),
     num(2),
   );
@@ -398,8 +402,10 @@ function complementArgument(expr: Expr): Expr | null {
   const [first, second] = unwrapped.terms;
   if (!first || !second) return null;
 
-  if (isPiOverTwo(first) && second.kind === "negate") return cloneExpr(second.value);
-  if (isPiOverTwo(second) && first.kind === "negate") return cloneExpr(first.value);
+  const firstSigned = splitSign(first);
+  const secondSigned = splitSign(second);
+  if (isPiOverTwo(firstSigned.value) && secondSigned.sign === -1) return cloneExpr(secondSigned.value);
+  if (isPiOverTwo(secondSigned.value) && firstSigned.sign === -1) return cloneExpr(firstSigned.value);
   return null;
 }
 

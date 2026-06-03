@@ -214,6 +214,8 @@ export type InvalidInputExpr = {
 
 type ExprMeta = {
   error?: string | null;
+  sign?: 1 | -1;
+  synthetic?: "sign";
 };
 
 type ExprCore =

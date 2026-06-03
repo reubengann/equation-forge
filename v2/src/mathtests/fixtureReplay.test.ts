@@ -31,6 +31,7 @@ describe("mathtest fixtures", () => {
     expect(failures).toEqual([]);
   });
 
+
   it("can_select_a_different_thing", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_select_a_different_thing.json`);
     const replayResult = replayEvents(fixture);
@@ -59,6 +60,7 @@ describe("mathtest fixtures", () => {
     expect(failures).toEqual([]);
   });
 
+
   it("do_not_deselect_on_clicking_equals", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/do_not_deselect_on_clicking_equals.json`);
     const replayResult = replayEvents(fixture);
@@ -72,6 +74,7 @@ describe("mathtest fixtures", () => {
     const failures = buildAssertions(fixture, replayResult);
     expect(failures).toEqual([]);
   });
+
 
   it("plus_sign_not_selectable", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/plus_sign_not_selectable.json`);

@@ -42,7 +42,7 @@ describe("substituteSelection", () => {
     const document = buildDocument(
       String.raw`s=c_P\ln\left(\frac{T}{T_0}\right)-R\ln\left(\frac{T}{T_0}\right)+R\ln v_0-R\ln v+s_0`,
     );
-    const selection = { kind: "multi" as const, nodeIds: ["n4", "n12"], containerNodeId: "n3" };
+    const selection = { kind: "multi" as const, nodeIds: ["n4", "n11"], containerNodeId: "n3" };
 
     expect(getSubstitutionSelection(document, selection)?.latex).toBe(
       String.raw`c_P \ln\left(\frac{T}{T_0}\right) - R \ln\left(\frac{T}{T_0}\right)`,

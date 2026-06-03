@@ -7,12 +7,12 @@ import {
   equation,
   invalidInput,
   multiply,
-  negate,
   num,
   power,
   sym,
   type Expr,
 } from "../../ast";
+import { flipSign } from "../../rewrite/algebraUtils";
 import type { SymbolSubstitution } from "./toAlgebrite";
 
 const ALGE_BRITE_EULER_SYMBOL = "~";
@@ -30,7 +30,7 @@ export function fromAlgebrite(value: AlgebriteNode, symbols?: SymbolSubstitution
     const numeratorValue = parseNumericAtom(numerator);
     const denominatorValue = parseNumericAtom(denominator);
     if (isNegativeNumericAtom(numeratorValue) && isPositiveNumericAtom(denominatorValue)) {
-      return negate(divide(num(absNumericAtom(numeratorValue)), num(denominatorValue)), "subtraction");
+      return flipSign(divide(num(absNumericAtom(numeratorValue)), num(denominatorValue)));
     }
     return divide(num(numeratorValue), num(denominatorValue));
   }
@@ -105,8 +105,10 @@ function mapMultiply(args: AlgebriteNode[], symbols: SymbolSubstitution | undefi
   if (denominatorFactors.length === 0) return normalizeProduct(numeratorFactors);
   const numerator = numeratorFactors.length === 0 ? num(1) : normalizeProduct(numeratorFactors);
   const denominator = denominatorFactors.length === 1 ? denominatorFactors[0]! : multiply(denominatorFactors);
-  if (numerator.kind === "negate") {
-    return negate(divide(numerator.value, denominator), "subtraction");
+  if (numerator.sign === -1) {
+    const positiveNumerator = { ...numerator };
+    delete positiveNumerator.sign;
+    return flipSign(divide(positiveNumerator, denominator));
   }
   return divide(numerator, denominator);
 }
@@ -120,11 +122,13 @@ function normalizeProduct(factors: Expr[]): Expr {
     const positiveFactors = numericValue === -1 ? rest : [positiveFirst, ...rest];
     if (positiveFactors.length === 0) return num(-1);
     const value = positiveFactors.length === 1 ? positiveFactors[0]! : multiply(positiveFactors);
-    return negate(value, "subtraction");
+    return flipSign(value);
   }
-  if (first?.kind === "negate") {
-    const value = rest.length === 0 ? first.value : multiply([first.value, ...rest]);
-    return negate(value, "subtraction");
+  if (first?.sign === -1) {
+    const positiveFirst = { ...first };
+    delete positiveFirst.sign;
+    const value = rest.length === 0 ? positiveFirst : multiply([positiveFirst, ...rest]);
+    return flipSign(value);
   }
   if (factors.length === 1) return factors[0]!;
   return multiply(factors);

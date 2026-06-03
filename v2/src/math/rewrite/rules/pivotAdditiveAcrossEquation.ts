@@ -1,5 +1,6 @@
 import { cloneExpr } from "../../ast/utils";
 import type { Expr } from "../../ast/expr";
+import { flipSign } from "../algebraUtils";
 import type { MoveContext, PivotRewriteRule } from "../types";
 
 export function pivotAdditiveAcrossEquation(): PivotRewriteRule {
@@ -25,13 +26,6 @@ export function pivotAdditiveAcrossEquation(): PivotRewriteRule {
 }
 
 function additiveInverse(expr: Expr): Expr {
-  if (expr.kind === "negate") return cloneExpr(expr.value);
-  if (expr.kind === "add") {
-    return {
-      kind: "negate",
-      notation: "subtraction",
-      value: { kind: "display_group", delimiter: "paren", expression: cloneExpr(expr) },
-    };
-  }
-  return { kind: "negate", notation: "subtraction", value: cloneExpr(expr) };
+  if (expr.kind === "add") return flipSign({ kind: "display_group", delimiter: "paren", expression: cloneExpr(expr) });
+  return flipSign(expr);
 }

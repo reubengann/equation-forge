@@ -37,18 +37,24 @@ describe("extractFactorFromProduct", () => {
   it("extracts a selected factor inside a negated product factor without moving the sign", () => {
     const document = buildDocument(String.raw`P \left(-v_0 \kappa \mathrm{d}{P}\right)`);
     const rule = extractFactorFromProduct();
+    const selectedNodeId = Object.entries(document.index.nodeById).find(
+      ([, expr]) => expr.kind === "symbol" && expr.name === "v_0",
+    )?.[0];
+    expect(selectedNodeId).toBeDefined();
+    const parentId = document.index.parentById[selectedNodeId!];
+    expect(parentId).toBeDefined();
     const result = rule.apply(
       {
         document,
-        selection: { kind: "single", nodeId: "n6" },
+        selection: { kind: "single", nodeId: selectedNodeId! },
         payload: null,
         destinationId: "n1",
       },
       {
-        childId: "n5",
-        parentId: "n4",
-        childNode: document.index.nodeById.n5!,
-        parentNode: document.index.nodeById.n4!,
+        childId: selectedNodeId!,
+        parentId: parentId!,
+        childNode: document.index.nodeById[selectedNodeId!]!,
+        parentNode: document.index.nodeById[parentId!]!,
         isFinalUpwardEdge: false,
         pivotId: "n1",
       },

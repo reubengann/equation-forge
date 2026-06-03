@@ -9,7 +9,6 @@ import {
   invalidInput,
   integral,
   multiply,
-  negate,
   num,
   partialDerivative,
   power,
@@ -17,6 +16,7 @@ import {
   type DelimiterKind,
   type Expr,
 } from "../../ast";
+import { flipSign } from "../../rewrite/algebraUtils";
 import type { MathJsonRecord, MathJsonValue } from "./types";
 
 function asRecord(value: unknown): MathJsonRecord | null {
@@ -83,7 +83,7 @@ function mapHeadCall(head: string, args: MathJsonValue[]): Expr {
       return power(fromMathJson(args[0]), fromMathJson(args[1]));
     case "Negate":
       if (args.length !== 1) return fallbackInvalid("negate_arity_mismatch", [head, ...args]);
-      return negate(fromMathJson(args[0]));
+      return flipSign(fromMathJson(args[0]));
     case "Divide":
       if (args.length !== 2) return fallbackInvalid("divide_arity_mismatch", [head, ...args]);
       return divide(fromMathJson(args[0]), fromMathJson(args[1]));
@@ -92,7 +92,7 @@ function mapHeadCall(head: string, args: MathJsonValue[]): Expr {
       return divide(fromMathJson(args[0]), fromMathJson(args[1]));
     case "Subtract":
       if (args.length !== 2) return fallbackInvalid("subtract_arity_mismatch", [head, ...args]);
-      return add([fromMathJson(args[0]), negate(fromMathJson(args[1]))]);
+      return add([fromMathJson(args[0]), flipSign(fromMathJson(args[1]))]);
     case "Equal":
       return equation(args.map(fromMathJson));
     case "Delimiter":
