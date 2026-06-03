@@ -52,6 +52,18 @@ describe("evaluateSelectionWithComputeEngine", () => {
     }
   });
 
+  it("keeps evaluated signed definite integral differences grouped under coefficients", () => {
+    const document = buildDocument(String.raw`-\int_{P_i}^{P_f} P v_0 \kappa \,\mathrm{d}{P}`);
+    const result = evaluateSelectionWithComputeEngine(document, { kind: "single", nodeId: "n1" });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(exprToLatex(result.expr, false)).toBe(
+        String.raw`\frac{1}{2} v_0 \kappa P_i^{2} - \frac{1}{2} v_0 \kappa P_f^{2}`,
+      );
+    }
+  });
+
   it("evaluates numeric definite integrals through the guarded substitution path", () => {
     const document = buildDocument(String.raw`\int_0^\pi \sin x\,\mathrm{d}{x}`);
     const result = evaluateSelectionWithComputeEngine(document, { kind: "single", nodeId: "n1" });

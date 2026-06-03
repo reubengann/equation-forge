@@ -89,6 +89,9 @@ class LatexGenerator {
       }
       return this.wrap("-" + this.generateUnsignedBody(positive), id);
     }
+    if (context === "productFactor" && shouldGroupProductFactor(signed.value)) {
+      return this.wrap(`\\left(${this.generateUnsignedBody(signed.value)}\\right)`, id);
+    }
     return this.generateUnsignedWithId(signed.value, id, context);
   }
 
@@ -148,11 +151,41 @@ class LatexGenerator {
         const [open, close] = this.delimiterPair(expr.delimiter);
         return `\\left${open}${this.generate(expr.expression)}\\right${close}`;
       }
+      case "integral":
+        return this.generateIntegralBody(expr);
+      case "uniterated_integral":
+        return `\\int ${this.generate(expr.integrand)}`;
+      case "closed_integral":
+        return `\\oint ${this.generate(expr.integrand)}`;
+      case "multiple_integral":
+        return `${"\\int".repeat(expr.order)} ${this.generate(expr.integrand)}`;
       case "differential":
         return `\\mathrm{d}{${this.generate(expr.variable)}}`;
       default:
         return this.generate(expr);
     }
+  }
+
+  generateIntegralBody(expr: Extract<Expr, { kind: "integral" }>): string {
+    const maybeLower = expr.lowerBound ? `_{${this.generate(expr.lowerBound)}}` : "";
+    const maybeUpper = expr.upperBound ? `^{${this.generate(expr.upperBound)}}` : "";
+    const signedIntegrand = splitSign(expr.integrand);
+    let integratedThing = "";
+    if (signedIntegrand.value.kind === "multiply") {
+      const integrandId = this.newId();
+      integratedThing = signedIntegrand.value.factors
+        // If differential appears anywhere but the beginning, put a thinspace before it.
+        .map((factor, index) => {
+          const rendered = this.generate(factor, "productFactor");
+          if (index === 0) return rendered;
+          return factor.kind === "differential" ? ` \\,${rendered}` : ` ${rendered}`;
+        })
+        .join("");
+      integratedThing = this.wrap(integratedThing, integrandId);
+    } else {
+      integratedThing = this.generate(signedIntegrand.value);
+    }
+    return `${signedIntegrand.sign === -1 ? "-" : ""}\\int${maybeLower}${maybeUpper} ${integratedThing}`;
   }
 
   generateUnsignedWithIdLegacy(expr: Expr, id: string): string {
@@ -263,24 +296,7 @@ class LatexGenerator {
           id,
         );
       case "integral":
-        const maybeLower = expr.lowerBound ? `_{${this.generate(expr.lowerBound)}}` : "";
-        const maybeUpper = expr.upperBound ? `^{${this.generate(expr.upperBound)}}` : "";
-        let integratedThing = "";
-        if (expr.integrand.kind === "multiply") {
-          const integrandId = this.newId();
-          integratedThing = expr.integrand.factors
-            // If differential appears anywhere but the beginning, put a thinspace before it.
-            .map((factor, index) => {
-              const rendered = this.generate(factor, "productFactor");
-              if (index === 0) return rendered;
-              return factor.kind === "differential" ? ` \\,${rendered}` : ` ${rendered}`;
-            })
-            .join("");
-          integratedThing = this.wrap(integratedThing, integrandId);
-        } else {
-          integratedThing = this.generate(expr.integrand);
-        }
-        return this.wrap(`\\int${maybeLower}${maybeUpper} ${integratedThing}`, id);
+        return this.wrap(this.generateIntegralBody(expr), id);
       case "uniterated_integral":
         return this.wrap(`\\int ${this.generate(expr.integrand)}`, id);
       case "closed_integral":
@@ -344,6 +360,18 @@ class LatexGenerator {
 
 function shouldGroupNegativeProductFactor(expr: Expr): boolean {
   return expr.kind === "multiply" || expr.kind === "add" || expr.kind === "divide" || expr.kind === "display_group";
+}
+
+function shouldGroupProductFactor(expr: Expr): boolean {
+  return expr.kind === "add" || (expr.kind === "multiply" && startsWithNegativeFactor(expr));
+}
+
+function startsWithNegativeFactor(expr: Extract<Expr, { kind: "multiply" }>): boolean {
+  const firstFactor = expr.factors[0];
+  if (!firstFactor) return false;
+  const signed = splitSign(firstFactor);
+  if (signed.sign === -1) return true;
+  return signed.value.kind === "multiply" && startsWithNegativeFactor(signed.value);
 }
 
 export function exprToLatex(expr: Expr, tags: boolean): string {

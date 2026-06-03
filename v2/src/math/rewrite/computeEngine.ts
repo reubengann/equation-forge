@@ -152,6 +152,9 @@ function rewriteDefiniteIntegral(expr: Extract<Expr, { kind: "integral" }>): { e
 
   const upper = substituteExpr(indefinite, variable, expr.upperBound);
   const lower = substituteExpr(indefinite, variable, expr.lowerBound);
+  if (expr.sign === -1) {
+    return { expr: add([lower, flipSign(upper)]), changed: true };
+  }
   return { expr: add([upper, flipSign(lower)]), changed: true };
 }
 

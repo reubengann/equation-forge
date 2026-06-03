@@ -120,6 +120,15 @@ describe("exprToLatex", () => {
     expect(latex).not.toContain('\\htmlData{node-id="n3"}{11}');
   });
 
+  it("keeps signed integral ids aligned with the compiled index", () => {
+    const expr = parseLatexToExpr(String.raw`w = -\int_{P_i}^{P_f} P v_0 \kappa \,\mathrm{d}{P}`);
+    const document = compileMathDocumentFromExpr("", expr);
+    const latex = exprToLatex(expr, true);
+    const renderedIds = Array.from(latex.matchAll(/node-id="(n\d+)"/g), (match) => match[1]);
+
+    expect(new Set(renderedIds)).toEqual(new Set(Object.keys(document.index.nodeById)));
+  });
+
   it("wraps divide as fraction", () => {
     const expr = parseLatexToExpr("a / b");
     const latex = exprToLatex(expr, true);

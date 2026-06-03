@@ -2,6 +2,7 @@ import type { TermSelection } from "../../selection/types";
 import { add, displayGroup, multiply, type Expr } from "../ast";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import { cloneExpr, replaceCompiledNode } from "../ast/utils";
+import { multiplySigns, splitSign, withSign, type Sign } from "./algebraUtils";
 
 type ToggleDelimiterTarget = {
   nodeId: string;
@@ -56,6 +57,19 @@ function resolveSingleSelection(document: CompiledMathDocument, nodeId: string):
   const parent = parentId ? document.index.nodeById[parentId] : null;
   if (!canRemoveDisplayGroup(selected.expression, parent)) return null;
 
+  const location = document.index.locationById[nodeId];
+  if (
+    parentId &&
+    parent?.kind === "multiply" &&
+    selected.expression.kind === "multiply" &&
+    location?.index != null
+  ) {
+    return {
+      nodeId: parentId,
+      replacement: flattenGroupedProductIntoProduct(parent, selected.expression, location.index),
+    };
+  }
+
   return {
     nodeId,
     replacement: cloneExpr(selected.expression),
@@ -100,6 +114,31 @@ function canRemoveDisplayGroup(expr: Expr, parent: Expr | null): boolean {
   if (parent.kind === "multiply") return expr.kind !== "add" && expr.kind !== "negate";
   if (parent.kind === "divide") return true;
   return false;
+}
+
+function flattenGroupedProductIntoProduct(
+  parent: Extract<Expr, { kind: "multiply" }>,
+  groupedProduct: Extract<Expr, { kind: "multiply" }>,
+  groupedIndex: number,
+): Expr {
+  const signedParent = splitSign(parent);
+  const parentProduct = signedParent.value as Extract<Expr, { kind: "multiply" }>;
+  const signedGroupedProduct = splitSign(groupedProduct);
+  const groupedProductValue = signedGroupedProduct.value as Extract<Expr, { kind: "multiply" }>;
+
+  const factors = [
+    ...parentProduct.factors.slice(0, groupedIndex),
+    ...groupedProductValue.factors,
+    ...parentProduct.factors.slice(groupedIndex + 1),
+  ];
+  let sign: Sign = multiplySigns(signedParent.sign, signedGroupedProduct.sign);
+  const unsignedFactors = factors.map((factor) => {
+    const signedFactor = splitSign(factor);
+    sign = multiplySigns(sign, signedFactor.sign);
+    return signedFactor.value;
+  });
+
+  return withSign(multiply(unsignedFactors), sign);
 }
 
 function resolveMultiSelectionRange(

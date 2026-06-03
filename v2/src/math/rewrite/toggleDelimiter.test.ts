@@ -34,6 +34,37 @@ describe("toggleDelimiterSelection", () => {
     expect(exprToLatex(next!, false)).toBe("a b c");
   });
 
+  it("flattens a leading-negative product factor when removing delimiters inside an integral product", () => {
+    const document = buildDocument(String.raw`w = \int_{P_i}^{P_f} P \left(-v_0 \kappa \mathrm{d}{P}\right)`);
+    const groupedProductId = Object.entries(document.index.nodeById).find(
+      ([, expr]) =>
+        expr.kind === "display_group" &&
+        expr.expression.kind === "multiply" &&
+        expr.expression.factors[0]?.sign === -1,
+    )?.[0];
+
+    expect(groupedProductId).toBeDefined();
+    const next = toggleDelimiterSelection(document, { kind: "single", nodeId: groupedProductId! });
+
+    expect(next).not.toBeNull();
+    const nextRhs = next!.kind === "equation" ? next!.sides[1] : null;
+    expect(nextRhs?.kind).toBe("integral");
+    const integrand = nextRhs?.kind === "integral" ? nextRhs.integrand : null;
+    expect(integrand).toMatchObject({
+      kind: "multiply",
+      sign: -1,
+      factors: [
+        { kind: "symbol", name: "P" },
+        { kind: "symbol", name: "v_0" },
+        { kind: "symbol", name: "\\kappa" },
+        { kind: "differential" },
+      ],
+    });
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`w = -\int_{P_i}^{P_f} P v_0 \kappa \,\mathrm{d}{P}`,
+    );
+  });
+
   it("does not remove delimiters around a sum inside a product", () => {
     const document = buildDocument(String.raw`\left(a+b\right)c`);
 
