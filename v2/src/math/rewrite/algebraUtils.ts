@@ -2,9 +2,10 @@ import { multiply, num, type Expr } from "../ast";
 import { cloneExpr } from "../ast/utils";
 
 export function collapseProduct(factors: Expr[]): Expr {
-  if (factors.length === 0) return num(1);
-  if (factors.length === 1) return cloneExpr(factors[0]);
-  return multiply(factors.map(cloneExpr));
+  const keptFactors = factors.filter((factor) => !isNumberValue(factor, 1));
+  if (keptFactors.length === 0) return num(1);
+  if (keptFactors.length === 1) return cloneExpr(keptFactors[0]);
+  return multiply(keptFactors.map(cloneExpr));
 }
 
 export function isNumberValue(expr: Expr, value: number): boolean {

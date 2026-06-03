@@ -28,6 +28,16 @@ describe("applyOperationToRelation", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`\sqrt{a^{2}} = \sqrt{2}`);
   });
 
+  it("applies a differential with the side as its argument", () => {
+    const template = expr(String.raw`\mathrm{d}(\eqn)`);
+
+    expect(validateOperationTemplate(template)).toBeNull();
+    const next = applyOperationToRelation(expr("a=b"), template);
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\mathrm{d}{\left(a\right)} = \mathrm{d}{\left(b\right)}`);
+  });
+
   it("wraps inserted sides when the placeholder is a product factor", () => {
     const next = applyOperationToRelation(expr("a+1=2"), expr(String.raw`2\eqn`));
 

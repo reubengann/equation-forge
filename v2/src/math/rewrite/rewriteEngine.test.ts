@@ -403,6 +403,19 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe(String.raw`c \int_{a}^{b} P \,\mathrm{d}{v}`);
   });
 
+  it("keeps the sign inside a grouped product when extracting a selected negated factor value", () => {
+    const document = buildDocument(String.raw`w = \int_{P_i}^{P_f} P \left(-v_0 \kappa \mathrm{d}{P}\right)`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n11" },
+      destinationId: "n7",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`w = \int_{P_i}^{P_f} P v_0 \left(-\kappa \mathrm{d}{P}\right)`);
+  });
+
   it("executes extracting a numerator factor from a fraction", () => {
     const document = buildDocument(String.raw`\frac{a}{b}+c`);
     const result = executeMove({

@@ -108,6 +108,14 @@ describe("autoRewriteSelection distribute", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`b a - b c`);
   });
 
+  it("removes multiplicative identity terms created by distribution", () => {
+    const document = buildDocument(String.raw`v_0 \left[1 - \kappa \left(P - P_0\right)\right]`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "distribute");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`v_0 - v_0 \kappa \left(P - P_0\right)`);
+  });
+
   it("distributes a selected subtraction term across an additive group", () => {
     const document = buildDocument(
       String.raw`s=c_P\ln\left(\frac{T}{T_0}\right)-R\left(\ln\left(\frac{T}{T_0}\right)+\ln v_0-\ln v\right)+s_0`,

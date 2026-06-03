@@ -34,6 +34,30 @@ describe("extractFactorFromProduct", () => {
     expect(exprToLatex(result!.updatedNode!, false)).toBe("m");
   });
 
+  it("extracts a selected factor inside a negated product factor without moving the sign", () => {
+    const document = buildDocument(String.raw`P \left(-v_0 \kappa \mathrm{d}{P}\right)`);
+    const rule = extractFactorFromProduct();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "single", nodeId: "n6" },
+        payload: null,
+        destinationId: "n1",
+      },
+      {
+        childId: "n5",
+        parentId: "n4",
+        childNode: document.index.nodeById.n5!,
+        parentNode: document.index.nodeById.n4!,
+        isFinalUpwardEdge: false,
+        pivotId: "n1",
+      },
+    );
+
+    expect(exprToLatex(result!.payload!, false)).toBe("v_0");
+    expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`-\kappa \mathrm{d}{P}`);
+  });
+
   it("does not extract a selected term from a sum as a factor", () => {
     const document = buildDocument("a + b = c");
     const rule = extractFactorFromProduct();

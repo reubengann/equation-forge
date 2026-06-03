@@ -30,8 +30,14 @@ type MathEntryProps = {
   mathFieldId?: string;
 };
 
-function focusMathField(field: MathfieldElementLike | null) {
-  field?.focus();
+function focusMathField(field: MathfieldElementLike | null): boolean {
+  if (!field || !field.isConnected) return false;
+  try {
+    field.focus();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function MathEntry({
@@ -46,29 +52,45 @@ export function MathEntry({
   mathFieldId = "equation-mathfield",
 }: MathEntryProps) {
   const mathFieldRef = useRef<MathfieldElementLike | null>(null);
+  const appliedMathfieldMacrosRef = useRef<{
+    field: MathfieldElementLike;
+    macros: Record<string, string>;
+  } | null>(null);
 
   useEffect(() => {
     const field = mathFieldRef.current;
     if (!field || !mathfieldMacros) return;
+    const applied = appliedMathfieldMacrosRef.current;
+    if (applied?.field === field && applied.macros === mathfieldMacros) return;
     field.macros = { ...(field.macros ?? {}), ...mathfieldMacros };
+    appliedMathfieldMacrosRef.current = { field, macros: mathfieldMacros };
   }, [mathfieldMacros]);
 
   useEffect(() => {
     if (!autoFocus || focusSession == null) return;
 
     let cancelled = false;
+    let timeoutId: number | null = null;
+    let animationFrameId: number | null = null;
+    let attempts = 0;
+    const maxAttempts = 10;
+
     const tryFocus = () => {
-      if (!cancelled) focusMathField(mathFieldRef.current);
+      if (cancelled) return;
+      attempts += 1;
+      if (focusMathField(mathFieldRef.current) || attempts >= maxAttempts) return;
+
+      timeoutId = window.setTimeout(() => {
+        animationFrameId = requestAnimationFrame(tryFocus);
+      }, 25);
     };
 
-    const animationFrameId = requestAnimationFrame(() => {
-      tryFocus();
-      window.setTimeout(tryFocus, 0);
-    });
+    animationFrameId = requestAnimationFrame(tryFocus);
 
     return () => {
       cancelled = true;
-      cancelAnimationFrame(animationFrameId);
+      if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
     };
   }, [autoFocus, focusSession]);
 
@@ -98,7 +120,7 @@ export function MathEntry({
       });
     } else if (typeof field.executeCommand === "function") {
       field.executeCommand(["insert", macro.latex]);
-      field.focus();
+      focusMathField(field);
     }
 
     syncLatexFromField();
@@ -185,13 +207,6 @@ export function MathEntry({
         <math-field
           ref={(field) => {
             mathFieldRef.current = field as MathfieldElementLike | null;
-            if (field && mathfieldMacros) {
-              const mathField = field as MathfieldElementLike;
-              mathField.macros = { ...(mathField.macros ?? {}), ...mathfieldMacros };
-            }
-            if (autoFocus && field && focusSession != null) {
-              requestAnimationFrame(() => focusMathField(field as MathfieldElementLike));
-            }
           }}
           id={mathFieldId}
           className="equation-mathfield"

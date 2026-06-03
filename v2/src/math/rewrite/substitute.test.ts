@@ -74,6 +74,18 @@ describe("substituteSelection", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`\left(x + y\right) b`);
   });
 
+  it("splices product replacements into integral integrand products", () => {
+    const document = buildDocument(String.raw`w = \int_{P_i}^{P_f} P \,\mathrm{d}{v}`);
+    const next = substituteSelection(
+      document,
+      { kind: "single", nodeId: "n8" },
+      replacement(String.raw`-v_0\kappa\mathrm{d}{P}`),
+    );
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`w = \int_{P_i}^{P_f} P \left(-v_0 \kappa \mathrm{d}{P}\right)`);
+  });
+
   it("wraps compound replacements as power bases", () => {
     const document = buildDocument(String.raw`a^2`);
     const next = substituteSelection(document, { kind: "single", nodeId: "n2" }, replacement("x+y"));

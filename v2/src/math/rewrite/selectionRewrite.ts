@@ -81,6 +81,18 @@ function replaceSingleContainerChildWithExpr(
   if (parent.kind === "multiply" && replacement.kind === "multiply" && location.index != null) {
     const mergedProduct = mergeReciprocalReplacementIntoProduct(parent, location.index, replacement);
     if (mergedProduct) return replaceCompiledNode(document, location.parentId, mergedProduct);
+
+    if (startsWithNegatedFactor(replacement)) {
+      return null;
+    }
+
+    const nextParent = cloneExpr(parent);
+    nextParent.factors = [
+      ...parent.factors.slice(0, location.index).map(cloneExpr),
+      ...replacement.factors.map(cloneExpr),
+      ...parent.factors.slice(location.index + 1).map(cloneExpr),
+    ];
+    return replaceCompiledNode(document, location.parentId, nextParent);
   }
 
   const nextParent = cloneExpr(parent);
@@ -116,6 +128,11 @@ function replaceSingleContainerChildWithExpr(
 
 function flipAdditiveSign(term: Expr): Expr {
   return term.kind === "negate" ? cloneExpr(term.value) : negate(term, "subtraction");
+}
+
+function startsWithNegatedFactor(expr: Extract<Expr, { kind: "multiply" }>): boolean {
+  const firstFactor = expr.factors[0];
+  return firstFactor?.kind === "negate";
 }
 
 function mergeReciprocalReplacementIntoProduct(
@@ -210,7 +227,12 @@ function wrapReplacementForLocation(document: CompiledMathDocument, nodeId: stri
 }
 
 function wrapReplacementForContainerChild(parent: Expr, replacement: Expr): Expr {
-  if (parent.kind === "multiply" && (replacement.kind === "add" || replacement.kind === "negate")) {
+  if (
+    parent.kind === "multiply" &&
+    (replacement.kind === "add" ||
+      replacement.kind === "negate" ||
+      (replacement.kind === "multiply" && startsWithNegatedFactor(replacement)))
+  ) {
     return displayGroup("paren", cloneExpr(replacement));
   }
   return cloneExpr(replacement);

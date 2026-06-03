@@ -51,16 +51,12 @@ export function extractFactorFromProduct(): UpwardRewriteRule {
       const sourceFactorIndexes = selectedFactorIndexes(context, factorIds);
       if (sourceFactorIndexes.length === 0) return null;
 
-      const factors = edge.parentNode.factors.map(cloneExpr);
-      const selectedIndexSet = new Set(sourceFactorIndexes);
-      const payloadFactors = factors.filter((_, index) => selectedIndexSet.has(index));
-      const remainingFactors = factors.filter((_, index) => !selectedIndexSet.has(index));
-      const payload = collapseMultiplicativeFactors(payloadFactors);
+      const split = splitProductFactors(edge.parentNode.factors, sourceFactorIndexes);
 
       return {
-        payload,
+        payload: split.payload,
         updatedNodeId: edge.parentId,
-        updatedNode: collapseMultiplicativeFactors(remainingFactors),
+        updatedNode: split.remaining,
       };
     },
   };
@@ -82,6 +78,38 @@ function selectedFactorIndexes(context: MoveContext, factorIds: string[]): numbe
     return acc;
   }, []);
   return indexes.sort((a, b) => a - b);
+}
+
+function splitProductFactors(factors: Expr[], sourceFactorIndexes: number[]): { payload: Expr; remaining: Expr } {
+  const selectedIndexSet = new Set(sourceFactorIndexes);
+  const payloadFactors: Expr[] = [];
+  const remainingFactors: Expr[] = [];
+  let remainingSign: 1 | -1 = 1;
+
+  factors.forEach((factor, index) => {
+    if (!selectedIndexSet.has(index)) {
+      remainingFactors.push(cloneExpr(factor));
+      return;
+    }
+
+    const signedFactor = splitSignedFactor(factor);
+    payloadFactors.push(signedFactor.payload);
+    remainingSign *= signedFactor.remainingSign;
+  });
+
+  const remaining = collapseMultiplicativeFactors(remainingFactors);
+  return {
+    payload: collapseMultiplicativeFactors(payloadFactors),
+    remaining: remainingSign === -1 ? { kind: "negate", value: remaining } : remaining,
+  };
+}
+
+function splitSignedFactor(factor: Expr): { payload: Expr; remainingSign: 1 | -1 } {
+  if (factor.kind !== "negate") return { payload: cloneExpr(factor), remainingSign: 1 };
+  return {
+    payload: cloneExpr(factor.value),
+    remainingSign: -1,
+  };
 }
 
 function collapseMultiplicativeFactors(factors: Expr[]): Expr {
