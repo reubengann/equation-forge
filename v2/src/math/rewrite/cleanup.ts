@@ -385,18 +385,19 @@ function cleanupMultiply(expr: Extract<Expr, { kind: "multiply" }>): Expr | null
 }
 
 function cleanupDivide(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
+  const sign = exprSign(expr);
   if (isNumberValue(expr.numerator, 0)) return num(0);
-  if (isNumberValue(expr.denominator, 1)) return cloneExpr(expr.numerator);
-  if (cleanupKey(expr.numerator) === cleanupKey(expr.denominator)) return num(1);
+  if (isNumberValue(expr.denominator, 1)) return withSign(cloneExpr(expr.numerator), sign);
+  if (cleanupKey(expr.numerator) === cleanupKey(expr.denominator)) return withSign(num(1), sign);
 
   const numeratorValue = numericLiteralValue(expr.numerator);
   const denominatorValue = numericLiteralValue(expr.denominator);
   if (numeratorValue !== null && denominatorValue !== null && denominatorValue !== 0) {
-    return num(numeratorValue / denominatorValue);
+    return withSign(num(numeratorValue / denominatorValue), sign);
   }
 
   const unnestedFraction = unnestFraction(expr);
-  if (unnestedFraction) return unnestedFraction;
+  if (unnestedFraction) return withSign(unnestedFraction, sign);
 
   const numeratorFactors = multiplicativeFactors(expr.numerator);
   const denominatorFactors = multiplicativeFactors(expr.denominator);
@@ -420,8 +421,8 @@ function cleanupDivide(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
   if (!changed) return null;
   const nextNumerator = collapseProduct(remainingNumerator);
   const nextDenominator = collapseProduct(remainingDenominator);
-  if (isNumberValue(nextDenominator, 1)) return nextNumerator;
-  return divide(nextNumerator, nextDenominator);
+  if (isNumberValue(nextDenominator, 1)) return withSign(nextNumerator, sign);
+  return withSign(divide(nextNumerator, nextDenominator), sign);
 }
 
 function unnestFraction(expr: Extract<Expr, { kind: "divide" }>): Expr | null {

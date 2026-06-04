@@ -84,6 +84,15 @@ function compareByContainerIndex(a: string, b: string, index: ExprIndex): number
   return aIndex - bIndex;
 }
 
+function compareContainerKindPriority(a: string, b: string, index: ExprIndex): number {
+  const aKind = index.nodeById[a]?.kind;
+  const bKind = index.nodeById[b]?.kind;
+  if (aKind === bKind) return 0;
+  if (aKind === "add") return -1;
+  if (bKind === "add") return 1;
+  return 0;
+}
+
 // Input must be atomic/selectable. We don't check for that here.
 const sumProductTermCtrlClickRule: MultiSelectionRule = {
   id: "add_terms_ctrl_click",
@@ -216,6 +225,8 @@ export function applyMarqueeSelectIntent(args: {
     ([_, entry]) => entry.selectedNodeIds.size > 1,
   );
   multiContainerEntries.sort((a, b) => {
+    const kindPriorityDelta = compareContainerKindPriority(a[0], b[0], args.index);
+    if (kindPriorityDelta !== 0) return kindPriorityDelta;
     const selectedCountDelta = b[1].selectedNodeIds.size - a[1].selectedNodeIds.size;
     if (selectedCountDelta !== 0) return selectedCountDelta;
     return (args.index.ancestorsById[a[0]]?.length ?? 0) - (args.index.ancestorsById[b[0]]?.length ?? 0);

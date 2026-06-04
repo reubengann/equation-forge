@@ -245,6 +245,24 @@ describe("multi-selection add/product", () => {
     });
   });
 
+  it("ranks additive term selection over a deeper product with more factor hits", () => {
+    const latex = String.raw`x - P_0 v_0 \kappa \left(P - P_0\right) + v_0 \frac{\kappa}{2} \left(P - P_0\right) \left(P + P_0\right) - v_0 T_0 \beta \left(P - P_0\right)`;
+    const doc = compileMathDocument(latex);
+
+    const result = applyMarqueeSelectIntent({
+      nodeIds: ["n12", "n13", "n18", "n19", "n22", "n23", "n25", "n26", "n27", "n30", "n31"],
+      currentSelection: null,
+      index: doc.index,
+    });
+
+    expect(result.accepted).toBe(true);
+    expect(result.nextSelection).toEqual({
+      kind: "multi",
+      nodeIds: ["n11", "n24"],
+      containerNodeId: "n1",
+    });
+  });
+
   it("ignores a stray overlapping term when a coherent nested sum was marquee selected", () => {
     const latex = String.raw`(a+b)(c+e)`;
     const doc = compileMathDocument(latex);

@@ -80,6 +80,35 @@ describe("toggleDelimiterSelection", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`\left(a + b\right)`);
   });
 
+  it("distributes a leading minus when removing delimiters around an additive group", () => {
+    const document = buildDocument(String.raw`\frac{v}{v_0} - \left(1 + \beta \left(T - T_0\right)\right)`);
+    const groupId = Object.entries(document.index.nodeById).find(
+      ([, expr]) => expr.kind === "display_group" && expr.sign === -1,
+    )?.[0];
+    expect(groupId).toBeDefined();
+
+    const next = toggleDelimiterSelection(document, { kind: "single", nodeId: groupId! });
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\frac{v}{v_0} - 1 - \beta \left(T - T_0\right)`);
+  });
+
+  it("preserves the sign when removing delimiters around a negated non-additive group", () => {
+    const document = buildDocument(String.raw`\frac{-\left(\left(v + v_0\right)^{2}\right)}{2 v_0 \kappa}`);
+    const groupId = Object.entries(document.index.nodeById).find(
+      ([, expr]) =>
+        expr.kind === "display_group" &&
+        expr.sign === -1 &&
+        expr.expression.kind === "power",
+    )?.[0];
+    expect(groupId).toBeDefined();
+
+    const next = toggleDelimiterSelection(document, { kind: "single", nodeId: groupId! });
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\frac{-\left(v + v_0\right)^{2}}{2 v_0 \kappa}`);
+  });
+
   it("removes delimiters around a whole fraction numerator", () => {
     const document = buildDocument(String.raw`\frac{\left(1+\cos\left(2 x\right)\right)}{2}`);
     const next = toggleDelimiterSelection(document, { kind: "single", nodeId: "n2" });

@@ -42,6 +42,38 @@ describe("buildPadSubstituteSuggestions", () => {
     expect(suggestions[0]?.rhsLatex).toBe("-m a");
   });
 
+  it("suggests the RHS when selecting a symbol inside another equation", () => {
+    const selected = parseLatexToExpr(String.raw`x`);
+    const suggestions = buildPadSubstituteSuggestions(
+      { expr: selected, latex: String.raw`x` },
+      [
+        {
+          equationId: "eq-1",
+          label: "Equation 1",
+          compiledDoc: compileMathDocument(String.raw`x = y + z`),
+        },
+      ],
+    );
+
+    expect(suggestions[0]?.rhsLatex).toBe("y + z");
+  });
+
+  it("negates every RHS term when selecting a negative symbol inside another equation", () => {
+    const selected = parseLatexToExpr(String.raw`-x`);
+    const suggestions = buildPadSubstituteSuggestions(
+      { expr: selected, latex: String.raw`-x` },
+      [
+        {
+          equationId: "eq-1",
+          label: "Equation 1",
+          compiledDoc: compileMathDocument(String.raw`x = y + z`),
+        },
+      ],
+    );
+
+    expect(suggestions[0]?.rhsLatex).toBe("-y - z");
+  });
+
   it("ignores non-matching equations", () => {
     const selected = parseLatexToExpr(String.raw`F`);
     const suggestions = buildPadSubstituteSuggestions(

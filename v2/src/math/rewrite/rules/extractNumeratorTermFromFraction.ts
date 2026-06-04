@@ -1,5 +1,6 @@
 import { cloneExpr } from "../../ast/utils";
 import type { Expr } from "../../ast/expr";
+import { multiplySigns, splitSign, withSign } from "../algebraUtils";
 import type { MoveContext, UpwardRewriteRule } from "../types";
 
 export function extractNumeratorTermFromFraction(): UpwardRewriteRule {
@@ -19,16 +20,19 @@ export function extractNumeratorTermFromFraction(): UpwardRewriteRule {
       if (edge.parentNode.kind !== "divide") return null;
       if (context.document.index.locationById[edge.childId]?.field !== "numerator") return null;
 
-      const remainingFraction: Expr = {
-        kind: "divide",
-        numerator: cloneExpr(edge.childNode),
-        denominator: cloneExpr(edge.parentNode.denominator),
-      };
-      const payloadFraction: Expr = {
-        kind: "divide",
-        numerator: cloneExpr(context.payload),
-        denominator: cloneExpr(edge.parentNode.denominator),
-      };
+      const parentSign = edge.parentNode.sign === -1 ? -1 : 1;
+      const numeratorSplit = splitSign(edge.childNode);
+      const payloadSplit = splitSign(context.payload);
+      const remainingFraction: Expr = fractionWithSign(
+        cloneExpr(numeratorSplit.value),
+        cloneExpr(edge.parentNode.denominator),
+        multiplySigns(parentSign, numeratorSplit.sign),
+      );
+      const payloadFraction: Expr = fractionWithSign(
+        cloneExpr(payloadSplit.value),
+        cloneExpr(edge.parentNode.denominator),
+        multiplySigns(parentSign, payloadSplit.sign),
+      );
 
       if (!edge.isFinalUpwardEdge) {
         return {
@@ -64,6 +68,14 @@ export function extractNumeratorTermFromFraction(): UpwardRewriteRule {
       };
     },
   };
+}
+
+function fractionWithSign(numerator: Expr, denominator: Expr, sign: 1 | -1): Expr {
+  return withSign({
+    kind: "divide",
+    numerator,
+    denominator,
+  }, sign);
 }
 
 function shouldWrapAdditiveReplacement(context: MoveContext, nodeId: string): boolean {

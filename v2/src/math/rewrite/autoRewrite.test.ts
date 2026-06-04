@@ -76,6 +76,52 @@ describe("autoRewriteSelection factor", () => {
     );
   });
 
+  it("factors a common symbol from fraction numerators", () => {
+    const document = buildDocument(String.raw`\frac{a b}{c}+a d`);
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "factor")).toBe(true);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "factor");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`a \left(\frac{b}{c} + d\right)`);
+  });
+
+  it("keeps a shared fractional factor together", () => {
+    const document = buildDocument(String.raw`v \frac{\beta T}{\kappa} - v_0 \frac{\beta T}{\kappa}`);
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "factor")).toBe(true);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "factor");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\frac{\beta T}{\kappa} \left(v - v_0\right)`);
+  });
+
+  it("factors a common reciprocal denominator factor", () => {
+    const document = buildDocument(String.raw`\frac{\beta T_0}{\kappa} - \frac{v}{2 v_0 \kappa} + \frac{1}{2 \kappa}`);
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "factor")).toBe(true);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "factor");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\frac{1}{\kappa} \left(\beta T_0 - \frac{v}{2 v_0} + \frac{1}{2}\right)`,
+    );
+  });
+
+  it("factors a shared v_0 when one term hides it in a fraction numerator", () => {
+    const document = buildDocument(
+      String.raw`-\frac{v_0 \beta T}{\kappa} - 3 v_0 \kappa P_0 P + \frac{3}{2} v_0 \kappa P_0^{2} + \frac{3}{2} v_0 \kappa P^{2} + 2 v_0 P_0 - v_0 P`,
+    );
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "factor")).toBe(true);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "factor");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`v_0 \left(-\frac{\beta T}{\kappa} - 3 \kappa P_0 P + \frac{3}{2} \kappa P_0^{2} + \frac{3}{2} \kappa P^{2} + 2 P_0 - P\right)`,
+    );
+  });
+
   it("preserves negative remainders when factoring", () => {
     const document = buildDocument(String.raw`a b-c b`);
     const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "factor");
@@ -98,6 +144,14 @@ describe("autoRewriteSelection factor", () => {
 
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(String.raw`\left(a - b\right)^{2}`);
+  });
+
+  it("preserves a signed numeric coefficient in reordered perfect-square trinomials", () => {
+    const document = buildDocument(String.raw`-2 v v_0 + v^{2} + v_0^{2}`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "factor");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\left(v - v_0\right)^{2}`);
   });
 
   it("does not factor sums without a common factor", () => {
@@ -352,6 +406,22 @@ describe("autoRewriteSelection cleanup", () => {
 
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe("b");
+  });
+
+  it("preserves the selected fraction sign while canceling fraction factors", () => {
+    const document = buildDocument(
+      String.raw`\frac{\beta T_0}{\kappa} + \frac{v}{2 v_0 \kappa} - \frac{v_0}{2 v_0 \kappa} - P_0`,
+    );
+    const selectedFractionId = findNodeId(
+      document,
+      (expr) => expr.kind === "divide" && expr.sign === -1 && expr.numerator.kind === "symbol" && expr.numerator.name === "v_0",
+    );
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: selectedFractionId }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\frac{\beta T_0}{\kappa} + \frac{v}{2 v_0 \kappa} - \frac{1}{2 \kappa} - P_0`,
+    );
   });
 
   it("cancels exact fraction factors through harmless display grouping", () => {

@@ -10,3 +10,6 @@
   What if someone wants to leave one common factor but not another? I guess this is probably rare.
 - Apply modal should give an option to switch the inequality symbol
 - vector operations
+- Force factor: Say we have `-v v_0 + \frac{1}{2} v^{2} + \frac{1}{2} v_0^{2}`. It would be nice to say "look,
+  I know you don't see a factor of 1/2 in every term, but I want you to pull one out anyway" so that we get
+  `- 2 v v_0 + v^{2} + v_0^{2}`

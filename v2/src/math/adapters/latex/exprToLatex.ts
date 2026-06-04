@@ -337,7 +337,7 @@ class LatexGenerator {
   }
 
   generateAddTerms(terms: Expr[]): string {
-    return terms
+    return flattenBareAddTerms(terms)
       .map((term, index) => {
         const signedTerm = splitAdditiveTermSign(term);
         if (signedTerm.sign === -1 && (index > 0 || term.kind !== "negate" || term.notation !== "prefix")) {
@@ -359,6 +359,13 @@ class LatexGenerator {
       })
       .join(" ");
   }
+}
+
+function flattenBareAddTerms(terms: Expr[]): Expr[] {
+  return terms.flatMap((term) => {
+    const signed = splitSign(term);
+    return signed.sign === 1 && signed.value.kind === "add" ? signed.value.terms : [term];
+  });
 }
 
 function shouldGroupNegativeProductFactor(expr: Expr): boolean {

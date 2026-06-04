@@ -73,6 +73,50 @@ describe("exprToLatex", () => {
     expect(exprToLatex(expr, false)).toBe("a - b c");
   });
 
+  it("prints signed fractions as subtraction in sums", () => {
+    const expr = {
+      kind: "add",
+      terms: [
+        { kind: "symbol", name: "a" },
+        {
+          kind: "divide",
+          sign: -1,
+          numerator: { kind: "symbol", name: "b" },
+          denominator: { kind: "symbol", name: "c" },
+        },
+      ],
+    } as const;
+
+    expect(exprToLatex(expr, false)).toBe(String.raw`a - \frac{b}{c}`);
+  });
+
+  it("flattens unsigned nested sums when rendering additive terms", () => {
+    const expr = {
+      kind: "add",
+      terms: [
+        { kind: "symbol", name: "a" },
+        {
+          kind: "add",
+          terms: [
+            {
+              kind: "divide",
+              sign: -1,
+              numerator: { kind: "symbol", name: "b" },
+              denominator: { kind: "symbol", name: "c" },
+            },
+            {
+              kind: "divide",
+              numerator: { kind: "symbol", name: "d" },
+              denominator: { kind: "symbol", name: "e" },
+            },
+          ],
+        },
+      ],
+    } as const;
+
+    expect(exprToLatex(expr, false)).toBe(String.raw`a - \frac{b}{c} + \frac{d}{e}`);
+  });
+
   it("parses subtraction into signed terms", () => {
     const expr = parseLatexToExpr("a-b");
 

@@ -174,6 +174,15 @@ function rectsOverlap(a: RectBounds, b: RectBounds): boolean {
   return a.left <= b.right && a.right >= b.left && a.top <= b.bottom && a.bottom >= b.top;
 }
 
+function rectContainsRect(container: RectBounds, item: RectBounds): boolean {
+  return (
+    container.left <= item.left &&
+    container.right >= item.right &&
+    container.top <= item.top &&
+    container.bottom >= item.bottom
+  );
+}
+
 function distanceToRect(rect: NodeRect, point: PointerLike): number {
   const dx = point.x < rect.left ? rect.left - point.x : point.x > rect.right ? point.x - rect.right : 0;
   const dy = point.y < rect.top ? rect.top - point.y : point.y > rect.bottom ? point.y - rect.bottom : 0;
@@ -395,10 +404,14 @@ export function resolveMarqueeNodeIds(
     const parentId = index.parentById[nodeId] ?? null;
     const parent = parentId ? index.nodeById[parentId] : null;
     const expr = index.nodeById[nodeId];
+    const nodeRect = nodeResolution.rectById[nodeId];
+    const isFullyMarqueed = !!nodeRect && rectContainsRect(marqueeRect, nodeRect);
+    const shouldKeepWholeAdditiveTerm =
+      parent?.kind === "add" && isFullyMarqueed && hasDisplayGroupContainerChild(nodeId, index);
     const shouldPreferParent =
       (parent?.kind === "add" || parent?.kind === "multiply" || parent?.kind === "negate") &&
       !isDisplayGroupAroundContainer(expr) &&
-      !hasDisplayGroupContainerChild(nodeId, index);
+      (!hasDisplayGroupContainerChild(nodeId, index) || shouldKeepWholeAdditiveTerm);
     if (shouldPreferParent && candidateIds.has(nodeId) && isDirectlySelectableNode(expr)) {
       selectedIds.push(nodeId);
       return true;

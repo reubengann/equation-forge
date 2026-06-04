@@ -171,6 +171,34 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe("b + a = c");
   });
 
+  it("moves a multiplicative factor into an existing fraction numerator", () => {
+    const document = buildDocument(String.raw`\frac{1}{2} \kappa \left(P - P_0\right)`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n5" },
+      destinationId: "n3",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\frac{\kappa}{2} \left(P - P_0\right)`);
+  });
+
+  it("splits a selected term out of a negative fraction numerator additively", () => {
+    const document = buildDocument(String.raw`P_0+\frac{\beta T_0}{\kappa}-\frac{v-v_0}{2 v_0 \kappa}`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n10" },
+      destinationId: "n8",
+      moveType: "additive",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(
+      String.raw`P_0 + \frac{\beta T_0}{\kappa} - \frac{v}{2 v_0 \kappa} + \frac{v_0}{2 v_0 \kappa}`,
+    );
+  });
+
   it("allows moving an additive term to the other side of an equation", () => {
     const document = buildDocument(String.raw`a+b=c`);
     const preview = canExecuteMove({

@@ -2,7 +2,7 @@ import type { TermSelection } from "../../selection/types";
 import { add, displayGroup, multiply, type Expr } from "../ast";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import { cloneExpr, replaceCompiledNode } from "../ast/utils";
-import { multiplySigns, splitSign, withSign, type Sign } from "./algebraUtils";
+import { applySign, multiplySigns, splitSign, withSign, type Sign } from "./algebraUtils";
 
 type ToggleDelimiterTarget = {
   nodeId: string;
@@ -70,9 +70,30 @@ function resolveSingleSelection(document: CompiledMathDocument, nodeId: string):
     };
   }
 
+  const signedSelected = splitSign(selected);
+  if (signedSelected.sign === -1 && signedSelected.value.kind === "display_group" && signedSelected.value.expression.kind === "add") {
+    if (parentId && parent?.kind === "add" && location?.index != null) {
+      return {
+        nodeId: parentId,
+        replacement: {
+          kind: "add",
+          terms: [
+            ...parent.terms.slice(0, location.index).map(cloneExpr),
+            ...signedSelected.value.expression.terms.map((term) => applySign(-1, cloneExpr(term))),
+            ...parent.terms.slice(location.index + 1).map(cloneExpr),
+          ],
+        },
+      };
+    }
+    return {
+      nodeId,
+      replacement: add(signedSelected.value.expression.terms.map((term) => applySign(-1, cloneExpr(term)))),
+    };
+  }
+
   return {
     nodeId,
-    replacement: cloneExpr(selected.expression),
+    replacement: applySign(signedSelected.sign, cloneExpr(signedSelected.value.expression)),
   };
 }
 

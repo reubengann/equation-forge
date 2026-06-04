@@ -12,6 +12,11 @@ type FactorTerm = {
   factors: Expr[];
 };
 
+type FactorMatch =
+  | { kind: "term"; index: number }
+  | { kind: "fractionNumerator"; numeratorFactorIndex: number }
+  | { kind: "fractionDenominator"; denominatorFactorIndex: number };
+
 type CoefficientTerm = {
   coefficient: number;
   factors: Expr[];
@@ -87,17 +92,17 @@ function factorCommonProduct(expr: Extract<Expr, { kind: "add" }>): Expr | null 
   const commonFactors: Expr[] = [];
   const remainingTerms = terms.map((term) => term.factors.map(cloneExpr));
 
-  for (const factor of firstTerm.factors) {
+  for (const factor of candidateFactorsForCommonProduct(firstTerm.factors)) {
     const factorKey = structuralKey(factor);
-    const matchingIndexes = remainingTerms.map((termFactors) =>
-      termFactors.findIndex((candidate) => structuralKey(candidate) === factorKey),
-    );
-    if (matchingIndexes.some((index) => index < 0)) continue;
+    const matches = remainingTerms.map((termFactors) => findFactorMatch(termFactors, factorKey));
+    if (matches.some((match) => match === null)) continue;
 
     commonFactors.push(cloneExpr(factor));
-    for (let termIndex = matchingIndexes.length - 1; termIndex >= 0; termIndex -= 1) {
-      const factorIndex = matchingIndexes[termIndex];
-      remainingTerms[termIndex]?.splice(factorIndex, 1);
+    for (let termIndex = matches.length - 1; termIndex >= 0; termIndex -= 1) {
+      const match = matches[termIndex];
+      const termFactors = remainingTerms[termIndex];
+      if (!match || !termFactors) continue;
+      removeFactorMatch(termFactors, match);
     }
   }
 
@@ -116,10 +121,77 @@ function canFactorCommonProduct(expr: Extract<Expr, { kind: "add" }>): boolean {
   const firstTerm = terms[0];
   if (!firstTerm || firstTerm.factors.length === 0) return false;
 
-  return firstTerm.factors.some((factor) => {
+  return candidateFactorsForCommonProduct(firstTerm.factors).some((factor) => {
     const factorKey = structuralKey(factor);
-    return terms.every((term) => term.factors.some((candidate) => structuralKey(candidate) === factorKey));
+    return terms.every((term) => findFactorMatch(term.factors, factorKey) !== null);
   });
+}
+
+function candidateFactorsForCommonProduct(termFactors: Expr[]): Expr[] {
+  return termFactors.flatMap((factor) => {
+    if (factor.kind !== "divide") return [factor];
+    const numeratorFactors = factor.numerator.kind === "multiply" ? factor.numerator.factors : [factor.numerator];
+    const denominatorFactors = factor.denominator.kind === "multiply" ? factor.denominator.factors : [factor.denominator];
+    return [factor, ...numeratorFactors, ...denominatorFactors.map(reciprocalFactor)];
+  });
+}
+
+function findFactorMatch(termFactors: Expr[], factorKey: string): FactorMatch | null {
+  const directIndex = termFactors.findIndex((candidate) => structuralKey(candidate) === factorKey);
+  if (directIndex >= 0) return { kind: "term", index: directIndex };
+
+  for (let index = 0; index < termFactors.length; index += 1) {
+    const factor = termFactors[index];
+    if (factor?.kind !== "divide") continue;
+    const numeratorFactors = factor.numerator.kind === "multiply" ? factor.numerator.factors : [factor.numerator];
+    const numeratorFactorIndex = numeratorFactors.findIndex((candidate) => structuralKey(candidate) === factorKey);
+    if (numeratorFactorIndex >= 0) return { kind: "fractionNumerator", numeratorFactorIndex };
+
+    const denominatorFactors = factor.denominator.kind === "multiply" ? factor.denominator.factors : [factor.denominator];
+    const denominatorFactorIndex = denominatorFactors.findIndex(
+      (candidate) => structuralKey(reciprocalFactor(candidate)) === factorKey,
+    );
+    if (denominatorFactorIndex >= 0) return { kind: "fractionDenominator", denominatorFactorIndex };
+  }
+
+  return null;
+}
+
+function removeFactorMatch(termFactors: Expr[], match: FactorMatch): void {
+  if (match.kind === "term") {
+    termFactors.splice(match.index, 1);
+    return;
+  }
+
+  const fractionIndex = termFactors.findIndex((factor) => factor.kind === "divide");
+  const fraction = termFactors[fractionIndex];
+  if (!fraction || fraction.kind !== "divide") return;
+  if (match.kind === "fractionNumerator") {
+    const numeratorFactors = fraction.numerator.kind === "multiply" ? fraction.numerator.factors.map(cloneExpr) : [cloneExpr(fraction.numerator)];
+    numeratorFactors.splice(match.numeratorFactorIndex, 1);
+    termFactors[fractionIndex] = {
+      kind: "divide",
+      numerator: collapseProduct(numeratorFactors),
+      denominator: cloneExpr(fraction.denominator),
+    };
+    return;
+  }
+
+  const denominatorFactors = fraction.denominator.kind === "multiply" ? fraction.denominator.factors.map(cloneExpr) : [cloneExpr(fraction.denominator)];
+  denominatorFactors.splice(match.denominatorFactorIndex, 1);
+  const remainingDenominator = collapseProduct(denominatorFactors);
+  termFactors[fractionIndex] =
+    remainingDenominator.kind === "number" && Number(remainingDenominator.value) === 1
+      ? cloneExpr(fraction.numerator)
+      : {
+          kind: "divide",
+          numerator: cloneExpr(fraction.numerator),
+          denominator: remainingDenominator,
+        };
+}
+
+function reciprocalFactor(factor: Expr): Expr {
+  return divide(num(1), cloneExpr(factor));
 }
 
 function factorPerfectSquare(expr: Extract<Expr, { kind: "add" }>): Expr | null {
@@ -178,10 +250,12 @@ function splitCoefficientTerm(term: Expr): CoefficientTerm {
   const factors: Expr[] = [];
 
   for (const factor of factorTerm.factors) {
-    if (factor.kind === "number" && typeof factor.value === "number") {
-      coefficient *= factor.value;
+    const signedFactor = splitExprSign(factor);
+    if (signedFactor.value.kind === "number" && typeof signedFactor.value.value === "number") {
+      coefficient *= signedFactor.sign * signedFactor.value.value;
     } else {
-      factors.push(cloneExpr(factor));
+      coefficient *= signedFactor.sign;
+      factors.push(cloneExpr(signedFactor.value));
     }
   }
 

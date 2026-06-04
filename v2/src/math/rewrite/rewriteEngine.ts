@@ -173,6 +173,10 @@ export class RulesPipeline {
       const destinationNode = this.document.index.nodeById[normalizedDestinationId];
       if (!containerNode || !selectedNode || !destinationNode) return null;
 
+      if (shouldUseGeneralPipelineForSingleContainerMove(this.document, this.moveType, this.destinationId)) {
+        return this.runGeneralPipeline(context, shouldExecute);
+      }
+
       const containerIndexes = resolveContainerIndexes({
         document: this.document,
         containerId: sourceParentId,
@@ -509,14 +513,14 @@ function rebuildUpdatedSubtree(
   const original = document.index.nodeById[nodeId];
   if (!original) return null;
 
-  if (updatedNodes[nodeId]) return structuredClone(updatedNodes[nodeId]) as Expr;
-
-  const base = original;
+  const hasDirectUpdate = !!updatedNodes[nodeId];
+  const base = updatedNodes[nodeId] ?? original;
   const next = structuredClone(base) as Expr;
   const nextRecord = next as Record<string, unknown>;
   const childIds = document.index.childrenById[nodeId] ?? [];
 
   for (const childId of childIds) {
+    if (hasDirectUpdate && !hasUpdatedNodeInSubtree(document, childId, updatedNodes)) continue;
     const location = document.index.locationById[childId];
     if (!location.field) continue;
     const updatedChild = rebuildUpdatedSubtree(document, childId, updatedNodes);
@@ -534,6 +538,17 @@ function rebuildUpdatedSubtree(
   }
 
   return next;
+}
+
+function hasUpdatedNodeInSubtree(
+  document: CompiledMathDocument,
+  nodeId: string,
+  updatedNodes: Record<string, Expr>,
+): boolean {
+  if (updatedNodes[nodeId]) return true;
+  return (document.index.childrenById[nodeId] ?? []).some((childId) =>
+    hasUpdatedNodeInSubtree(document, childId, updatedNodes),
+  );
 }
 
 function serializeRuleMoveResult(
@@ -557,6 +572,22 @@ function lineOrientationForContainer(containerKind: Expr["kind"]): "vertical" | 
 
 function isReorderContainer(expr: Expr): boolean {
   return expr.kind === "add" || expr.kind === "multiply";
+}
+
+function shouldUseGeneralPipelineForSingleContainerMove(
+  document: CompiledMathDocument,
+  moveType: MoveType,
+  destinationId: string,
+): boolean {
+  if (moveType !== "multiplicative") return false;
+
+  let cursor: string | null = destinationId;
+  while (cursor) {
+    const location = document.index.locationById[cursor];
+    if (location?.field === "numerator") return true;
+    cursor = document.index.parentById[cursor] ?? null;
+  }
+  return false;
 }
 
 function resolveContainerIndexes({

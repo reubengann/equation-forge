@@ -1,7 +1,8 @@
 import { exprToLatex } from "./math/adapters/latex";
 import type { CompiledMathDocument } from "./math/compile/compileMathDocument";
 import type { Expr } from "./math/ast";
-import { flipSign, splitSign, structuralKeyIgnoringDisplayGroups } from "./math/rewrite/algebraUtils";
+import { applySign, flipSign, splitSign, structuralKeyIgnoringDisplayGroups } from "./math/rewrite/algebraUtils";
+import { add } from "./math/ast";
 import type { SubstitutionSelection } from "./math/rewrite/substitute";
 
 export type PadDefinitionSource = {
@@ -25,13 +26,21 @@ function matchDefinitionRhs(lhs: Expr, rhs: Expr, selected: Expr): Expr | null {
   if (expressionsMatch(lhs, selected)) return rhs;
   const selectedSign = splitSign(selected);
   if (selectedSign.sign === -1 && expressionsMatch(lhs, selectedSign.value)) {
-    return flipSign(rhs);
+    return negateSuggestion(rhs);
   }
   const lhsSign = splitSign(lhs);
   if (lhsSign.sign === -1 && expressionsMatch(lhsSign.value, selected)) {
-    return flipSign(rhs);
+    return negateSuggestion(rhs);
   }
   return null;
+}
+
+function negateSuggestion(expr: Expr): Expr {
+  const signed = splitSign(expr);
+  if (signed.value.kind === "add") {
+    return add(signed.value.terms.map((term) => applySign(signed.sign === 1 ? -1 : 1, term)));
+  }
+  return flipSign(expr);
 }
 
 export function buildPadSubstituteSuggestions(

@@ -83,7 +83,7 @@ describe("substituteSelection", () => {
     );
 
     expect(next).not.toBeNull();
-    expect(exprToLatex(next!, false)).toBe(String.raw`w = \int_{P_i}^{P_f} P \left(-v_0 \kappa \mathrm{d}{P}\right)`);
+    expect(exprToLatex(next!, false)).toBe(String.raw`w = \int_{P_i}^{P_f} P \left(-v_0 \kappa \,\mathrm{d}{P}\right)`);
   });
 
   it("wraps compound replacements as power bases", () => {

@@ -203,6 +203,29 @@ describe("selectionController", () => {
     ).toEqual(["n8"]);
   });
 
+  it("keeps fully covered additive product terms whole before descending into their display groups", () => {
+    const latex = String.raw`a+\left(b+c\right)\left(d+e\right)+f`;
+    const compiled = compileMathDocument(latex);
+    const rects = makeRect([
+      ["n1", 0, 300],
+      ["n2", 0, 30],
+      ["n3", 40, 200],
+      ["n4", 40, 120],
+      ["n5", 45, 115],
+      ["n6", 45, 60],
+      ["n7", 95, 115],
+      ["n12", 220, 250],
+    ]);
+
+    expect(
+      resolveMarqueeNodeIds(
+        rectFromPoints({ x: 35, y: 0 }, { x: 260, y: 20 }),
+        buildNodeResolutionSource(rects, compiled.index),
+        compiled.index,
+      ),
+    ).toEqual(["n3", "n12"]);
+  });
+
   it("clicking non-selectable equals does not clear existing selection", () => {
     const latex = String.raw`a=b`;
     const rects = makeRect([
