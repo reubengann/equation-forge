@@ -312,7 +312,7 @@ export function PadView() {
         </button>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "12px", overflowX: "auto" }}>
         {equations.map((equation, index) => {
           const isActive = activeEquationId === equation.id;
           const isFirstEquation = index === 0;
@@ -332,6 +332,7 @@ export function PadView() {
                 border: `1px solid ${isActive ? "#7c4dff" : "#575757"}`,
                 borderRadius: "6px",
                 background: isActive ? "rgba(124, 77, 255, 0.08)" : "rgba(255, 255, 255, 0.03)",
+                minWidth: "1200px",
               }}
             >
               <div

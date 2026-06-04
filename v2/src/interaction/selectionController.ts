@@ -75,6 +75,7 @@ export type NodeResolutionSource = {
 
 export const DRAG_PREVIEW_HIT_TEST_PADDING_PX = 10;
 export const DRAG_COMMIT_THRESHOLD_PX = 6;
+const NEARBY_RENDERED_GAP_HIT_TEST_MAX_HORIZONTAL_DISTANCE_PX = 40;
 
 type SelectionControllerConfig = {
   dragThresholdPx: number;
@@ -179,6 +180,14 @@ function distanceToRect(rect: NodeRect, point: PointerLike): number {
   return Math.hypot(dx, dy);
 }
 
+function horizontalDistanceToRect(rect: NodeRect, point: PointerLike): number {
+  return point.x < rect.left ? rect.left - point.x : point.x > rect.right ? point.x - rect.right : 0;
+}
+
+function containsPointVertically(rect: NodeRect, point: PointerLike): boolean {
+  return point.y >= rect.top && point.y <= rect.bottom;
+}
+
 function distanceBetweenPoints(a: PointerLike, b: PointerLike): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
@@ -281,7 +290,52 @@ function pickNodeIdAtPointFromTree(
     return containsSelf ? nodeId : null;
   };
 
-  return descend(index.rootId);
+  const treeHit = descend(index.rootId);
+  if (treeHit || paddingPx > 0) return treeHit;
+
+  return pickNearestNodeIdNearRenderedGap(nodeResolution, point, index);
+}
+
+function pickNearestNodeIdNearRenderedGap(
+  nodeResolution: NodeResolutionSource,
+  point: PointerLike,
+  index: ExprIndex,
+): string | null {
+  let best: { nodeId: string; distance: number; horizontalDistance: number; area: number } | null = null;
+  for (const rect of nodeResolution.nodeRects) {
+    if (!containsPointVertically(rect, point)) continue;
+    const horizontalDistance = horizontalDistanceToRect(rect, point);
+    if (horizontalDistance > NEARBY_RENDERED_GAP_HIT_TEST_MAX_HORIZONTAL_DISTANCE_PX) continue;
+
+    const distance = horizontalDistance;
+    const area = rect.width * rect.height;
+    if (
+      !best ||
+      distance < best.distance ||
+      (distance === best.distance && horizontalDistance < best.horizontalDistance) ||
+      (distance === best.distance && horizontalDistance === best.horizontalDistance && area < best.area)
+    ) {
+      best = { nodeId: rect.nodeId, distance, horizontalDistance, area };
+    }
+  }
+
+  return best ? deepestHitNodeIdAtPoint(best.nodeId, point, nodeResolution, index) : null;
+}
+
+function deepestHitNodeIdAtPoint(
+  nodeId: string,
+  point: PointerLike,
+  nodeResolution: NodeResolutionSource,
+  index: ExprIndex,
+): string {
+  const children = index.childrenById[nodeId] ?? [];
+  for (const childId of children) {
+    const childRect = nodeResolution.rectById[childId];
+    if (childRect && containsPoint(childRect, point)) {
+      return deepestHitNodeIdAtPoint(childId, point, nodeResolution, index);
+    }
+  }
+  return nodeId;
 }
 
 export function resolveSelectableNodeAtPoint(

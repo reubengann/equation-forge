@@ -347,6 +347,6 @@
     "selectedNodeIds": [],
     "insertionPreview": null,
     "moveType": "multiplicative",
-    "latex": "w = \\int_{P_i}^{P_f} P v_0 \\left(-\\kappa \\mathrm{d}{P}\\right)"
+    "latex": "w = \\int_{P_i}^{P_f} P v_0 \\left(-\\kappa \\,\\mathrm{d}{P}\\right)"
   }
 }

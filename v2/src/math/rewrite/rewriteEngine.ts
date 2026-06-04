@@ -31,6 +31,14 @@ type ContainerIndexes = {
   insertionIndex: number;
 };
 
+type MultiContainerMove = {
+  containerId: string;
+  destinationId: string;
+  sourceIndex: number;
+  sourceEndIndex: number;
+  insertionIndex: number;
+};
+
 type MoveEvaluation = {
   insertionPreview: InsertionPreview;
   moveResult?: MoveResult;
@@ -212,6 +220,50 @@ export class RulesPipeline {
         ...(moveResult ? { moveResult } : {}),
       };
     }
+    if (this.selection.kind === "multi") {
+      const sameContainer = resolveMultiSelectionContainerMove(this.document, this.selection, this.destinationId, this.destinationSlot ?? "before");
+      if (sameContainer) {
+        const context: MoveContext = {
+          document: this.document,
+          selection: this.selection,
+          payload: null,
+          destinationId: sameContainer.destinationId,
+          destinationSlot: this.destinationSlot,
+          sourceContainerIndex: sameContainer.sourceIndex,
+          sourceContainerEndIndex: sameContainer.sourceEndIndex,
+          destinationInsertionIndex: sameContainer.insertionIndex,
+        };
+        const containerNode = this.document.index.nodeById[sameContainer.containerId];
+        const selectedNode = this.document.index.nodeById[this.selection.nodeIds[0] ?? ""];
+        const destinationNode = this.document.index.nodeById[sameContainer.destinationId];
+        if (containerNode && selectedNode && destinationNode) {
+          const rule = this.findSingleContainerRule(
+            applicableRules,
+            context,
+            containerNode,
+            selectedNode,
+            destinationNode,
+          );
+          const ruleMoveResult = shouldExecute && rule
+            ? rule.executeMove(context, containerNode, selectedNode, destinationNode)
+            : null;
+          if (rule || ruleMoveResult) {
+            if (shouldExecute && ruleMoveResult == null) return null;
+            const moveResult = ruleMoveResult == null ? null : serializeRuleMoveResult(this.document, ruleMoveResult);
+            return {
+              insertionPreview: {
+                containerId: sameContainer.containerId,
+                containerKind: containerNode.kind,
+                destinationId: sameContainer.destinationId,
+                destinationSlot: context.destinationSlot ?? "before",
+                lineOrientation: lineOrientationForContainer(containerNode.kind),
+              },
+              ...(moveResult ? { moveResult } : {}),
+            };
+          }
+        }
+      }
+    }
     const context: MoveContext = {
       document: this.document,
       selection: this.selection,
@@ -381,7 +433,7 @@ export class RulesPipeline {
     destinationNode: Expr,
   ): SingleContainerRule | null {
     for (const rule of applicableRules) {
-      if (rule.selectionKind !== context.selection.kind) continue;
+      if (rule.selectionKind !== "*" && rule.selectionKind !== context.selection.kind) continue;
       if (rule.containerKind !== containerNode.kind) continue;
       if (!rule.canMove(context, containerNode, selectedNode, destinationNode)) continue;
       return rule;
@@ -399,6 +451,46 @@ type GeneralPipelineState = {
 function startNodeIdForSelection(selection: TermSelection): string | null {
   if (selection.kind === "single") return selection.nodeId;
   return selection.nodeIds[0] ?? null;
+}
+
+function resolveMultiSelectionContainerMove(
+  document: CompiledMathDocument,
+  selection: Extract<TermSelection, { kind: "multi" }>,
+  destinationId: string,
+  destinationSlot: InsertionSlot,
+): MultiContainerMove | null {
+  const containerId = selection.containerNodeId;
+  if (!containerId || selection.nodeIds.length === 0) return null;
+  const container = document.index.nodeById[containerId];
+  if (!container || !isReorderContainer(container)) return null;
+
+  const childIds = document.index.childrenById[containerId] ?? [];
+  const selectedIndexes = selection.nodeIds
+    .map((nodeId) => childIds.findIndex((childId) => childId === nodeId || (document.index.ancestorsById[nodeId] ?? []).includes(childId)))
+    .filter((index) => index >= 0)
+    .sort((a, b) => a - b);
+  if (selectedIndexes.length !== selection.nodeIds.length) return null;
+
+  const sourceIndex = selectedIndexes[0];
+  const sourceEndIndex = selectedIndexes[selectedIndexes.length - 1];
+  if (sourceIndex == null || sourceEndIndex == null) return null;
+  if (sourceEndIndex - sourceIndex + 1 !== selectedIndexes.length) return null;
+
+  const destinationIndex = childIds.findIndex(
+    (childId) => childId === destinationId || (document.index.ancestorsById[destinationId] ?? []).includes(childId),
+  );
+  if (destinationIndex < 0) return null;
+  if (destinationIndex >= sourceIndex && destinationIndex <= sourceEndIndex) return null;
+
+  const insertionIndex = destinationSlot === "after" ? destinationIndex + 1 : destinationIndex;
+  if (insertionIndex === sourceIndex || insertionIndex === sourceEndIndex + 1) return null;
+  return {
+    containerId,
+    destinationId: childIds[destinationIndex] ?? destinationId,
+    sourceIndex,
+    sourceEndIndex,
+    insertionIndex,
+  };
 }
 
 function applyPipelineRuleResult(state: GeneralPipelineState, result: PipelineRuleResult): void {

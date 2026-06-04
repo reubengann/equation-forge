@@ -9,32 +9,37 @@ export function rearrangeFactorsInProduct(): SingleContainerRule {
     selectionKind: "single",
     containerKind: "multiply",
     canMove: (context: MoveContext, container: Expr) => {
-      if (context.selection.kind !== "single") return false;
       if (container.kind !== "multiply") return false;
       const sourceFactorIndex = context.sourceContainerIndex;
+      const sourceFactorEndIndex = context.sourceContainerEndIndex ?? sourceFactorIndex;
       const destinationInsertionIndex = context.destinationInsertionIndex;
       return (
         sourceFactorIndex != null &&
+        sourceFactorEndIndex != null &&
         destinationInsertionIndex != null &&
-        destinationInsertionIndex !== sourceFactorIndex
+        !selectionContainsDestination(context)
       );
     },
     executeMove: (context: MoveContext, container: Expr, selectedNode: Expr) => {
-      if (context.selection.kind !== "single") return null;
       if (container.kind !== "multiply") return null;
 
       const sourceNodeId = getNodeIdForExpr(context, container);
       if (!sourceNodeId) return null;
 
       const sourceFactorIndex = context.sourceContainerIndex;
+      const sourceFactorEndIndex = context.sourceContainerEndIndex ?? sourceFactorIndex;
       const insertionIndex = context.destinationInsertionIndex;
-      if (sourceFactorIndex == null || insertionIndex == null) return null;
-      if (insertionIndex === sourceFactorIndex) return null;
+      if (sourceFactorIndex == null || sourceFactorEndIndex == null || insertionIndex == null) return null;
+      if (selectionContainsDestination(context)) return null;
 
       const nextContainer = cloneExpr(container) as MultiplyExpr;
-      const [movedFactor] = nextContainer.factors.splice(sourceFactorIndex, 1);
-      if (!movedFactor) return null;
-      nextContainer.factors.splice(insertionIndex, 0, movedFactor);
+      const movedFactors = nextContainer.factors.splice(sourceFactorIndex, sourceFactorEndIndex - sourceFactorIndex + 1);
+      if (movedFactors.length === 0) return null;
+      const adjustedInsertionIndex =
+        context.selection.kind === "multi" && insertionIndex > sourceFactorIndex
+          ? insertionIndex - movedFactors.length
+          : insertionIndex;
+      nextContainer.factors.splice(adjustedInsertionIndex, 0, ...movedFactors);
 
       return {
         payload: cloneExpr(selectedNode),
@@ -43,6 +48,20 @@ export function rearrangeFactorsInProduct(): SingleContainerRule {
       };
     },
   };
+}
+
+export function rearrangeMultipleFactorsInProduct(): SingleContainerRule {
+  return {
+    ...rearrangeFactorsInProduct(),
+    id: "rearrangeMultipleFactorsInProduct",
+    selectionKind: "multi",
+  };
+}
+
+function selectionContainsDestination(context: MoveContext): boolean {
+  return context.selection.kind === "single"
+    ? context.destinationId === context.selection.nodeId
+    : context.selection.nodeIds.includes(context.destinationId);
 }
 
 function getNodeIdForExpr(context: MoveContext, target: Expr): string | null {

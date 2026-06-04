@@ -38,6 +38,21 @@ describe("applyOperationToRelation", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`\mathrm{d}{\left(a\right)} = \mathrm{d}{\left(b\right)}`);
   });
 
+  it("applies a MathLive-rendered differential with the side as its argument", () => {
+    const template = expr(String.raw`\mathrm{d}\left(\eqn\right)`);
+
+    expect(validateOperationTemplate(template)).toBeNull();
+    const next = applyOperationToRelation(
+      expr(String.raw`v = v_0 \left[1 + \beta \left(T - T_0\right) - \kappa \left(P - P_0\right)\right]`),
+      template,
+    );
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\mathrm{d}{\left(v\right)} = \mathrm{d}{\left(v_0 \left[1 + \beta \left(T - T_0\right) - \kappa \left(P - P_0\right)\right]\right)}`,
+    );
+  });
+
   it("wraps inserted sides when the placeholder is a product factor", () => {
     const next = applyOperationToRelation(expr("a+1=2"), expr(String.raw`2\eqn`));
 

@@ -89,6 +89,15 @@ describe("parseLatexToExpr", () => {
     expect(bracketExpr.factors[1].delimiter).toBe("bracket");
   });
 
+  it("parses MathLive lbrack and rbrack macros as bracket grouping", () => {
+    const expr = parseLatexToExpr(String.raw`g\left\lbrack a+b\right\rbrack`);
+
+    expectExprKind(expr, "multiply");
+    expectExprKind(expr.factors[1], "display_group");
+    expect(expr.factors[1].delimiter).toBe("bracket");
+    expectExprKind(expr.factors[1].expression, "add");
+  });
+
   it("parses escaped brace grouping as a delimiter", () => {
     const expr = parseLatexToExpr(String.raw`g\left\{c\right\}`);
 

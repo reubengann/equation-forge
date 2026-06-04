@@ -5,6 +5,7 @@ import {
   createSelectionControllerState,
   rectFromPoints,
   resolveMarqueeNodeIds,
+  resolveNodeAtPoint,
   resolveSelectionFromEvent,
   selectionNodeIds,
   type NodeRect,
@@ -92,6 +93,23 @@ describe("selectionController", () => {
       String.raw`a+b`,
     );
     expect(result.selection).toEqual({ kind: "single", nodeId: "n2" });
+  });
+
+  it("resolves the nearest same-row node when MathLive leaves a rendered gap past a long expression", () => {
+    const compiled = compileMathDocument(String.raw`a+b`);
+    const nodeResolution = buildNodeResolutionSource(
+      makeRect([
+        ["n1", 0, 100],
+        ["n2", 0, 45],
+        ["n3", 55, 100],
+      ]),
+      compiled.index,
+    );
+
+    expect(resolveNodeAtPoint({ x: 130, y: 10 }, nodeResolution, compiled.index)).toEqual({
+      treeHitNodeId: "n3",
+      selectableNodeId: "n3",
+    });
   });
 
   it("expands single selection into multi on ctrl-click", () => {

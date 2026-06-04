@@ -108,7 +108,7 @@ class LatexGenerator {
       case "add":
         return this.generateAddTerms(expr.terms);
       case "multiply":
-        return expr.factors.map((factor) => this.generate(factor, "productFactor")).join(" ");
+        return this.generateProductFactors(expr.factors);
       case "power":
         return `${this.generate(expr.base)}^{${this.generate(expr.exponent)}}`;
       case "negate":
@@ -173,14 +173,7 @@ class LatexGenerator {
     let integratedThing = "";
     if (signedIntegrand.value.kind === "multiply") {
       const integrandId = this.newId();
-      integratedThing = signedIntegrand.value.factors
-        // If differential appears anywhere but the beginning, put a thinspace before it.
-        .map((factor, index) => {
-          const rendered = this.generate(factor, "productFactor");
-          if (index === 0) return rendered;
-          return factor.kind === "differential" ? ` \\,${rendered}` : ` ${rendered}`;
-        })
-        .join("");
+      integratedThing = this.generateProductFactors(signedIntegrand.value.factors);
       integratedThing = this.wrap(integratedThing, integrandId);
     } else {
       integratedThing = this.generate(signedIntegrand.value);
@@ -197,7 +190,7 @@ class LatexGenerator {
       case "add":
         return this.wrap(this.generateAddTerms(expr.terms), id);
       case "multiply":
-        return this.wrap(expr.factors.map((factor) => this.generate(factor, "productFactor")).join(" "), id);
+        return this.wrap(this.generateProductFactors(expr.factors), id);
       case "power":
         return this.generateTrigPower(expr, id);
       case "negate":
@@ -346,13 +339,23 @@ class LatexGenerator {
   generateAddTerms(terms: Expr[]): string {
     return terms
       .map((term, index) => {
-        const signedTerm = splitSign(term);
+        const signedTerm = splitAdditiveTermSign(term);
         if (signedTerm.sign === -1 && (index > 0 || term.kind !== "negate" || term.notation !== "prefix")) {
           const renderedValue = this.generateUnsigned(signedTerm.value, "sumTerm");
           return index === 0 ? `-${renderedValue}` : `- ${renderedValue}`;
         }
         const renderedTerm = this.generate(term, "sumTerm");
         return index === 0 ? renderedTerm : `+ ${renderedTerm}`;
+      })
+      .join(" ");
+  }
+
+  generateProductFactors(factors: Expr[]): string {
+    return factors
+      .map((factor, index) => {
+        const rendered = this.generate(factor, "productFactor");
+        if (index === 0) return rendered;
+        return factor.kind === "differential" ? `\\,${rendered}` : rendered;
       })
       .join(" ");
   }
@@ -372,6 +375,30 @@ function startsWithNegativeFactor(expr: Extract<Expr, { kind: "multiply" }>): bo
   const signed = splitSign(firstFactor);
   if (signed.sign === -1) return true;
   return signed.value.kind === "multiply" && startsWithNegativeFactor(signed.value);
+}
+
+function splitAdditiveTermSign(expr: Expr): { sign: 1 | -1; value: Expr } {
+  const signed = splitSign(expr);
+  if (signed.sign === -1 || signed.value.kind !== "multiply") return signed;
+
+  let sign: 1 | -1 = 1;
+  let changed = false;
+  const factors = signed.value.factors.map((factor) => {
+    const signedFactor = splitSign(factor);
+    if (signedFactor.sign === -1) {
+      sign = sign === 1 ? -1 : 1;
+      changed = true;
+    }
+    return signedFactor.value;
+  });
+  if (!changed) return signed;
+  return {
+    sign,
+    value: {
+      ...signed.value,
+      factors,
+    },
+  };
 }
 
 export function exprToLatex(expr: Expr, tags: boolean): string {

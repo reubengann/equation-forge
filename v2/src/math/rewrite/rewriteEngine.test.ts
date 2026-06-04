@@ -350,6 +350,36 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe(String.raw`\frac{F}{a} = m`);
   });
 
+  it("moves multiple selected factors within the same signed product without dropping them", () => {
+    const document = buildDocument(String.raw`a - \left(T - T_0\right) P_0 v_0 \beta`);
+    const productId = findNodeId(
+      document,
+      (expr) =>
+        expr.kind === "multiply" &&
+        expr.sign === -1 &&
+        expr.factors.some((factor) => factor.kind === "symbol" && factor.name === "v_0") &&
+        expr.factors.some((factor) => factor.kind === "symbol" && factor.name === "\\beta"),
+    );
+    const childIds = document.index.childrenById[productId] ?? [];
+    const selectedIds = childIds.filter((childId) => {
+      const expr = document.index.nodeById[childId];
+      return expr?.kind === "symbol" && (expr.name === "v_0" || expr.name === "\\beta");
+    });
+    const destinationId = childIds.find((childId) => document.index.nodeById[childId]?.kind === "display_group");
+    expect(selectedIds).toHaveLength(2);
+    expect(destinationId).toBeDefined();
+
+    const result = executeMove({
+      document,
+      selection: { kind: "multi", containerNodeId: productId, nodeIds: selectedIds },
+      destinationId: destinationId!,
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`a - v_0 \beta \left(T - T_0\right) P_0`);
+  });
+
   it("executes moving a whole side across an equation under an existing product", () => {
     const document = buildDocument(String.raw`m v=V`);
     const result = executeMove({
@@ -386,7 +416,7 @@ describe("canExecuteMove", () => {
       destinationSlot: "before",
     });
 
-    expect(result?.latex).toBe(String.raw`\Delta s = \frac{1}{T} \int P \mathrm{d}{v}`);
+    expect(result?.latex).toBe(String.raw`\Delta s = \frac{1}{T} \int P \,\mathrm{d}{v}`);
   });
 
   it("executes extracting a multiplicative factor out of a bounded integral", () => {
@@ -420,7 +450,7 @@ describe("canExecuteMove", () => {
       destinationSlot: "after",
     });
 
-    expect(result?.latex).toBe(String.raw`w = \int_{P_i}^{P_f} P v_0 \left(-\kappa \mathrm{d}{P}\right)`);
+    expect(result?.latex).toBe(String.raw`w = \int_{P_i}^{P_f} P v_0 \left(-\kappa \,\mathrm{d}{P}\right)`);
   });
 
   it("executes extracting a numerator factor from a fraction", () => {

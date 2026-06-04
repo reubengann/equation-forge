@@ -31,6 +31,7 @@ export type MoveContext = {
   destinationId: string;
   destinationSlot?: InsertionSlot;
   sourceContainerIndex?: number;
+  sourceContainerEndIndex?: number;
   destinationInsertionIndex?: number;
 };
 
@@ -115,7 +116,7 @@ export type RewriteRule = {
 
 export type SingleContainerRule = {
   id: string;
-  selectionKind: SelectionKind;
+  selectionKind: SelectionKind | "*";
   moveType: MoveType;
   containerKind: string;
   canMove: (

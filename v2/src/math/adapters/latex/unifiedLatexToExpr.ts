@@ -236,6 +236,8 @@ function delimiterStringFromNode(node: UnifiedNode | undefined): string {
   if (!node) return "";
   const content = node.content;
   if (node.type === "string" && typeof content === "string") return content;
+  if (node.type === "macro" && content === "lbrack") return "[";
+  if (node.type === "macro" && content === "rbrack") return "]";
   if (node.type === "macro" && content === "{") return "{";
   if (node.type === "macro" && content === "}") return "}";
   return "";
@@ -327,6 +329,40 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
     }
 
     if (next.type === "macro") {
+      const macro = typeof next.content === "string" ? next.content : "";
+      if (macro === "left") {
+        const open = delimiterStringFromNode(nodes[nextIndex + 1]);
+        if (open === "(" || open === "[" || open === "{") {
+          const close = open === "(" ? ")" : open === "[" ? "]" : "}";
+          const variableNodes: UnifiedNode[] = [next, nodes[nextIndex + 1]!];
+          let depth = 1;
+          let i = nextIndex + 2;
+          while (i < nodes.length) {
+            const candidate = nodes[i];
+            if (!candidate || candidate.type === "whitespace") break;
+            variableNodes.push(candidate);
+            if (candidate.type === "macro" && candidate.content === "left") {
+              depth += 1;
+              i += 2;
+              if (nodes[i - 1]) variableNodes.push(nodes[i - 1]!);
+              continue;
+            }
+            if (candidate.type === "macro" && candidate.content === "right") {
+              const maybeClose = delimiterStringFromNode(nodes[i + 1]);
+              if (maybeClose === close) {
+                variableNodes.push(nodes[i + 1]!);
+                depth -= 1;
+                if (depth === 0) {
+                  return { variable: variableNodes, consumedNodes: i + 1 - startIndex };
+                }
+                i += 2;
+                continue;
+              }
+            }
+            i += 1;
+          }
+        }
+      }
       return { variable: [next], consumedNodes: nextIndex - startIndex };
     }
 
@@ -493,6 +529,21 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
         tokens.push({ kind: "close_group", value: close });
         i += 1;
       }
+      continue;
+    }
+
+    if (macro === "lbrack") {
+      tokens.push({
+        kind: "open_group",
+        delimiter: "bracket",
+        close: "]",
+        explicitLeftRight: false,
+      });
+      continue;
+    }
+
+    if (macro === "rbrack") {
+      tokens.push({ kind: "close_group", value: "]" });
       continue;
     }
 

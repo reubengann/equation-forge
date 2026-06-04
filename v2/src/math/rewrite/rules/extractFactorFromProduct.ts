@@ -52,7 +52,7 @@ export function extractFactorFromProduct(): UpwardRewriteRule {
       const sourceFactorIndexes = selectedFactorIndexes(context, factorIds);
       if (sourceFactorIndexes.length === 0) return null;
 
-      const split = splitProductFactors(edge.parentNode.factors, sourceFactorIndexes);
+      const split = splitProductFactors(edge.parentNode, sourceFactorIndexes);
 
       return {
         payload: split.payload,
@@ -75,17 +75,25 @@ function selectedFactorIndexes(context: MoveContext, factorIds: string[]): numbe
 
   const selectedIds = new Set(context.selection.nodeIds);
   const indexes = factorIds.reduce<number[]>((acc, factorId, index) => {
-    if (selectedIds.has(factorId)) acc.push(index);
+    const factorAncestors = context.document.index.ancestorsById[factorId] ?? [];
+    const hasSelectedDescendant = context.selection.kind === "multi" && context.selection.nodeIds.some((nodeId) => {
+      const selectedAncestors = context.document.index.ancestorsById[nodeId] ?? [];
+      return selectedIds.has(factorId) || selectedAncestors.includes(factorId) || factorAncestors.includes(nodeId);
+    });
+    if (selectedIds.has(factorId) || hasSelectedDescendant) acc.push(index);
     return acc;
   }, []);
   return indexes.sort((a, b) => a - b);
 }
 
-function splitProductFactors(factors: Expr[], sourceFactorIndexes: number[]): { payload: Expr; remaining: Expr } {
+function splitProductFactors(product: Extract<Expr, { kind: "multiply" }>, sourceFactorIndexes: number[]): { payload: Expr; remaining: Expr } {
+  const signedProduct = splitSign(product);
+  const productValue = signedProduct.value as Extract<Expr, { kind: "multiply" }>;
+  const factors = productValue.factors;
   const selectedIndexSet = new Set(sourceFactorIndexes);
   const payloadFactors: Expr[] = [];
   const remainingFactors: Expr[] = [];
-  let remainingSign: Sign = 1;
+  let remainingSign: Sign = signedProduct.sign;
 
   factors.forEach((factor, index) => {
     if (!selectedIndexSet.has(index)) {

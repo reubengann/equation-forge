@@ -48,6 +48,31 @@ describe("exprToLatex", () => {
     expect(latex).toBe("c - a");
   });
 
+  it("prints products with a negative leading factor as subtraction in sums", () => {
+    const expr = parseLatexToExpr(String.raw`P \kappa + -T \beta`);
+    const latex = exprToLatex(expr, false);
+
+    expect(latex).toBe(String.raw`P \kappa - T \beta`);
+  });
+
+  it("prints products with a negative later factor as subtraction in sums", () => {
+    const expr = {
+      kind: "add",
+      terms: [
+        { kind: "symbol", name: "a" },
+        {
+          kind: "multiply",
+          factors: [
+            { kind: "symbol", name: "b" },
+            { kind: "symbol", name: "c", sign: -1 },
+          ],
+        },
+      ],
+    } as const;
+
+    expect(exprToLatex(expr, false)).toBe("a - b c");
+  });
+
   it("parses subtraction into signed terms", () => {
     const expr = parseLatexToExpr("a-b");
 
@@ -370,6 +395,14 @@ describe("exprToLatex", () => {
     );
     expect(exprToLatex(partialExpr, false)).toBe(
       String.raw`\frac{\partial{s}}{\partial{T}}`,
+    );
+  });
+
+  it("renders thin spaces before differential factors in ordinary products", () => {
+    const expr = parseLatexToExpr(String.raw`\mathrm{d}{v} = v_0 \beta \mathrm{d}{T} - v_0 \kappa \mathrm{d}{P}`);
+
+    expect(exprToLatex(expr, false)).toBe(
+      String.raw`\mathrm{d}{v} = v_0 \beta \,\mathrm{d}{T} - v_0 \kappa \,\mathrm{d}{P}`,
     );
   });
 

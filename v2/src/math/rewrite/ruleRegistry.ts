@@ -11,13 +11,14 @@ import { insertTermIntoSum } from "./rules/insertTermIntoSum";
 import { pivotAdditiveAcrossEquation } from "./rules/pivotAdditiveAcrossEquation";
 import { pivotMultiplicativeAcrossEquation } from "./rules/pivotMultiplicativeAcrossEquation";
 import { pivotMultiplicativeWithinProduct } from "./rules/pivotMultiplicativeWithinProduct";
-import { rearrangeFactorsInProduct } from "./rules/rearrangeFactorsInProduct";
+import { rearrangeFactorsInProduct, rearrangeMultipleFactorsInProduct } from "./rules/rearrangeFactorsInProduct";
 import { rearrangeTermsInSum } from "./rules/rearrangeTermsInSum";
 import type { DownwardRewriteRule, PivotRewriteRule, SingleContainerRule, UpwardRewriteRule } from "./types";
 
 export const SINGLE_CONTAINER_RULES: SingleContainerRule[] = [
   rearrangeTermsInSum(),
   rearrangeFactorsInProduct(),
+  rearrangeMultipleFactorsInProduct(),
 ];
 
 export const UPWARD_REWRITE_RULES: UpwardRewriteRule[] = [

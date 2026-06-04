@@ -134,6 +134,8 @@ type EquationEditorProps = {
   substituteSuggestionSources?: PadDefinitionSource[];
 };
 
+const DEBUG_DRAW_NODE_RECTS = false;
+
 export function EquationEditor({
   compiledDoc,
   onCanonicalLatexChanged,
@@ -165,6 +167,7 @@ export function EquationEditor({
   const [copySelectionFeedback, setCopySelectionFeedback] = useState<"idle" | "done">("idle");
   const [insertionLineStyle, setInsertionLineStyle] = useState<InsertionLineStyle | null>(null);
   const [marqueeDraft, setMarqueeDraft] = useState<MarqueeDraft | null>(null);
+  const [debugNodeRects, setDebugNodeRects] = useState<NodeRect[]>([]);
   const lastSelectionKeyRef = useRef<string>("null");
   const selectionStateRef = useRef(createSelectionControllerState());
   const lastDragEngineQueryKeyRef = useRef<string | null>(null);
@@ -206,6 +209,36 @@ export function EquationEditor({
     selection?.kind === "single" ? canToggleNegateSelection(compiledDoc, selection.nodeId) : false;
   const canToggleDelimiter = canToggleDelimiterSelection(compiledDoc, selection);
   const canCycleDelimiter = canCycleDelimiterSelection(compiledDoc, selection);
+
+  const publishGeometrySnapshot = useCallback(() => {
+    const snapshot = captureGeometryFromMathdiv(mathDivRef.current);
+    nodeRectsRef.current = snapshot?.nodeRects ?? [];
+    if (DEBUG_DRAW_NODE_RECTS) setDebugNodeRects(nodeRectsRef.current);
+    nodeResolutionRef.current = buildNodeResolutionSource(nodeRectsRef.current, compiledDoc.index);
+
+    if (!snapshot) {
+      lastSnapshotKeyRef.current = null;
+      currentDomSnapshotIdRef.current = null;
+      recordingHooks?.onDomSnapshotObserved?.({
+        domSnapshotId: null,
+        domSnapshot: null,
+      });
+      return null;
+    }
+
+    const snapshotKey = JSON.stringify(snapshot);
+    if (snapshotKey !== lastSnapshotKeyRef.current) {
+      snapshotCounterRef.current += 1;
+      currentDomSnapshotIdRef.current = `s${snapshotCounterRef.current}`;
+      lastSnapshotKeyRef.current = snapshotKey;
+    }
+
+    recordingHooks?.onDomSnapshotObserved?.({
+      domSnapshotId: currentDomSnapshotIdRef.current,
+      domSnapshot: snapshot,
+    });
+    return snapshot;
+  }, [compiledDoc.index, recordingHooks]);
 
   const updateSelection = useCallback(
     (nextSelection: TermSelection | null) => {
@@ -251,33 +284,10 @@ export function EquationEditor({
     const maxAttempts = 4;
     const captureSnapshotWhenReady = () => {
       attempts += 1;
-      const snapshot = captureGeometryFromMathdiv(mathDivRef.current);
-      nodeRectsRef.current = snapshot?.nodeRects ?? [];
-      nodeResolutionRef.current = buildNodeResolutionSource(nodeRectsRef.current, compiledDoc.index);
+      const snapshot = publishGeometrySnapshot();
       applySelectionHighlight(selectionRef.current);
       const hasRenderableDom = !!snapshot && snapshot.hostRect.height > 0 && snapshot.nodeRects.length > 0;
       if (hasRenderableDom || attempts >= maxAttempts) {
-        if (!snapshot) {
-          lastSnapshotKeyRef.current = null;
-          currentDomSnapshotIdRef.current = null;
-          recordingHooks?.onDomSnapshotObserved?.({
-            domSnapshotId: null,
-            domSnapshot: null,
-          });
-          return;
-        }
-
-        const snapshotKey = JSON.stringify(snapshot);
-        if (snapshotKey !== lastSnapshotKeyRef.current) {
-          snapshotCounterRef.current += 1;
-          currentDomSnapshotIdRef.current = `s${snapshotCounterRef.current}`;
-          lastSnapshotKeyRef.current = snapshotKey;
-        }
-
-        recordingHooks?.onDomSnapshotObserved?.({
-          domSnapshotId: currentDomSnapshotIdRef.current,
-          domSnapshot: snapshot,
-        });
         return;
       }
       rafId = requestAnimationFrame(captureSnapshotWhenReady);
@@ -286,7 +296,7 @@ export function EquationEditor({
     return () => {
       cancelAnimationFrame(rafId);
     };
-  }, [compiledDoc, recordingHooks]);
+  }, [compiledDoc, publishGeometrySnapshot]);
 
   useEffect(() => {
     applySelectionHighlight(selection);
@@ -664,6 +674,7 @@ export function EquationEditor({
     if (event.currentTarget.hasPointerCapture?.(event.pointerId) === false) {
       event.currentTarget.setPointerCapture(event.pointerId);
     }
+    publishGeometrySnapshot();
     const hit = resolveNodeAtPoint(pointer, nodeResolutionRef.current, compiledDoc.index);
     if (!hit.treeHitNodeId && !event.ctrlKey) {
       updateMarqueeDraft({
@@ -707,6 +718,7 @@ export function EquationEditor({
 
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     const pointerUp = { x: event.clientX, y: event.clientY };
+    publishGeometrySnapshot();
     const marqueeDraft = marqueeDraftRef.current;
     if (marqueeDraft && marqueeDraft.pointerId === event.pointerId) {
       const hasDragged =
@@ -820,6 +832,7 @@ export function EquationEditor({
     }
     if (!selection) return;
     if (!event.currentTarget.hasPointerCapture?.(event.pointerId)) return;
+    publishGeometrySnapshot();
 
     const destinationId = resolveSelectableNodeAtPoint(
       { x: event.clientX, y: event.clientY },
@@ -1012,6 +1025,16 @@ export function EquationEditor({
           height: marqueeRect.height,
         }
       : null;
+  const debugRectOverlays =
+    DEBUG_DRAW_NODE_RECTS && editorRootRect
+      ? debugNodeRects.map((rect) => ({
+          nodeId: rect.nodeId,
+          left: rect.left - editorRootRect.left,
+          top: rect.top - editorRootRect.top,
+          width: rect.width,
+          height: rect.height,
+        }))
+      : [];
 
   return (
     <div
@@ -1092,6 +1115,42 @@ export function EquationEditor({
             fontSize: "1.2rem",
           }}
         />
+        {debugRectOverlays.map((rect) => (
+          <div
+            key={rect.nodeId}
+            title={rect.nodeId}
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              pointerEvents: "none",
+              zIndex: 3,
+              transform: `translate(${rect.left}px, ${rect.top}px)`,
+              width: `${rect.width}px`,
+              height: `${rect.height}px`,
+              border: "1px solid rgba(0, 188, 212, 0.75)",
+              background: "rgba(0, 188, 212, 0.08)",
+              boxSizing: "border-box",
+            }}
+          >
+            <span
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                transform: "translateY(-100%)",
+                fontSize: "9px",
+                lineHeight: 1,
+                color: "#00e5ff",
+                background: "rgba(0, 0, 0, 0.65)",
+                padding: "1px 2px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {rect.nodeId}
+            </span>
+          </div>
+        ))}
         {insertionPreview && insertionLineStyle && (
           <div
             data-testid="insertion-preview-line"

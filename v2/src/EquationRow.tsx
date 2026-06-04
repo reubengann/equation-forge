@@ -210,7 +210,7 @@ export function EquationRow({
       onFocusCapture={onActivate}
       style={{
         width: "100%",
-        maxWidth: "1000px",
+        maxWidth: "1400px",
         display: "flex",
         flexDirection: "column",
         gap: "12px",

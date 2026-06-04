@@ -61,7 +61,47 @@ describe("extractFactorFromProduct", () => {
     );
 
     expect(exprToLatex(result!.payload!, false)).toBe("v_0");
-    expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`-\kappa \mathrm{d}{P}`);
+    expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`-\kappa \,\mathrm{d}{P}`);
+  });
+
+  it("keeps the parent product sign on the remainder when extracting multiple factors", () => {
+    const document = buildDocument(String.raw`a - \left(T - T_0\right) P_0 v_0 \beta`);
+    const rule = extractFactorFromProduct();
+    const productId = Object.entries(document.index.nodeById).find(
+      ([, expr]) =>
+        expr.kind === "multiply" &&
+        expr.sign === -1 &&
+        expr.factors.some((factor) => factor.kind === "symbol" && factor.name === "v_0") &&
+        expr.factors.some((factor) => factor.kind === "symbol" && factor.name === "\\beta"),
+    )?.[0];
+    expect(productId).toBeDefined();
+    const product = document.index.nodeById[productId!]!;
+    const children = document.index.childrenById[productId!] ?? [];
+    const selectedIds = children.filter((childId) => {
+      const child = document.index.nodeById[childId];
+      return child?.kind === "symbol" && (child.name === "v_0" || child.name === "\\beta");
+    });
+    expect(selectedIds).toHaveLength(2);
+    const firstSelectedId = selectedIds[0]!;
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "multi", containerNodeId: productId!, nodeIds: selectedIds },
+        payload: null,
+        destinationId: "n1",
+      },
+      {
+        childId: firstSelectedId,
+        parentId: productId!,
+        childNode: document.index.nodeById[firstSelectedId]!,
+        parentNode: product,
+        isFinalUpwardEdge: false,
+        pivotId: "n1",
+      },
+    );
+
+    expect(exprToLatex(result!.payload!, false)).toBe(String.raw`v_0 \beta`);
+    expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`-\left(T - T_0\right) P_0`);
   });
 
   it("does not extract a selected term from a sum as a factor", () => {
