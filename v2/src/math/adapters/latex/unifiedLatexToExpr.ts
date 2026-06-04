@@ -324,8 +324,32 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
     const next = nodes[nextIndex];
     if (!next || next.type === "whitespace") return null;
 
+    const withTrailingPrimes = (
+      variable: UnifiedNode[],
+      consumedNodes: number,
+    ): { variable: UnifiedNode[]; consumedNodes: number } => {
+      const variableNodes = [...variable];
+      let consumed = consumedNodes;
+      let primeIndex = startIndex + consumed + 1;
+      while (true) {
+        const candidate = nodes[primeIndex];
+        if (
+          !candidate ||
+          candidate.type !== "string" ||
+          typeof candidate.content !== "string" ||
+          !/^'+$/.test(candidate.content)
+        ) {
+          break;
+        }
+        variableNodes.push(candidate);
+        consumed += 1;
+        primeIndex += 1;
+      }
+      return { variable: variableNodes, consumedNodes: consumed };
+    };
+
     if (next.type === "group" && Array.isArray(next.content)) {
-      return { variable: next.content, consumedNodes: nextIndex - startIndex };
+      return withTrailingPrimes(next.content, nextIndex - startIndex);
     }
 
     if (next.type === "macro") {
@@ -353,7 +377,7 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
                 variableNodes.push(nodes[i + 1]!);
                 depth -= 1;
                 if (depth === 0) {
-                  return { variable: variableNodes, consumedNodes: i + 1 - startIndex };
+                  return withTrailingPrimes(variableNodes, i + 1 - startIndex);
                 }
                 i += 2;
                 continue;
@@ -363,7 +387,7 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
           }
         }
       }
-      return { variable: [next], consumedNodes: nextIndex - startIndex };
+      return withTrailingPrimes([next], nextIndex - startIndex);
     }
 
     if (next.type !== "string" || typeof next.content !== "string") return null;
@@ -386,10 +410,7 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
         } else if (candidate.type === "string" && candidate.content === close) {
           depth -= 1;
           if (depth === 0) {
-            return {
-              variable: variableNodes,
-              consumedNodes: i - startIndex,
-            };
+            return withTrailingPrimes(variableNodes, i - startIndex);
           }
         }
         i += 1;
@@ -398,7 +419,7 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
     }
 
     if (/^[a-zA-Z0-9]$/.test(next.content)) {
-      return { variable: [next], consumedNodes: nextIndex - startIndex };
+      return withTrailingPrimes([next], nextIndex - startIndex);
     }
     return null;
   };
@@ -1331,7 +1352,10 @@ class TokenParser {
       if (next.kind === "exponent") {
         this.next();
         const exponent = parseGroupNodes(next.value) ?? sym("missing");
-        expr = power(expr, exponent);
+        const primeOrder = primeOrderFromExponent(exponent);
+        expr = primeOrder
+          ? applyPrime(expr, primeOrder)
+          : power(expr, exponent);
         continue;
       }
       if (next.kind === "subscript") {
@@ -1344,10 +1368,7 @@ class TokenParser {
       }
       if (next.kind === "prime") {
         this.next();
-        expr =
-          expr.kind === "primed"
-            ? primed(expr.value, expr.order + next.order)
-            : primed(expr, next.order);
+        expr = applyPrime(expr, next.order);
         continue;
       }
       break;
@@ -1612,6 +1633,24 @@ class TokenParser {
 
     return sym("unexpected");
   }
+}
+
+function applyPrime(expr: Expr, order: number): Expr {
+  if (expr.kind === "primed") return primed(expr.value, expr.order + order);
+  if (expr.kind === "differential") return differential(applyPrime(expr.variable, order));
+  return primed(expr, order);
+}
+
+function primeOrderFromExponent(exponent: Expr): number | null {
+  if (exponent.kind === "symbol" && exponent.name === "prime") return 1;
+  if (exponent.kind !== "multiply") return null;
+
+  let order = 0;
+  for (const factor of exponent.factors) {
+    if (factor.kind !== "symbol" || factor.name !== "prime") return null;
+    order += 1;
+  }
+  return order > 0 ? order : null;
 }
 
 export function parseLatexToExprWithUnifiedLatexResult(

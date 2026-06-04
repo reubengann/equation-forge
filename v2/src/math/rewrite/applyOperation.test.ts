@@ -60,6 +60,18 @@ describe("applyOperationToRelation", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`2 \left(a + 1\right) = 2 \left(2\right)`);
   });
 
+  it("wraps compound sides inserted as partial derivative operands", () => {
+    const next = applyOperationToRelation(
+      expr(String.raw`v = v_0 \left[1 + \beta \left(T - T_0\right) - \kappa \left(P - P_0\right)\right]`),
+      expr(String.raw`\frac{\partial}{\partial T}\eqn`),
+    );
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\frac{\partial}{\partial{T}} v = \frac{\partial}{\partial{T}} \left(v_0 \left[1 + \beta \left(T - T_0\right) - \kappa \left(P - P_0\right)\right]\right)`,
+    );
+  });
+
   it("applies operation to inequalities", () => {
     const next = applyOperationToRelation(expr("a<b"), expr(String.raw`\sqrt{\eqn}`));
 

@@ -122,7 +122,9 @@ function replacePlaceholder(expr: Expr, part: Expr, placeholder: string): Expr |
     if (isExpr(value)) {
       const replacement = replacePlaceholder(value, part, placeholder);
       if (replacement) {
-        (nextExpr as Record<string, unknown>)[key] = replacement;
+        (nextExpr as Record<string, unknown>)[key] = shouldWrapReplacementInField(expr, key, value, replacement)
+          ? displayGroup("paren", replacement)
+          : replacement;
         changed = true;
       }
       continue;
@@ -145,6 +147,24 @@ function replacePlaceholder(expr: Expr, part: Expr, placeholder: string): Expr |
   }
 
   return changed ? nextExpr : null;
+}
+
+function shouldWrapReplacementInField(
+  parent: Expr,
+  key: string,
+  originalChild: Expr,
+  replacement: Expr,
+): boolean {
+  if (
+    (parent.kind !== "full_derivative_operator" && parent.kind !== "partial_derivative_operator") ||
+    key !== "operand"
+  ) {
+    return false;
+  }
+  if (!isPlaceholder(originalChild, EQUATION_PLACEHOLDER) && !isPlaceholder(originalChild, FRACTION_PART_PLACEHOLDER)) {
+    return false;
+  }
+  return replacement.kind === "add" || replacement.kind === "multiply" || isNegativeExpr(replacement);
 }
 
 function shouldWrapReplacementInArray(

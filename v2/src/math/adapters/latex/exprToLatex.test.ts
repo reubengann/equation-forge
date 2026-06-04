@@ -450,6 +450,16 @@ describe("exprToLatex", () => {
     );
   });
 
+  it("keeps primes inside differential variables", () => {
+    const expr = parseLatexToExpr(
+      String.raw`v\left(T,P\right)=A\left(P\right)\exp\left(\int\beta\left(T^{\prime}\right)\mathrm{d}{T}^{\prime}\right)`,
+    );
+
+    expect(exprToLatex(expr, false)).toBe(
+      String.raw`v \left(T , P\right) = A \left(P\right) \exp\left(\int \beta \left(T'\right) \,\mathrm{d}{T'}\right)`,
+    );
+  });
+
   it("converts display groups without tags", () => {
     const expr = parseLatexToExpr(String.raw`(a+b)`);
     const latex = exprToLatex(expr, false);

@@ -263,6 +263,24 @@ describe("parseLatexToExpr", () => {
     expect(expr.order).toBe(2);
   });
 
+  it("parses primed differential variables", () => {
+    const expr = parseLatexToExpr(String.raw`\mathrm{d}{T'}`);
+    expectExprKind(expr, "differential");
+    expectExprKind(expr.variable, "primed");
+    expectExprKind(expr.variable.value, "symbol");
+    expect(expr.variable.value.name).toBe("T");
+    expect(expr.variable.order).toBe(1);
+  });
+
+  it("parses MathLive prime exponents as primed differential variables", () => {
+    const expr = parseLatexToExpr(String.raw`\mathrm{d}{T}^{\prime}`);
+    expectExprKind(expr, "differential");
+    expectExprKind(expr.variable, "primed");
+    expectExprKind(expr.variable.value, "symbol");
+    expect(expr.variable.value.name).toBe("T");
+    expect(expr.variable.order).toBe(1);
+  });
+
   it("parses primed symbols with product", () => {
     const expr = parseLatexToExpr(String.raw`a x'`);
     expectExprKind(expr, "multiply");
