@@ -12,7 +12,7 @@ export function extractFactorFromProduct(): UpwardRewriteRule {
     toKind: "multiply",
     canApply: (context, edge) => {
       if (context.payload) {
-        return edge.parentNode.kind === "multiply" && isMultiplicativeIdentity(edge.childNode);
+        return edge.parentNode.kind === "multiply";
       }
       if (context.document.index.locationById[edge.parentId]?.field === "denominator") return false;
       if (context.selection.kind === "single") {
@@ -27,11 +27,11 @@ export function extractFactorFromProduct(): UpwardRewriteRule {
     },
     apply: (context: MoveContext, edge) => {
       if (context.payload) {
-        if (edge.parentNode.kind !== "multiply" || !isMultiplicativeIdentity(edge.childNode)) return null;
+        if (edge.parentNode.kind !== "multiply") return null;
         return {
           payload: cloneExpr(context.payload),
           updatedNodeId: edge.parentId,
-          updatedNode: productWithoutChild(context, edge.parentId, edge.parentNode, edge.childId),
+          updatedNode: productWithUpdatedChild(context, edge.parentId, edge.parentNode, edge.childId, edge.childNode),
         };
       }
 
@@ -124,9 +124,19 @@ function isMultiplicativeIdentity(expr: Expr): boolean {
   return expr.kind === "number" && expr.value === 1;
 }
 
-function productWithoutChild(context: MoveContext, parentId: string, parentNode: Extract<Expr, { kind: "multiply" }>, childId: string): Expr {
+function productWithUpdatedChild(
+  context: MoveContext,
+  parentId: string,
+  parentNode: Extract<Expr, { kind: "multiply" }>,
+  childId: string,
+  childNode: Expr,
+): Expr {
   const childIds = context.document.index.childrenById[parentId] ?? [];
   const childIndex = childIds.indexOf(childId);
   if (childIndex < 0) return cloneExpr(parentNode);
-  return collapseMultiplicativeFactors(parentNode.factors.filter((_, index) => index !== childIndex).map(cloneExpr));
+  return collapseMultiplicativeFactors(
+    parentNode.factors
+      .map((factor, index) => (index === childIndex ? cloneExpr(childNode) : cloneExpr(factor)))
+      .filter((factor) => !isMultiplicativeIdentity(factor)),
+  );
 }

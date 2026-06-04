@@ -104,6 +104,30 @@ describe("extractFactorFromProduct", () => {
     expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`-\left(T - T_0\right) P_0`);
   });
 
+  it("carries an existing payload through a product while preserving the updated child", () => {
+    const document = buildDocument(String.raw`\frac{c_P}{T} \,\mathrm{d}{T}`);
+    const rule = extractFactorFromProduct();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "single", nodeId: "n2" },
+        payload: { kind: "symbol", name: "c_P" },
+        destinationId: "n1",
+      },
+      {
+        childId: "n2",
+        parentId: "n1",
+        childNode: { kind: "divide", numerator: { kind: "number", value: 1 }, denominator: { kind: "symbol", name: "T" } },
+        parentNode: document.index.nodeById.n1!,
+        isFinalUpwardEdge: false,
+        pivotId: "n1",
+      },
+    );
+
+    expect(exprToLatex(result!.payload!, false)).toBe("c_P");
+    expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`\frac{1}{T} \,\mathrm{d}{T}`);
+  });
+
   it("does not extract a selected term from a sum as a factor", () => {
     const document = buildDocument("a + b = c");
     const rule = extractFactorFromProduct();

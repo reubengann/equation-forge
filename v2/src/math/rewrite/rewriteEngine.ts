@@ -173,7 +173,7 @@ export class RulesPipeline {
       const destinationNode = this.document.index.nodeById[normalizedDestinationId];
       if (!containerNode || !selectedNode || !destinationNode) return null;
 
-      if (shouldUseGeneralPipelineForSingleContainerMove(this.document, this.moveType, this.destinationId)) {
+      if (shouldUseGeneralPipelineForSingleContainerMove(this.document, this.moveType, this.selection.nodeId, this.destinationId)) {
         return this.runGeneralPipeline(context, shouldExecute);
       }
 
@@ -577,14 +577,24 @@ function isReorderContainer(expr: Expr): boolean {
 function shouldUseGeneralPipelineForSingleContainerMove(
   document: CompiledMathDocument,
   moveType: MoveType,
+  selectionNodeId: string,
   destinationId: string,
 ): boolean {
   if (moveType !== "multiplicative") return false;
 
-  let cursor: string | null = destinationId;
+  if (hasAncestorLocationField(document, selectionNodeId, "numerator")) return true;
+  return hasAncestorLocationField(document, destinationId, "numerator");
+}
+
+function hasAncestorLocationField(
+  document: CompiledMathDocument,
+  nodeId: string,
+  field: string,
+): boolean {
+  let cursor: string | null = nodeId;
   while (cursor) {
     const location = document.index.locationById[cursor];
-    if (location?.field === "numerator") return true;
+    if (location?.field === field) return true;
     cursor = document.index.parentById[cursor] ?? null;
   }
   return false;

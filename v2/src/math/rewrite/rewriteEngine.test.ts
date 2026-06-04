@@ -184,6 +184,19 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe(String.raw`\frac{\kappa}{2} \left(P - P_0\right)`);
   });
 
+  it("moves a numerator factor out of an integral", () => {
+    const document = buildDocument(String.raw`0 = \int_{T_0}^{T} \frac{c_P}{T} \,\mathrm{d}{T}`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n8" },
+      destinationId: "n3",
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`0 = c_P \int_{T_0}^{T} \frac{1}{T} \,\mathrm{d}{T}`);
+  });
+
   it("splits a selected term out of a negative fraction numerator additively", () => {
     const document = buildDocument(String.raw`P_0+\frac{\beta T_0}{\kappa}-\frac{v-v_0}{2 v_0 \kappa}`);
     const result = executeMove({
