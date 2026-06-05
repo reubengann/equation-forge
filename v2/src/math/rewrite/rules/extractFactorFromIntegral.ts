@@ -1,5 +1,6 @@
 import { cloneExpr } from "../../ast/utils";
 import type { Expr } from "../../ast/expr";
+import { applySign, splitSign } from "../algebraUtils";
 import type { MoveContext, UpwardRewriteRule } from "../types";
 
 type IntegralLikeExpr = Extract<
@@ -26,7 +27,8 @@ export function extractFactorFromIntegral(): UpwardRewriteRule {
       if (containsDifferential(context.payload)) return null;
       if (context.document.index.locationById[edge.childId]?.field !== "integrand") return null;
 
-      const remainingIntegral = withIntegrand(edge.parentNode, edge.childNode);
+      const signedIntegral = splitSign(edge.parentNode);
+      const remainingIntegral = withIntegrand(signedIntegral.value as IntegralLikeExpr, edge.childNode);
 
       if (!edge.isFinalUpwardEdge) {
         return {
@@ -40,8 +42,8 @@ export function extractFactorFromIntegral(): UpwardRewriteRule {
 
       const outputFactors =
         context.destinationSlot === "after"
-          ? [remainingIntegral, cloneExpr(context.payload)]
-          : [cloneExpr(context.payload), remainingIntegral];
+          ? [remainingIntegral, applySign(signedIntegral.sign, cloneExpr(context.payload))]
+          : [applySign(signedIntegral.sign, cloneExpr(context.payload)), remainingIntegral];
 
       return {
         updatedNodeId: edge.parentId,

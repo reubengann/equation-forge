@@ -109,6 +109,40 @@ describe("toggleDelimiterSelection", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`\frac{-\left(v + v_0\right)^{2}}{2 v_0 \kappa}`);
   });
 
+  it("pushes a negative fraction sign out when removing delimiters around a product factor", () => {
+    const document = buildDocument(
+      String.raw`w = \left(-\frac{\kappa v_0}{2}\right) \left(P_f^{2} - P_i^{2}\right)`,
+    );
+    const groupId = Object.entries(document.index.nodeById).find(
+      ([, expr]) => expr.kind === "display_group" && expr.expression.kind === "divide",
+    )?.[0];
+    expect(groupId).toBeDefined();
+
+    const next = toggleDelimiterSelection(document, { kind: "single", nodeId: groupId! });
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`w = -\frac{\kappa v_0}{2} \left(P_f^{2} - P_i^{2}\right)`,
+    );
+  });
+
+  it("removes an enclosing delimiter when the selected node is inside it", () => {
+    const document = buildDocument(
+      String.raw`w = \left(-\frac{\kappa v_0}{2}\right) \left(P_f^{2} - P_i^{2}\right)`,
+    );
+    const fractionId = Object.entries(document.index.nodeById).find(
+      ([, expr]) => expr.kind === "divide",
+    )?.[0];
+    expect(fractionId).toBeDefined();
+
+    const next = toggleDelimiterSelection(document, { kind: "single", nodeId: fractionId! });
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`w = -\frac{\kappa v_0}{2} \left(P_f^{2} - P_i^{2}\right)`,
+    );
+  });
+
   it("removes delimiters around a whole fraction numerator", () => {
     const document = buildDocument(String.raw`\frac{\left(1+\cos\left(2 x\right)\right)}{2}`);
     const next = toggleDelimiterSelection(document, { kind: "single", nodeId: "n2" });

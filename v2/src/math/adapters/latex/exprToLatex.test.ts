@@ -73,6 +73,38 @@ describe("exprToLatex", () => {
     expect(exprToLatex(expr, false)).toBe("a - b c");
   });
 
+  it("prints a leading negative product factor as the product sign", () => {
+    const expr = parseLatexToExpr(
+      String.raw`w = -\frac{\kappa v_0}{2} \left(P_f^{2} - P_i^{2}\right)`,
+    );
+
+    expect(exprToLatex(expr, false)).toBe(
+      String.raw`w = -\frac{\kappa v_0}{2} \left(P_f^{2} - P_i^{2}\right)`,
+    );
+  });
+
+  it("prints a later negative product factor as the product sign", () => {
+    const expr = {
+      kind: "multiply",
+      factors: [
+        {
+          kind: "divide",
+          numerator: { kind: "symbol", name: "R" },
+          denominator: { kind: "symbol", name: "c_v" },
+        },
+        {
+          kind: "call",
+          sign: -1,
+          callee: { kind: "symbol", name: "ln" },
+          args: [{ kind: "symbol", name: "x" }],
+          delimiter: "paren",
+        },
+      ],
+    } as const;
+
+    expect(exprToLatex(expr, false)).toBe(String.raw`-\frac{R}{c_v} \ln\left(x\right)`);
+  });
+
   it("prints signed fractions as subtraction in sums", () => {
     const expr = {
       kind: "add",

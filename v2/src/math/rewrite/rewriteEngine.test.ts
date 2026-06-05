@@ -184,6 +184,38 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe(String.raw`\frac{\kappa}{2} \left(P - P_0\right)`);
   });
 
+  it("moves a sibling product factor into an existing fraction numerator", () => {
+    const document = buildDocument(
+      String.raw`\ln\left(1 + \frac{1}{T_0} \left(T - T_0\right)\right) = a`,
+    );
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n10" },
+      destinationId: "n8",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\ln\left(1 + \frac{\left(T - T_0\right)}{T_0}\right) = a`);
+  });
+
+  it("moves a leading product factor into a following fraction numerator without dropping siblings", () => {
+    const document = buildDocument(
+      String.raw`\Delta T = T_0 \frac{1}{c_P} \Delta P \left(\frac{\partial{v}}{\partial{T}}\right)_{P}`,
+    );
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n4" },
+      destinationId: "n6",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(
+      String.raw`\Delta T = \frac{T_0}{c_P} \Delta P \left(\frac{\partial{v}}{\partial{T}}\right)_{P}`,
+    );
+  });
+
   it("moves a numerator factor out of an integral", () => {
     const document = buildDocument(String.raw`0 = \int_{T_0}^{T} \frac{c_P}{T} \,\mathrm{d}{T}`);
     const result = executeMove({
@@ -195,6 +227,24 @@ describe("canExecuteMove", () => {
     });
 
     expect(result?.latex).toBe(String.raw`0 = c_P \int_{T_0}^{T} \frac{1}{T} \,\mathrm{d}{T}`);
+  });
+
+  it("moves the sign with a factor extracted from a negative integral", () => {
+    const document = buildDocument(String.raw`W = -\int_{v_i}^{v_f} P \kappa v \,\mathrm{d}{P}`);
+    const selectedNodeId = findNodeId(
+      document,
+      (expr) => expr.kind === "symbol" && expr.name === "\\kappa",
+    );
+    const integralId = findNodeId(document, (expr) => expr.kind === "integral");
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: selectedNodeId },
+      destinationId: integralId,
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`W = -\kappa \int_{v_i}^{v_f} P v \,\mathrm{d}{P}`);
   });
 
   it("splits a selected term out of a negative fraction numerator additively", () => {

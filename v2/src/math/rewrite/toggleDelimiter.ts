@@ -47,6 +47,12 @@ function resolveSingleSelection(document: CompiledMathDocument, nodeId: string):
   if (!selected) return null;
 
   if (selected.kind !== "display_group") {
+    const parentId = document.index.parentById[nodeId];
+    const parent = parentId ? document.index.nodeById[parentId] : null;
+    if (parent?.kind === "display_group") {
+      return resolveSingleSelection(document, parentId!);
+    }
+
     return {
       nodeId,
       replacement: displayGroup("paren", cloneExpr(selected)),
@@ -71,6 +77,22 @@ function resolveSingleSelection(document: CompiledMathDocument, nodeId: string):
   }
 
   const signedSelected = splitSign(selected);
+  if (
+    signedSelected.sign === 1 &&
+    signedSelected.value.kind === "display_group" &&
+    parentId &&
+    parent?.kind === "multiply" &&
+    location?.index != null
+  ) {
+    const signedExpression = splitSign(signedSelected.value.expression);
+    if (signedExpression.sign === -1 && signedExpression.value.kind !== "add") {
+      return {
+        nodeId: parentId,
+        replacement: replaceGroupedFactorWithSignedExpression(parent, signedExpression.value, -1, location.index),
+      };
+    }
+  }
+
   if (signedSelected.sign === -1 && signedSelected.value.kind === "display_group" && signedSelected.value.expression.kind === "add") {
     if (parentId && parent?.kind === "add" && location?.index != null) {
       return {
@@ -160,6 +182,24 @@ function flattenGroupedProductIntoProduct(
   });
 
   return withSign(multiply(unsignedFactors), sign);
+}
+
+function replaceGroupedFactorWithSignedExpression(
+  parent: Extract<Expr, { kind: "multiply" }>,
+  expression: Expr,
+  expressionSign: Sign,
+  groupedIndex: number,
+): Expr {
+  const signedParent = splitSign(parent);
+  const parentProduct = signedParent.value as Extract<Expr, { kind: "multiply" }>;
+  let sign: Sign = multiplySigns(signedParent.sign, expressionSign);
+  const factors = parentProduct.factors.map((factor, index) => {
+    if (index === groupedIndex) return cloneExpr(expression);
+    const signedFactor = splitSign(factor);
+    sign = multiplySigns(sign, signedFactor.sign);
+    return signedFactor.value;
+  });
+  return withSign(multiply(factors), sign);
 }
 
 function resolveMultiSelectionRange(

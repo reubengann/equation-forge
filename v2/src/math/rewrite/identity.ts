@@ -77,6 +77,13 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
     apply: expandNaturalLogQuotient,
   },
   {
+    id: "combine-log-coefficient",
+    label: "a ln b -> ln(b^a)",
+    caveat: POSITIVE_LOG_CAVEAT,
+    defaultPriority: 85,
+    apply: combineLogCoefficient,
+  },
+  {
     id: "expand-exponential-sum",
     label: "exp(x + y) -> exp(x) exp(y)",
     defaultPriority: 80,
@@ -247,6 +254,29 @@ function expandNaturalLogQuotient(expr: Expr): Expr | null {
   ]);
 }
 
+function combineLogCoefficient(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  const unwrapped = unwrapDisplayGroup(signed.value);
+  if (unwrapped.kind !== "multiply" || unwrapped.factors.length < 2) return null;
+
+  const logEntries = unwrapped.factors
+    .map((factor, index) => {
+      const argument = naturalLogArgument(factor);
+      return argument ? { index, argument } : null;
+    })
+    .filter((entry): entry is { index: number; argument: Expr } => entry !== null);
+  if (logEntries.length !== 1) return null;
+
+  const [logEntry] = logEntries;
+  const coefficientFactors = unwrapped.factors.filter((_, index) => index !== logEntry.index).map(cloneExpr);
+  if (coefficientFactors.length === 0) return null;
+
+  const exponent = signed.sign === -1
+    ? flipSign(collapseProduct(coefficientFactors))
+    : collapseProduct(coefficientFactors);
+  return naturalLogWithCompoundParens(power(unwrapDisplayGroup(logEntry.argument), exponent));
+}
+
 function expandExponentialSum(expr: Expr): Expr | null {
   const exponential = exponentialArgument(expr);
   if (!exponential) return null;
@@ -346,7 +376,7 @@ function naturalLog(argument: Expr): Expr {
 
 function naturalLogWithCompoundParens(argument: Expr): Expr {
   const unwrapped = unwrapDisplayGroup(argument);
-  return unwrapped.kind === "multiply" || unwrapped.kind === "divide" || unwrapped.kind === "add"
+  return unwrapped.kind === "multiply" || unwrapped.kind === "divide" || unwrapped.kind === "add" || unwrapped.kind === "power"
     ? namedCallWithDelimiter("ln", argument, "paren")
     : naturalLog(argument);
 }
@@ -393,6 +423,12 @@ function namedCall(name: string, argument: Expr): Expr {
 
 function namedCallWithDelimiter(name: string, argument: Expr, delimiter: "paren" | "bracket" | "bare"): Expr {
   return call(sym(name), [cloneExpr(argument)], delimiter);
+}
+
+function collapseProduct(factors: Expr[]): Expr {
+  if (factors.length === 0) return num(1);
+  if (factors.length === 1) return cloneExpr(factors[0]);
+  return multiply(factors.map(cloneExpr));
 }
 
 function complementArgument(expr: Expr): Expr | null {

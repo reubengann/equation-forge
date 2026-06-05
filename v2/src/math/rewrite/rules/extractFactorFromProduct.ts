@@ -12,7 +12,7 @@ export function extractFactorFromProduct(): UpwardRewriteRule {
     toKind: "multiply",
     canApply: (context, edge) => {
       if (context.payload) {
-        return edge.parentNode.kind === "multiply";
+        return edge.parentNode.kind === "multiply" && !edge.isFinalUpwardEdge;
       }
       if (context.document.index.locationById[edge.parentId]?.field === "denominator") return false;
       if (context.selection.kind === "single") {
@@ -27,7 +27,7 @@ export function extractFactorFromProduct(): UpwardRewriteRule {
     },
     apply: (context: MoveContext, edge) => {
       if (context.payload) {
-        if (edge.parentNode.kind !== "multiply") return null;
+        if (edge.parentNode.kind !== "multiply" || edge.isFinalUpwardEdge) return null;
         return {
           payload: cloneExpr(context.payload),
           updatedNodeId: edge.parentId,

@@ -50,7 +50,9 @@ class LatexGenerator {
 
   generateTrigPower(expr: Extract<Expr, { kind: "power" }>, id: string): string {
     const base = expr.base;
-    if (!this.isTrigPowerBase(base)) return this.wrap(this.generate(base) + "^" + `{${this.generate(expr.exponent)}}`, id);
+    if (!this.isTrigPowerBase(base)) {
+      return this.wrap(`${this.generatePowerBase(base)}^{${this.generate(expr.exponent)}}`, id);
+    }
 
     // Trig powers are conventionally written as \sin^{2} x, meaning (\sin x)^2.
     this.newId(); // Reserve the call id so subsequent rendered ids stay aligned with the compiled index.
@@ -110,7 +112,7 @@ class LatexGenerator {
       case "multiply":
         return this.generateProductFactors(expr.factors);
       case "power":
-        return `${this.generate(expr.base)}^{${this.generate(expr.exponent)}}`;
+        return `${this.generatePowerBase(expr.base)}^{${this.generate(expr.exponent)}}`;
       case "negate":
         return "-" + this.generate(expr.value, "prefixOperand");
       case "divide":
@@ -179,6 +181,12 @@ class LatexGenerator {
       integratedThing = this.generate(signedIntegrand.value);
     }
     return `${signedIntegrand.sign === -1 ? "-" : ""}\\int${maybeLower}${maybeUpper} ${integratedThing}`;
+  }
+
+  generatePowerBase(base: Expr): string {
+    const rendered = this.generate(base);
+    if (base.kind === "display_group") return rendered;
+    return shouldGroupPowerBase(base) ? `\\left(${rendered}\\right)` : rendered;
   }
 
   generateUnsignedWithIdLegacy(expr: Expr, id: string): string {
@@ -351,10 +359,17 @@ class LatexGenerator {
   }
 
   generateProductFactors(factors: Expr[]): string {
-    return factors
+    let productSign: 1 | -1 = 1;
+    const unsignedFactors = factors.map((factor) => {
+      if (factor.kind === "multiply" && splitSign(factor).sign === -1) return factor;
+      const signed = splitSign(factor);
+      if (signed.sign === -1) productSign = productSign === 1 ? -1 : 1;
+      return signed.value;
+    });
+    return unsignedFactors
       .map((factor, index) => {
         const rendered = this.generate(factor, "productFactor");
-        if (index === 0) return rendered;
+        if (index === 0) return `${productSign === -1 ? "-" : ""}${rendered}`;
         return factor.kind === "differential" ? `\\,${rendered}` : rendered;
       })
       .join(" ");
@@ -374,6 +389,17 @@ function shouldGroupNegativeProductFactor(expr: Expr): boolean {
 
 function shouldGroupProductFactor(expr: Expr): boolean {
   return expr.kind === "add" || (expr.kind === "multiply" && startsWithNegativeFactor(expr));
+}
+
+function shouldGroupPowerBase(expr: Expr): boolean {
+  const signed = splitSign(expr);
+  return (
+    signed.sign === -1 ||
+    signed.value.kind === "add" ||
+    signed.value.kind === "multiply" ||
+    signed.value.kind === "divide" ||
+    signed.value.kind === "display_group"
+  );
 }
 
 function startsWithNegativeFactor(expr: Extract<Expr, { kind: "multiply" }>): boolean {

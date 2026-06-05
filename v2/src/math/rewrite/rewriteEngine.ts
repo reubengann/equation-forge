@@ -9,6 +9,7 @@ import {
   SINGLE_CONTAINER_RULES,
   UPWARD_REWRITE_RULES,
 } from "./ruleRegistry";
+import { structuralKey } from "./algebraUtils";
 import type {
   InsertionPreview,
   InsertionSlot,
@@ -158,6 +159,9 @@ export class RulesPipeline {
         destinationId: this.destinationId,
         destinationSlot: this.destinationSlot,
       };
+      if (shouldUseGeneralPipelineForSingleContainerMove(this.document, this.moveType, this.selection.nodeId, this.destinationId)) {
+        return this.runGeneralPipeline(context, shouldExecute);
+      }
       const sourceParentId = this.document.index.parentById[this.selection.nodeId];
       const destinationParentId = this.document.index.parentById[this.destinationId];
       if (!sourceParentId || !destinationParentId) {
@@ -172,10 +176,6 @@ export class RulesPipeline {
       const selectedNode = this.document.index.nodeById[this.selection.nodeId];
       const destinationNode = this.document.index.nodeById[normalizedDestinationId];
       if (!containerNode || !selectedNode || !destinationNode) return null;
-
-      if (shouldUseGeneralPipelineForSingleContainerMove(this.document, this.moveType, this.selection.nodeId, this.destinationId)) {
-        return this.runGeneralPipeline(context, shouldExecute);
-      }
 
       const containerIndexes = resolveContainerIndexes({
         document: this.document,
@@ -522,15 +522,25 @@ function rebuildUpdatedSubtree(
   for (const childId of childIds) {
     if (hasDirectUpdate && !hasUpdatedNodeInSubtree(document, childId, updatedNodes)) continue;
     const location = document.index.locationById[childId];
+    const originalChild = document.index.nodeById[childId];
     if (!location.field) continue;
+    if (!originalChild) return null;
     const updatedChild = rebuildUpdatedSubtree(document, childId, updatedNodes);
     if (!updatedChild) return null;
 
+    if (hasDirectUpdate && updatedNodes[childId] && structuralKey(next) === structuralKey(originalChild)) {
+      return updatedChild;
+    }
+
     if (location.index != null) {
       const current = nextRecord[location.field];
-      if (!Array.isArray(current) || location.index >= current.length) continue;
+      if (!Array.isArray(current)) continue;
       const nextChildren = [...current];
-      nextChildren[location.index] = updatedChild;
+      const replacementIndex = hasDirectUpdate
+        ? nextChildren.findIndex((child) => isExprNode(child) && structuralKey(child) === structuralKey(originalChild))
+        : location.index;
+      if (replacementIndex < 0 || replacementIndex >= nextChildren.length) continue;
+      nextChildren[replacementIndex] = updatedChild;
       nextRecord[location.field] = nextChildren;
     } else if (location.field in nextRecord) {
       nextRecord[location.field] = updatedChild;
@@ -549,6 +559,10 @@ function hasUpdatedNodeInSubtree(
   return (document.index.childrenById[nodeId] ?? []).some((childId) =>
     hasUpdatedNodeInSubtree(document, childId, updatedNodes),
   );
+}
+
+function isExprNode(value: unknown): value is Expr {
+  return typeof value === "object" && value !== null && "kind" in value;
 }
 
 function serializeRuleMoveResult(

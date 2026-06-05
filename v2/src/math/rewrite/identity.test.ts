@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { exprToLatex, parseLatexToExpr } from "../adapters/latex";
+import { displayGroup, divide, multiply, sym } from "../ast";
 import type { Expr } from "../ast";
 import { compileMathDocumentFromExpr, type CompiledMathDocument } from "../compile/compileMathDocument";
+import { replaceSelectionWithExpr } from "./selectionRewrite";
 import {
   applyDefaultIdentityRewrite,
   applyDefaultIdentityRewriteToSelection,
@@ -113,6 +115,266 @@ describe("identity rewrites", () => {
         "expand-natural-log-quotient",
       ),
     ).toBe(String.raw`\ln\left(T v_0\right) - \ln\left(T_0 v\right)`);
+  });
+
+  it("combines a natural log coefficient into a power", () => {
+    const expr = parse(String.raw`a\ln b`);
+    const options = getApplicableIdentityRewrites(expr);
+
+    expect(options.map((option) => option.id)).toContain("combine-log-coefficient");
+    expect(options.find((option) => option.id === "combine-log-coefficient")).toMatchObject({
+      caveat: "Assumes the log arguments are positive.",
+    });
+    expect(rewriteLatex(String.raw`a\ln b`, "combine-log-coefficient")).toBe(String.raw`\ln\left(b^{a}\right)`);
+    expect(rewriteLatex(String.raw`\ln b\,a`, "combine-log-coefficient")).toBe(
+      String.raw`\ln\left(b^{a}\right)`,
+    );
+    expect(rewriteLatex(String.raw`-a\ln b`, "combine-log-coefficient")).toBe(
+      String.raw`\ln\left(b^{-a}\right)`,
+    );
+  });
+
+  it("groups a fractional log argument when combining a log coefficient", () => {
+    expect(
+      rewriteLatex(
+        String.raw`-\frac{R}{c_v} \ln\left(\frac{v_c - b}{v_b - b}\right)`,
+        "combine-log-coefficient",
+      ),
+    ).toBe(String.raw`\ln\left(\left(\frac{v_c - b}{v_b - b}\right)^{-\frac{R}{c_v}}\right)`);
+  });
+
+  it("does not stack groups for a combined log coefficient from compiled AST shape", () => {
+    const expr = {
+      kind: "multiply",
+      factors: [
+        {
+          kind: "divide",
+          numerator: {
+            kind: "symbol",
+            name: "R",
+          },
+          denominator: {
+            kind: "symbol",
+            name: "c_v",
+          },
+          sign: -1,
+        },
+        {
+          kind: "call",
+          callee: {
+            kind: "symbol",
+            name: "ln",
+          },
+          args: [
+            {
+              kind: "divide",
+              numerator: {
+                kind: "add",
+                terms: [
+                  {
+                    kind: "symbol",
+                    name: "v_c",
+                  },
+                  {
+                    kind: "symbol",
+                    name: "b",
+                    sign: -1,
+                  },
+                ],
+              },
+              denominator: {
+                kind: "add",
+                terms: [
+                  {
+                    kind: "symbol",
+                    name: "v_b",
+                  },
+                  {
+                    kind: "symbol",
+                    name: "b",
+                    sign: -1,
+                  },
+                ],
+              },
+            },
+          ],
+          delimiter: "paren",
+        },
+      ],
+    } as const;
+    const rewritten = applyIdentityRewrite(expr, "combine-log-coefficient");
+
+    expect(rewritten).not.toBeNull();
+    expect(exprToLatex(rewritten!, false)).toBe(
+      String.raw`\ln\left(\left(\frac{v_c - b}{v_b - b}\right)^{-\frac{R}{c_v}}\right)`,
+    );
+  });
+
+  it("does not stack groups when applying log coefficient rewrite to compiled AST selection", () => {
+    const expr = {
+      kind: "multiply",
+      factors: [
+        {
+          kind: "divide",
+          numerator: {
+            kind: "symbol",
+            name: "R",
+          },
+          denominator: {
+            kind: "symbol",
+            name: "c_v",
+          },
+          sign: -1,
+        },
+        {
+          kind: "call",
+          callee: {
+            kind: "symbol",
+            name: "ln",
+          },
+          args: [
+            {
+              kind: "divide",
+              numerator: {
+                kind: "add",
+                terms: [
+                  {
+                    kind: "symbol",
+                    name: "v_c",
+                  },
+                  {
+                    kind: "symbol",
+                    name: "b",
+                    sign: -1,
+                  },
+                ],
+              },
+              denominator: {
+                kind: "add",
+                terms: [
+                  {
+                    kind: "symbol",
+                    name: "v_b",
+                  },
+                  {
+                    kind: "symbol",
+                    name: "b",
+                    sign: -1,
+                  },
+                ],
+              },
+            },
+          ],
+          delimiter: "paren",
+        },
+      ],
+    } as const;
+    const document = compileMathDocumentFromExpr("", expr);
+    const next = applyIdentityRewriteToSelection(document, { kind: "single", nodeId: "n1" }, "combine-log-coefficient");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\ln\left(\left(\frac{v_c - b}{v_b - b}\right)^{-\frac{R}{c_v}}\right)`,
+    );
+  });
+
+  it("does not stack groups when replacing the dumped selected equation side", () => {
+    const document = buildDocument(
+      String.raw`\ln\left(\frac{T_c}{T_b}\right) = -\frac{R}{c_v} \ln\left(\frac{v_c - b}{v_b - b}\right)`,
+    );
+    const replacement = {
+      kind: "call",
+      callee: {
+        kind: "symbol",
+        name: "ln",
+      },
+      args: [
+        {
+          kind: "power",
+          base: {
+            kind: "divide",
+            numerator: {
+              kind: "add",
+              terms: [
+                {
+                  kind: "symbol",
+                  name: "v_c",
+                },
+                {
+                  kind: "symbol",
+                  name: "b",
+                  sign: -1,
+                },
+              ],
+            },
+            denominator: {
+              kind: "add",
+              terms: [
+                {
+                  kind: "symbol",
+                  name: "v_b",
+                },
+                {
+                  kind: "symbol",
+                  name: "b",
+                  sign: -1,
+                },
+              ],
+            },
+          },
+          exponent: {
+            kind: "divide",
+            numerator: {
+              kind: "symbol",
+              name: "R",
+            },
+            denominator: {
+              kind: "symbol",
+              name: "c_v",
+            },
+            sign: -1,
+          },
+        },
+      ],
+      delimiter: "paren",
+    } as const;
+    const next = replaceSelectionWithExpr(document, { kind: "single", nodeId: "n7" }, replacement);
+    const latex = exprToLatex(next!, false);
+
+    expect(next).not.toBeNull();
+    expect(latex).toBe(
+      String.raw`\ln\left(\frac{T_c}{T_b}\right) = \ln\left(\left(\frac{v_c - b}{v_b - b}\right)^{-\frac{R}{c_v}}\right)`,
+    );
+    expect(roundTripLatex(latex)).toBe(latex);
+  });
+
+  it("does not stack existing groups around a combined log power base", () => {
+    const expr = multiply([
+      divide(sym("R"), sym("c_v"), { sign: -1 }),
+      {
+        kind: "call",
+        callee: sym("ln"),
+        args: [
+          displayGroup(
+            "paren",
+            displayGroup(
+              "paren",
+              divide(
+                displayGroup("paren", { kind: "add", terms: [sym("v_c"), { kind: "symbol", name: "b", sign: -1 }] }),
+                displayGroup("paren", { kind: "add", terms: [sym("v_b"), { kind: "symbol", name: "b", sign: -1 }] }),
+              ),
+            ),
+          ),
+        ],
+        delimiter: "paren",
+      },
+    ]);
+    const rewritten = applyIdentityRewrite(expr, "combine-log-coefficient");
+
+    expect(rewritten).not.toBeNull();
+    expect(exprToLatex(rewritten!, false)).toBe(
+      String.raw`\ln\left(\left(\frac{\left(v_c - b\right)}{\left(v_b - b\right)}\right)^{-\frac{R}{c_v}}\right)`,
+    );
   });
 
   it("expands and combines exponential sums", () => {
@@ -242,6 +504,31 @@ describe("identity rewrites for selections", () => {
     const latex = exprToLatex(next!, false);
     expect(latex).toBe(String.raw`x + \ln \left(x b\right) `);
     expect(roundTripLatex(latex)).toBe(String.raw`x + \ln\left(x b\right)`);
+  });
+
+  it("combines a selected log coefficient inside an equation", () => {
+    const document = buildDocument(String.raw`x=a\ln b+y`);
+    const selectedNodeId = Object.entries(document.index.nodeById).find(([, expr]) => {
+      return expr.kind === "multiply" && expr.factors.some(naturalLogName);
+    })?.[0];
+
+    expect(selectedNodeId).toBeDefined();
+    const options = getApplicableIdentityRewritesForSelection(document, {
+      kind: "single",
+      nodeId: selectedNodeId!,
+    });
+    const next = applyIdentityRewriteToSelection(
+      document,
+      {
+        kind: "single",
+        nodeId: selectedNodeId!,
+      },
+      "combine-log-coefficient",
+    );
+
+    expect(options.map((option) => option.id)).toContain("combine-log-coefficient");
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`x = \ln\left(b^{a}\right) + y`);
   });
 
   it("expands a selected negative natural log product", () => {
