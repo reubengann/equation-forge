@@ -29,6 +29,11 @@ type CleanupContext = {
   maxLocalIterations: number;
 };
 
+type Rational = {
+  numerator: number;
+  denominator: number;
+};
+
 export function canCleanupExpr(expr: Expr): boolean {
   return cleanupExpr(expr) !== null;
 }
@@ -93,6 +98,8 @@ function cleanupLocalExpr(expr: Expr): Expr | null {
       return cleanupNegate(expr);
     case "power":
       return cleanupPower(expr);
+    case "call":
+      return cleanupCall(expr);
     default:
       return null;
   }
@@ -182,16 +189,16 @@ function cleanupChildren(expr: Expr, context: CleanupContext, depth: number): Ex
 function cleanupAdd(expr: Extract<Expr, { kind: "add" }>): Expr | null {
   const terms = expr.terms.map(cloneExpr);
   const keptTerms: Expr[] = [];
-  let numericSum = 0;
+  let numericSum: Rational = { numerator: 0, denominator: 1 };
   let numericTermCount = 0;
   let firstNumericTermIndex = 0;
   let changed = false;
 
   for (const term of terms) {
-    const numericValue = numericLiteralValue(term);
+    const numericValue = numericRationalValue(term);
     if (numericValue !== null) {
       if (numericTermCount === 0) firstNumericTermIndex = keptTerms.length;
-      numericSum += numericValue;
+      numericSum = addRationals(numericSum, numericValue);
       numericTermCount += 1;
       continue;
     }
@@ -211,10 +218,10 @@ function cleanupAdd(expr: Extract<Expr, { kind: "add" }>): Expr | null {
     keptTerms.push(term);
   }
 
-  if (numericTermCount > 0 && numericSum !== 0) {
-    keptTerms.splice(firstNumericTermIndex, 0, num(numericSum));
+  if (numericTermCount > 0 && numericSum.numerator !== 0) {
+    keptTerms.splice(firstNumericTermIndex, 0, rationalToExpr(numericSum));
   }
-  if (numericTermCount > 1 || (numericTermCount === 1 && numericSum === 0)) changed = true;
+  if (numericTermCount > 1 || (numericTermCount === 1 && numericSum.numerator === 0)) changed = true;
 
   const likeTerms = collectLikeTerms(keptTerms);
   if (likeTerms) {
@@ -380,6 +387,12 @@ function cleanupMultiply(expr: Extract<Expr, { kind: "multiply" }>): Expr | null
   if (numericFactorCount > 1 || (numericFactorCount === 1 && numericProduct === 1)) changed = true;
   if (productSign !== exprSign(expr)) changed = true;
 
+  const collapsedFractionFactors = cancelAcrossFractionFactors(keptFactors);
+  if (collapsedFractionFactors) {
+    keptFactors.splice(0, keptFactors.length, ...multiplicativeFactors(collapsedFractionFactors));
+    changed = true;
+  }
+
   if (!changed) return null;
   return withSign(collapseProduct(keptFactors), productSign);
 }
@@ -393,7 +406,8 @@ function cleanupDivide(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
   const numeratorValue = numericLiteralValue(expr.numerator);
   const denominatorValue = numericLiteralValue(expr.denominator);
   if (numeratorValue !== null && denominatorValue !== null && denominatorValue !== 0) {
-    return withSign(num(numeratorValue / denominatorValue), sign);
+    const quotient = numeratorValue / denominatorValue;
+    return Number.isInteger(quotient) ? withSign(num(quotient), sign) : null;
   }
 
   const unnestedFraction = unnestFraction(expr);
@@ -423,6 +437,41 @@ function cleanupDivide(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
   const nextDenominator = collapseProduct(remainingDenominator);
   if (isNumberValue(nextDenominator, 1)) return withSign(nextNumerator, sign);
   return withSign(divide(nextNumerator, nextDenominator), sign);
+}
+
+function cancelAcrossFractionFactors(factors: Expr[]): Expr | null {
+  const fractionFactors = factors.filter((factor) => factor.kind === "divide");
+  if (fractionFactors.length < 2) return null;
+
+  const numeratorFactors: Expr[] = [];
+  const denominatorFactors: Expr[] = [];
+  for (const factor of factors) {
+    if (factor.kind === "divide") {
+      numeratorFactors.push(...multiplicativeFactors(factor.numerator));
+      denominatorFactors.push(...multiplicativeFactors(factor.denominator));
+    } else {
+      numeratorFactors.push(cloneExpr(factor));
+    }
+  }
+
+  let changed = false;
+  for (let numeratorIndex = 0; numeratorIndex < numeratorFactors.length; numeratorIndex += 1) {
+    const numeratorFactor = numeratorFactors[numeratorIndex];
+    const denominatorIndex = denominatorFactors.findIndex(
+      (denominatorFactor) => cleanupKey(denominatorFactor) === cleanupKey(numeratorFactor),
+    );
+    if (denominatorIndex < 0) continue;
+
+    numeratorFactors.splice(numeratorIndex, 1);
+    denominatorFactors.splice(denominatorIndex, 1);
+    numeratorIndex -= 1;
+    changed = true;
+  }
+
+  if (!changed) return null;
+  const numerator = cleanupProductFactors(numeratorFactors);
+  const denominator = cleanupProductFactors(denominatorFactors);
+  return isNumberValue(denominator, 1) ? numerator : divide(numerator, denominator);
 }
 
 function unnestFraction(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
@@ -470,6 +519,89 @@ function cleanupPower(expr: Extract<Expr, { kind: "power" }>): Expr | null {
 
   const value = base ** exponent;
   return Number.isFinite(value) ? num(value) : null;
+}
+
+function cleanupCall(expr: Extract<Expr, { kind: "call" }>): Expr | null {
+  const signed = splitSign(expr);
+  if (signed.value.kind !== "call") return null;
+  if (signed.value.callee.kind !== "symbol" || signed.value.callee.name !== "exp") return null;
+  if (signed.value.args.length !== 1) return null;
+
+  const [arg] = signed.value.args;
+  if (!arg) return null;
+  const unwrappedArg = unwrapDisplayGroups(arg);
+  if (unwrappedArg.kind !== "call") return null;
+  if (unwrappedArg.callee.kind !== "symbol" || unwrappedArg.callee.name !== "ln") return null;
+  if (unwrappedArg.args.length !== 1) return null;
+
+  const [innerArg] = unwrappedArg.args;
+  return innerArg ? withSign(cloneExpr(innerArg), signed.sign) : null;
+}
+
+function unwrapDisplayGroups(expr: Expr): Expr {
+  return expr.kind === "display_group" ? unwrapDisplayGroups(expr.expression) : expr;
+}
+
+function numericRationalValue(expr: Expr): Rational | null {
+  const sign = exprSign(expr);
+  const positive = withoutSign(expr);
+  if (positive.kind === "display_group") {
+    const value = numericRationalValue(positive.expression);
+    return value ? normalizeRational({ numerator: sign * value.numerator, denominator: value.denominator }) : null;
+  }
+  if (positive.kind === "negate") {
+    const value = numericRationalValue(positive.value);
+    return value ? normalizeRational({ numerator: sign * -value.numerator, denominator: value.denominator }) : null;
+  }
+  if (positive.kind === "number" && typeof positive.value === "number" && Number.isFinite(positive.value)) {
+    if (!Number.isInteger(positive.value)) return null;
+    return { numerator: sign * positive.value, denominator: 1 };
+  }
+  if (positive.kind === "divide") {
+    const numerator = numericLiteralValue(positive.numerator);
+    const denominator = numericLiteralValue(positive.denominator);
+    if (numerator === null || denominator === null || denominator === 0) return null;
+    if (!Number.isInteger(numerator) || !Number.isInteger(denominator)) return null;
+    return normalizeRational({ numerator: sign * numerator, denominator });
+  }
+  return null;
+}
+
+function addRationals(left: Rational, right: Rational): Rational {
+  return normalizeRational({
+    numerator: left.numerator * right.denominator + right.numerator * left.denominator,
+    denominator: left.denominator * right.denominator,
+  });
+}
+
+function normalizeRational(value: Rational): Rational {
+  if (value.numerator === 0) return { numerator: 0, denominator: 1 };
+  const denominatorSign = value.denominator < 0 ? -1 : 1;
+  const numerator = value.numerator * denominatorSign;
+  const denominator = Math.abs(value.denominator);
+  const divisor = greatestCommonDivisor(Math.abs(numerator), denominator);
+  return {
+    numerator: numerator / divisor,
+    denominator: denominator / divisor,
+  };
+}
+
+function rationalToExpr(value: Rational): Expr {
+  const normalized = normalizeRational(value);
+  if (normalized.denominator === 1) return num(normalized.numerator);
+  const sign = normalized.numerator < 0 ? -1 : 1;
+  return withSign(divide(num(Math.abs(normalized.numerator)), num(normalized.denominator)), sign);
+}
+
+function greatestCommonDivisor(left: number, right: number): number {
+  let a = left;
+  let b = right;
+  while (b !== 0) {
+    const next = a % b;
+    a = b;
+    b = next;
+  }
+  return a || 1;
 }
 
 function numericLiteralValue(expr: Expr): number | null {

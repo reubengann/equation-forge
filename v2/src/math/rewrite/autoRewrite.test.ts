@@ -276,6 +276,27 @@ describe("autoRewriteSelection cleanup", () => {
     expect(exprToLatex(next!, false)).toBe("6");
   });
 
+  it("folds exact rational sums without decimal output", () => {
+    const document = buildDocument(String.raw`1-\frac{1}{2}`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\frac{1}{2}`);
+  });
+
+  it("enables cleanup for selected rational terms in a larger sum", () => {
+    const document = buildDocument(String.raw`1 - \frac{1}{2} - \beta T_0 + \frac{\kappa}{2} \frac{v}{v_0 \kappa}`);
+    const selection = { kind: "multi" as const, containerNodeId: "n1", nodeIds: ["n2", "n3"] };
+    const next = autoRewriteSelection(document, selection, "cleanup");
+
+    expect(canAutoRewrite(document, selection, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\frac{1}{2} - \beta T_0 + \frac{\kappa}{2} \frac{v}{v_0 \kappa}`,
+    );
+  });
+
   it("folds numeric terms inside mixed sums", () => {
     const document = buildDocument(String.raw`5+1+a`);
     const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
@@ -383,6 +404,14 @@ describe("autoRewriteSelection cleanup", () => {
     expect(exprToLatex(next!, false)).toBe("2");
   });
 
+  it("preserves non-integer numeric quotients as fractions", () => {
+    const document = buildDocument(String.raw`-\frac{\kappa}{2 \kappa} 1`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`-\frac{1}{2}`);
+  });
+
   it("folds numeric powers", () => {
     const document = buildDocument(String.raw`a+b=5^3`);
     const next = autoRewriteSelection(document, { kind: "single", nodeId: "n5" }, "cleanup");
@@ -390,6 +419,32 @@ describe("autoRewriteSelection cleanup", () => {
     expect(canAutoRewrite(document, { kind: "single", nodeId: "n5" }, "cleanup")).toBe(true);
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe("a + b = 125");
+  });
+
+  it("collapses exp of ln to its argument", () => {
+    const document = buildDocument(String.raw`\exp\left(\ln\left(a+b\right)\right)`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("a + b");
+  });
+
+  it("collapses exp of ln inside a selected equation side", () => {
+    const document = buildDocument(String.raw`y=\exp\left(\ln x\right)`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n3" }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n3" }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("y = x");
+  });
+
+  it("preserves the sign when collapsing negative exp of ln", () => {
+    const document = buildDocument(String.raw`-\exp\left(\ln x\right)`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("-x");
   });
 
   it("folds numeric negation", () => {
@@ -430,6 +485,30 @@ describe("autoRewriteSelection cleanup", () => {
 
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe("b");
+  });
+
+  it("cancels common factors across multiplied fractions", () => {
+    const document = buildDocument(String.raw`\frac{\kappa}{2} \frac{v}{v_0 \kappa}`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\frac{v}{2 v_0}`);
+  });
+
+  it("cancels common factors across multiplied fractions inside a larger sum", () => {
+    const document = buildDocument(String.raw`1 - \frac{1}{2} - \beta T_0 + \frac{\kappa}{2} \frac{v}{v_0 \kappa}`);
+    const selectedNodeId = findNodeId(
+      document,
+      (expr) =>
+        expr.kind === "multiply" &&
+        expr.factors.some((factor) => factor.kind === "divide" && factor.numerator.kind === "symbol" && factor.numerator.name === String.raw`\kappa`),
+    );
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: selectedNodeId }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: selectedNodeId }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`1 - \frac{1}{2} - \beta T_0 + \frac{v}{2 v_0}`);
   });
 
   it("unnests a fraction in the denominator", () => {
