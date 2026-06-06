@@ -9,7 +9,7 @@ import {
   SINGLE_CONTAINER_RULES,
   UPWARD_REWRITE_RULES,
 } from "./ruleRegistry";
-import { structuralKey } from "./algebraUtils";
+import { applySign, splitSign, structuralKey } from "./algebraUtils";
 import type {
   InsertionPreview,
   InsertionSlot,
@@ -528,8 +528,12 @@ function rebuildUpdatedSubtree(
     const updatedChild = rebuildUpdatedSubtree(document, childId, updatedNodes);
     if (!updatedChild) return null;
 
-    if (hasDirectUpdate && updatedNodes[childId] && structuralKey(next) === structuralKey(originalChild)) {
-      return updatedChild;
+    if (hasDirectUpdate && updatedNodes[childId]) {
+      const nextSigned = splitSign(next);
+      const originalChildSigned = splitSign(originalChild);
+      if (structuralKey(nextSigned.value) === structuralKey(originalChildSigned.value)) {
+        return applySign(nextSigned.sign, updatedChild);
+      }
     }
 
     if (location.index != null) {

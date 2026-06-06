@@ -96,12 +96,13 @@ function splitProductFactors(product: Extract<Expr, { kind: "multiply" }>, sourc
   let remainingSign: Sign = signedProduct.sign;
 
   factors.forEach((factor, index) => {
+    const signedFactor = splitSign(factor);
     if (!selectedIndexSet.has(index)) {
-      remainingFactors.push(cloneExpr(factor));
+      remainingFactors.push(signedFactor.value);
+      remainingSign = multiplySigns(remainingSign, signedFactor.sign);
       return;
     }
 
-    const signedFactor = splitSign(factor);
     payloadFactors.push(signedFactor.value);
     remainingSign = multiplySigns(remainingSign, signedFactor.sign);
   });

@@ -411,7 +411,10 @@ function cleanupDivide(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
   }
 
   const unnestedFraction = unnestFraction(expr);
-  if (unnestedFraction) return withSign(unnestedFraction, sign);
+  if (unnestedFraction) return applySign(sign, unnestedFraction);
+
+  const collapsedNestedFraction = collapseNestedFractionFactors(expr);
+  if (collapsedNestedFraction) return applySign(sign, collapsedNestedFraction);
 
   const numeratorFactors = multiplicativeFactors(expr.numerator);
   const denominatorFactors = multiplicativeFactors(expr.denominator);
@@ -474,25 +477,85 @@ function cancelAcrossFractionFactors(factors: Expr[]): Expr | null {
   return isNumberValue(denominator, 1) ? numerator : divide(numerator, denominator);
 }
 
+function collapseNestedFractionFactors(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
+  const numeratorFactors = multiplicativeFactors(expr.numerator);
+  const denominatorFactors = multiplicativeFactors(expr.denominator);
+  if (![...numeratorFactors, ...denominatorFactors].some((factor) => factor.kind === "divide")) return null;
+
+  const nextNumeratorFactors: Expr[] = [];
+  const nextDenominatorFactors: Expr[] = [];
+  const sign = multiplySigns(
+    collectFlatFractionFactors(numeratorFactors, nextNumeratorFactors, nextDenominatorFactors),
+    collectFlatFractionFactors(denominatorFactors, nextDenominatorFactors, nextNumeratorFactors),
+  );
+
+  return withSign(
+    divide(
+      cleanupProductFactors(numericFactorsFirst(nextNumeratorFactors)),
+      cleanupProductFactors(numericFactorsFirst(nextDenominatorFactors)),
+    ),
+    sign,
+  );
+}
+
+function numericFactorsFirst(factors: Expr[]): Expr[] {
+  return [
+    ...factors.filter((factor) => factor.kind === "number").map(cloneExpr),
+    ...factors.filter((factor) => factor.kind !== "number").map(cloneExpr),
+  ];
+}
+
+function collectFlatFractionFactors(factors: Expr[], numeratorFactors: Expr[], denominatorFactors: Expr[]): Sign {
+  let sign: Sign = 1;
+  for (const factor of factors) {
+    const signed = splitSign(factor);
+    sign = multiplySigns(sign, signed.sign);
+    if (signed.value.kind === "divide") {
+      numeratorFactors.push(...multiplicativeFactors(signed.value.numerator));
+      denominatorFactors.push(...multiplicativeFactors(signed.value.denominator));
+      continue;
+    }
+    numeratorFactors.push(cloneExpr(signed.value));
+  }
+  return sign;
+}
+
 function unnestFraction(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
   const numerator = cloneExpr(expr.numerator);
   const denominator = cloneExpr(expr.denominator);
 
   if (numerator.kind === "divide" && denominator.kind === "divide") {
-    return divide(
-      collapseProduct([numerator.numerator, denominator.denominator]),
-      collapseProduct([numerator.denominator, denominator.numerator]),
+    const signedNumerator = splitSign(numerator);
+    const signedDenominator = splitSign(denominator);
+    const numeratorValue = signedNumerator.value as Extract<Expr, { kind: "divide" }>;
+    const denominatorValue = signedDenominator.value as Extract<Expr, { kind: "divide" }>;
+    return withSign(
+      divide(
+        collapseProduct([numeratorValue.numerator, denominatorValue.denominator]),
+        collapseProduct([numeratorValue.denominator, denominatorValue.numerator]),
+      ),
+      multiplySigns(signedNumerator.sign, signedDenominator.sign),
     );
   }
 
   if (numerator.kind === "divide") {
-    return divide(numerator.numerator, collapseProduct([numerator.denominator, denominator]));
+    const signedNumerator = splitSign(numerator);
+    const numeratorValue = signedNumerator.value as Extract<Expr, { kind: "divide" }>;
+    return withSign(
+      divide(numeratorValue.numerator, collapseProduct([numeratorValue.denominator, denominator])),
+      signedNumerator.sign,
+    );
   }
 
   if (denominator.kind === "divide") {
-    return divide(
-      cleanupProductFactors([numerator, denominator.denominator]),
-      denominator.numerator,
+    const signedDenominator = splitSign(denominator);
+    const denominatorValue = signedDenominator.value as Extract<Expr, { kind: "divide" }>;
+    return withSign(
+      divide(
+        cleanupProductFactors([numerator, denominatorValue.denominator]),
+        denominatorValue.numerator,
+      ),
+      signedDenominator.sign,
     );
   }
 

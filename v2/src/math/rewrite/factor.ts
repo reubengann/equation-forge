@@ -129,8 +129,9 @@ function canFactorCommonProduct(expr: Extract<Expr, { kind: "add" }>): boolean {
 
 function candidateFactorsForCommonProduct(termFactors: Expr[]): Expr[] {
   return termFactors.flatMap((factor) => {
-    if (factor.kind !== "divide") return [factor];
-    const numeratorFactors = factor.numerator.kind === "multiply" ? factor.numerator.factors : [factor.numerator];
+    if (factor.kind !== "divide") return isMultiplicativeIdentity(factor) ? [] : [factor];
+    const numeratorFactors = (factor.numerator.kind === "multiply" ? factor.numerator.factors : [factor.numerator])
+      .filter((candidate) => !isMultiplicativeIdentity(candidate));
     const denominatorFactors = factor.denominator.kind === "multiply" ? factor.denominator.factors : [factor.denominator];
     return [factor, ...numeratorFactors, ...denominatorFactors.map(reciprocalFactor)];
   });
@@ -192,6 +193,10 @@ function removeFactorMatch(termFactors: Expr[], match: FactorMatch): void {
 
 function reciprocalFactor(factor: Expr): Expr {
   return divide(num(1), cloneExpr(factor));
+}
+
+function isMultiplicativeIdentity(expr: Expr): boolean {
+  return expr.kind === "number" && Number(expr.value) === 1;
 }
 
 function factorPerfectSquare(expr: Extract<Expr, { kind: "add" }>): Expr | null {

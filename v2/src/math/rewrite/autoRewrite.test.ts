@@ -130,6 +130,25 @@ describe("autoRewriteSelection factor", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`b \left(a - c\right)`);
   });
 
+  it("does not factor out identity numerators from reciprocal terms", () => {
+    const document = buildDocument(String.raw`\Delta u = c_v T_2 - c_v T_1 + a \frac{1}{v_1} - a \frac{1}{v_2}`);
+    const reciprocalTerms = Object.entries(document.index.nodeById)
+      .filter(([, expr]) => (
+        expr.kind === "multiply" &&
+        expr.factors.some((factor) => factor.kind === "symbol" && factor.name === "a") &&
+        expr.factors.some((factor) => factor.kind === "divide")
+      ))
+      .map(([nodeId]) => nodeId);
+    const selection = { kind: "multi" as const, containerNodeId: "n3", nodeIds: reciprocalTerms };
+    const next = autoRewriteSelection(document, selection, "factor");
+
+    expect(reciprocalTerms).toHaveLength(2);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\Delta u = c_v T_2 - c_v T_1 + a \left(\frac{1}{v_1} - \frac{1}{v_2}\right)`,
+    );
+  });
+
   it("factors exact positive perfect-square trinomials", () => {
     const document = buildDocument(String.raw`a^2+2 a b+b^2`);
     const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "factor");
@@ -509,6 +528,15 @@ describe("autoRewriteSelection cleanup", () => {
     expect(canAutoRewrite(document, { kind: "single", nodeId: selectedNodeId }, "cleanup")).toBe(true);
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(String.raw`1 - \frac{1}{2} - \beta T_0 + \frac{v}{2 v_0}`);
+  });
+
+  it("collapses nested multiplied fractions into a single visible fraction", () => {
+    const document = buildDocument(String.raw`\frac{-\frac{a}{v_0} \frac{9}{10}}{c_v}`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`-\frac{9 a}{10 v_0 c_v}`);
   });
 
   it("unnests a fraction in the denominator", () => {

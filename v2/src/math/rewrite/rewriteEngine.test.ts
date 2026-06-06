@@ -216,6 +216,32 @@ describe("canExecuteMove", () => {
     );
   });
 
+  it("moves a signed product factor into a following fraction numerator without dropping it", () => {
+    const document = buildDocument(String.raw`\left(\frac{\partial{h}}{\partial{P}}\right)_{T} = v - T \frac{R}{P}`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n9" },
+      destinationId: "n11",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\left(\frac{\partial{h}}{\partial{P}}\right)_{T} = v - \frac{R T}{P}`);
+  });
+
+  it("keeps the remaining numerator sign when extracting a sibling factor", () => {
+    const document = buildDocument(String.raw`\Delta T = \frac{-\frac{a}{v_0} \frac{9}{10}}{c_v}`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n8" },
+      destinationId: "n3",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\Delta T = \frac{-\frac{a}{v_0}}{c_v} \frac{9}{10}`);
+  });
+
   it("moves a numerator factor out of an integral", () => {
     const document = buildDocument(String.raw`0 = \int_{T_0}^{T} \frac{c_P}{T} \,\mathrm{d}{T}`);
     const result = executeMove({
