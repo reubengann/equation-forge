@@ -1,5 +1,6 @@
 import { cloneExpr } from "../../ast/utils";
 import type { Expr } from "../../ast/expr";
+import { applySign, exprSign } from "../algebraUtils";
 import type { MoveContext, UpwardRewriteRule } from "../types";
 
 export function extractDenominatorFactorFromFraction(): UpwardRewriteRule {
@@ -25,11 +26,11 @@ export function extractDenominatorFactorFromFraction(): UpwardRewriteRule {
 
       if (isWholeDenominatorSelection(context, edge.childId)) {
         const remainingNumerator = cloneExpr(edge.parentNode.numerator);
-        const reciprocalDenominator: Expr = {
+        const reciprocalDenominator: Expr = applySign(exprSign(edge.parentNode), {
           kind: "divide",
           numerator: { kind: "number", value: 1 },
           denominator: cloneExpr(edge.childNode),
-        };
+        });
 
         if (!edge.isFinalUpwardEdge) {
           return {
@@ -76,11 +77,11 @@ export function extractDenominatorFactorFromFraction(): UpwardRewriteRule {
         numerator: cloneExpr(edge.parentNode.numerator),
         denominator: collapseMultiplicativeFactors(factors),
       };
-      const reciprocalSelectedFactor: Expr = {
+      const reciprocalSelectedFactor: Expr = applySign(exprSign(edge.parentNode), {
         kind: "divide",
         numerator: { kind: "number", value: 1 },
         denominator: selectedFactor,
-      };
+      });
 
       if (!edge.isFinalUpwardEdge) {
         return {

@@ -1,5 +1,6 @@
 import { cloneExpr } from "../../ast/utils";
 import type { Expr } from "../../ast/expr";
+import { applySign, splitSign } from "../algebraUtils";
 import type { MoveContext, PivotRewriteRule } from "../types";
 
 export function pivotMultiplicativeAcrossEquation(): PivotRewriteRule {
@@ -25,12 +26,13 @@ export function pivotMultiplicativeAcrossEquation(): PivotRewriteRule {
 }
 
 function reciprocalPayload(expr: Expr): Expr {
-  if (expr.kind === "divide" && expr.numerator.kind === "number" && expr.numerator.value === 1) {
-    return cloneExpr(expr.denominator);
+  const signed = splitSign(expr);
+  if (signed.value.kind === "divide" && signed.value.numerator.kind === "number" && signed.value.numerator.value === 1) {
+    return applySign(signed.sign, cloneExpr(signed.value.denominator));
   }
-  return {
+  return applySign(signed.sign, {
     kind: "divide",
     numerator: { kind: "number", value: 1 },
-    denominator: cloneExpr(expr),
-  };
+    denominator: cloneExpr(signed.value),
+  });
 }

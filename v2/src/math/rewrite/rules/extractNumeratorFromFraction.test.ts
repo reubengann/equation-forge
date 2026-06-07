@@ -59,6 +59,29 @@ describe("extractNumeratorFromFraction", () => {
     expect(result?.insertionPreview?.destinationSlot).toBe("after");
   });
 
+  it("preserves a signed fraction sign when extracting the numerator locally", () => {
+    const document = buildDocument(String.raw`-\frac{a}{b}`);
+    const rule = extractNumeratorFromFraction();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "single", nodeId: "n2" },
+        payload: null,
+        destinationId: "n1",
+      },
+      {
+        childId: "n2",
+        parentId: "n1",
+        childNode: document.index.nodeById.n2!,
+        parentNode: document.index.nodeById.n1!,
+        isFinalUpwardEdge: true,
+        pivotId: "n1",
+      },
+    );
+
+    expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`-a \frac{1}{b}`);
+  });
+
   it("returns reciprocal denominator plus numerator payload when continuing to an equation pivot", () => {
     const document = buildDocument(String.raw`\frac{F}{m a} = 1`);
     const rule = extractNumeratorFromFraction();

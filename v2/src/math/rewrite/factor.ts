@@ -10,10 +10,12 @@ type SignedTerm = {
 type FactorTerm = {
   sign: 1 | -1;
   factors: Expr[];
+  numericCoefficient: number;
 };
 
 type FactorMatch =
   | { kind: "term"; index: number }
+  | { kind: "powerTerm"; index: number }
   | { kind: "fractionNumerator"; numeratorFactorIndex: number }
   | { kind: "fractionDenominator"; denominatorFactorIndex: number };
 
@@ -89,7 +91,7 @@ function factorCommonProduct(expr: Extract<Expr, { kind: "add" }>): Expr | null 
   const firstTerm = terms[0];
   if (!firstTerm || firstTerm.factors.length === 0) return null;
 
-  const commonFactors: Expr[] = [];
+  const commonFactors: Expr[] = commonNumericFactors(terms);
   const remainingTerms = terms.map((term) => term.factors.map(cloneExpr));
 
   for (const factor of candidateFactorsForCommonProduct(firstTerm.factors)) {
@@ -108,9 +110,13 @@ function factorCommonProduct(expr: Extract<Expr, { kind: "add" }>): Expr | null 
 
   if (commonFactors.length === 0) return null;
 
-  const remainderTerms = terms.map((term, index) =>
-    applySign(term.sign, collapseProduct(remainingTerms[index] ?? [])),
-  );
+  const numericFactor = commonFactors[0]?.kind === "number" ? Number(commonFactors[0].value) : null;
+  const remainderTerms = terms.map((term, index) => {
+    const remainingFactors = remainingTerms[index] ?? [];
+    const coefficient = numericFactor ? term.numericCoefficient / numericFactor : term.numericCoefficient;
+    const factors = coefficient === 1 ? remainingFactors : [num(coefficient), ...remainingFactors];
+    return applySign(term.sign, collapseProduct(factors));
+  });
   return multiply([...commonFactors, displayGroup("paren", add(remainderTerms))]);
 }
 
@@ -129,6 +135,7 @@ function canFactorCommonProduct(expr: Extract<Expr, { kind: "add" }>): boolean {
 
 function candidateFactorsForCommonProduct(termFactors: Expr[]): Expr[] {
   return termFactors.flatMap((factor) => {
+    if (factor.kind === "power" && isPositiveIntegerPower(factor)) return [factor, cloneExpr(factor.base)];
     if (factor.kind !== "divide") return isMultiplicativeIdentity(factor) ? [] : [factor];
     const numeratorFactors = (factor.numerator.kind === "multiply" ? factor.numerator.factors : [factor.numerator])
       .filter((candidate) => !isMultiplicativeIdentity(candidate));
@@ -140,6 +147,14 @@ function candidateFactorsForCommonProduct(termFactors: Expr[]): Expr[] {
 function findFactorMatch(termFactors: Expr[], factorKey: string): FactorMatch | null {
   const directIndex = termFactors.findIndex((candidate) => structuralKey(candidate) === factorKey);
   if (directIndex >= 0) return { kind: "term", index: directIndex };
+
+  const powerIndex = termFactors.findIndex(
+    (candidate) =>
+      candidate.kind === "power" &&
+      isPositiveIntegerPower(candidate) &&
+      structuralKey(candidate.base) === factorKey,
+  );
+  if (powerIndex >= 0) return { kind: "powerTerm", index: powerIndex };
 
   for (let index = 0; index < termFactors.length; index += 1) {
     const factor = termFactors[index];
@@ -161,6 +176,10 @@ function findFactorMatch(termFactors: Expr[], factorKey: string): FactorMatch | 
 function removeFactorMatch(termFactors: Expr[], match: FactorMatch): void {
   if (match.kind === "term") {
     termFactors.splice(match.index, 1);
+    return;
+  }
+  if (match.kind === "powerTerm") {
+    decrementPowerFactor(termFactors, match.index);
     return;
   }
 
@@ -197,6 +216,46 @@ function reciprocalFactor(factor: Expr): Expr {
 
 function isMultiplicativeIdentity(expr: Expr): boolean {
   return expr.kind === "number" && Number(expr.value) === 1;
+}
+
+function isPositiveIntegerPower(expr: Extract<Expr, { kind: "power" }>): expr is Extract<Expr, { kind: "power" }> & {
+  exponent: Extract<Expr, { kind: "number" }>;
+} {
+  return (
+    expr.exponent.kind === "number" &&
+    Number.isInteger(Number(expr.exponent.value)) &&
+    Number(expr.exponent.value) > 1
+  );
+}
+
+function decrementPowerFactor(factors: Expr[], index: number): void {
+  const factor = factors[index];
+  if (!factor || factor.kind !== "power" || !isPositiveIntegerPower(factor)) return;
+  const exponent = Number(factor.exponent.value);
+  factors[index] = exponent === 2
+    ? cloneExpr(factor.base)
+    : {
+        ...cloneExpr(factor),
+        exponent: num(exponent - 1),
+      };
+}
+
+function commonNumericFactors(terms: FactorTerm[]): Expr[] {
+  const coefficients = terms.map((term) => Math.abs(term.numericCoefficient));
+  if (coefficients.some((coefficient) => !Number.isInteger(coefficient) || coefficient === 0)) return [];
+  const common = coefficients.reduce((acc, coefficient) => greatestCommonDivisor(acc, coefficient));
+  return common > 1 ? [num(common)] : [];
+}
+
+function greatestCommonDivisor(left: number, right: number): number {
+  let a = Math.abs(left);
+  let b = Math.abs(right);
+  while (b !== 0) {
+    const next = a % b;
+    a = b;
+    b = next;
+  }
+  return a || 1;
 }
 
 function factorPerfectSquare(expr: Extract<Expr, { kind: "add" }>): Expr | null {
@@ -243,9 +302,23 @@ function squareBase(term: CoefficientTerm): Expr | null {
 
 function splitTermFactors(term: Expr): FactorTerm {
   const signed = splitSign(term);
+  let sign = signed.sign;
+  let numericCoefficient = 1;
+  const factors = signed.value.kind === "multiply" ? signed.value.factors.map(cloneExpr) : [cloneExpr(signed.value)];
+  const nonNumericFactors: Expr[] = [];
+  for (const factor of factors) {
+    const signedFactor = splitExprSign(factor);
+    if (signedFactor.value.kind === "number" && typeof signedFactor.value.value === "number" && Number.isInteger(signedFactor.value.value)) {
+      numericCoefficient *= signedFactor.sign * signedFactor.value.value;
+      continue;
+    }
+    sign = sign === signedFactor.sign ? 1 : -1;
+    nonNumericFactors.push(cloneExpr(signedFactor.value));
+  }
   return {
-    sign: signed.sign,
-    factors: signed.value.kind === "multiply" ? signed.value.factors.map(cloneExpr) : [cloneExpr(signed.value)],
+    sign,
+    factors: nonNumericFactors,
+    numericCoefficient,
   };
 }
 
@@ -254,7 +327,9 @@ function splitCoefficientTerm(term: Expr): CoefficientTerm {
   let coefficient = factorTerm.sign;
   const factors: Expr[] = [];
 
-  for (const factor of factorTerm.factors) {
+  const signed = splitSign(term);
+  const termFactors = signed.value.kind === "multiply" ? signed.value.factors : [signed.value];
+  for (const factor of termFactors) {
     const signedFactor = splitExprSign(factor);
     if (signedFactor.value.kind === "number" && typeof signedFactor.value.value === "number") {
       coefficient *= signedFactor.sign * signedFactor.value.value;

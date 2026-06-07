@@ -1,0 +1,306 @@
+{
+  "schemaVersion": 1,
+  "exportedAtIso": "2026-06-07T01:53:22.740Z",
+  "domSnapshots": {
+    "s1": {
+      "hostRect": {
+        "left": 172.0833282470703,
+        "top": 181.75,
+        "right": 1500.0833282470703,
+        "bottom": 226.89999389648438,
+        "width": 1328,
+        "height": 45.149993896484375
+      },
+      "nodeRects": [
+        {
+          "nodeId": "n1",
+          "left": 172.0833282470703,
+          "top": 184.35000610351562,
+          "right": 220.78334045410156,
+          "bottom": 213.51666259765625,
+          "width": 48.70001220703125,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n5",
+          "left": 195.14999389648438,
+          "top": 199.25,
+          "right": 218.18333435058594,
+          "bottom": 228.4166717529297,
+          "width": 23.033340454101562,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n6",
+          "left": 195.14999389648438,
+          "top": 199.25,
+          "right": 205.21665954589844,
+          "bottom": 228.4166717529297,
+          "width": 10.066665649414062,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n7",
+          "left": 205.21665954589844,
+          "top": 199.25,
+          "right": 218.18333435058594,
+          "bottom": 228.4166717529297,
+          "width": 12.9666748046875,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n2",
+          "left": 196.31666564941406,
+          "top": 173.5500030517578,
+          "right": 217.01666259765625,
+          "bottom": 202.71665954589844,
+          "width": 20.699996948242188,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n3",
+          "left": 196.31666564941406,
+          "top": 173.5500030517578,
+          "right": 207.75,
+          "bottom": 202.71665954589844,
+          "width": 11.433334350585938,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n4",
+          "left": 207.75,
+          "top": 173.5500030517578,
+          "right": 217.01666259765625,
+          "bottom": 202.71665954589844,
+          "width": 9.26666259765625,
+          "height": 29.166656494140625
+        }
+      ]
+    },
+    "s2": {
+      "hostRect": {
+        "left": 172.0833282470703,
+        "top": 181.75,
+        "right": 1500.0833282470703,
+        "bottom": 226.89999389648438,
+        "width": 1328,
+        "height": 45.149993896484375
+      },
+      "nodeRects": [
+        {
+          "nodeId": "n1",
+          "left": 172.0833282470703,
+          "top": 184.35000610351562,
+          "right": 216.14999389648438,
+          "bottom": 213.51666259765625,
+          "width": 44.06666564941406,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n2",
+          "left": 172.0833282470703,
+          "top": 184.35000610351562,
+          "right": 190.25,
+          "bottom": 213.51666259765625,
+          "width": 18.166671752929688,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n4",
+          "left": 174.68333435058594,
+          "top": 199.25,
+          "right": 187.64999389648438,
+          "bottom": 228.4166717529297,
+          "width": 12.966659545898438,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n3",
+          "left": 175.76666259765625,
+          "top": 173.5500030517578,
+          "right": 186.56666564941406,
+          "bottom": 202.71665954589844,
+          "width": 10.800003051757812,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n5",
+          "left": 190.25,
+          "top": 184.35000610351562,
+          "right": 216.14999389648438,
+          "bottom": 213.51666259765625,
+          "width": 25.899993896484375,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n9",
+          "left": 198.1666717529297,
+          "top": 199.25,
+          "right": 208.23333740234375,
+          "bottom": 228.4166717529297,
+          "width": 10.066665649414062,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n6",
+          "left": 192.85000610351562,
+          "top": 173.5500030517578,
+          "right": 213.5500030517578,
+          "bottom": 202.71665954589844,
+          "width": 20.699996948242188,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n7",
+          "left": 192.85000610351562,
+          "top": 173.5500030517578,
+          "right": 204.28334045410156,
+          "bottom": 202.71665954589844,
+          "width": 11.433334350585938,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n8",
+          "left": 204.28334045410156,
+          "top": 173.5500030517578,
+          "right": 213.5500030517578,
+          "bottom": 202.71665954589844,
+          "width": 9.26666259765625,
+          "height": 29.166656494140625
+        }
+      ]
+    }
+  },
+  "events": [
+    {
+      "type": "move_mode_changed",
+      "moveType": "multiplicative",
+      "ts": 1780797190188
+    },
+    {
+      "type": "latex_accepted",
+      "previousLatex": "-\\frac{a b}{e f}",
+      "nextLatex": "-\\frac{a b}{e f}",
+      "ts": 1780797192200
+    },
+    {
+      "type": "move_mode_changed",
+      "moveType": "additive",
+      "ts": 1780797192204
+    },
+    {
+      "type": "dom_changed",
+      "source": "accept",
+      "domSnapshotId": "s1",
+      "ts": 1780797192208
+    },
+    {
+      "type": "move_mode_changed",
+      "moveType": "multiplicative",
+      "ts": 1780797193247
+    },
+    {
+      "type": "pointer_down",
+      "pointer": {
+        "x": 210.8333282470703,
+        "y": 219.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780797194072
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 204.1666717529297,
+        "y": 216.6666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780797194742
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 198.3333282470703,
+        "y": 215
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780797194776
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 195,
+        "y": 213.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780797194859
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 195.8333282470703,
+        "y": 209.1666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780797195593
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 195,
+        "y": 208.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780797196473
+    },
+    {
+      "type": "pointer_up",
+      "pointer": {
+        "x": 188.3333282470703,
+        "y": 208.3333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 0,
+      "ctrlKey": false,
+      "ts": 1780797198410
+    },
+    {
+      "type": "dom_changed",
+      "source": "accept",
+      "domSnapshotId": "s2",
+      "ts": 1780797198416
+    }
+  ],
+  "expected": {
+    "selectedNodeIds": [],
+    "insertionPreview": null,
+    "moveType": "multiplicative",
+    "latex": "-\\frac{1}{f} \\frac{a b}{e}"
+  }
+}

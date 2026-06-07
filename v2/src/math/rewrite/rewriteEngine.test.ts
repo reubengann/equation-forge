@@ -242,6 +242,19 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe(String.raw`\Delta T = \frac{-\frac{a}{v_0}}{c_v} \frac{9}{10}`);
   });
 
+  it("preserves a signed display group when extracting a factor through it", () => {
+    const document = buildDocument(String.raw`\left(-a b\right) c`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n5" },
+      destinationId: "n6",
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\left(-a\right) c b`);
+  });
+
   it("moves a numerator factor out of an integral", () => {
     const document = buildDocument(String.raw`0 = \int_{T_0}^{T} \frac{c_P}{T} \,\mathrm{d}{T}`);
     const result = executeMove({

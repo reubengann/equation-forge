@@ -58,6 +58,30 @@ describe("extractDenominatorFactorFromFraction", () => {
     expect(result?.insertionPreview?.destinationSlot).toBe("before");
   });
 
+  it("moves a signed fraction sign with the extracted reciprocal denominator factor", () => {
+    const document = buildDocument(String.raw`-\frac{a b}{e f}`);
+    const rule = extractDenominatorFactorFromFraction();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "single", nodeId: "n7" },
+        payload: null,
+        destinationId: "n1",
+        destinationSlot: "before",
+      },
+      {
+        childId: "n5",
+        parentId: "n1",
+        childNode: document.index.nodeById.n5!,
+        parentNode: document.index.nodeById.n1!,
+        isFinalUpwardEdge: true,
+        pivotId: "n1",
+      },
+    );
+
+    expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`-\frac{1}{f} \frac{a b}{e}`);
+  });
+
   it("returns remaining fraction plus reciprocal payload when continuing to an equation pivot", () => {
     const document = buildDocument(String.raw`\frac{F}{m a} = 1`);
     const rule = extractDenominatorFactorFromFraction();
@@ -106,6 +130,30 @@ describe("extractDenominatorFactorFromFraction", () => {
     expect(exprToLatex(result!.updatedNode!, false)).toBe("F");
     expect(exprToLatex(result!.payload!, false)).toBe(String.raw`\frac{1}{m a}`);
     expect(result?.insertionPreview).toBeUndefined();
+  });
+
+  it("preserves a signed fraction sign when extracting the whole denominator locally", () => {
+    const document = buildDocument(String.raw`-\frac{a}{b}`);
+    const rule = extractDenominatorFactorFromFraction();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "single", nodeId: "n3" },
+        payload: null,
+        destinationId: "n1",
+        destinationSlot: "before",
+      },
+      {
+        childId: "n3",
+        parentId: "n1",
+        childNode: document.index.nodeById.n3!,
+        parentNode: document.index.nodeById.n1!,
+        isFinalUpwardEdge: true,
+        pivotId: "n1",
+      },
+    );
+
+    expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`-\frac{1}{b} a`);
   });
 
   it("extracts a selected single-node denominator into a reciprocal product", () => {

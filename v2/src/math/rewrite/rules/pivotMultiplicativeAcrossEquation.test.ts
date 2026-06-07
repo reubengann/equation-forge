@@ -51,4 +51,25 @@ describe("pivotMultiplicativeAcrossEquation", () => {
 
     expect(exprToLatex(result!.payload!, false)).toBe("a");
   });
+
+  it("preserves the sign when converting a signed reciprocal payload across an equation pivot", () => {
+    const document = buildDocument(String.raw`\frac{F}{a}=1`);
+    const rule = pivotMultiplicativeAcrossEquation();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "single", nodeId: "n4" },
+        payload: { kind: "divide", sign: -1, numerator: { kind: "number", value: 1 }, denominator: sym("a") },
+        destinationId: "n5",
+      },
+      {
+        pivotId: "n1",
+        pivotNode: document.index.nodeById.n1!,
+        sourceBranchId: "n2",
+        destinationBranchId: "n5",
+      },
+    );
+
+    expect(exprToLatex(result!.payload!, false)).toBe("-a");
+  });
 });

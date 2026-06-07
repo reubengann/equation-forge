@@ -149,6 +149,14 @@ describe("autoRewriteSelection factor", () => {
     );
   });
 
+  it("factors a shared numeric coefficient with a symbolic factor", () => {
+    const document = buildDocument(String.raw`-v 2 a b^{2} + 4 v^{2} a b - 2 v^{3} a`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "factor");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`2 v a \left(-b^{2} + 2 v b - v^{2}\right)`);
+  });
+
   it("factors exact positive perfect-square trinomials", () => {
     const document = buildDocument(String.raw`a^2+2 a b+b^2`);
     const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "factor");
@@ -415,6 +423,24 @@ describe("autoRewriteSelection cleanup", () => {
     expect(exprToLatex(next!, false)).toBe("6 a");
   });
 
+  it("combines repeated factors with positive integer powers", () => {
+    const document = buildDocument(String.raw`v 2 a v^{2}`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`2 v^{3} a`);
+  });
+
+  it("combines powers through a negative grouped product factor", () => {
+    const document = buildDocument(String.raw`v \left(-R T b v^{2}\right)`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`-v^{3} R T b`);
+  });
+
   it("folds numeric quotients", () => {
     const document = buildDocument(String.raw`\frac{6}{3}`);
     const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
@@ -472,6 +498,30 @@ describe("autoRewriteSelection cleanup", () => {
 
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe("-5");
+  });
+
+  it("moves explicit numerator and denominator signs to the fraction", () => {
+    expect(exprToLatex(autoRewriteSelection(buildDocument(String.raw`\frac{-a}{b}`), { kind: "single", nodeId: "n1" }, "cleanup")!, false)).toBe(
+      String.raw`-\frac{a}{b}`,
+    );
+    expect(exprToLatex(autoRewriteSelection(buildDocument(String.raw`\frac{a}{-b}`), { kind: "single", nodeId: "n1" }, "cleanup")!, false)).toBe(
+      String.raw`-\frac{a}{b}`,
+    );
+    expect(exprToLatex(autoRewriteSelection(buildDocument(String.raw`\frac{-a}{-b}`), { kind: "single", nodeId: "n1" }, "cleanup")!, false)).toBe(
+      String.raw`\frac{a}{b}`,
+    );
+  });
+
+  it("moves an explicit grouped numerator sign to the fraction", () => {
+    const document = buildDocument(
+      String.raw`\frac{-\left(R T v^{3} b - 2 v a \left(b - v\right)^{2}\right)}{c_P \left(R T v^{3} - 2 a \left(b - v\right)^{2}\right)}`,
+    );
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`-\frac{\left(R T v^{3} b - 2 v a \left(b - v\right)^{2}\right)}{c_P \left(R T v^{3} - 2 a \left(b - v\right)^{2}\right)}`,
+    );
   });
 
   it("cancels exact fraction factors", () => {
@@ -537,6 +587,33 @@ describe("autoRewriteSelection cleanup", () => {
     expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBe(true);
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(String.raw`-\frac{9 a}{10 v_0 c_v}`);
+  });
+
+  it("cancels one factor against a positive integer power denominator", () => {
+    const document = buildDocument(String.raw`v \frac{a}{v^2}`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\frac{a}{v}`);
+  });
+
+  it("cancels one power factor in a selected negative equation term", () => {
+    const document = buildDocument(String.raw`P v = v \frac{R T}{\left(v - b\right)} - v \frac{a}{v^{2}}`);
+    const selectedNodeId = findNodeId(
+      document,
+      (expr) =>
+        expr.kind === "multiply" &&
+        expr.sign === -1 &&
+        expr.factors.some((factor) => factor.kind === "divide" && factor.denominator.kind === "power"),
+    );
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: selectedNodeId }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: selectedNodeId }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`P v = v \frac{R T}{\left(v - b\right)} - \frac{a}{v}`,
+    );
   });
 
   it("unnests a fraction in the denominator", () => {

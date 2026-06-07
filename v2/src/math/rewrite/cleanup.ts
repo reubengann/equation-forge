@@ -1,4 +1,4 @@
-import { add, divide, num, type Expr } from "../ast";
+import { add, divide, num, power, type Expr } from "../ast";
 import { cloneExpr } from "../ast/utils";
 import {
   applySign,
@@ -365,6 +365,15 @@ function cleanupMultiply(expr: Extract<Expr, { kind: "multiply" }>): Expr | null
       continue;
     }
 
+    if (positiveFactor.kind === "display_group" && positiveFactor.expression.kind === "multiply") {
+      const groupedSign = splitSign(positiveFactor.expression);
+      productSign = multiplySigns(productSign, groupedSign.sign);
+      const groupedProduct = groupedSign.value as Extract<Expr, { kind: "multiply" }>;
+      keptFactors.push(...groupedProduct.factors.map(cloneExpr));
+      changed = true;
+      continue;
+    }
+
     const reciprocalIndex = keptFactors.findIndex((keptFactor) => areMultiplicativeReciprocals(keptFactor, positiveFactor));
     if (reciprocalIndex >= 0) {
       keptFactors.splice(reciprocalIndex, 1);
@@ -393,13 +402,21 @@ function cleanupMultiply(expr: Extract<Expr, { kind: "multiply" }>): Expr | null
     changed = true;
   }
 
+  const combinedPowerFactors = combinePowerFactors(keptFactors);
+  if (combinedPowerFactors) {
+    keptFactors.splice(0, keptFactors.length, ...combinedPowerFactors);
+    changed = true;
+  }
+
   if (!changed) return null;
-  return withSign(collapseProduct(keptFactors), productSign);
+  return withSign(collapseProduct(numericFactorsFirst(keptFactors)), productSign);
 }
 
 function cleanupDivide(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
   const sign = exprSign(expr);
   if (isNumberValue(expr.numerator, 0)) return num(0);
+  const normalizedSigns = normalizeFractionOperandSigns(expr);
+  if (normalizedSigns) return normalizedSigns;
   if (isNumberValue(expr.denominator, 1)) return withSign(cloneExpr(expr.numerator), sign);
   if (cleanupKey(expr.numerator) === cleanupKey(expr.denominator)) return withSign(num(1), sign);
 
@@ -422,18 +439,7 @@ function cleanupDivide(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
   const remainingDenominator = denominatorFactors.map(cloneExpr);
   let changed = false;
 
-  for (let numeratorIndex = 0; numeratorIndex < remainingNumerator.length; numeratorIndex += 1) {
-    const numeratorFactor = remainingNumerator[numeratorIndex];
-    const denominatorIndex = remainingDenominator.findIndex(
-      (denominatorFactor) => cleanupKey(denominatorFactor) === cleanupKey(numeratorFactor),
-    );
-    if (denominatorIndex < 0) continue;
-
-    remainingNumerator.splice(numeratorIndex, 1);
-    remainingDenominator.splice(denominatorIndex, 1);
-    numeratorIndex -= 1;
-    changed = true;
-  }
+  changed = cancelCommonFactors(remainingNumerator, remainingDenominator) || changed;
 
   if (!changed) return null;
   const nextNumerator = collapseProduct(remainingNumerator);
@@ -442,9 +448,21 @@ function cleanupDivide(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
   return withSign(divide(nextNumerator, nextDenominator), sign);
 }
 
+function normalizeFractionOperandSigns(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
+  const fractionSign = exprSign(expr);
+  const numerator = splitSign(expr.numerator);
+  const denominator = splitSign(expr.denominator);
+  if (numerator.sign === 1 && denominator.sign === 1) return null;
+
+  return withSign(
+    divide(numerator.value, denominator.value),
+    multiplySigns(fractionSign, numerator.sign, denominator.sign),
+  );
+}
+
 function cancelAcrossFractionFactors(factors: Expr[]): Expr | null {
   const fractionFactors = factors.filter((factor) => factor.kind === "divide");
-  if (fractionFactors.length < 2) return null;
+  if (fractionFactors.length < 1) return null;
 
   const numeratorFactors: Expr[] = [];
   const denominatorFactors: Expr[] = [];
@@ -457,24 +475,128 @@ function cancelAcrossFractionFactors(factors: Expr[]): Expr | null {
     }
   }
 
-  let changed = false;
-  for (let numeratorIndex = 0; numeratorIndex < numeratorFactors.length; numeratorIndex += 1) {
-    const numeratorFactor = numeratorFactors[numeratorIndex];
-    const denominatorIndex = denominatorFactors.findIndex(
-      (denominatorFactor) => cleanupKey(denominatorFactor) === cleanupKey(numeratorFactor),
-    );
-    if (denominatorIndex < 0) continue;
-
-    numeratorFactors.splice(numeratorIndex, 1);
-    denominatorFactors.splice(denominatorIndex, 1);
-    numeratorIndex -= 1;
-    changed = true;
-  }
+  const changed = cancelCommonFactors(numeratorFactors, denominatorFactors);
 
   if (!changed) return null;
   const numerator = cleanupProductFactors(numeratorFactors);
   const denominator = cleanupProductFactors(denominatorFactors);
   return isNumberValue(denominator, 1) ? numerator : divide(numerator, denominator);
+}
+
+function combinePowerFactors(factors: Expr[]): Expr[] | null {
+  const entries = factors.map(powerFactorParts);
+  const grouped = new Map<string, { base: Expr; exponentSum: number; firstIndex: number; count: number }>();
+
+  entries.forEach((entry, index) => {
+    if (!entry) return;
+    const existing = grouped.get(entry.key);
+    if (existing) {
+      existing.exponentSum += entry.exponent;
+      existing.count += 1;
+      return;
+    }
+    grouped.set(entry.key, {
+      base: entry.base,
+      exponentSum: entry.exponent,
+      firstIndex: index,
+      count: 1,
+    });
+  });
+
+  if (![...grouped.values()].some((group) => group.count > 1)) return null;
+
+  const replacementByIndex = new Map<number, Expr>();
+  for (const group of grouped.values()) {
+    if (group.count <= 1) continue;
+    replacementByIndex.set(group.firstIndex, powerExpr(group.base, group.exponentSum));
+  }
+
+  const seenKeys = new Set<string>();
+  const result: Expr[] = [];
+  factors.forEach((factor, index) => {
+    const entry = entries[index];
+    if (!entry) {
+      result.push(cloneExpr(factor));
+      return;
+    }
+    if (seenKeys.has(entry.key)) return;
+    seenKeys.add(entry.key);
+    result.push(replacementByIndex.get(index) ?? cloneExpr(factor));
+  });
+  return result;
+}
+
+function powerFactorParts(factor: Expr): { key: string; base: Expr; exponent: number } | null {
+  if (factor.kind === "power" && isPositiveIntegerPower(factor)) {
+    return {
+      key: cleanupKey(factor.base),
+      base: cloneExpr(factor.base),
+      exponent: Number(factor.exponent.value),
+    };
+  }
+  if (factor.kind === "number") return null;
+  return {
+    key: cleanupKey(factor),
+    base: cloneExpr(factor),
+    exponent: 1,
+  };
+}
+
+function powerExpr(base: Expr, exponent: number): Expr {
+  return exponent === 1 ? cloneExpr(base) : power(cloneExpr(base), num(exponent));
+}
+
+function cancelCommonFactors(numeratorFactors: Expr[], denominatorFactors: Expr[]): boolean {
+  let changed = false;
+  for (let numeratorIndex = 0; numeratorIndex < numeratorFactors.length; numeratorIndex += 1) {
+    const numeratorFactor = numeratorFactors[numeratorIndex];
+    const denominatorIndex = findCancellableFactorIndex(denominatorFactors, numeratorFactor);
+    if (denominatorIndex < 0) continue;
+
+    numeratorFactors.splice(numeratorIndex, 1);
+    decrementFactorAt(denominatorFactors, denominatorIndex, numeratorFactor);
+    numeratorIndex -= 1;
+    changed = true;
+  }
+  return changed;
+}
+
+function findCancellableFactorIndex(factors: Expr[], factor: Expr): number {
+  return factors.findIndex((candidate) => canCancelFactor(candidate, factor));
+}
+
+function canCancelFactor(candidate: Expr, factor: Expr): boolean {
+  if (cleanupKey(candidate) === cleanupKey(factor)) return true;
+  if (candidate.kind !== "power") return false;
+  return isPositiveIntegerPower(candidate) && cleanupKey(candidate.base) === cleanupKey(factor);
+}
+
+function decrementFactorAt(factors: Expr[], index: number, canceledFactor: Expr): void {
+  const factor = factors[index];
+  if (!factor || cleanupKey(factor) === cleanupKey(canceledFactor)) {
+    factors.splice(index, 1);
+    return;
+  }
+  if (factor.kind !== "power" || !isPositiveIntegerPower(factor)) return;
+  const exponent = Number(factor.exponent.value);
+  if (exponent === 2) {
+    factors[index] = cloneExpr(factor.base);
+    return;
+  }
+  factors[index] = {
+    ...cloneExpr(factor),
+    exponent: num(exponent - 1),
+  };
+}
+
+function isPositiveIntegerPower(expr: Extract<Expr, { kind: "power" }>): expr is Extract<Expr, { kind: "power" }> & {
+  exponent: Extract<Expr, { kind: "number" }>;
+} {
+  return (
+    expr.exponent.kind === "number" &&
+    Number.isInteger(Number(expr.exponent.value)) &&
+    Number(expr.exponent.value) > 1
+  );
 }
 
 function collapseNestedFractionFactors(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
