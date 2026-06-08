@@ -348,7 +348,7 @@ export class RulesPipeline {
       (candidate) =>
         candidate.moveType === this.moveType &&
         (candidate.selectionKind === "*" || candidate.selectionKind === context.selection.kind) &&
-        candidate.pivotKind === pivotNode.kind &&
+        (candidate.pivotKind === "*" || candidate.pivotKind === pivotNode.kind) &&
         candidate.canApply(
           { ...context, payload: state.payload },
           { pivotId: path.pivotId, pivotNode, sourceBranchId, destinationBranchId },

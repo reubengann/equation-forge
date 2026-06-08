@@ -1,0 +1,225 @@
+{
+  "schemaVersion": 1,
+  "exportedAtIso": "2026-06-08T18:59:33.543Z",
+  "domSnapshots": {
+    "s1": {
+      "hostRect": {
+        "left": 172.0833282470703,
+        "top": 183.0500030517578,
+        "right": 1500.0833282470703,
+        "bottom": 225.60000610351562,
+        "width": 1328,
+        "height": 42.55000305175781
+      },
+      "nodeRects": [
+        {
+          "nodeId": "n1",
+          "left": 172.0833282470703,
+          "top": 187.36666870117188,
+          "right": 350.6666717529297,
+          "bottom": 216.53334045410156,
+          "width": 178.58334350585938,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n2",
+          "left": 172.0833282470703,
+          "top": 187.36666870117188,
+          "right": 310.96665954589844,
+          "bottom": 216.53334045410156,
+          "width": 138.88333129882812,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n3",
+          "left": 172.0833282470703,
+          "top": 187.36666870117188,
+          "right": 261.9499969482422,
+          "bottom": 216.53334045410156,
+          "width": 89.86666870117188,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n4",
+          "left": 180.48333740234375,
+          "top": 187.36666870117188,
+          "right": 253.5500030517578,
+          "bottom": 216.53334045410156,
+          "width": 73.06666564941406,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n5",
+          "left": 180.48333740234375,
+          "top": 187.36666870117188,
+          "right": 203.64999389648438,
+          "bottom": 216.53334045410156,
+          "width": 23.166656494140625,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n6",
+          "left": 230.38333129882812,
+          "top": 187.36666870117188,
+          "right": 253.5500030517578,
+          "bottom": 216.53334045410156,
+          "width": 23.166671752929688,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n7",
+          "left": 288.683349609375,
+          "top": 187.36666870117188,
+          "right": 310.9666748046875,
+          "bottom": 216.53334045410156,
+          "width": 22.2833251953125,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n9",
+          "left": 292,
+          "top": 202.26666259765625,
+          "right": 307.6333312988281,
+          "bottom": 231.43333435058594,
+          "width": 15.633331298828125,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n8",
+          "left": 291.2833251953125,
+          "top": 174.8333282470703,
+          "right": 308.3666534423828,
+          "bottom": 204,
+          "width": 17.083328247070312,
+          "height": 29.166671752929688
+        },
+        {
+          "nodeId": "n10",
+          "left": 339.8666687011719,
+          "top": 187.36666870117188,
+          "right": 350.6666717529297,
+          "bottom": 216.53334045410156,
+          "width": 10.800003051757812,
+          "height": 29.166671752929688
+        }
+      ]
+    }
+  },
+  "events": [
+    {
+      "type": "move_mode_changed",
+      "moveType": "additive",
+      "ts": 1780945165003
+    },
+    {
+      "type": "latex_accepted",
+      "previousLatex": "\\left(S_2 - S_1\\right) - \\frac{Q}{T} \\geq 0",
+      "nextLatex": "\\left(S_2 - S_1\\right) - \\frac{Q}{T} \\geq 0",
+      "ts": 1780945166050
+    },
+    {
+      "type": "dom_changed",
+      "source": "accept",
+      "domSnapshotId": "s1",
+      "ts": 1780945166061
+    },
+    {
+      "type": "pointer_down",
+      "pointer": {
+        "x": 296.6666564941406,
+        "y": 205.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780945167840
+    },
+    {
+      "type": "pointer_up",
+      "pointer": {
+        "x": 296.6666564941406,
+        "y": 205.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 0,
+      "ctrlKey": false,
+      "ts": 1780945167939
+    },
+    {
+      "type": "pointer_down",
+      "pointer": {
+        "x": 296.6666564941406,
+        "y": 205.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780945168046
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 298.3333435058594,
+        "y": 205.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780945168520
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 300,
+        "y": 205.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780945168529
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 330.8333435058594,
+        "y": 206.6666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1780945168729
+    },
+    {
+      "type": "pointer_up",
+      "pointer": {
+        "x": 338.3333435058594,
+        "y": 206.6666717529297
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 0,
+      "ctrlKey": false,
+      "ts": 1780945170952
+    }
+  ],
+  "expected": {
+    "selectedNodeIds": [
+    ],
+    "insertionPreview": null,
+    "moveType": "additive",
+    "latex": "\\left(S_2 - S_1\\right) \\geq \\frac{Q}{T}"
+  }
+}

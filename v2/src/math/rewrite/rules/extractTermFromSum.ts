@@ -14,7 +14,7 @@ export function extractTermFromSum(): UpwardRewriteRule {
       if (context.selection.kind === "single") {
         return (
           edge.parentNode.kind === "add" ||
-          (edge.parentNode.kind === "equation" &&
+          (isAdditiveRelation(edge.parentNode) &&
             edge.childId === context.selection.nodeId &&
             !isAdditiveIdentity(edge.childNode))
         );
@@ -27,7 +27,7 @@ export function extractTermFromSum(): UpwardRewriteRule {
       if (edge.parentNode.kind !== "add") {
         if (context.selection.kind !== "single") return null;
         const selectionNodeId = context.selection.nodeId;
-        if (edge.parentNode.kind !== "equation") return null;
+        if (!isAdditiveRelation(edge.parentNode)) return null;
         if (edge.childId !== selectionNodeId) return null;
         if (isAdditiveIdentity(edge.childNode)) return null;
         return {
@@ -82,4 +82,8 @@ function collapseAdditiveTerms(terms: Expr[]): Expr {
 
 function isAdditiveIdentity(expr: Expr): boolean {
   return expr.kind === "number" && expr.value === 0;
+}
+
+function isAdditiveRelation(expr: Expr): boolean {
+  return expr.kind === "equation" || expr.kind === "inequality";
 }

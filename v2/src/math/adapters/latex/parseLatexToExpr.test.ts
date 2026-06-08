@@ -759,6 +759,12 @@ describe("parseLatexToExpr", () => {
     expect(expr.name).toBe(String.raw`\mu_s`);
   });
 
+  it("preserves comma-separated symbol subscripts", () => {
+    const expr = parseLatexToExpr(String.raw`A_{T,P}`);
+    expectExprKind(expr, "symbol");
+    expect(expr.name).toBe("A_{T,P}");
+  });
+
   it("parses full derivative operator with bare differential denominator", () => {
     const expr = parseLatexToExpr(String.raw`\frac{d}{dx} f g`);
     expectExprKind(expr, "full_derivative_operator");

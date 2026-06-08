@@ -8,15 +8,15 @@ export function pivotAdditiveAcrossEquation(): PivotRewriteRule {
     id: "pivotAdditiveAcrossEquation",
     selectionKind: "*",
     moveType: "additive",
-    pivotKind: "equation",
+    pivotKind: "*",
     canApply: (context, pivotContext) => {
       if (!context.payload) return false;
-      if (pivotContext.pivotNode.kind !== "equation") return false;
+      if (!isAdditiveRelation(pivotContext.pivotNode)) return false;
       return pivotContext.sourceBranchId !== pivotContext.destinationBranchId;
     },
     apply: (context: MoveContext, pivotContext) => {
       if (!context.payload) return null;
-      if (pivotContext.pivotNode.kind !== "equation") return null;
+      if (!isAdditiveRelation(pivotContext.pivotNode)) return null;
 
       return {
         payload: additiveInverse(context.payload),
@@ -28,4 +28,8 @@ export function pivotAdditiveAcrossEquation(): PivotRewriteRule {
 function additiveInverse(expr: Expr): Expr {
   if (expr.kind === "add") return flipSign({ kind: "display_group", delimiter: "paren", expression: cloneExpr(expr) });
   return flipSign(expr);
+}
+
+function isAdditiveRelation(expr: Expr): boolean {
+  return expr.kind === "equation" || expr.kind === "inequality";
 }

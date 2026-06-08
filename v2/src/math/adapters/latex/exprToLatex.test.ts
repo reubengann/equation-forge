@@ -564,6 +564,12 @@ describe("exprToLatex", () => {
     expect(latex).toBe(String.raw`\rho`);
   });
 
+  it("round-trips comma-separated symbol subscripts without tags", () => {
+    const expr = parseLatexToExpr(String.raw`A_{T,P}`);
+    const latex = exprToLatex(expr, false);
+    expect(latex).toBe("A_{T,P}");
+  });
+
   it("round-trips limits without tags", () => {
     const expr = parseLatexToExpr(String.raw`\lim_{x \to 0} \frac{\sin x}{x}`);
     const latex = exprToLatex(expr, false);

@@ -448,6 +448,24 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe("a + b = c");
   });
 
+  it("executes moving an additive term across an inequality", () => {
+    const document = buildDocument(String.raw`\left(S_2 - S_1\right) - \frac{Q}{T} \geq 0`);
+    const selectedNodeId = findNodeId(
+      document,
+      (expr) => expr.kind === "divide" && expr.sign === -1,
+    );
+    const destinationId = findNodeId(document, (expr) => expr.kind === "number" && Number(expr.value) === 0);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: selectedNodeId },
+      destinationId,
+      moveType: "additive",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\left(S_2 - S_1\right) \geq \frac{Q}{T}`);
+  });
+
   it("previews moving a multiplicative factor across an equation as a denominator drop", () => {
     const document = buildDocument(String.raw`F=m a`);
     const preview = canExecuteMove({

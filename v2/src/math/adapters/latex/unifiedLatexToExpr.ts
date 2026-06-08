@@ -296,7 +296,12 @@ function mergeSubscript(tokens: Token[], i: number, node: UnifiedNode): number {
       kind: "symbol",
       name: `${previous.name}_${String(subExpr.value)}`,
     };
+    return i;
   }
+  tokens[tokens.length - 1] = {
+    kind: "symbol",
+    name: `${previous.name}_{${printRaw(argNodes as unknown as Parameters<typeof printRaw>[0])}}`,
+  };
   return i;
 }
 
