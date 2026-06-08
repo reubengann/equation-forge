@@ -601,7 +601,7 @@ function decrementFactorAt(factors: Expr[], index: number, canceledFactor: Expr)
     return;
   }
   factors[index] = {
-    ...cloneExpr(factor),
+    ...factor,
     exponent: num(exponent - 1),
   };
 }

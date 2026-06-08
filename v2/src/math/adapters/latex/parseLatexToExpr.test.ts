@@ -498,6 +498,7 @@ describe("parseLatexToExpr", () => {
     const rhs = expr.sides[1];
     expectExprKind(rhs, "multiply");
     const fraction = rhs.factors.find((factor) => factor.kind === "divide");
+    if (!fraction) throw new Error("Expected pasted MathLive expression to include a fraction factor.");
     expectExprKind(fraction, "divide");
     expectExprKind(fraction.numerator, "partial_at_const_quantity");
     expect(fraction.numerator.quantity).toMatchObject({ kind: "symbol", name: "P" });
@@ -507,6 +508,7 @@ describe("parseLatexToExpr", () => {
     expectExprKind(fraction.denominator, "display_group");
     expectExprKind(fraction.denominator.expression, "add");
     const denominatorPartial = fraction.denominator.expression.terms.find((term) => term.kind === "partial_at_const_quantity");
+    if (!denominatorPartial) throw new Error("Expected denominator to include a partial-at-constant term.");
     expectExprKind(denominatorPartial, "partial_at_const_quantity");
     expect(denominatorPartial.quantity).toMatchObject({ kind: "symbol", name: "u" });
     expect(denominatorPartial.variable).toMatchObject({ kind: "symbol", name: "v" });

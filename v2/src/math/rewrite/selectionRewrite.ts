@@ -88,6 +88,7 @@ function replaceSingleContainerChildWithExpr(
     }
 
     const nextParent = cloneExpr(parent);
+    if (nextParent.kind !== "multiply") return null;
     nextParent.factors = [
       ...parent.factors.slice(0, location.index).map(cloneExpr),
       ...replacement.factors.map(cloneExpr),
@@ -116,6 +117,7 @@ function replaceSingleContainerChildWithExpr(
     replacement.kind === "add"
   ) {
     const nextGrandparent = cloneExpr(grandparent);
+    if (nextGrandparent.kind !== "add") return null;
     nextGrandparent.terms = [
       ...nextGrandparent.terms.slice(0, parentLocation.index),
       ...replacement.terms.map(flipAdditiveSign),

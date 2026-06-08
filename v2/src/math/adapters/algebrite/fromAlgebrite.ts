@@ -170,10 +170,6 @@ function numericValueOrNull(value: number | string): number | null {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
-function isNumberValue(expr: Expr, value: number): boolean {
-  return expr.kind === "number" && Number(expr.value) === value;
-}
-
 function normalizeSymbolName(value: string): string {
   if (value === "pi") return String.raw`\pi`;
   if (value === ALGE_BRITE_EULER_SYMBOL) return "e";

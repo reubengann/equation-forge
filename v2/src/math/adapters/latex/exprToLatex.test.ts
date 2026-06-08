@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseLatexToExpr } from "./parseLatexToExpr";
 import { exprToLatex } from "./exprToLatex";
 import { compileMathDocumentFromExpr } from "../../compile/compileMathDocument";
+import type { Expr } from "../../ast";
 
 describe("exprToLatex", () => {
   it("wraps number in tags", () => {
@@ -68,7 +69,7 @@ describe("exprToLatex", () => {
           ],
         },
       ],
-    } as const;
+    } satisfies Expr;
 
     expect(exprToLatex(expr, false)).toBe("a - b c");
   });
@@ -100,7 +101,7 @@ describe("exprToLatex", () => {
           delimiter: "paren",
         },
       ],
-    } as const;
+    } satisfies Expr;
 
     expect(exprToLatex(expr, false)).toBe(String.raw`-\frac{R}{c_v} \ln\left(x\right)`);
   });
@@ -117,7 +118,7 @@ describe("exprToLatex", () => {
           denominator: { kind: "symbol", name: "c" },
         },
       ],
-    } as const;
+    } satisfies Expr;
 
     expect(exprToLatex(expr, false)).toBe(String.raw`a - \frac{b}{c}`);
   });
@@ -144,7 +145,7 @@ describe("exprToLatex", () => {
           ],
         },
       ],
-    } as const;
+    } satisfies Expr;
 
     expect(exprToLatex(expr, false)).toBe(String.raw`a - \frac{b}{c} + \frac{d}{e}`);
   });
@@ -173,7 +174,7 @@ describe("exprToLatex", () => {
           factors: [{ kind: "symbol", name: "a" }, { kind: "symbol", name: "b" }],
         },
       ],
-    } as const;
+    } satisfies Expr;
 
     expect(exprToLatex(expr, false)).toBe(String.raw`P \left(-a b\right)`);
   });

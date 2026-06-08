@@ -28,7 +28,7 @@ export const power = (base: Expr, exponent: Expr, options?: ExprOptions): Expr =
   exponent,
 }, options);
 
-export const negate = (value: Expr, notation: "prefix" | "subtraction" = "prefix"): Expr =>
+export const negate = (value: Expr, _notation: "prefix" | "subtraction" = "prefix"): Expr =>
   withSign(value, value.sign === -1 ? 1 : -1);
 
 export const divide = (numerator: Expr, denominator: Expr, options?: ExprOptions): Expr => withOptions({

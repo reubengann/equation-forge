@@ -115,7 +115,9 @@ function resolveSingleSelection(document: CompiledMathDocument, nodeId: string):
 
   return {
     nodeId,
-    replacement: applySign(signedSelected.sign, cloneExpr(signedSelected.value.expression)),
+    replacement: signedSelected.value.kind === "display_group"
+      ? applySign(signedSelected.sign, cloneExpr(signedSelected.value.expression))
+      : applySign(signedSelected.sign, cloneExpr(selected)),
   };
 }
 

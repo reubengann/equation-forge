@@ -21,7 +21,6 @@ import {
   limit,
   multipleIntegral,
   multiply,
-  negate,
   num,
   outerProduct,
   partialAtConstQuantity,

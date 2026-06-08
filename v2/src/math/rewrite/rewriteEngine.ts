@@ -94,7 +94,7 @@ export class RulesPipeline {
   selection: TermSelection;
   destinationId: string;
   destinationSlot?: InsertionSlot;
-  moveType: string;
+  moveType: MoveType;
 
   constructor(
     document: CompiledMathDocument,
@@ -659,7 +659,7 @@ function directChildIdUnderContainer(
 ): string | null {
   let cursor: string | null = nodeId;
   while (cursor) {
-    const parentId = document.index.parentById[cursor] ?? null;
+    const parentId: string | null = document.index.parentById[cursor] ?? null;
     if (parentId === containerId) return cursor;
     cursor = parentId;
   }
@@ -678,7 +678,7 @@ function normalizeSingleSelectionForMove(
 
   let cursor: string | null = selection.nodeId;
   while (cursor) {
-    const parentId = document.index.parentById[cursor] ?? null;
+    const parentId: string | null = document.index.parentById[cursor] ?? null;
     if (!parentId) return null;
     const parent = document.index.nodeById[parentId];
     if (parent?.kind === "add") {
@@ -689,7 +689,7 @@ function normalizeSingleSelectionForMove(
     if (parent?.kind === "multiply") {
       const parentLocation = document.index.locationById[parentId];
       const grandparent = parentLocation?.parentId ? document.index.nodeById[parentLocation.parentId] : null;
-      if (grandparent?.kind === "add") {
+      if (grandparent?.kind === "add" && parentLocation?.parentId) {
         const destinationTermId = directChildIdUnderContainer(document, parentLocation.parentId, destinationId);
         if (!destinationTermId) return null;
         return { kind: "single", nodeId: parentId };

@@ -235,7 +235,7 @@ function decrementPowerFactor(factors: Expr[], index: number): void {
   factors[index] = exponent === 2
     ? cloneExpr(factor.base)
     : {
-        ...cloneExpr(factor),
+        ...factor,
         exponent: num(exponent - 1),
       };
 }

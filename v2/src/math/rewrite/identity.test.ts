@@ -201,7 +201,7 @@ describe("identity rewrites", () => {
           delimiter: "paren",
         },
       ],
-    } as const;
+    } satisfies Expr;
     const rewritten = applyIdentityRewrite(expr, "combine-log-coefficient");
 
     expect(rewritten).not.toBeNull();
@@ -268,7 +268,7 @@ describe("identity rewrites", () => {
           delimiter: "paren",
         },
       ],
-    } as const;
+    } satisfies Expr;
     const document = compileMathDocumentFromExpr("", expr);
     const next = applyIdentityRewriteToSelection(document, { kind: "single", nodeId: "n1" }, "combine-log-coefficient");
 
@@ -337,7 +337,7 @@ describe("identity rewrites", () => {
         },
       ],
       delimiter: "paren",
-    } as const;
+    } satisfies Expr;
     const next = replaceSelectionWithExpr(document, { kind: "single", nodeId: "n7" }, replacement);
     const latex = exprToLatex(next!, false);
 

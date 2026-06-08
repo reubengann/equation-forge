@@ -126,17 +126,20 @@ export function MathEntry({
     syncLatexFromField();
   };
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+  const handleMacroKeyDownCapture = (event: KeyboardEvent<HTMLElement>) => {
     if ((event.ctrlKey || event.metaKey) && !event.altKey) {
       const macroIndex = Number(event.key) - 1;
       const macro = Number.isInteger(macroIndex) ? macros[macroIndex] : undefined;
       if (macro) {
         event.preventDefault();
+        event.stopPropagation();
+        event.nativeEvent.stopImmediatePropagation?.();
         insertMacro(macro);
-        return;
       }
     }
+  };
 
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
     onAccept(syncLatexFromField());
@@ -213,6 +216,7 @@ export function MathEntry({
           data-testid="latex-mathfield"
           value={latex}
           onInput={syncLatexFromField}
+          onKeyDownCapture={handleMacroKeyDownCapture}
           onKeyDown={handleKeyDown}
           style={{
             width: "100%",

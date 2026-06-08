@@ -72,9 +72,9 @@ function isIntegralLike(expr: Expr): expr is IntegralLikeExpr {
   );
 }
 
-function withIntegrand(expr: IntegralLikeExpr, integrand: Expr): Expr {
+function withIntegrand(expr: IntegralLikeExpr, integrand: Expr): IntegralLikeExpr {
   return {
-    ...cloneExpr(expr),
+    ...expr,
     integrand: cloneExpr(integrand),
   };
 }
