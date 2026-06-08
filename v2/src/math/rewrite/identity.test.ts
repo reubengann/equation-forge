@@ -399,6 +399,28 @@ describe("identity rewrites", () => {
     expect(rewriteLatex(String.raw`(a^b)^c`, "power-of-power")).toBe(String.raw`a^{b c}`);
   });
 
+  it("rewrites square roots of squares to absolute values", () => {
+    const expr = parse(String.raw`\sqrt{x^2}`);
+    const options = getApplicableIdentityRewrites(expr);
+
+    expect(options[0]).toMatchObject({
+      id: "sqrt-square-to-absolute-value",
+      label: "sqrt(x^2) -> |x|",
+    });
+    expect(rewriteLatex(String.raw`\sqrt{x^2}`, "sqrt-square-to-absolute-value")).toBe("|x|");
+    expect(exprToLatex(applyDefaultIdentityRewrite(expr)!, false)).toBe("|x|");
+  });
+
+  it("rewrites square roots of squares to the base with a positivity caveat", () => {
+    const options = getApplicableIdentityRewrites(parse(String.raw`\sqrt{x^2}`));
+
+    expect(options.find((option) => option.id === "sqrt-square-to-positive-base")).toMatchObject({
+      id: "sqrt-square-to-positive-base",
+      caveat: "Assumes the squared expression is positive.",
+    });
+    expect(rewriteLatex(String.raw`\sqrt{x^2}`, "sqrt-square-to-positive-base")).toBe("x");
+  });
+
   it("rewrites trig complements in both directions", () => {
     expect(rewriteLatex(String.raw`\sin(\frac{\pi}{2}-\theta)`, "sin-complement-to-cos")).toBe(
       String.raw`\cos \theta `,

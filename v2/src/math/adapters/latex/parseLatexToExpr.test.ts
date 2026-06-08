@@ -456,6 +456,7 @@ describe("parseLatexToExpr", () => {
     for (const latex of [
       String.raw`\left(\frac{\partial{s}}{\partial{T}}\right)_{P} = \frac{c_{P}}{T}`,
       String.raw`\left(\dfrac{\partial{s}}{\partial{T}}\right)_{P} = \frac{c_{P}}{T}`,
+      String.raw`\left(\partial{s}/\partial{T}\right)_{P} = \frac{c_{P}}{T}`,
     ]) {
       const expr = parseLatexToExpr(latex);
       expectExprKind(expr, "equation");
@@ -472,6 +473,31 @@ describe("parseLatexToExpr", () => {
     expect(expr.quantity.name).toBe("s");
     expectExprKind(expr.variable, "symbol");
     expect(expr.variable.name).toBe("T");
+  });
+
+  it("parses pasted MathLive inline partials at constant quantity", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\frac{\mathrm{d}{T}}{T} = \frac{\left(\partial{P}/\partial{\theta}\right)_{v}}{\left(P + \left(\partial{u}/\partial{v}\right)_{\theta}\right)} \, \mathrm{d}{\theta}`,
+    );
+
+    expectExprKind(expr, "equation");
+    expect(expr.sides).toHaveLength(2);
+    const rhs = expr.sides[1];
+    expectExprKind(rhs, "multiply");
+    const fraction = rhs.factors.find((factor) => factor.kind === "divide");
+    expectExprKind(fraction, "divide");
+    expectExprKind(fraction.numerator, "partial_at_const_quantity");
+    expect(fraction.numerator.quantity).toMatchObject({ kind: "symbol", name: "P" });
+    expect(fraction.numerator.variable).toMatchObject({ kind: "symbol", name: String.raw`\theta` });
+    expect(fraction.numerator.constantQuantity).toMatchObject({ kind: "symbol", name: "v" });
+
+    expectExprKind(fraction.denominator, "display_group");
+    expectExprKind(fraction.denominator.expression, "add");
+    const denominatorPartial = fraction.denominator.expression.terms.find((term) => term.kind === "partial_at_const_quantity");
+    expectExprKind(denominatorPartial, "partial_at_const_quantity");
+    expect(denominatorPartial.quantity).toMatchObject({ kind: "symbol", name: "u" });
+    expect(denominatorPartial.variable).toMatchObject({ kind: "symbol", name: "v" });
+    expect(denominatorPartial.constantQuantity).toMatchObject({ kind: "symbol", name: String.raw`\theta` });
   });
 
   it("parses integrals", () => {

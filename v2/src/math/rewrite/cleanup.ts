@@ -550,25 +550,42 @@ function cancelCommonFactors(numeratorFactors: Expr[], denominatorFactors: Expr[
   let changed = false;
   for (let numeratorIndex = 0; numeratorIndex < numeratorFactors.length; numeratorIndex += 1) {
     const numeratorFactor = numeratorFactors[numeratorIndex];
-    const denominatorIndex = findCancellableFactorIndex(denominatorFactors, numeratorFactor);
-    if (denominatorIndex < 0) continue;
+    const denominatorMatch = findCancellableFactor(denominatorFactors, numeratorFactor);
+    if (!denominatorMatch) continue;
 
-    numeratorFactors.splice(numeratorIndex, 1);
-    decrementFactorAt(denominatorFactors, denominatorIndex, numeratorFactor);
+    decrementFactorAt(numeratorFactors, numeratorIndex, denominatorMatch.base);
+    decrementFactorAt(denominatorFactors, denominatorMatch.index, denominatorMatch.base);
     numeratorIndex -= 1;
     changed = true;
   }
   return changed;
 }
 
-function findCancellableFactorIndex(factors: Expr[], factor: Expr): number {
-  return factors.findIndex((candidate) => canCancelFactor(candidate, factor));
+function findCancellableFactor(factors: Expr[], factor: Expr): { index: number; base: Expr } | null {
+  for (let index = 0; index < factors.length; index += 1) {
+    const candidate = factors[index];
+    if (!candidate) continue;
+    const base = cancellableBase(candidate, factor);
+    if (base) return { index, base };
+  }
+  return null;
 }
 
-function canCancelFactor(candidate: Expr, factor: Expr): boolean {
-  if (cleanupKey(candidate) === cleanupKey(factor)) return true;
-  if (candidate.kind !== "power") return false;
-  return isPositiveIntegerPower(candidate) && cleanupKey(candidate.base) === cleanupKey(factor);
+function cancellableBase(left: Expr, right: Expr): Expr | null {
+  if (cleanupKey(left) === cleanupKey(right)) return cloneExpr(right);
+
+  if (left.kind === "power" && isPositiveIntegerPower(left)) {
+    if (cleanupKey(left.base) === cleanupKey(right)) return cloneExpr(right);
+    if (right.kind === "power" && isPositiveIntegerPower(right) && cleanupKey(left.base) === cleanupKey(right.base)) {
+      return cloneExpr(left.base);
+    }
+  }
+
+  if (right.kind === "power" && isPositiveIntegerPower(right) && cleanupKey(right.base) === cleanupKey(left)) {
+    return cloneExpr(left);
+  }
+
+  return null;
 }
 
 function decrementFactorAt(factors: Expr[], index: number, canceledFactor: Expr): void {

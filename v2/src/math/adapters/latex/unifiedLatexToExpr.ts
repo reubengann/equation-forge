@@ -1077,6 +1077,38 @@ class TokenParser {
     );
   }
 
+  private parseFractionExpression(numerator: Expr, denominator: Expr): Expr {
+    if (
+      this.isFullDerivativeMarker(numerator) &&
+      denominator.kind === "differential"
+    ) {
+      return fullDerivativeOperator(
+        denominator.variable,
+        this.consumeDerivativeOperatorOperand(),
+      );
+    }
+    if (this.isPartialDerivativeMarker(numerator)) {
+      const partialVariable = this.extractPartialOperand(denominator);
+      if (partialVariable) {
+        return partialDerivativeOperator(
+          partialVariable,
+          this.consumeDerivativeOperatorOperand(),
+        );
+      }
+    }
+    const secondOrder = this.extractSecondOrderPartialDerivative(
+      numerator,
+      denominator,
+    );
+    if (secondOrder) return secondOrder;
+    const partialQuantity = this.extractPartialOperand(numerator);
+    const partialVariable = this.extractPartialOperand(denominator);
+    if (partialQuantity && partialVariable) {
+      return partialDerivative(partialQuantity, partialVariable);
+    }
+    return divide(numerator, denominator);
+  }
+
   private extractPartialOperand(expr: Expr): Expr | null {
     if (expr.kind === "symbol" && expr.name === "partial") return null;
     if (expr.kind === "multiply" && expr.factors.length === 2) {
@@ -1318,7 +1350,15 @@ class TokenParser {
         continue;
       }
       if (this.consumeOperator("/")) {
-        expr = divide(expr, this.parseUnary());
+        let denominator = this.parseUnary();
+        if (
+          this.extractPartialOperand(expr) &&
+          this.isPartialDerivativeMarker(denominator) &&
+          this.canStartPrimary(this.peek())
+        ) {
+          denominator = multiply([denominator, this.parseUnary()]);
+        }
+        expr = this.parseFractionExpression(expr, denominator);
         continue;
       }
       if (this.consumeOperator("dot")) {
@@ -1384,35 +1424,7 @@ class TokenParser {
     if (token.kind === "fraction") {
       const numerator = parseGroupNodes(token.numerator) ?? sym("missing");
       const denominator = parseGroupNodes(token.denominator) ?? sym("missing");
-      if (
-        this.isFullDerivativeMarker(numerator) &&
-        denominator.kind === "differential"
-      ) {
-        return fullDerivativeOperator(
-          denominator.variable,
-          this.consumeDerivativeOperatorOperand(),
-        );
-      }
-      if (this.isPartialDerivativeMarker(numerator)) {
-        const partialVariable = this.extractPartialOperand(denominator);
-        if (partialVariable) {
-          return partialDerivativeOperator(
-            partialVariable,
-            this.consumeDerivativeOperatorOperand(),
-          );
-        }
-      }
-      const secondOrder = this.extractSecondOrderPartialDerivative(
-        numerator,
-        denominator,
-      );
-      if (secondOrder) return secondOrder;
-      const partialQuantity = this.extractPartialOperand(numerator);
-      const partialVariable = this.extractPartialOperand(denominator);
-      if (partialQuantity && partialVariable) {
-        return partialDerivative(partialQuantity, partialVariable);
-      }
-      return divide(numerator, denominator);
+      return this.parseFractionExpression(numerator, denominator);
     }
     if (token.kind === "grouped_expr") {
       return token.expression;

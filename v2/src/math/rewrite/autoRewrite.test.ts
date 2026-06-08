@@ -598,6 +598,24 @@ describe("autoRewriteSelection cleanup", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`\frac{a}{v}`);
   });
 
+  it("cancels one denominator factor against a positive integer power numerator", () => {
+    const document = buildDocument(String.raw`\frac{2 a \left(v - b\right)^{2}}{v^{2} b \left(v - b\right)}`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\frac{2 a \left(v - b\right)}{v^{2} b}`);
+  });
+
+  it("cancels an expanded grouped numerator factor against the denominator", () => {
+    const document = buildDocument(String.raw`\frac{2 a \left(v - b\right)\left(v - b\right)}{v^{2} b \left(v - b\right)}`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\frac{2 a \left(v - b\right)}{v^{2} b}`);
+  });
+
   it("cancels one power factor in a selected negative equation term", () => {
     const document = buildDocument(String.raw`P v = v \frac{R T}{\left(v - b\right)} - v \frac{a}{v^{2}}`);
     const selectedNodeId = findNodeId(

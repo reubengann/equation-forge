@@ -1,5 +1,6 @@
 import type { TermSelection } from "../../selection/types";
 import {
+  absoluteValue,
   add,
   call,
   displayGroup,
@@ -28,6 +29,7 @@ export type IdentityRewriteOption = Omit<IdentityRewrite, "apply">;
 const POSITIVE_LOG_CAVEAT = "Assumes the log arguments are positive.";
 const POWER_BRANCH_CAVEAT = "Branch/domain-sensitive; generally safe for positive real bases.";
 const ANGLE_IDENTITY_CAVEAT = "Uses the standard angle identity.";
+const POSITIVE_BASE_CAVEAT = "Assumes the squared expression is positive.";
 
 const IDENTITY_REWRITES: IdentityRewrite[] = [
   {
@@ -101,6 +103,19 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
     caveat: POWER_BRANCH_CAVEAT,
     defaultPriority: 60,
     apply: flattenPowerOfPower,
+  },
+  {
+    id: "sqrt-square-to-absolute-value",
+    label: "sqrt(x^2) -> |x|",
+    defaultPriority: 55,
+    apply: sqrtSquareToAbsoluteValue,
+  },
+  {
+    id: "sqrt-square-to-positive-base",
+    label: "sqrt(x^2) -> x",
+    caveat: POSITIVE_BASE_CAVEAT,
+    defaultPriority: 54,
+    apply: sqrtSquareToPositiveBase,
   },
   {
     id: "sin-complement-to-cos",
@@ -312,6 +327,15 @@ function flattenPowerOfPower(expr: Expr): Expr | null {
   return power(base.base, multiply([base.exponent, unwrapped.exponent]));
 }
 
+function sqrtSquareToAbsoluteValue(expr: Expr): Expr | null {
+  const base = sqrtSquareBase(expr);
+  return base ? absoluteValue(base) : null;
+}
+
+function sqrtSquareToPositiveBase(expr: Expr): Expr | null {
+  return sqrtSquareBase(expr);
+}
+
 function sinComplementToCos(expr: Expr): Expr | null {
   const arg = singleNamedCallArgument(expr, "sin");
   if (!arg) return null;
@@ -346,6 +370,15 @@ function sinSquarePowerReduction(expr: Expr): Expr | null {
     ),
     num(2),
   );
+}
+
+function sqrtSquareBase(expr: Expr): Expr | null {
+  const unwrapped = unwrapDisplayGroup(expr);
+  if (unwrapped.kind !== "root" || unwrapped.degree !== 2) return null;
+
+  const value = unwrapDisplayGroup(unwrapped.value);
+  if (value.kind !== "power" || !isNumberTwo(value.exponent)) return null;
+  return cloneExpr(value.base);
 }
 
 function squaredTrigCall(expr: Expr): { name: "sin" | "cos"; argument: Expr } | null {
