@@ -452,6 +452,19 @@ describe("parseLatexToExpr", () => {
     expect(expr.independentVariables[1].name).toBe("T");
   });
 
+  it("parses unbraced mixed second order partial derivatives", () => {
+    const expr = parseLatexToExpr(String.raw`\dfrac{\partial^2u}{\partial m\partial T}`);
+    expectExprKind(expr, "second_order_partial_derivative");
+    expect(expr.degree).toBe(2);
+    expectExprKind(expr.dependentVariable, "symbol");
+    expect(expr.dependentVariable.name).toBe("u");
+    expect(expr.independentVariables).toHaveLength(2);
+    expectExprKind(expr.independentVariables[0], "symbol");
+    expect(expr.independentVariables[0].name).toBe("m");
+    expectExprKind(expr.independentVariables[1], "symbol");
+    expect(expr.independentVariables[1].name).toBe("T");
+  });
+
   it("parses partials at constant quantity", () => {
     for (const latex of [
       String.raw`\left(\frac{\partial{s}}{\partial{T}}\right)_{P} = \frac{c_{P}}{T}`,

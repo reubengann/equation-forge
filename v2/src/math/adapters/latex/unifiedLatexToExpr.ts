@@ -1017,12 +1017,43 @@ class TokenParser {
     const factors = this.factorList(numerator);
     if (factors.length < 2) return null;
     const head = factors[0];
-    if (head?.kind !== "power") return null;
-    if (head.base.kind !== "symbol" || head.base.name !== "partial") return null;
-    const degree = this.parsePositiveInteger(head.exponent);
-    if (!degree || degree < 2) return null;
+    if (head?.kind === "power" && head.base.kind === "symbol" && head.base.name === "partial") {
+      const degree = this.parsePositiveInteger(head.exponent);
+      if (!degree || degree < 2) return null;
+      const dependentVariable =
+        factors.length === 2 ? factors[1] : multiply(factors.slice(1));
+      return { dependentVariable, degree };
+    }
+    if (head?.kind === "symbol" && head.name === "partial") {
+      const compactPower = this.extractCompactPartialPower(factors.slice(1));
+      if (compactPower) return compactPower;
+    }
+    return null;
+  }
+
+  private extractCompactPartialPower(factors: Expr[]): {
+    dependentVariable: Expr;
+    degree: number;
+  } | null {
+    const first = factors[0];
+    if (!first || first.kind !== "symbol") return null;
+
+    const combinedMatch = /^\^(\d+)(.+)$/.exec(first.name);
+    if (combinedMatch) {
+      const degree = Number(combinedMatch[1]);
+      if (!Number.isInteger(degree) || degree < 2) return null;
+      const dependentHead = sym(combinedMatch[2]!);
+      const dependentVariable =
+        factors.length === 1 ? dependentHead : multiply([dependentHead, ...factors.slice(1)]);
+      return { dependentVariable, degree };
+    }
+
+    const exponentOnlyMatch = /^\^(\d+)$/.exec(first.name);
+    if (!exponentOnlyMatch || factors.length < 2) return null;
+    const degree = Number(exponentOnlyMatch[1]);
+    if (!Number.isInteger(degree) || degree < 2) return null;
     const dependentVariable =
-      factors.length === 2 ? factors[1] : multiply(factors.slice(1));
+      factors.length === 2 ? factors[1]! : multiply(factors.slice(1));
     return { dependentVariable, degree };
   }
 

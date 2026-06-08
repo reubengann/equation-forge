@@ -512,11 +512,17 @@ describe("exprToLatex", () => {
     const secondOrderExpr = parseLatexToExpr(
       String.raw`\frac{\partial^{2}{s}}{\partial{P} \partial{T}}`,
     );
+    const compactSecondOrderExpr = parseLatexToExpr(
+      String.raw`\dfrac{\partial^2u}{\partial m\partial T}`,
+    );
     const atConstExpr = parseLatexToExpr(
       String.raw`\left(\frac{\partial{s}}{\partial{T}}\right)_{P}`,
     );
     expect(exprToLatex(secondOrderExpr, false)).toBe(
       String.raw`\frac{\partial^{2}{s}}{\partial{P} \partial{T}}`,
+    );
+    expect(exprToLatex(compactSecondOrderExpr, false)).toBe(
+      String.raw`\frac{\partial^{2}{u}}{\partial{m} \partial{T}}`,
     );
     expect(exprToLatex(atConstExpr, false)).toBe(
       String.raw`\left(\frac{\partial{s}}{\partial{T}}\right)_{P}`,
