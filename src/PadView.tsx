@@ -1,12 +1,12 @@
 import { useMemo, useState, type CSSProperties } from "react";
+import { EquationRow } from "./EquationRow";
 import {
-  EquationRow,
   createDraftEquationRowState,
   createEquationHistory,
   type EquationHistory,
   type EquationMode,
   type EquationRowState,
-} from "./EquationRow";
+} from "./EquationRowState";
 import { compileMathDocument } from "./math/compile/compileMathDocument";
 import type { PadDefinitionSource } from "./substituteSuggestions";
 

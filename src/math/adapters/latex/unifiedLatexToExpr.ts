@@ -95,7 +95,7 @@ type Token =
   | { kind: "prod_symbol" }
   | { kind: "limit_symbol" }
   | { kind: "root"; value: UnifiedNode[]; degree: UnifiedNode[] | null }
-  | { kind: "differential"; variable: UnifiedNode[] }
+  | { kind: "differential"; variable: UnifiedNode[]; inexact?: boolean }
   | { kind: "fraction"; numerator: UnifiedNode[]; denominator: UnifiedNode[] };
 
 const FUNCTION_MACROS = new Set(["sin", "cos", "tan", "log", "ln", "exp"]);
@@ -315,6 +315,37 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
         (candidate.content === "{" || candidate.content === "}"),
     );
   };
+  const primeOrderFromMacroExponent = (candidate: UnifiedNode | undefined): number | null => {
+    if (candidate?.type !== "macro" || candidate.content !== "^") return null;
+    const exponent = parseGroupNodes(candidate.args?.[0]?.content);
+    return exponent ? primeOrderFromExponent(exponent) : null;
+  };
+  const mathrmDifferentialKind = (arg: UnifiedNode[] | undefined): "exact" | "inexact" | null => {
+    if (
+      arg?.length === 1 &&
+      arg[0]?.type === "string" &&
+      arg[0]?.content === "d"
+    ) {
+      return "exact";
+    }
+    if (
+      arg?.length === 1 &&
+      arg[0]?.type === "string" &&
+      arg[0]?.content === "d'"
+    ) {
+      return "inexact";
+    }
+    if (
+      arg?.length === 2 &&
+      arg[0]?.type === "string" &&
+      arg[0]?.content === "d" &&
+      arg[1]?.type === "string" &&
+      arg[1]?.content === "'"
+    ) {
+      return "inexact";
+    }
+    return null;
+  };
   const readInferredDifferential = (
     startIndex: number,
     options: { skipWhitespace?: boolean } = {},
@@ -476,6 +507,19 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
         continue;
       }
       if (stringContent === "d") {
+        const primeOrder = primeOrderFromMacroExponent(nodes[i + 1]);
+        if (primeOrder === 1) {
+          const inferred = readInferredDifferential(i + 1);
+          if (inferred) {
+            tokens.push({
+              kind: "differential",
+              variable: inferred.variable,
+              inexact: true,
+            });
+            i += 1 + inferred.consumedNodes;
+            continue;
+          }
+        }
         const inferred = readInferredDifferential(i);
         if (inferred) {
           tokens.push({ kind: "differential", variable: inferred.variable });
@@ -663,28 +707,31 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
 
     if (macro === "mathrm") {
       const arg = node.args?.[0]?.content;
-      const argIsPlainD =
-        !!arg &&
-        arg.length === 1 &&
-        arg[0]?.type === "string" &&
-        arg[0]?.content === "d";
+      const differentialKind = mathrmDifferentialKind(arg);
       let differentialStartIndex = i;
       const nextNode = nodes[i + 1];
+      const primeOrder = primeOrderFromMacroExponent(nextNode);
       if (
-        argIsPlainD &&
+        differentialKind &&
         nextNode?.type === "group" &&
         Array.isArray(nextNode.content) &&
         nextNode.content.length === 0
       ) {
         differentialStartIndex = i + 1;
+      } else if (differentialKind && primeOrder === 1) {
+        differentialStartIndex = i + 1;
       }
-      const inferred = argIsPlainD ? readInferredDifferential(differentialStartIndex) : null;
+      const inferred = differentialKind ? readInferredDifferential(differentialStartIndex) : null;
       if (inferred) {
-        tokens.push({ kind: "differential", variable: inferred.variable });
+        tokens.push({
+          kind: "differential",
+          variable: inferred.variable,
+          ...(differentialKind === "inexact" || primeOrder === 1 ? { inexact: true } : {}),
+        });
         i = differentialStartIndex + inferred.consumedNodes;
         continue;
       }
-      if (argIsPlainD) {
+      if (differentialKind) {
         tokens.push({ kind: "symbol", name: "d" });
         continue;
       }
@@ -1207,8 +1254,17 @@ class TokenParser {
         subscript,
       );
     }
+    if (unwrappedBase.kind === "differential") {
+      return differential(
+        this.applyPostfixSubscript(unwrappedBase.variable, subscript),
+        unwrappedBase.inexact ? { inexact: true } : undefined,
+      );
+    }
     if (unwrappedBase.kind === "symbol" && subscript.kind === "symbol") {
       return sym(`${unwrappedBase.name}_${subscript.name}`);
+    }
+    if (unwrappedBase.kind === "symbol" && subscript.kind === "number") {
+      return sym(`${unwrappedBase.name}_${String(subscript.value)}`);
     }
     return multiply([unwrappedBase, subscript]);
   }
@@ -1619,7 +1675,7 @@ class TokenParser {
     }
     if (token.kind === "differential") {
       const variable = parseGroupNodes(token.variable) ?? sym("missing");
-      return differential(variable);
+      return differential(variable, token.inexact ? { inexact: true } : undefined);
     }
     if (token.kind === "absolute_bar") {
       const innerTokens: Token[] = [];

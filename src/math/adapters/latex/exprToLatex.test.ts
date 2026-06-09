@@ -558,6 +558,18 @@ describe("exprToLatex", () => {
     expect(latex).toBe(String.raw`\Delta x`);
   });
 
+  it("round-trips inexact differentials without tags", () => {
+    const expr = parseLatexToExpr(String.raw`d^{\prime}W`);
+    const latex = exprToLatex(expr, false);
+    expect(latex).toBe(String.raw`\mathrm{d'}{W}`);
+  });
+
+  it("round-trips inexact differential equations with differential variable subscripts", () => {
+    const expr = parseLatexToExpr(String.raw`\mathrm{d}^{\prime}{W}=Y\,\mathrm{d}{X}_1`);
+    const latex = exprToLatex(expr, false);
+    expect(latex).toBe(String.raw`\mathrm{d'}{W} = Y \,\mathrm{d}{X_1}`);
+  });
+
   it("round-trips Greek symbol macros without tags", () => {
     const expr = parseLatexToExpr(String.raw`\rho`);
     const latex = exprToLatex(expr, false);

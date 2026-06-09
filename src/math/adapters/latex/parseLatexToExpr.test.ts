@@ -281,6 +281,39 @@ describe("parseLatexToExpr", () => {
     expect(expr.variable.order).toBe(1);
   });
 
+  it("parses MathLive inexact differential notation", () => {
+    const expr = parseLatexToExpr(String.raw`d^{\prime}W`);
+    expectExprKind(expr, "differential");
+    expect(expr.inexact).toBe(true);
+    expectExprKind(expr.variable, "symbol");
+    expect(expr.variable.name).toBe("W");
+  });
+
+  it("parses rendered inexact differential notation", () => {
+    const expr = parseLatexToExpr(String.raw`\mathrm{d'}{W}`);
+    expectExprKind(expr, "differential");
+    expect(expr.inexact).toBe(true);
+    expectExprKind(expr.variable, "symbol");
+    expect(expr.variable.name).toBe("W");
+  });
+
+  it("parses inexact differential equations with subscripted differential variables", () => {
+    const expr = parseLatexToExpr(String.raw`\mathrm{d}^{\prime}{W}=Y\,\mathrm{d}{X}_1`);
+    expectExprKind(expr, "equation");
+    const lhs = expr.sides[0];
+    expectExprKind(lhs, "differential");
+    expect(lhs.inexact).toBe(true);
+    expectExprKind(lhs.variable, "symbol");
+    expect(lhs.variable.name).toBe("W");
+
+    const rhs = expr.sides[1];
+    expectExprKind(rhs, "multiply");
+    const differentialFactor = rhs.factors[1];
+    expectExprKind(differentialFactor, "differential");
+    expectExprKind(differentialFactor.variable, "symbol");
+    expect(differentialFactor.variable.name).toBe("X_1");
+  });
+
   it("parses primed symbols with product", () => {
     const expr = parseLatexToExpr(String.raw`a x'`);
     expectExprKind(expr, "multiply");

@@ -4,25 +4,12 @@ import { MathliveEditor } from "./MathliveEditor";
 import type { EquationEditorRecordingHooks } from "./TestRecorder";
 import { parseLatexToExpr } from "./math/adapters/latex";
 import { compileMathDocument } from "./math/compile/compileMathDocument";
+import {
+  createEquationHistory,
+  type EquationMode,
+  type EquationRowState,
+} from "./EquationRowState";
 import type { PadDefinitionSource } from "./substituteSuggestions";
-
-export type EquationMode = "entry" | "display";
-
-export type EquationHistoryStep = {
-  latex: string;
-};
-
-export type EquationHistory = {
-  past: EquationHistoryStep[];
-  present: EquationHistoryStep;
-  future: EquationHistoryStep[];
-};
-
-export type EquationRowState = {
-  latex: string;
-  history: EquationHistory;
-  mode: EquationMode;
-};
 
 type EquationRowProps = {
   state: EquationRowState;
@@ -38,31 +25,6 @@ type EquationRowProps = {
   onActivate?: () => void;
   substituteSuggestionSources?: PadDefinitionSource[];
 };
-
-export function createEquationHistory(latex: string): EquationHistory {
-  return {
-    past: [],
-    present: { latex },
-    future: [],
-  };
-}
-
-export function createEquationRowState(latex: string, mode: EquationMode = "entry"): EquationRowState {
-  const canonicalLatex = compileMathDocument(latex).plainLatex;
-  return {
-    latex: canonicalLatex,
-    history: createEquationHistory(canonicalLatex),
-    mode,
-  };
-}
-
-export function createDraftEquationRowState(latex: string): EquationRowState {
-  return {
-    latex,
-    history: createEquationHistory(latex),
-    mode: "entry",
-  };
-}
 
 function acceptButtonLabel(mode: EquationMode) {
   return mode === "display" ? "Edit" : "✓";

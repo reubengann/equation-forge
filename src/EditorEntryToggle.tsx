@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { EquationRow, createDraftEquationRowState, type EquationRowState } from "./EquationRow";
+import { EquationRow } from "./EquationRow";
+import { createDraftEquationRowState, type EquationRowState } from "./EquationRowState";
 import type { EquationEditorRecordingHooks } from "./TestRecorder";
 
 const DEBUG_EQUATION_PRESETS = [

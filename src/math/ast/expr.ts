@@ -162,6 +162,7 @@ export type MultipleIntegralExpr = {
 export type DifferentialExpr = {
   kind: "differential";
   variable: Expr;
+  inexact?: boolean;
 };
 
 export type PartialDerivativeExpr = {

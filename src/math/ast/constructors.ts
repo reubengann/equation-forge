@@ -4,6 +4,10 @@ type ExprOptions = {
   sign?: 1 | -1;
 };
 
+type DifferentialOptions = ExprOptions & {
+  inexact?: boolean;
+};
+
 function withOptions<T extends Expr>(expr: T, options: ExprOptions = {}): Expr {
   return options.sign === -1 ? { ...expr, sign: -1 } : expr;
 }
@@ -184,9 +188,10 @@ export const multipleIntegral = (
   order,
 }, options);
 
-export const differential = (variable: Expr, options?: ExprOptions): Expr => withOptions({
+export const differential = (variable: Expr, options?: DifferentialOptions): Expr => withOptions({
   kind: "differential",
   variable,
+  ...(options?.inexact ? { inexact: true } : {}),
 }, options);
 
 export const partialDerivative = (quantity: Expr, variable: Expr, options?: ExprOptions): Expr => withOptions({

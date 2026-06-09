@@ -162,7 +162,7 @@ class LatexGenerator {
       case "multiple_integral":
         return `${"\\int".repeat(expr.order)} ${this.generate(expr.integrand)}`;
       case "differential":
-        return `\\mathrm{d}{${this.generate(expr.variable)}}`;
+        return `\\mathrm{d${expr.inexact ? "'" : ""}}{${this.generate(expr.variable)}}`;
       default:
         return this.generate(expr);
     }
@@ -305,7 +305,7 @@ class LatexGenerator {
       case "multiple_integral":
         return this.wrap(`${"\\int".repeat(expr.order)} ${this.generate(expr.integrand)}`, id);
       case "differential":
-        return this.wrap(`\\mathrm{d}{${this.generate(expr.variable)}}`, id);
+        return this.wrap(`\\mathrm{d${expr.inexact ? "'" : ""}}{${this.generate(expr.variable)}}`, id);
       case "partial_derivative":
         return this.wrap(
           `\\frac{\\partial{${this.generate(expr.quantity)}}}{\\partial{${this.generate(expr.variable)}}}`,
