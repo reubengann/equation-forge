@@ -43,14 +43,17 @@ import { canExecuteMove, executeMove } from "./math/rewrite/rewriteEngine";
 import { canToggleDelimiterSelection, toggleDelimiterSelection } from "./math/rewrite/toggleDelimiter";
 import { canToggleNegateSelection, toggleNegateSelection } from "./math/rewrite/toggleNegate";
 import {
+  getReplaceableSymbols,
   getSubstitutionSelection,
   isValidSubstitutionReplacement,
+  substituteAllMatchingExpressions,
   substituteSelection,
 } from "./math/rewrite/substitute";
 import { resolveHorizontalInsertionSlot, type InsertionPreview, type MoveType, type NodeHorizontalBounds } from "./math/rewrite/types";
 import type { EquationEditorRecordingHooks } from "./TestRecorder";
 import { EquationToolbar } from "./EquationToolbar";
 import { SubstituteModal } from "./SubstituteModal";
+import { SymbolReplacementModal, type SymbolReplacementDraft } from "./SymbolReplacementModal";
 import { ApplyOperationModal } from "./ApplyOperationModal";
 import { buildPadSubstituteSuggestions, type PadDefinitionSource } from "./substituteSuggestions";
 
@@ -157,10 +160,13 @@ export function EquationEditor({
   const [insertionPreview, setInsertionPreview] = useState<InsertionPreview | null>(null);
   const insertionPreviewRef = useRef<InsertionPreview | null>(null);
   const [isSubstituteModalOpen, setIsSubstituteModalOpen] = useState(false);
+  const [isSymbolReplacementModalOpen, setIsSymbolReplacementModalOpen] = useState(false);
   const [isApplyOperationModalOpen, setIsApplyOperationModalOpen] = useState(false);
   const [applyOperationTargetKind, setApplyOperationTargetKind] = useState<ApplyOperationTargetKind>("relation");
   const [substituteLatex, setSubstituteLatex] = useState("");
   const [substituteError, setSubstituteError] = useState<string | null>(null);
+  const [symbolReplacementRows, setSymbolReplacementRows] = useState<SymbolReplacementDraft[]>([]);
+  const [symbolReplacementError, setSymbolReplacementError] = useState<string | null>(null);
   const [applyOperationLatex, setApplyOperationLatex] = useState("");
   const [applyOperationError, setApplyOperationError] = useState<string | null>(null);
   const [copyEquationFeedback, setCopyEquationFeedback] = useState<"idle" | "done">("idle");
@@ -179,6 +185,7 @@ export function EquationEditor({
   const copyEquationFeedbackTimeoutRef = useRef<number | null>(null);
   const copySelectionFeedbackTimeoutRef = useRef<number | null>(null);
   const substituteModalSessionRef = useRef(0);
+  const symbolReplacementModalSessionRef = useRef(0);
   const applyOperationModalSessionRef = useRef(0);
   const canFlip = canFlipRelation(compiledDoc.expr);
   const canApplyOperationToCurrentRelation = canApplyOperationToRelation(compiledDoc.expr);
@@ -196,6 +203,8 @@ export function EquationEditor({
   const canCopyEquation = compiledDoc.plainLatex.trim().length > 0;
   const canCopySelection = selectionLatexForCopy.trim().length > 0;
   const canSubstitute = substitutionSelection !== null;
+  const replaceableSymbols = useMemo(() => getReplaceableSymbols(compiledDoc), [compiledDoc]);
+  const canSubstituteAllMatches = replaceableSymbols.length > 0;
   const canFactor = canAutoRewrite(compiledDoc, selection, "factor");
   const canDistribute = canAutoRewrite(compiledDoc, selection, "distribute");
   const canCleanup = canAutoRewrite(compiledDoc, selection, "cleanup");
@@ -212,7 +221,8 @@ export function EquationEditor({
 
   const publishGeometrySnapshot = useCallback(() => {
     const snapshot = captureGeometryFromMathdiv(mathDivRef.current);
-    nodeRectsRef.current = snapshot?.nodeRects ?? [];
+    const currentNodeRects = snapshot?.nodeRects.filter((rect) => !!compiledDoc.index.nodeById[rect.nodeId]) ?? [];
+    nodeRectsRef.current = currentNodeRects;
     if (DEBUG_DRAW_NODE_RECTS) setDebugNodeRects(nodeRectsRef.current);
     nodeResolutionRef.current = buildNodeResolutionSource(nodeRectsRef.current, compiledDoc.index);
 
@@ -226,7 +236,12 @@ export function EquationEditor({
       return null;
     }
 
-    const snapshotKey = JSON.stringify(snapshot);
+    const currentSnapshot = {
+      ...snapshot,
+      nodeRects: currentNodeRects,
+    };
+
+    const snapshotKey = JSON.stringify(currentSnapshot);
     if (snapshotKey !== lastSnapshotKeyRef.current) {
       snapshotCounterRef.current += 1;
       currentDomSnapshotIdRef.current = `s${snapshotCounterRef.current}`;
@@ -235,9 +250,9 @@ export function EquationEditor({
 
     recordingHooks?.onDomSnapshotObserved?.({
       domSnapshotId: currentDomSnapshotIdRef.current,
-      domSnapshot: snapshot,
+      domSnapshot: currentSnapshot,
     });
-    return snapshot;
+    return currentSnapshot;
   }, [compiledDoc.index, recordingHooks]);
 
   const updateSelection = useCallback(
@@ -429,6 +444,21 @@ export function EquationEditor({
     setIsSubstituteModalOpen(true);
   }, [substitutionSelection]);
 
+  const openSubstituteAllMatchesModal = useCallback(() => {
+    if (!canSubstituteAllMatches) return;
+    symbolReplacementModalSessionRef.current += 1;
+    setSymbolReplacementRows(
+      replaceableSymbols.map((symbol) => ({
+        key: symbol.key,
+        source: symbol,
+        enabled: false,
+        replacementLatex: symbol.latex,
+      })),
+    );
+    setSymbolReplacementError(null);
+    setIsSymbolReplacementModalOpen(true);
+  }, [canSubstituteAllMatches, replaceableSymbols]);
+
   const onFactorRequested = useCallback(() => {
     if (!selection || !canFactor) return;
     const nextExpr = autoRewriteSelection(compiledDoc, selection, "factor");
@@ -575,7 +605,7 @@ export function EquationEditor({
         return;
       }
 
-      if (isSubstituteModalOpen || isApplyOperationModalOpen) return;
+      if (isSubstituteModalOpen || isSymbolReplacementModalOpen || isApplyOperationModalOpen) return;
 
       if ((event.ctrlKey || event.metaKey) && !event.altKey && event.shiftKey && key === "c") {
         if (!canCopySelection) return;
@@ -646,9 +676,11 @@ export function EquationEditor({
     canCopySelection,
     canRedo,
     canSubstitute,
+    canSubstituteAllMatches,
     canUndo,
     isActive,
     isApplyOperationModalOpen,
+    isSymbolReplacementModalOpen,
     isSubstituteModalOpen,
     onCleanupRequested,
     onCopyEquationRequested,
@@ -660,6 +692,7 @@ export function EquationEditor({
     onRedoRequested,
     onUndoRequested,
     openSubstituteModal,
+    openSubstituteAllMatchesModal,
   ]);
 
   useEffect(() => {
@@ -916,9 +949,28 @@ export function EquationEditor({
     setSubstituteError(null);
   };
 
+  const closeSymbolReplacementModal = () => {
+    setIsSymbolReplacementModalOpen(false);
+    setSymbolReplacementError(null);
+  };
+
   const closeApplyOperationModal = () => {
     setIsApplyOperationModalOpen(false);
     setApplyOperationError(null);
+  };
+
+  const updateSymbolReplacementRowEnabled = (key: string, enabled: boolean) => {
+    setSymbolReplacementRows((rows) =>
+      rows.map((row) => (row.key === key ? { ...row, enabled } : row)),
+    );
+    setSymbolReplacementError(null);
+  };
+
+  const updateSymbolReplacementLatex = (key: string, replacementLatex: string) => {
+    setSymbolReplacementRows((rows) =>
+      rows.map((row) => (row.key === key ? { ...row, replacementLatex, enabled: true } : row)),
+    );
+    setSymbolReplacementError(null);
   };
 
   const acceptSubstitution = (latestLatex?: string) => {
@@ -963,6 +1015,53 @@ export function EquationEditor({
     setIsSubstituteModalOpen(false);
     updateSelection(null);
     onCanonicalLatexChanged(nextEquationLatex);
+  };
+
+  const acceptSymbolReplacement = () => {
+    const enabledRows = symbolReplacementRows.filter((row) => row.enabled);
+    if (enabledRows.length === 0) {
+      setSymbolReplacementError("Select at least one symbol to replace.");
+      return;
+    }
+
+    const substitutions = [];
+    for (const row of enabledRows) {
+      if (!row.replacementLatex.trim()) {
+        setSymbolReplacementError(`Enter a replacement for ${row.source.latex}.`);
+        return;
+      }
+
+      let replacement;
+      try {
+        replacement = parseLatexToExpr(row.replacementLatex, { onError: "throw" });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to parse replacement.";
+        setSymbolReplacementError(
+          message.includes("still contains placeholders")
+            ? `Fill or remove every placeholder in the replacement for ${row.source.latex}.`
+            : message,
+        );
+        return;
+      }
+
+      if (!isValidSubstitutionReplacement(replacement)) {
+        setSymbolReplacementError(`Enter an expression for ${row.source.latex}, not an equation or inequality.`);
+        return;
+      }
+
+      substitutions.push({ target: row.source.expr, replacement });
+    }
+
+    const nextExpr = substituteAllMatchingExpressions(compiledDoc, substitutions);
+    if (!nextExpr) {
+      setSymbolReplacementError("Symbol replacement did not change this expression.");
+      return;
+    }
+
+    setSymbolReplacementError(null);
+    setIsSymbolReplacementModalOpen(false);
+    updateSelection(null);
+    onCanonicalLatexChanged(exprToLatex(nextExpr, false));
   };
 
   const acceptApplyOperation = (latestLatex?: string) => {
@@ -1062,6 +1161,8 @@ export function EquationEditor({
         onFlipRelationRequested={onFlipRelationRequested}
         canSubstitute={canSubstitute}
         onSubstituteRequested={openSubstituteModal}
+        canSubstituteAllMatches={canSubstituteAllMatches}
+        onSubstituteAllMatchesRequested={openSubstituteAllMatchesModal}
         canApplyOperation={canApplyOperation}
         onApplyOperationRequested={openApplyOperationModal}
         canFactor={canFactor}
@@ -1204,6 +1305,17 @@ export function EquationEditor({
           }}
           onAccept={acceptSubstitution}
           onCancel={closeSubstituteModal}
+        />
+      )}
+      {isSymbolReplacementModalOpen && (
+        <SymbolReplacementModal
+          rows={symbolReplacementRows}
+          error={symbolReplacementError}
+          focusSession={symbolReplacementModalSessionRef.current}
+          onRowEnabledChange={updateSymbolReplacementRowEnabled}
+          onReplacementLatexChange={updateSymbolReplacementLatex}
+          onAccept={acceptSymbolReplacement}
+          onCancel={closeSymbolReplacementModal}
         />
       )}
       {isApplyOperationModalOpen && (

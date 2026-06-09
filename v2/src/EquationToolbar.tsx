@@ -19,6 +19,8 @@ type EquationToolbarProps = {
   onFlipRelationRequested: () => void;
   canSubstitute: boolean;
   onSubstituteRequested: () => void;
+  canSubstituteAllMatches: boolean;
+  onSubstituteAllMatchesRequested: () => void;
   canApplyOperation: boolean;
   onApplyOperationRequested: () => void;
   canFactor: boolean;
@@ -169,6 +171,8 @@ export function EquationToolbar({
   onFlipRelationRequested,
   canSubstitute,
   onSubstituteRequested,
+  canSubstituteAllMatches,
+  onSubstituteAllMatchesRequested,
   canApplyOperation,
   onApplyOperationRequested,
   canFactor,
@@ -398,6 +402,23 @@ export function EquationToolbar({
               strokeWidth="1.6"
             />
           </svg>
+        </button>
+        <button
+          type="button"
+          data-testid="substitute-all-matches"
+          aria-label="Substitute all matching expressions"
+          title="Substitute all matching expressions"
+          disabled={!canSubstituteAllMatches}
+          onClick={onSubstituteAllMatchesRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            borderLeftWidth: 0,
+            ...(!canSubstituteAllMatches ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <span style={materialSymbolStyle} aria-hidden="true">
+            select_all
+          </span>
         </button>
         <button
           type="button"

@@ -8,6 +8,8 @@ type MathDivLike = HTMLElement & {
 
 type SubstituteModalProps = {
   selectedLatex: string;
+  selectedLabel?: string;
+  selectedLatexReadonly?: boolean;
   replacementLatex: string;
   error: string | null;
   focusSession: number;
@@ -17,6 +19,7 @@ type SubstituteModalProps = {
     rhsLatex: string;
   }>;
   onSuggestionSelected?: (suggestion: { equationId: string; label: string; rhsLatex: string }) => void;
+  onSelectedLatexChange?: (nextLatex: string) => void;
   onReplacementLatexChange: (nextLatex: string) => void;
   onAccept: (latestLatex?: string) => void;
   onCancel: () => void;
@@ -108,11 +111,14 @@ const actionButtonStyle: CSSProperties = {
 
 export function SubstituteModal({
   selectedLatex,
+  selectedLabel = "Selected expression",
+  selectedLatexReadonly = true,
   replacementLatex,
   error,
   focusSession,
   suggestions = [],
   onSuggestionSelected,
+  onSelectedLatexChange,
   onReplacementLatexChange,
   onAccept,
   onCancel,
@@ -147,18 +153,31 @@ export function SubstituteModal({
         </h2>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={labelStyle}>Selected expression</div>
-          <div style={selectedExpressionStyle}>
-            <math-div
-              ref={(element) => {
-                selectedMathRef.current = element as MathDivLike | null;
-              }}
-              data-testid="substitute-selected-expression"
-              mode="displaystyle"
-              value={selectedLatex}
-              style={{ display: "block", width: "100%", fontSize: "1.15rem" }}
+          <div style={labelStyle}>{selectedLabel}</div>
+          {selectedLatexReadonly ? (
+            <div style={selectedExpressionStyle}>
+              <math-div
+                ref={(element) => {
+                  selectedMathRef.current = element as MathDivLike | null;
+                }}
+                data-testid="substitute-selected-expression"
+                mode="displaystyle"
+                value={selectedLatex}
+                style={{ display: "block", width: "100%", fontSize: "1.15rem" }}
+              />
+            </div>
+          ) : (
+            <MathEntry
+              key={`target-${focusSession}`}
+              latex={selectedLatex}
+              onLatexChange={onSelectedLatexChange ?? (() => undefined)}
+              onAccept={onAccept}
+              autoFocus
+              focusSession={focusSession}
+              mathFieldId="substitute-target-mathfield"
+              macroButtonTabIndex={-1}
             />
-          </div>
+          )}
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -168,9 +187,10 @@ export function SubstituteModal({
             latex={replacementLatex}
             onLatexChange={onReplacementLatexChange}
             onAccept={onAccept}
-            autoFocus
+            autoFocus={selectedLatexReadonly}
             focusSession={focusSession}
             mathFieldId="substitute-mathfield"
+            macroButtonTabIndex={-1}
           />
           {error && (
             <div role="alert" style={{ color: "#ffb4ab", fontSize: "0.9rem", lineHeight: 1.35 }}>

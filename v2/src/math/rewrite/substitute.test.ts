@@ -4,10 +4,15 @@ import { exprToLatex } from "../adapters/latex";
 import { compileMathDocumentFromExpr, type CompiledMathDocument } from "../compile/compileMathDocument";
 import {
   canSubstituteSelection,
+  getReplaceableSymbols,
   getSubstitutionSelection,
   isValidSubstitutionReplacement,
+  substituteAllMatchingExpression,
+  substituteAllMatchingExpressions,
+  substituteAllMatchingSelection,
   substituteSelection,
 } from "./substitute";
+import type { Expr } from "../ast";
 
 function buildDocument(latex: string): CompiledMathDocument {
   const expr = parseLatexToExpr(latex, { onError: "throw" });
@@ -16,6 +21,12 @@ function buildDocument(latex: string): CompiledMathDocument {
 
 function replacement(latex: string) {
   return parseLatexToExpr(latex, { onError: "throw" });
+}
+
+function firstNodeIdMatching(document: CompiledMathDocument, predicate: (expr: Expr) => boolean): string {
+  const entry = Object.entries(document.index.nodeById).find(([, expr]) => predicate(expr));
+  if (!entry) throw new Error("Unable to find matching node.");
+  return entry[0];
 }
 
 describe("substituteSelection", () => {
@@ -92,5 +103,124 @@ describe("substituteSelection", () => {
 
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(String.raw`\left(x + y\right)^{2}`);
+  });
+});
+
+describe("substituteAllMatchingSelection", () => {
+  it("replaces a selected symbol everywhere in an expression", () => {
+    const document = buildDocument(String.raw`E_x=-\left(\frac{\partial{\phi}}{\partial{x}}\right)`);
+    const selectedNodeId = firstNodeIdMatching(document, (expr) => expr.kind === "symbol" && expr.name === "x");
+
+    const next = substituteAllMatchingSelection(document, { kind: "single", nodeId: selectedNodeId }, replacement("y"));
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`E_y = -\left(\frac{\partial{\phi}}{\partial{y}}\right)`,
+    );
+  });
+
+  it("replaces matching symbols in cyclic derivative identities", () => {
+    const document = buildDocument(
+      String.raw`\left(\dfrac{\partial x}{\partial y}\right)_z \left(\dfrac{\partial y}{\partial z}\right)_x \left(\dfrac{\partial z}{\partial x}\right)_y = -1`,
+    );
+    const selectedNodeId = firstNodeIdMatching(document, (expr) => expr.kind === "symbol" && expr.name === "x");
+
+    const next = substituteAllMatchingSelection(document, { kind: "single", nodeId: selectedNodeId }, replacement("V"));
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\left(\frac{\partial{V}}{\partial{y}}\right)_{z} \left(\frac{\partial{y}}{\partial{z}}\right)_{V} \left(\frac{\partial{z}}{\partial{V}}\right)_{y} = -1`,
+    );
+  });
+
+  it("replaces special-font symbol-equivalent expressions", () => {
+    const document = buildDocument(String.raw`\mathscr{H}+\mathcal{H}+\mathscr{H}`);
+    const selectedNodeId = firstNodeIdMatching(
+      document,
+      (expr) => expr.kind === "special_font" && expr.font === "script",
+    );
+
+    const next = substituteAllMatchingSelection(document, { kind: "single", nodeId: selectedNodeId }, replacement("K"));
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`K + \mathcal{H} + K`);
+  });
+
+  it("does not replace textual substrings inside symbol names", () => {
+    const document = buildDocument(String.raw`x+x_0+\dot{x}`);
+    const selectedNodeId = firstNodeIdMatching(document, (expr) => expr.kind === "symbol" && expr.name === "x");
+
+    const next = substituteAllMatchingSelection(document, { kind: "single", nodeId: selectedNodeId }, replacement("y"));
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`y + x_0 + \dot{y}`);
+  });
+
+});
+
+describe("substituteAllMatchingExpression", () => {
+  it("replaces all matches of an explicit target expression without a selection", () => {
+    const document = buildDocument(String.raw`a+x+\frac{x}{x_0}`);
+
+    const next = substituteAllMatchingExpression(document, replacement("x"), replacement("y"));
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`a + y + \frac{y}{x_0}`);
+  });
+
+  it("replaces matching symbolic subscripts without replacing numeric subscripts", () => {
+    const document = buildDocument(String.raw`E_x+x_0`);
+
+    const next = substituteAllMatchingExpression(document, replacement("x"), replacement("y"));
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`E_y + x_0`);
+  });
+});
+
+describe("getReplaceableSymbols", () => {
+  it("discovers standalone symbols, derivative fields, special fonts, and symbolic subscripts", () => {
+    const document = buildDocument(
+      String.raw`E_x+\mathscr{H}+\left(\frac{\partial{F}}{\partial{V}}\right)_{T}+x_0`,
+    );
+
+    expect(getReplaceableSymbols(document).map((symbol) => symbol.latex)).toEqual([
+      String.raw`\mathscr{H}`,
+      "E_x",
+      "F",
+      "T",
+      "V",
+      "x",
+      "x_0",
+    ]);
+  });
+});
+
+describe("substituteAllMatchingExpressions", () => {
+  it("applies swaps simultaneously without cascading", () => {
+    const document = buildDocument(String.raw`T+V+T_V`);
+
+    const next = substituteAllMatchingExpressions(document, [
+      { target: replacement("T"), replacement: replacement("V") },
+      { target: replacement("V"), replacement: replacement("T") },
+    ]);
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("V + T + T_T");
+  });
+
+  it("creates the paired thermodynamics identity with simultaneous symbol replacements", () => {
+    const document = buildDocument(String.raw`P=-\left(\frac{\partial{F}}{\partial{V}}\right)_{T}`);
+
+    const next = substituteAllMatchingExpressions(document, [
+      { target: replacement("P"), replacement: replacement("S") },
+      { target: replacement("V"), replacement: replacement("T") },
+      { target: replacement("T"), replacement: replacement("V") },
+    ]);
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`S = -\left(\frac{\partial{F}}{\partial{T}}\right)_{V}`,
+    );
   });
 });

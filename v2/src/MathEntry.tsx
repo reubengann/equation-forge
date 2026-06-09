@@ -28,6 +28,7 @@ type MathEntryProps = {
   autoFocus?: boolean;
   focusSession?: number;
   mathFieldId?: string;
+  macroButtonTabIndex?: number;
 };
 
 function focusMathField(field: MathfieldElementLike | null): boolean {
@@ -50,6 +51,7 @@ export function MathEntry({
   autoFocus = false,
   focusSession,
   mathFieldId = "equation-mathfield",
+  macroButtonTabIndex,
 }: MathEntryProps) {
   const mathFieldRef = useRef<MathfieldElementLike | null>(null);
   const appliedMathfieldMacrosRef = useRef<{
@@ -173,6 +175,7 @@ export function MathEntry({
             title={`${macro.title} (Ctrl+${index + 1})`}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => insertMacro(macro)}
+            tabIndex={macroButtonTabIndex}
             style={{
               width: 32,
               height: 32,
