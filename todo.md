@@ -11,3 +11,4 @@
 - Check whether a product keeps the sign or whether it stays on the terms. Really, if we multiply two terms
   `-a` and `b`, which is symbol(a, sign: -1) and symbol(b, sign: +1), we should probably just form product([symbol(a, sign: +1), symbol(b, sign: +1)], sign: -1). But right now I'm not sure that's how it works.
 - If we're already treating subtraction as negative terms in sums, what is the rationale behind keeping divide separate from multiply? Maybe it should just have a property inverted: true/false.
+- Keyboard shortcuts for edit (e), toggle parens (which key?)
