@@ -1,35 +1,31 @@
 # Physics Derivation Pad
 
-An interactive React/TypeScript playground for experimenting with math expression selection, intent planning (`planMove`), and drag/drop visualization using MathLive + CortexJS.
+A Vite/React math derivation editor built around MathLive, a local math AST, and rewrite rules for algebraic manipulation.
 
-## Prerequisites
-
-- Node.js 18+
-- npm (bundled with Node)
-
-## Install
+## Setup
 
 ```bash
 npm install
 ```
 
-## Run (development)
+## Development
 
 ```bash
-npm start
+npm run dev
 ```
 
-This launches the dev server (Vite/CRA) and opens the app in your browser.
-
-## Build (optional)
+## Build And Test
 
 ```bash
 npm run build
+npm run test:run
+npm run mathtests
 ```
 
-Produces a production build in `dist`/`build` depending on the tooling config.
+`npm run mathtests` replays the JSON interaction fixtures in `mathtests/fixtures`. Use `npm run gen_mathtests` after adding or removing fixtures to regenerate the Vitest fixture replay wrapper.
 
-## Notes
+Playwright is configured with:
 
-- Drag a term in the rendered math to see intent text and the insert marker line.
-- Backtick toggles debug boxes; lower textarea shows planner output.
+```bash
+npm run test:e2e
+```
