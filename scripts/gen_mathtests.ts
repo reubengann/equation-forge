@@ -1,3 +1,9 @@
+/*
+
+  This script generates vitest files so that mathtest fixtures can be easily debugged via vscode.
+
+*/
+
 import { stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { FIXTURE_DIR, ROOT_DIR, walkJsonFiles } from "./mathtestReplay";
@@ -59,9 +65,7 @@ async function main() {
 
   const output = buildTestFile(fixtureFiles);
   await writeFile(OUTPUT_FILE, output, "utf8");
-  console.log(
-    `Generated ${path.relative(ROOT_DIR, OUTPUT_FILE)} with ${fixtureFiles.length} tests.`,
-  );
+  console.log(`Generated ${path.relative(ROOT_DIR, OUTPUT_FILE)} with ${fixtureFiles.length} tests.`);
 }
 
 void main();
