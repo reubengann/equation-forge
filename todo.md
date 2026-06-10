@@ -7,6 +7,8 @@
 - Force factor: Say we have `-v v_0 + \frac{1}{2} v^{2} + \frac{1}{2} v_0^{2}`. It would be nice to say "look, I know you don't see a factor of 1/2 in every term, but I want you to pull one out anyway" so that we get `- 2 v v_0 + v^{2} + v_0^{2}`. Maybe run cleanup on each term separately too, idk.
 - Check whether a product keeps the sign or whether it stays on the terms. Really, if we multiply two terms `-a` and `b`, which is symbol(a, sign: -1) and symbol(b, sign: +1), we should probably just form product([symbol(a, sign: +1), symbol(b, sign: +1)], sign: -1). But right now I'm not sure that's how it works.
 - If we're already treating subtraction as negative terms in sums, what is the rationale behind keeping divide separate from multiply? Why wouldn't it just be a property inverted: true/false of multiply? Ultimately, whether we treat negate/divide as their own nodes really comes down to whether it makes the code simpler or not. It seemed like making negation a property of terms would make the code simpler; I'm not sure that was totally successful.
-- Keyboard shortcuts for edit (e), toggle parens (which key?)
+- Keyboard shortcuts for edit (e), toggle parens (p?), force negation (n?)
 - Algebrite frequently produces factors of, e.g. `x^{-2}` which should probably just be converted to fractions.
 - When we have parse weirdness, I frequently get $unexpected$ in the output. Would be much better if that resulted in an error that described why that was happening.
+- Macros for partial derivative operator, single macro for parens with partial derivative and subscript. Rename macro images to stop referring to order.
+- Macro images have a delay in loading of several seconds on cold start.
