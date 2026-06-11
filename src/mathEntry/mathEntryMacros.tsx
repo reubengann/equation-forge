@@ -30,7 +30,7 @@ function macroIcon(src: string, size = 22) {
   );
 }
 
-const fractionMacroIconSize = 44;
+const fractionMacroIconSize = 34;
 
 export const MATH_ENTRY_MACROS: MathEntryMacro[] = [
   {
@@ -59,14 +59,14 @@ export const MATH_ENTRY_MACROS: MathEntryMacro[] = [
     label: "partial operator",
     title: "Insert partial derivative operator",
     latex: String.raw`\dfrac{\partial}{\partial \placeholder{}}`,
-    icon: macroIcon("/icons/partial-derivative-operator.svg", 28),
+    icon: macroIcon("/icons/partial-derivative-operator.svg", fractionMacroIconSize),
   },
   {
     id: "partial-derivative-subscript",
     label: "partial subscript",
     title: "Insert parenthesized partial derivative with subscript",
     latex: String.raw`\left(\dfrac{\partial \placeholder{}}{\partial \placeholder{}}\right)_{\placeholder{}}`,
-    icon: macroIcon("/icons/partial-derivative-subscript.svg", 28),
+    icon: macroIcon("/icons/partial-derivative-subscript.svg", 36),
   },
   {
     id: "definite-integral",

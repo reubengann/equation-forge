@@ -22,8 +22,12 @@ def main():
     latex = args.latex
     generate_svg(latex)
     if args.output:
+        output_path = pathlib.Path(args.output)
+        if not output_path.parent.exists():
+            print(f"Error: Output directory {output_path.parent} does not exist.")
+            return 1
         temp_folder = pathlib.Path(".") / "svg_temp"
-        shutil.copy2(temp_folder / "temp.svg", args.output)
+        shutil.copy2(temp_folder / "temp.svg", output_path)
     return 0
 
 
