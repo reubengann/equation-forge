@@ -55,7 +55,14 @@ import { EquationToolbar } from "./EquationToolbar";
 import { SubstituteModal } from "./SubstituteModal";
 import { SymbolReplacementModal, type SymbolReplacementDraft } from "./SymbolReplacementModal";
 import { ApplyOperationModal } from "./ApplyOperationModal";
+import { ForceFactorModal } from "./ForceFactorModal";
 import { buildPadSubstituteSuggestions, type PadDefinitionSource } from "./substituteSuggestions";
+import {
+  canForceFactorSelection,
+  forceFactorSelection,
+  validateForceFactorExpr,
+} from "./math/rewrite/forceFactor";
+import { getSelectionRewriteTarget } from "./math/rewrite/selectionRewrite";
 
 type InsertionLineStyle = {
   left: number;
@@ -164,14 +171,18 @@ export function EquationEditor({
   const [isSubstituteModalOpen, setIsSubstituteModalOpen] = useState(false);
   const [isSymbolReplacementModalOpen, setIsSymbolReplacementModalOpen] = useState(false);
   const [isApplyOperationModalOpen, setIsApplyOperationModalOpen] = useState(false);
+  const [isForceFactorModalOpen, setIsForceFactorModalOpen] = useState(false);
   const [applyOperationTargetKind, setApplyOperationTargetKind] = useState<ApplyOperationTargetKind>("relation");
   const [substituteLatex, setSubstituteLatex] = useState("");
+  const [forceFactorLatex, setForceFactorLatex] = useState("");
   const [substituteError, setSubstituteError] = useState<string | null>(null);
+  const [forceFactorError, setForceFactorError] = useState<string | null>(null);
   const [symbolReplacementRows, setSymbolReplacementRows] = useState<SymbolReplacementDraft[]>([]);
   const [symbolReplacementError, setSymbolReplacementError] = useState<string | null>(null);
   const [applyOperationLatex, setApplyOperationLatex] = useState("");
   const [applyOperationError, setApplyOperationError] = useState<string | null>(null);
   const [applyOperationSwitchInequality, setApplyOperationSwitchInequality] = useState(false);
+  const [forceFactorModalSession, setForceFactorModalSession] = useState(0);
   const [copyEquationFeedback, setCopyEquationFeedback] = useState<"idle" | "done">("idle");
   const [copySelectionFeedback, setCopySelectionFeedback] = useState<"idle" | "done">("idle");
   const [insertionLineStyle, setInsertionLineStyle] = useState<InsertionLineStyle | null>(null);
@@ -211,6 +222,7 @@ export function EquationEditor({
   const replaceableSymbols = useMemo(() => getReplaceableSymbols(compiledDoc), [compiledDoc]);
   const canSubstituteAllMatches = replaceableSymbols.length > 0;
   const canFactor = canAutoRewrite(compiledDoc, selection, "factor");
+  const canForceFactor = canForceFactorSelection(compiledDoc, selection);
   const canDistribute = canAutoRewrite(compiledDoc, selection, "distribute");
   const canCleanup = canAutoRewrite(compiledDoc, selection, "cleanup");
   const canEvaluateSelectionWithAlgebrite = canEvaluateWithAlgebrite(compiledDoc, selection);
@@ -464,6 +476,14 @@ export function EquationEditor({
     setIsSymbolReplacementModalOpen(true);
   }, [canSubstituteAllMatches, replaceableSymbols]);
 
+  const openForceFactorModal = useCallback(() => {
+    if (!canForceFactor) return;
+    setForceFactorLatex("");
+    setForceFactorError(null);
+    setForceFactorModalSession((session) => session + 1);
+    setIsForceFactorModalOpen(true);
+  }, [canForceFactor]);
+
   const onFactorRequested = useCallback(() => {
     if (!selection || !canFactor) return;
     const nextExpr = autoRewriteSelection(compiledDoc, selection, "factor");
@@ -611,7 +631,7 @@ export function EquationEditor({
         return;
       }
 
-      if (isSubstituteModalOpen || isSymbolReplacementModalOpen || isApplyOperationModalOpen) return;
+      if (isSubstituteModalOpen || isSymbolReplacementModalOpen || isApplyOperationModalOpen || isForceFactorModalOpen) return;
 
       if ((event.ctrlKey || event.metaKey) && !event.altKey && event.shiftKey && key === "c") {
         if (!canCopySelection) return;
@@ -709,6 +729,7 @@ export function EquationEditor({
     canUndo,
     isActive,
     isApplyOperationModalOpen,
+    isForceFactorModalOpen,
     isSymbolReplacementModalOpen,
     isSubstituteModalOpen,
     onCleanupRequested,
@@ -992,6 +1013,11 @@ export function EquationEditor({
     setApplyOperationSwitchInequality(false);
   };
 
+  const closeForceFactorModal = () => {
+    setIsForceFactorModalOpen(false);
+    setForceFactorError(null);
+  };
+
   const updateSymbolReplacementRowEnabled = (key: string, enabled: boolean) => {
     setSymbolReplacementRows((rows) =>
       rows.map((row) => (row.key === key ? { ...row, enabled } : row)),
@@ -1048,6 +1074,50 @@ export function EquationEditor({
     setIsSubstituteModalOpen(false);
     updateSelection(null);
     onCanonicalLatexChanged(nextEquationLatex);
+  };
+
+  const acceptForceFactor = (latestLatex?: string) => {
+    if (!selection) {
+      setForceFactorError("Select a sum to factor.");
+      return;
+    }
+
+    const nextLatex = typeof latestLatex === "string" ? latestLatex : forceFactorLatex;
+    if (!nextLatex.trim()) {
+      setForceFactorError("Enter a factor to pull out.");
+      return;
+    }
+
+    let factor;
+    try {
+      factor = parseLatexToExpr(nextLatex, { onError: "throw" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to parse factor.";
+      setForceFactorError(
+        message.includes("still contains placeholders")
+          ? "Fill or remove every placeholder before factoring."
+          : message,
+      );
+      return;
+    }
+
+    const validationError = validateForceFactorExpr(factor);
+    if (validationError) {
+      setForceFactorError(validationError);
+      return;
+    }
+
+    const nextExpr = forceFactorSelection(compiledDoc, selection, factor);
+    if (!nextExpr) {
+      setForceFactorError("Force factor failed for this selection.");
+      return;
+    }
+
+    setForceFactorLatex("");
+    setForceFactorError(null);
+    setIsForceFactorModalOpen(false);
+    updateSelection(null);
+    onCanonicalLatexChanged(exprToLatex(nextExpr, false));
   };
 
   const acceptSymbolReplacement = () => {
@@ -1149,6 +1219,9 @@ export function EquationEditor({
   };
 
   const editorRootRect = editorRootRef.current?.getBoundingClientRect();
+  const selectedForceFactorLatex = selection
+    ? exprToLatex(getSelectionRewriteTarget(compiledDoc, selection)?.expr ?? compiledDoc.expr, false)
+    : "";
   const marqueeRect: RectBounds | null = marqueeDraft ? rectFromPoints(marqueeDraft.origin, marqueeDraft.current) : null;
   const marqueeStyle =
     marqueeRect && editorRootRect
@@ -1202,6 +1275,8 @@ export function EquationEditor({
         onApplyOperationRequested={openApplyOperationModal}
         canFactor={canFactor}
         onFactorRequested={onFactorRequested}
+        canForceFactor={canForceFactor}
+        onForceFactorRequested={openForceFactorModal}
         canDistribute={canDistribute}
         onDistributeRequested={onDistributeRequested}
         canCleanup={canCleanup}
@@ -1351,6 +1426,20 @@ export function EquationEditor({
           onReplacementLatexChange={updateSymbolReplacementLatex}
           onAccept={acceptSymbolReplacement}
           onCancel={closeSymbolReplacementModal}
+        />
+      )}
+      {isForceFactorModalOpen && (
+        <ForceFactorModal
+          selectedLatex={selectedForceFactorLatex}
+          factorLatex={forceFactorLatex}
+          error={forceFactorError}
+          focusSession={forceFactorModalSession}
+          onFactorLatexChange={(nextLatex) => {
+            setForceFactorLatex(nextLatex);
+            setForceFactorError(null);
+          }}
+          onAccept={acceptForceFactor}
+          onCancel={closeForceFactorModal}
         />
       )}
       {isApplyOperationModalOpen && (

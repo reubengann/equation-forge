@@ -2,7 +2,6 @@
 
 ## Medium
 
-- Force factor: Say we have `-v v_0 + \frac{1}{2} v^{2} + \frac{1}{2} v_0^{2}`. It would be nice to say "look, I know you don't see a factor of 1/2 in every term, but I want you to pull one out anyway" so that we get `- 2 v v_0 + v^{2} + v_0^{2}`. Maybe run cleanup on each term separately too, idk. This will have to be a modal where we ask for the term. It will have to have rational limits to it (only simple products, sums, quotients; no operators, equalities, etc.)
 - Check whether a product keeps the sign or whether it stays on the terms. Really, if we multiply two terms `-a` and `b`, which is symbol(a, sign: -1) and symbol(b, sign: +1), we should probably just form product([symbol(a, sign: +1), symbol(b, sign: +1)], sign: -1). But right now I'm not sure that's how it works.
 - Algebrite frequently produces factors of, e.g. `x^{-2}` which should probably just be converted to fractions.
 - When we have parse weirdness, I frequently get $unexpected$ in the output. Would be much better if that resulted in an error that described why that was happening.

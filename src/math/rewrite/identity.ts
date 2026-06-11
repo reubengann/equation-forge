@@ -105,6 +105,20 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
     apply: flattenPowerOfPower,
   },
   {
+    id: "power-of-product",
+    label: "(a b)^n -> a^n b^n",
+    caveat: POWER_BRANCH_CAVEAT,
+    defaultPriority: 59,
+    apply: expandPowerOfProduct,
+  },
+  {
+    id: "combine-product-powers",
+    label: "a^n b^n -> (a b)^n",
+    caveat: POWER_BRANCH_CAVEAT,
+    defaultPriority: 58,
+    apply: combineProductPowers,
+  },
+  {
     id: "sqrt-square-to-absolute-value",
     label: "sqrt(x^2) -> |x|",
     defaultPriority: 55,
@@ -325,6 +339,39 @@ function flattenPowerOfPower(expr: Expr): Expr | null {
   if (base.kind !== "power") return null;
 
   return power(base.base, multiply([base.exponent, unwrapped.exponent]));
+}
+
+function expandPowerOfProduct(expr: Expr): Expr | null {
+  const unwrapped = unwrapDisplayGroup(expr);
+  if (unwrapped.kind !== "power") return null;
+
+  const base = unwrapDisplayGroup(unwrapped.base);
+  if (base.kind !== "multiply" || base.factors.length < 2) return null;
+
+  return multiply(base.factors.map((factor) => power(factor, unwrapped.exponent)));
+}
+
+function combineProductPowers(expr: Expr): Expr | null {
+  const unwrapped = unwrapDisplayGroup(expr);
+  if (unwrapped.kind !== "multiply" || unwrapped.factors.length < 2) return null;
+
+  const powers = unwrapped.factors.map((factor) => {
+    const unwrappedFactor = unwrapDisplayGroup(factor);
+    return unwrappedFactor.kind === "power" ? unwrappedFactor : null;
+  });
+  if (powers.some((factor): factor is null => factor === null)) return null;
+
+  const [firstPower] = powers;
+  if (!firstPower) return null;
+  const exponentKey = structuralKeyIgnoringDisplayGroups(firstPower.exponent);
+  if (!powers.every((factor) => factor && structuralKeyIgnoringDisplayGroups(factor.exponent) === exponentKey)) {
+    return null;
+  }
+
+  return power(
+    displayGroup("paren", multiply(powers.map((factor) => cloneExpr(factor!.base)))),
+    firstPower.exponent,
+  );
 }
 
 function sqrtSquareToAbsoluteValue(expr: Expr): Expr | null {

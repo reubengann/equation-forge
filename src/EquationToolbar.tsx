@@ -25,6 +25,8 @@ type EquationToolbarProps = {
   onApplyOperationRequested: () => void;
   canFactor: boolean;
   onFactorRequested: () => void;
+  canForceFactor: boolean;
+  onForceFactorRequested: () => void;
   canDistribute: boolean;
   onDistributeRequested: () => void;
   canCleanup: boolean;
@@ -179,6 +181,8 @@ export function EquationToolbar({
   onApplyOperationRequested,
   canFactor,
   onFactorRequested,
+  canForceFactor,
+  onForceFactorRequested,
   canDistribute,
   onDistributeRequested,
   canCleanup,
@@ -455,6 +459,23 @@ export function EquationToolbar({
         >
           <span style={materialSymbolStyle} aria-hidden="true">
             call_split
+          </span>
+        </button>
+        <button
+          type="button"
+          data-testid="force-factor-selection"
+          aria-label="Force factor selection"
+          title="Force factor selection"
+          disabled={!canForceFactor}
+          onClick={onForceFactorRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            borderLeftWidth: 0,
+            ...(!canForceFactor ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <span style={materialSymbolStyle} aria-hidden="true">
+            input
           </span>
         </button>
         <button

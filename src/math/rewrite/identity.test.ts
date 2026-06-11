@@ -399,6 +399,36 @@ describe("identity rewrites", () => {
     expect(rewriteLatex(String.raw`(a^b)^c`, "power-of-power")).toBe(String.raw`a^{b c}`);
   });
 
+  it("expands a power of a product with caveat metadata", () => {
+    const input = String.raw`\left(\frac{1}{2}\left(1+2 a\right)\right)^2`;
+    const options = getApplicableIdentityRewrites(parse(input));
+
+    expect(options.map((option) => option.id)).toContain("power-of-product");
+    expect(options.find((option) => option.id === "power-of-product")).toMatchObject({
+      label: "(a b)^n -> a^n b^n",
+      caveat: "Branch/domain-sensitive; generally safe for positive real bases.",
+    });
+    expect(rewriteLatex(input, "power-of-product")).toBe(
+      String.raw`\left(\frac{1}{2}\right)^{2} \left(1 + 2 a\right)^{2}`,
+    );
+  });
+
+  it("combines a product of matching powers with caveat metadata", () => {
+    const input = String.raw`a^n b^n`;
+    const options = getApplicableIdentityRewrites(parse(input));
+
+    expect(options.map((option) => option.id)).toContain("combine-product-powers");
+    expect(options.find((option) => option.id === "combine-product-powers")).toMatchObject({
+      label: "a^n b^n -> (a b)^n",
+      caveat: "Branch/domain-sensitive; generally safe for positive real bases.",
+    });
+    expect(rewriteLatex(input, "combine-product-powers")).toBe(String.raw`\left(a b\right)^{n}`);
+  });
+
+  it("does not combine product powers with different exponents", () => {
+    expect(rewriteLatex(String.raw`a^n b^m`, "combine-product-powers")).toBeNull();
+  });
+
   it("rewrites square roots of squares to absolute values", () => {
     const expr = parse(String.raw`\sqrt{x^2}`);
     const options = getApplicableIdentityRewrites(expr);
@@ -462,6 +492,36 @@ describe("identity rewrites for selections", () => {
 
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(String.raw`x = \ln \left(a b\right) `);
+  });
+
+  it("offers power-of-product for a selected product power", () => {
+    const document = buildDocument(String.raw`{\left(\frac{1}{2} \left(1 + 2 a\right)\right)}^{2}`);
+    const options = getApplicableIdentityRewritesForSelection(document, { kind: "single", nodeId: "n1" });
+    const next = applyIdentityRewriteToSelection(document, { kind: "single", nodeId: "n1" }, "power-of-product");
+
+    expect(options.map((option) => option.id)).toContain("power-of-product");
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\left(\frac{1}{2}\right)^{2} \left(1 + 2 a\right)^{2}`,
+    );
+  });
+
+  it("combines selected product powers", () => {
+    const document = buildDocument(String.raw`x+a^2 b^2+y`);
+    const selectedNodeId = Object.entries(document.index.nodeById).find(([, expr]) => {
+      return (
+        expr.kind === "multiply" &&
+        expr.factors.every((factor) => factor.kind === "power")
+      );
+    })?.[0];
+
+    expect(selectedNodeId).toBeDefined();
+    const options = getApplicableIdentityRewritesForSelection(document, { kind: "single", nodeId: selectedNodeId! });
+    const next = applyIdentityRewriteToSelection(document, { kind: "single", nodeId: selectedNodeId! }, "combine-product-powers");
+
+    expect(options.map((option) => option.id)).toContain("combine-product-powers");
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`x + \left(a b\right)^{2} + y`);
   });
 
   it("replaces a contiguous multi-selection", () => {

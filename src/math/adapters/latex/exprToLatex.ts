@@ -190,7 +190,7 @@ class LatexGenerator {
   }
 
   generateDisplayGroupPowerBase(base: Extract<Expr, { kind: "display_group" }>): string {
-    if (!this.tags) return `{${this.generate(base)}}`;
+    if (!this.tags) return this.generate(base);
     this.newId(); // Reserve the display group id without wrapping the \left...\right power base.
     const [open, close] = this.delimiterPair(base.delimiter);
     return `\\left${open}${this.generate(base.expression)}\\right${close}`;
