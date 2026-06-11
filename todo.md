@@ -1,8 +1,5 @@
 ## Low
 
-- Macros for partial derivative operator, single macro for parens with partial derivative and subscript. Rename macro images to stop referring to order.
-- Macro images have a delay in loading of several seconds on cold start.
-
 ## Medium
 
 - (a+b)(c) How should force negation work on (c)? Right now we disallow it.
