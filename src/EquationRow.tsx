@@ -46,6 +46,7 @@ export function EquationRow({
   const [entryError, setEntryError] = useState<string | null>(null);
   const [presetIndex, setPresetIndex] = useState(0);
   const lastAcceptedLatexRef = useRef<string | null>(null);
+  const entryFocusSessionRef = useRef(0);
   const slotRef = useRef<HTMLDivElement | null>(null);
   const compiledDoc = useMemo(() => {
     try {
@@ -110,6 +111,7 @@ export function EquationRow({
       return;
     }
 
+    entryFocusSessionRef.current += 1;
     onStateChange((current) => ({ ...current, mode: "entry" }));
   };
 
@@ -167,6 +169,11 @@ export function EquationRow({
     onCanonicalLatexChanged?.(nextStep.latex);
   };
 
+  const handleEditRequested = useCallback(() => {
+    entryFocusSessionRef.current += 1;
+    onStateChange((current) => ({ ...current, mode: "entry" }));
+  }, [onStateChange]);
+
   return (
     <section
       className="equation-editor"
@@ -199,6 +206,7 @@ export function EquationRow({
               onUndoRequested={handleUndoRequested}
               canRedo={state.history.future.length > 0}
               onRedoRequested={handleRedoRequested}
+              onEditRequested={handleEditRequested}
               onCanonicalLatexChanged={handleCanonicalLatexChanged}
               isActive={isActive}
               substituteSuggestionSources={substituteSuggestionSources}
@@ -215,6 +223,9 @@ export function EquationRow({
               latex={state.latex}
               updateMathFieldValue={updateMathFieldValue}
               onAccept={handleAcceptToggle}
+              autoFocus
+              focusAtEnd
+              focusSession={entryFocusSessionRef.current}
               mathFieldId={mathFieldId}
             />
             {entryError && (
@@ -276,6 +287,7 @@ export function EquationRow({
         <button
           type="button"
           data-testid="accept-equation"
+          title={state.mode === "display" ? "Edit (E)" : "Accept"}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => handleAcceptToggle()}
           style={{

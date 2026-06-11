@@ -568,7 +568,7 @@ export function EquationToolbar({
           type="button"
           data-testid="toggle-negate-selection"
           aria-label="Toggle negation"
-          title="Toggle negation"
+          title="Toggle negation (N)"
           disabled={!canToggleNegate}
           onClick={onToggleNegateRequested}
           style={{
@@ -584,7 +584,7 @@ export function EquationToolbar({
           type="button"
           data-testid="toggle-delimiter-selection"
           aria-label="Toggle delimiters"
-          title="Toggle delimiters"
+          title="Toggle delimiters (P)"
           disabled={!canToggleDelimiter}
           onClick={onToggleDelimiterRequested}
           style={{

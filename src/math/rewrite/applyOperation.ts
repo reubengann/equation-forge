@@ -1,8 +1,9 @@
 import { displayGroup, equation, inequality, type Expr } from "../ast";
 import { cloneExpr, replaceCompiledNode } from "../ast/utils";
-import { isNegativeExpr } from "./algebraUtils";
+import { applySign, isNegativeExpr, splitSign } from "./algebraUtils";
 import type { TermSelection } from "../../selection/types";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
+import type { InequalityExpr } from "../ast/expr";
 
 const EQUATION_PLACEHOLDER = "eqn";
 const FRACTION_PART_PLACEHOLDER = "part";
@@ -39,7 +40,11 @@ export function validateOperationTemplate(
   return null;
 }
 
-export function applyOperationToRelation(relation: Expr, template: Expr): Expr | null {
+export function applyOperationToRelation(
+  relation: Expr,
+  template: Expr,
+  options: { switchInequality?: boolean } = {},
+): Expr | null {
   if (!canApplyOperationToRelation(relation)) return null;
   if (validateOperationTemplate(template, EQUATION_PLACEHOLDER)) return null;
 
@@ -50,12 +55,25 @@ export function applyOperationToRelation(relation: Expr, template: Expr): Expr |
   if (relation.kind === "inequality") {
     return inequality(
       applyOperationToPart(template, relation.lhs, EQUATION_PLACEHOLDER),
-      relation.operator,
+      options.switchInequality ? switchInequalityOperator(relation.operator) : relation.operator,
       applyOperationToPart(template, relation.rhs, EQUATION_PLACEHOLDER),
     );
   }
 
   return null;
+}
+
+function switchInequalityOperator(operator: InequalityExpr["operator"]): InequalityExpr["operator"] {
+  switch (operator) {
+    case "geq":
+      return "leq";
+    case "leq":
+      return "geq";
+    case "gt":
+      return "lt";
+    case "lt":
+      return "gt";
+  }
 }
 
 export function applyOperationToFraction(
@@ -97,7 +115,8 @@ function applyOperationToPart(template: Expr, part: Expr, placeholder: string): 
 }
 
 function isPlaceholder(expr: Expr, placeholder: string): boolean {
-  return expr.kind === "symbol" && expr.name === placeholder;
+  const unsigned = splitSign(expr).value;
+  return unsigned.kind === "symbol" && unsigned.name === placeholder;
 }
 
 function countPlaceholders(expr: Expr, placeholder: string): number {
@@ -111,7 +130,7 @@ function containsRelation(expr: Expr): boolean {
 }
 
 function replacePlaceholder(expr: Expr, part: Expr, placeholder: string): Expr | null {
-  if (isPlaceholder(expr, placeholder)) return cloneExpr(part);
+  if (isPlaceholder(expr, placeholder)) return applySign(splitSign(expr).sign, cloneExpr(part));
 
   const nextExpr = cloneExpr(expr);
   let changed = false;

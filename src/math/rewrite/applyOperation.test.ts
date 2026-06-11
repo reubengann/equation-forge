@@ -79,6 +79,24 @@ describe("applyOperationToRelation", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`\sqrt{a} < \sqrt{b}`);
   });
 
+  it("can switch inequality direction while applying an operation", () => {
+    const next = applyOperationToRelation(expr("a<b"), expr(String.raw`-\eqn`), {
+      switchInequality: true,
+    });
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`-a > -b`);
+  });
+
+  it("ignores inequality switching for equations", () => {
+    const next = applyOperationToRelation(expr("a=b"), expr(String.raw`-\eqn`), {
+      switchInequality: true,
+    });
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`-a = -b`);
+  });
+
   it("rejects non-relation current expressions", () => {
     expect(canApplyOperationToRelation(expr("a+b"))).toBe(false);
     expect(applyOperationToRelation(expr("a+b"), expr(String.raw`1/\eqn`))).toBeNull();

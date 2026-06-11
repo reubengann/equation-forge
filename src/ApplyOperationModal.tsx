@@ -5,10 +5,13 @@ import type { ApplyOperationTargetKind } from "./math/rewrite/applyOperation";
 
 type ApplyOperationModalProps = {
   targetKind: ApplyOperationTargetKind;
+  canSwitchInequality: boolean;
+  switchInequality: boolean;
   placeholder: string;
   operationLatex: string;
   error: string | null;
   focusSession: number;
+  onSwitchInequalityChange: (nextValue: boolean) => void;
   onOperationLatexChange: (nextLatex: string) => void;
   onAccept: (latestLatex?: string) => void;
   onCancel: () => void;
@@ -99,10 +102,13 @@ const operationMathfieldMacros = {
 
 export function ApplyOperationModal({
   targetKind,
+  canSwitchInequality,
+  switchInequality,
   placeholder,
   operationLatex,
   error,
   focusSession,
+  onSwitchInequalityChange,
   onOperationLatexChange,
   onAccept,
   onCancel,
@@ -150,6 +156,24 @@ export function ApplyOperationModal({
             Use <code>{placeholderLatex}</code> where each current {currentPartName} should be inserted,
             for example <code>{exampleLatex.reciprocal}</code> or <code>{exampleLatex.root}</code>.
           </div>
+          {canSwitchInequality && (
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: "0.9rem",
+                color: "rgba(255, 255, 255, 0.82)",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={switchInequality}
+                onChange={(event) => onSwitchInequalityChange(event.currentTarget.checked)}
+              />
+              Switch inequality symbol
+            </label>
+          )}
           {error && (
             <div role="alert" style={{ color: "#ffb4ab", fontSize: "0.9rem", lineHeight: 1.35 }}>
               {error}

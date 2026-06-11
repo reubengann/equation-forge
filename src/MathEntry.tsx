@@ -15,7 +15,7 @@ type MathfieldElementLike = HTMLElement & {
       focus: boolean;
     },
   ) => void;
-  executeCommand?: (command: [string, string]) => void;
+  executeCommand?: (command: string | [string, string]) => void;
 };
 
 type MathEntryProps = {
@@ -26,15 +26,17 @@ type MathEntryProps = {
   macros?: MathEntryMacro[];
   mathfieldMacros?: Record<string, string>;
   autoFocus?: boolean;
+  focusAtEnd?: boolean;
   focusSession?: number;
   mathFieldId?: string;
   macroButtonTabIndex?: number;
 };
 
-function focusMathField(field: MathfieldElementLike | null): boolean {
+function focusMathField(field: MathfieldElementLike | null, options: { atEnd?: boolean } = {}): boolean {
   if (!field || !field.isConnected) return false;
   try {
     field.focus();
+    if (options.atEnd) field.executeCommand?.("moveToMathfieldEnd");
     return true;
   } catch {
     return false;
@@ -49,6 +51,7 @@ export function MathEntry({
   macros = MATH_ENTRY_MACROS,
   mathfieldMacros,
   autoFocus = false,
+  focusAtEnd = false,
   focusSession,
   mathFieldId = "equation-mathfield",
   macroButtonTabIndex,
@@ -80,7 +83,7 @@ export function MathEntry({
     const tryFocus = () => {
       if (cancelled) return;
       attempts += 1;
-      if (focusMathField(mathFieldRef.current) || attempts >= maxAttempts) return;
+      if (focusMathField(mathFieldRef.current, { atEnd: focusAtEnd }) || attempts >= maxAttempts) return;
 
       timeoutId = window.setTimeout(() => {
         animationFrameId = requestAnimationFrame(tryFocus);
@@ -94,7 +97,7 @@ export function MathEntry({
       if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
       if (timeoutId !== null) window.clearTimeout(timeoutId);
     };
-  }, [autoFocus, focusSession]);
+  }, [autoFocus, focusAtEnd, focusSession]);
 
   const readLatexFromField = (): string => {
     const field = mathFieldRef.current;

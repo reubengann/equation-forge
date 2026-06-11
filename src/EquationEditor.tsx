@@ -132,6 +132,7 @@ type EquationEditorProps = {
   onUndoRequested?: () => void;
   canRedo?: boolean;
   onRedoRequested?: () => void;
+  onEditRequested?: () => void;
   recordingHooks?: EquationEditorRecordingHooks;
   isActive?: boolean;
   substituteSuggestionSources?: PadDefinitionSource[];
@@ -146,6 +147,7 @@ export function EquationEditor({
   onUndoRequested,
   canRedo = false,
   onRedoRequested,
+  onEditRequested,
   recordingHooks,
   isActive = true,
   substituteSuggestionSources = [],
@@ -169,6 +171,7 @@ export function EquationEditor({
   const [symbolReplacementError, setSymbolReplacementError] = useState<string | null>(null);
   const [applyOperationLatex, setApplyOperationLatex] = useState("");
   const [applyOperationError, setApplyOperationError] = useState<string | null>(null);
+  const [applyOperationSwitchInequality, setApplyOperationSwitchInequality] = useState(false);
   const [copyEquationFeedback, setCopyEquationFeedback] = useState<"idle" | "done">("idle");
   const [copySelectionFeedback, setCopySelectionFeedback] = useState<"idle" | "done">("idle");
   const [insertionLineStyle, setInsertionLineStyle] = useState<InsertionLineStyle | null>(null);
@@ -191,6 +194,8 @@ export function EquationEditor({
   const canApplyOperationToCurrentRelation = canApplyOperationToRelation(compiledDoc.expr);
   const canApplyOperationToSelectedFraction = canApplyOperationToFraction(compiledDoc, selection);
   const canApplyOperation = canApplyOperationToCurrentRelation || canApplyOperationToSelectedFraction;
+  const canSwitchApplyOperationInequality =
+    applyOperationTargetKind === "relation" && compiledDoc.expr.kind === "inequality";
   const substitutionSelection = useMemo(
     () => getSubstitutionSelection(compiledDoc, selection),
     [compiledDoc, selection],
@@ -545,6 +550,7 @@ export function EquationEditor({
     setApplyOperationTargetKind(canApplyOperationToSelectedFraction ? "fraction" : "relation");
     setApplyOperationLatex("");
     setApplyOperationError(null);
+    setApplyOperationSwitchInequality(false);
     applyOperationModalSessionRef.current += 1;
     setIsApplyOperationModalOpen(true);
   }, [canApplyOperation, canApplyOperationToSelectedFraction]);
@@ -657,6 +663,27 @@ export function EquationEditor({
         return;
       }
 
+      if (key === "e") {
+        if (!onEditRequested) return;
+        event.preventDefault();
+        onEditRequested();
+        return;
+      }
+
+      if (key === "p") {
+        if (!canToggleDelimiter) return;
+        event.preventDefault();
+        onToggleDelimiterRequested();
+        return;
+      }
+
+      if (key === "n") {
+        if (!canToggleNegate) return;
+        event.preventDefault();
+        onToggleNegateRequested();
+        return;
+      }
+
       if (key !== "a") return;
       event.preventDefault();
       setMoveType((currentMoveType) => (currentMoveType === "additive" ? "multiplicative" : "additive"));
@@ -677,6 +704,8 @@ export function EquationEditor({
     canRedo,
     canSubstitute,
     canSubstituteAllMatches,
+    canToggleDelimiter,
+    canToggleNegate,
     canUndo,
     isActive,
     isApplyOperationModalOpen,
@@ -688,8 +717,11 @@ export function EquationEditor({
     onDistributeRequested,
     onEvaluateWithAlgebriteRequested,
     onApplyDefaultIdentityRequested,
+    onEditRequested,
     onFactorRequested,
     onRedoRequested,
+    onToggleDelimiterRequested,
+    onToggleNegateRequested,
     onUndoRequested,
     openSubstituteModal,
     openSubstituteAllMatchesModal,
@@ -957,6 +989,7 @@ export function EquationEditor({
   const closeApplyOperationModal = () => {
     setIsApplyOperationModalOpen(false);
     setApplyOperationError(null);
+    setApplyOperationSwitchInequality(false);
   };
 
   const updateSymbolReplacementRowEnabled = (key: string, enabled: boolean) => {
@@ -1096,7 +1129,9 @@ export function EquationEditor({
 
     const nextExpr =
       targetKind === "relation"
-        ? applyOperationToRelation(compiledDoc.expr, template)
+        ? applyOperationToRelation(compiledDoc.expr, template, {
+            switchInequality: applyOperationSwitchInequality,
+          })
         : applyOperationToFraction(compiledDoc, selection, template);
     if (!nextExpr) {
       setApplyOperationError(
@@ -1321,10 +1356,13 @@ export function EquationEditor({
       {isApplyOperationModalOpen && (
         <ApplyOperationModal
           targetKind={applyOperationTargetKind}
+          canSwitchInequality={canSwitchApplyOperationInequality}
+          switchInequality={applyOperationSwitchInequality}
           placeholder={operationPlaceholderForTarget(applyOperationTargetKind)}
           operationLatex={applyOperationLatex}
           error={applyOperationError}
           focusSession={applyOperationModalSessionRef.current}
+          onSwitchInequalityChange={setApplyOperationSwitchInequality}
           onOperationLatexChange={(nextLatex) => {
             setApplyOperationLatex(nextLatex);
             setApplyOperationError(null);
