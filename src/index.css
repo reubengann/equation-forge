@@ -74,6 +74,14 @@ body {
   margin: 0;
 }
 
+.equation-toolbar-menu-summary::-webkit-details-marker {
+  display: none;
+}
+
+.equation-toolbar-menu-summary::marker {
+  content: "";
+}
+
 h1,
 h2 {
   font-family: var(--heading);

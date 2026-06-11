@@ -96,7 +96,9 @@ const menuContainerStyle: CSSProperties = {
 
 const menuSummaryStyle: CSSProperties = {
   ...iconButtonBaseStyle,
+  boxSizing: "border-box",
   listStyle: "none",
+  WebkitAppearance: "none",
 };
 
 const menuPanelStyle: CSSProperties = {
@@ -533,6 +535,7 @@ export function EquationToolbar({
             aria-label="Choose identity"
             title="Choose identity"
             data-testid="identity-rewrite-menu"
+            className="equation-toolbar-menu-summary"
             style={{
               ...menuSummaryStyle,
               ...(!canApplyIdentityRewrite ? iconButtonDisabledStyle : {}),
