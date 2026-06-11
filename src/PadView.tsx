@@ -86,6 +86,7 @@ function PadIconButton({ label, icon, onClick, testId, disabled = false }: PadIc
       aria-label={label}
       title={label}
       data-testid={testId}
+      onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
       disabled={disabled}
       style={{
@@ -298,6 +299,7 @@ export function PadView() {
         <button
           type="button"
           data-testid="add-pad-equation"
+          onMouseDown={(event) => event.preventDefault()}
           onClick={addEquation}
           style={{
             boxSizing: "border-box",
@@ -367,6 +369,7 @@ export function PadView() {
                   }}
                   onActivate={() => setActiveEquationId(equation.id)}
                   isActive={isActive}
+                  mathFieldId={`equation-mathfield-${equation.id}`}
                   substituteSuggestionSources={definitionSources}
                 />
                 <span

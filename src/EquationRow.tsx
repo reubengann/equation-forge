@@ -23,6 +23,7 @@ type EquationRowProps = {
   presets?: string[];
   isActive?: boolean;
   onActivate?: () => void;
+  mathFieldId?: string;
   substituteSuggestionSources?: PadDefinitionSource[];
 };
 
@@ -39,6 +40,7 @@ export function EquationRow({
   presets,
   isActive = true,
   onActivate,
+  mathFieldId,
   substituteSuggestionSources = [],
 }: EquationRowProps) {
   const [entryError, setEntryError] = useState<string | null>(null);
@@ -213,6 +215,7 @@ export function EquationRow({
               latex={state.latex}
               updateMathFieldValue={updateMathFieldValue}
               onAccept={handleAcceptToggle}
+              mathFieldId={mathFieldId}
             />
             {entryError && (
               <div

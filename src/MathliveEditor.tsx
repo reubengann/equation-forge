@@ -6,15 +6,23 @@ type MathliveEditorProps = {
   latex: string;
   updateMathFieldValue: (nextLatex: string) => void;
   onAccept: (latestLatex?: string) => void;
+  mathFieldId?: string;
 };
 
-export function MathliveEditor({ slotRef, latex, updateMathFieldValue, onAccept }: MathliveEditorProps) {
+export function MathliveEditor({
+  slotRef,
+  latex,
+  updateMathFieldValue,
+  onAccept,
+  mathFieldId,
+}: MathliveEditorProps) {
   return (
     <MathEntry
       slotRef={slotRef}
       latex={latex}
       onLatexChange={updateMathFieldValue}
       onAccept={onAccept}
+      mathFieldId={mathFieldId}
     />
   );
 }
