@@ -429,6 +429,49 @@ describe("identity rewrites", () => {
     expect(rewriteLatex(String.raw`a^n b^m`, "combine-product-powers")).toBeNull();
   });
 
+  it("rewrites simple reciprocals to negative powers", () => {
+    const options = getApplicableIdentityRewrites(parse(String.raw`\frac{1}{x}`));
+
+    expect(options.map((option) => option.id)).toContain("reciprocal-to-negative-power");
+    expect(rewriteLatex(String.raw`\frac{1}{x}`, "reciprocal-to-negative-power")).toBe("x^{-1}");
+    expect(rewriteLatex(String.raw`\frac{1}{p^2}`, "reciprocal-to-negative-power")).toBe("p^{-2}");
+    expect(rewriteLatex(String.raw`\frac{1}{\mathscr{H}}`, "reciprocal-to-negative-power")).toBe(
+      String.raw`\mathscr{H}^{-1}`,
+    );
+  });
+
+  it("rewrites trigonometric reciprocals to negative powers", () => {
+    expect(rewriteLatex(String.raw`\frac{1}{\sin x}`, "reciprocal-to-negative-power")).toBe(
+      String.raw`\sin^{-1} x`,
+    );
+    expect(rewriteLatex(String.raw`\frac{1}{\cos^2 x}`, "reciprocal-to-negative-power")).toBe(
+      String.raw`\cos^{-2} x`,
+    );
+  });
+
+  it("rewrites simple negative powers to reciprocals", () => {
+    const options = getApplicableIdentityRewrites(parse(String.raw`x^{-3}`));
+
+    expect(options.map((option) => option.id)).toContain("reciprocal-to-negative-power");
+    expect(rewriteLatex(String.raw`x^{-1}`, "reciprocal-to-negative-power")).toBe(String.raw`\frac{1}{x}`);
+    expect(rewriteLatex(String.raw`x^{-3}`, "reciprocal-to-negative-power")).toBe(String.raw`\frac{1}{x^{3}}`);
+    expect(rewriteLatex(String.raw`\mathscr{H}^{-1}`, "reciprocal-to-negative-power")).toBe(
+      String.raw`\frac{1}{\mathscr{H}}`,
+    );
+    expect(rewriteLatex(String.raw`\sin^{-1} x`, "reciprocal-to-negative-power")).toBe(
+      String.raw`\frac{1}{\sin x }`,
+    );
+  });
+
+  it("rejects compound and non-trigonometric reciprocal denominators", () => {
+    expect(rewriteLatex(String.raw`\frac{1}{a b}`, "reciprocal-to-negative-power")).toBeNull();
+    expect(rewriteLatex(String.raw`\frac{1}{\exp x}`, "reciprocal-to-negative-power")).toBeNull();
+    expect(rewriteLatex(String.raw`\frac{2}{x}`, "reciprocal-to-negative-power")).toBeNull();
+    expect(rewriteLatex(String.raw`\left(a b\right)^{-1}`, "reciprocal-to-negative-power")).toBeNull();
+    expect(rewriteLatex(String.raw`\exp^{-1} x`, "reciprocal-to-negative-power")).toBeNull();
+    expect(rewriteLatex(String.raw`x^{3}`, "reciprocal-to-negative-power")).toBeNull();
+  });
+
   it("rewrites square roots of squares to absolute values", () => {
     const expr = parse(String.raw`\sqrt{x^2}`);
     const options = getApplicableIdentityRewrites(expr);
@@ -522,6 +565,27 @@ describe("identity rewrites for selections", () => {
     expect(options.map((option) => option.id)).toContain("combine-product-powers");
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(String.raw`x + \left(a b\right)^{2} + y`);
+  });
+
+  it("rewrites a selected reciprocal inside an equation", () => {
+    const document = buildDocument(String.raw`y=\frac{1}{x}+z`);
+    const selectedNodeId = Object.entries(document.index.nodeById).find(([, expr]) => (
+      expr.kind === "divide" && expr.denominator.kind === "symbol" && expr.denominator.name === "x"
+    ))?.[0];
+
+    expect(selectedNodeId).toBeDefined();
+    const options = getApplicableIdentityRewritesForSelection(document, {
+      kind: "single",
+      nodeId: selectedNodeId!,
+    });
+    const next = applyIdentityRewriteToSelection(document, {
+      kind: "single",
+      nodeId: selectedNodeId!,
+    }, "reciprocal-to-negative-power");
+
+    expect(options.map((option) => option.id)).toContain("reciprocal-to-negative-power");
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`y = x^{-1} + z`);
   });
 
   it("replaces a contiguous multi-selection", () => {

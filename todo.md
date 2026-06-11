@@ -1,8 +1,9 @@
 ## Low
 
+- Page-level option to copy full equations with $$ $$ around them (persist)
+
 ## Medium
 
-- It might be nice to be able to easily toggle `1/x` to `x^{-1}`, or `1/p^2` to `p^{-2}`, etc. This would need its own button, I reckon. This should only work for fractions of a single symbol-like object (meaning it should work with `\mathscr{H}^{-1}` but not something like `\frac{1}{a b}`). However, an obvious exception is `1/\sin x` which is often written as `\sin^{-1} x`. I guess for trigonometric functions we should still allow it. `\exp` does not have this property/convention, nor any other `call` I can think of.
 - Algebrite frequently produces factors of, e.g. `x^{-2}` when evaluating, which should probably just be converted to fractions. Example:
   `\frac{\mathrm{d}}{\mathrm{d}{x}} \left(\frac{1}{x}\right)` produces `-x^{-2}`, but we should probably have it just convert to `-\frac{1}{x^{2}}` by default, as that's usually what's desired.
 

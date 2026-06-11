@@ -208,10 +208,10 @@ describe("exprToLatex", () => {
     expect(latex).toBe("a^{b}");
   });
 
-  it("wraps display group power bases in explicit braces", () => {
+  it("renders display group power bases without stacking braces", () => {
     const expr = parseLatexToExpr(String.raw`\left(-\frac{1}{2} + 5\right)^2`);
 
-    expect(exprToLatex(expr, false)).toBe(String.raw`{\left(-\frac{1}{2} + 5\right)}^{2}`);
+    expect(exprToLatex(expr, false)).toBe(String.raw`\left(-\frac{1}{2} + 5\right)^{2}`);
   });
 
   it("wraps tagged display group power bases in explicit braces", () => {

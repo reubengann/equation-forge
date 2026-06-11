@@ -119,6 +119,12 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
     apply: combineProductPowers,
   },
   {
+    id: "reciprocal-to-negative-power",
+    label: "1 / x <-> x^(-1)",
+    defaultPriority: 57,
+    apply: reciprocalToNegativePower,
+  },
+  {
     id: "sqrt-square-to-absolute-value",
     label: "sqrt(x^2) -> |x|",
     defaultPriority: 55,
@@ -374,6 +380,77 @@ function combineProductPowers(expr: Expr): Expr | null {
   );
 }
 
+function reciprocalToNegativePower(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  const unwrapped = unwrapDisplayGroup(signed.value);
+  if (unwrapped.kind === "power") {
+    const fraction = negativePowerToReciprocal(unwrapped);
+    return fraction ? applyOuterSign(signed.sign, fraction) : null;
+  }
+  if (unwrapped.kind !== "divide") return null;
+
+  const numerator = unwrapDisplayGroup(unwrapped.numerator);
+  if (splitSign(numerator).sign !== 1 || !isNumberOne(splitSign(numerator).value)) return null;
+
+  const denominator = unwrapDisplayGroup(unwrapped.denominator);
+  const inverted = denominatorNegativePower(denominator);
+  return inverted ? applyOuterSign(signed.sign, inverted) : null;
+}
+
+function denominatorNegativePower(expr: Expr): Expr | null {
+  const unwrapped = unwrapDisplayGroup(expr);
+  if (unwrapped.kind === "power") {
+    const exponent = numericValue(unwrapped.exponent);
+    if (exponent === null || !isAllowedReciprocalBase(unwrapped.base)) return null;
+    return power(cloneExpr(unwrapped.base), num(-exponent));
+  }
+  if (!isAllowedReciprocalBase(unwrapped)) return null;
+  return power(cloneExpr(unwrapped), num(-1));
+}
+
+function negativePowerToReciprocal(expr: Extract<Expr, { kind: "power" }>): Expr | null {
+  const exponent = numericValue(expr.exponent);
+  if (exponent === null || exponent >= 0 || !isAllowedReciprocalBase(expr.base)) return null;
+  const positiveExponent = -exponent;
+  const denominator = positiveExponent === 1
+    ? cloneExpr(expr.base)
+    : power(cloneExpr(expr.base), num(positiveExponent));
+  return divide(num(1), denominator);
+}
+
+function isAllowedReciprocalBase(expr: Expr): boolean {
+  const unwrapped = unwrapDisplayGroup(expr);
+  if (isSymbolLikeAtom(unwrapped)) return true;
+  return trigCallArgument(unwrapped) !== null;
+}
+
+function isSymbolLikeAtom(expr: Expr): boolean {
+  const unwrapped = unwrapDisplayGroup(expr);
+  switch (unwrapped.kind) {
+    case "symbol":
+      return true;
+    case "special_font":
+    case "vector":
+    case "hat":
+    case "dotted_expr":
+    case "primed":
+      return isSymbolLikeAtom(unwrapped.value);
+    default:
+      return false;
+  }
+}
+
+function trigCallArgument(expr: Expr): Expr | null {
+  const unwrapped = unwrapDisplayGroup(expr);
+  if (unwrapped.kind !== "call" || unwrapped.args.length !== 1) return null;
+  if (!trigName(unwrapped.callee)) return null;
+  return unwrapped.args[0] ? cloneExpr(unwrapped.args[0]) : null;
+}
+
+function applyOuterSign(sign: 1 | -1, expr: Expr): Expr {
+  return sign === -1 ? flipSign(expr) : expr;
+}
+
 function sqrtSquareToAbsoluteValue(expr: Expr): Expr | null {
   const base = sqrtSquareBase(expr);
   return base ? absoluteValue(base) : null;
@@ -440,9 +517,10 @@ function squaredTrigCall(expr: Expr): { name: "sin" | "cos"; argument: Expr } | 
   return name && argument ? { name, argument: cloneExpr(argument) } : null;
 }
 
-function trigName(expr: Expr): "sin" | "cos" | null {
+function trigName(expr: Expr): "sin" | "cos" | "tan" | null {
   if (isNamedSymbol(expr, "sin")) return "sin";
   if (isNamedSymbol(expr, "cos")) return "cos";
+  if (isNamedSymbol(expr, "tan")) return "tan";
   return null;
 }
 
@@ -542,6 +620,19 @@ function piOverTwo(): Expr {
 function isNumberTwo(expr: Expr): boolean {
   const unwrapped = unwrapDisplayGroup(expr);
   return unwrapped.kind === "number" && Number(unwrapped.value) === 2;
+}
+
+function isNumberOne(expr: Expr): boolean {
+  const unwrapped = unwrapDisplayGroup(expr);
+  return unwrapped.kind === "number" && Number(unwrapped.value) === 1;
+}
+
+function numericValue(expr: Expr): number | null {
+  const signed = splitSign(expr);
+  const unwrapped = unwrapDisplayGroup(signed.value);
+  if (unwrapped.kind !== "number") return null;
+  const value = Number(unwrapped.value);
+  return Number.isFinite(value) ? signed.sign * value : null;
 }
 
 function isNamedSymbol(expr: Expr, name: string): boolean {

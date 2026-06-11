@@ -68,7 +68,7 @@ function mapHeadCall(
       return mapMultiply(args, symbols);
     case "power":
       if (args.length !== 2) return fallbackInvalid("power_arity_mismatch", original);
-      return power(fromAlgebrite(args[0]!, symbols), fromAlgebrite(args[1]!, symbols));
+      return mapPower(args[0]!, args[1]!, symbols);
     case "equals":
       return equation(args.map((arg) => fromAlgebrite(arg, symbols)));
     case "sin":
@@ -86,31 +86,58 @@ function mapHeadCall(
 }
 
 function mapMultiply(args: AlgebriteNode[], symbols: SymbolSubstitution | undefined): Expr {
-  const factors = args.map((arg) => fromAlgebrite(arg, symbols));
   const denominatorFactors: Expr[] = [];
   const numeratorFactors: Expr[] = [];
 
-  for (const factor of factors) {
-    if (
-      factor.kind === "power" &&
-      factor.exponent.kind === "number" &&
-      numericValue(factor.exponent.value) === -1
-    ) {
-      denominatorFactors.push(factor.base);
-    } else {
-      numeratorFactors.push(factor);
+  for (const arg of args) {
+    const denominatorFactor = negativePowerDenominatorFactor(arg, symbols);
+    if (denominatorFactor) {
+      denominatorFactors.push(denominatorFactor);
+      continue;
     }
+    numeratorFactors.push(fromAlgebrite(arg, symbols));
   }
 
   if (denominatorFactors.length === 0) return normalizeProduct(numeratorFactors);
   const numerator = numeratorFactors.length === 0 ? num(1) : normalizeProduct(numeratorFactors);
   const denominator = denominatorFactors.length === 1 ? denominatorFactors[0]! : multiply(denominatorFactors);
+  return buildFraction(numerator, denominator);
+}
+
+function buildFraction(numerator: Expr, denominator: Expr): Expr {
   if (numerator.sign === -1) {
     const positiveNumerator = { ...numerator };
     delete positiveNumerator.sign;
     return flipSign(divide(positiveNumerator, denominator));
   }
+  if (numerator.kind === "number" && isNegativeNumericAtom(numerator.value)) {
+    return flipSign(divide(num(absNumericAtom(numerator.value)), denominator));
+  }
   return divide(numerator, denominator);
+}
+
+function negativePowerDenominatorFactor(node: AlgebriteNode, symbols: SymbolSubstitution | undefined): Expr | null {
+  if (!Algebrite.iscons(node)) return null;
+  const [head, baseNode, exponentNode] = consItems(node);
+  const headName = head?.printname ?? head?.toString();
+  if (headName !== "power" || !baseNode || !exponentNode) return null;
+
+  const exponent = fromAlgebrite(exponentNode, symbols);
+  const exponentValue = exponent.kind === "number" ? numericValueOrNull(exponent.value) : null;
+  if (exponentValue === null || exponentValue >= 0) return null;
+
+  const base = fromAlgebrite(baseNode, symbols);
+  return exponentValue === -1 ? base : power(base, num(-exponentValue));
+}
+
+function mapPower(baseNode: AlgebriteNode, exponentNode: AlgebriteNode, symbols: SymbolSubstitution | undefined): Expr {
+  const base = fromAlgebrite(baseNode, symbols);
+  const exponent = fromAlgebrite(exponentNode, symbols);
+  const exponentValue = exponent.kind === "number" ? numericValueOrNull(exponent.value) : null;
+  if (exponentValue === null || exponentValue >= 0) return power(base, exponent);
+
+  const denominator = exponentValue === -1 ? base : power(base, num(-exponentValue));
+  return divide(num(1), denominator);
 }
 
 function normalizeProduct(factors: Expr[]): Expr {

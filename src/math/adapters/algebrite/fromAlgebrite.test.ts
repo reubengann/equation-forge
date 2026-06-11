@@ -65,6 +65,28 @@ describe("fromAlgebrite", () => {
     });
   });
 
+  it("maps negative powers into denominator factors", () => {
+    expect(fromAlgebrite(Algebrite.parse("x^(-3)"))).toEqual({
+      kind: "divide",
+      numerator: { kind: "number", value: 1 },
+      denominator: {
+        kind: "power",
+        base: { kind: "symbol", name: "x" },
+        exponent: { kind: "number", value: 3 },
+      },
+    });
+    expect(fromAlgebrite(Algebrite.parse("-2*x^(-2)"))).toEqual({
+      kind: "divide",
+      sign: -1,
+      numerator: { kind: "number", value: 2 },
+      denominator: {
+        kind: "power",
+        base: { kind: "symbol", name: "x" },
+        exponent: { kind: "number", value: 2 },
+      },
+    });
+  });
+
   it("restores substituted symbol names", () => {
     const symbols = createSymbolSubstitution();
     symbols.originalBySafe.set("__pdp0", String.raw`\mu_s`);
