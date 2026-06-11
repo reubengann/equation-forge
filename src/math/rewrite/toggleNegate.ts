@@ -1,4 +1,4 @@
-import { add, displayGroup, multiply, type Expr } from "../ast";
+import { add, displayGroup, multiply, power, type Expr } from "../ast";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import { cloneExpr, replaceCompiledNode } from "../ast/utils";
 import { flipSign, splitSign } from "./algebraUtils";
@@ -29,6 +29,11 @@ function resolveToggleNegateTarget(document: CompiledMathDocument, nodeId: strin
       nodeId,
       replacement: displayGroup(innerGroup.delimiter, flipAdditiveSigns(innerGroup.expression)),
     };
+  }
+
+  if (selected.kind === "power") {
+    const replacement = toggleNegatedPowerBase(selected);
+    if (replacement) return { nodeId, replacement };
   }
 
   const selectedLocation = document.index.locationById[nodeId];
@@ -76,6 +81,22 @@ function resolveToggleNegateTarget(document: CompiledMathDocument, nodeId: strin
   const location = document.index.locationById[nodeId];
   const flippedGroup = displayGroup(signedSelected.value.delimiter, flipAdditiveSigns(signedSelected.value.expression));
 
+  if (parentId && parent?.kind === "power" && location?.field === "base") {
+    const exponentParity = positiveIntegerParity(parent.exponent);
+    if (exponentParity === "even") {
+      return {
+        nodeId,
+        replacement: flippedGroup,
+      };
+    }
+    if (exponentParity === "odd") {
+      return {
+        nodeId: parentId,
+        replacement: flipSign(power(flippedGroup, cloneExpr(parent.exponent))),
+      };
+    }
+  }
+
   if (parentId && parent?.kind === "multiply" && location?.field === "factors" && location.index != null) {
     const grandparentId = document.index.parentById[parentId];
     const grandparent = grandparentId ? document.index.nodeById[grandparentId] : null;
@@ -117,4 +138,25 @@ function flipAdditiveSigns(expr: Extract<Expr, { kind: "add" }>): Expr {
 
 function flipTermSign(term: Expr): Expr {
   return flipSign(term);
+}
+
+function toggleNegatedPowerBase(expr: Extract<Expr, { kind: "power" }>): Expr | null {
+  const exponentParity = positiveIntegerParity(expr.exponent);
+  if (!exponentParity) return null;
+
+  const signedBase = splitSign(expr.base);
+  if (signedBase.value.kind !== "display_group" || signedBase.value.expression.kind !== "add") return null;
+
+  const flippedPower = power(
+    displayGroup(signedBase.value.delimiter, flipAdditiveSigns(signedBase.value.expression)),
+    cloneExpr(expr.exponent),
+  );
+  return exponentParity === "even" ? flippedPower : flipSign(flippedPower);
+}
+
+function positiveIntegerParity(expr: Expr): "even" | "odd" | null {
+  if (expr.kind !== "number") return null;
+  const value = Number(expr.value);
+  if (!Number.isSafeInteger(value) || value <= 0) return null;
+  return value % 2 === 0 ? "even" : "odd";
 }

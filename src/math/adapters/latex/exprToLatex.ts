@@ -184,9 +184,16 @@ class LatexGenerator {
   }
 
   generatePowerBase(base: Expr): string {
+    if (base.kind === "display_group") return this.generateDisplayGroupPowerBase(base);
     const rendered = this.generate(base);
-    if (base.kind === "display_group") return rendered;
     return shouldGroupPowerBase(base) ? `\\left(${rendered}\\right)` : rendered;
+  }
+
+  generateDisplayGroupPowerBase(base: Extract<Expr, { kind: "display_group" }>): string {
+    if (!this.tags) return `{${this.generate(base)}}`;
+    this.newId(); // Reserve the display group id without wrapping the \left...\right power base.
+    const [open, close] = this.delimiterPair(base.delimiter);
+    return `\\left${open}${this.generate(base.expression)}\\right${close}`;
   }
 
   generateUnsignedWithIdLegacy(expr: Expr, id: string): string {

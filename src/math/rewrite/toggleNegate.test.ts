@@ -70,6 +70,50 @@ describe("toggleNegateSelection", () => {
     );
   });
 
+  it("pushes force negation into a squared additive base", () => {
+    const document = buildDocument(String.raw`\left(b-a\right)^2`);
+    const next = toggleNegateSelection(document, "n2");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\left(-b + a\right)^{2}`);
+  });
+
+  it("pushes force negation into a squared additive base when the square term is selected", () => {
+    const document = buildDocument(String.raw`\left(b-a\right)^2`);
+    const next = toggleNegateSelection(document, "n1");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\left(-b + a\right)^{2}`);
+  });
+
+  it("pushes force negation into even positive integer powers without changing the sign", () => {
+    const document = buildDocument(String.raw`\left(b-a\right)^4`);
+    const next = toggleNegateSelection(document, "n1");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\left(-b + a\right)^{4}`);
+  });
+
+  it("preserves equivalence for odd positive integer powers by keeping an outer negative", () => {
+    const document = buildDocument(String.raw`\left(b-a\right)^3`);
+    const next = toggleNegateSelection(document, "n1");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`-\left(-b + a\right)^{3}`);
+  });
+
+  it("does not force negation through non-positive or non-integer powers", () => {
+    for (const latex of [
+      String.raw`\left(b-a\right)^\frac{1}{2}`,
+      String.raw`\left(b-a\right)^x`,
+      String.raw`\left(b-a\right)^0`,
+    ]) {
+      const document = buildDocument(latex);
+      expect(canToggleNegateSelection(document, "n1")).toBe(false);
+      expect(toggleNegateSelection(document, "n1")).toBeNull();
+    }
+  });
+
   it("rejects non-delimiter selections", () => {
     const document = buildDocument(String.raw`-a-b`);
 
