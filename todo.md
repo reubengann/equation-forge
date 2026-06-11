@@ -4,9 +4,6 @@
 
 ## Medium
 
-- Algebrite frequently produces factors of, e.g. `x^{-2}` when evaluating, which should probably just be converted to fractions. Example:
-  `\frac{\mathrm{d}}{\mathrm{d}{x}} \left(\frac{1}{x}\right)` produces `-x^{-2}`, but we should probably have it just convert to `-\frac{1}{x^{2}}` by default, as that's usually what's desired.
-
 ## Hard/Uncertain
 
 - Check whether a product keeps the sign or whether it stays on the terms. Really, if we multiply two terms `-a` and `b`, which is symbol(a, sign: -1) and symbol(b, sign: +1), we should probably just form product([symbol(a, sign: +1), symbol(b, sign: +1)], sign: -1). But right now I'm not sure that's how it works. Ultimately, we should keep negate and divide if it makes the code simpler, and get rid of them if it makes it more complicated. We axed negate in favor of the sign property because some things looked easier to do ... not sure if that's still the case.
