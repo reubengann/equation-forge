@@ -3,7 +3,9 @@
 ## Medium
 
 - Check whether a product keeps the sign or whether it stays on the terms. Really, if we multiply two terms `-a` and `b`, which is symbol(a, sign: -1) and symbol(b, sign: +1), we should probably just form product([symbol(a, sign: +1), symbol(b, sign: +1)], sign: -1). But right now I'm not sure that's how it works.
-- Algebrite frequently produces factors of, e.g. `x^{-2}` which should probably just be converted to fractions.
+- It might be nice to be able to easily toggle `1/x` to `x^{-1}`, `1/p^2` to `p^{-2}`, etc. This would only work for fractions of a single symbol-like object. This would need its own button, I reckon.
+- Algebrite frequently produces factors of, e.g. `x^{-2}` when evaluating, which should probably just be converted to fractions. Example:
+  `\frac{\mathrm{d}}{\mathrm{d}{x}} \left(\frac{1}{x}\right)` produces `-x^{-2}`, but we should probably have it just convert to `-\frac{1}{x^{2}}`, as that's usually what's desired.
 - When we have parse weirdness, I frequently get $unexpected$ in the output. Would be much better if that resulted in an error that described why that was happening.
 
 ## Hard/Uncertain
