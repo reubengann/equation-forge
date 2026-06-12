@@ -96,7 +96,8 @@ type Token =
   | { kind: "limit_symbol" }
   | { kind: "root"; value: UnifiedNode[]; degree: UnifiedNode[] | null }
   | { kind: "differential"; variable: UnifiedNode[]; inexact?: boolean }
-  | { kind: "fraction"; numerator: UnifiedNode[]; denominator: UnifiedNode[] };
+  | { kind: "fraction"; numerator: UnifiedNode[]; denominator: UnifiedNode[] }
+  | { kind: "unsupported"; message: string; latex: string };
 
 const FUNCTION_MACROS = new Set(["sin", "cos", "tan", "log", "ln", "exp"]);
 const SYMBOL_MACROS = new Set([
@@ -139,6 +140,7 @@ const SYMBOL_MACROS = new Set([
   "Theta",
   "Upsilon",
   "Xi",
+  "ast",
 ]);
 
 class UnsupportedLatexError extends Error {
@@ -848,6 +850,26 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
       continue;
     }
 
+    if (macro === "neq" || macro === "to") {
+      tokens.push({ kind: "symbol", name: `\\${macro}` });
+      continue;
+    }
+
+    if (macro === "partial") {
+      tokens.push({ kind: "symbol", name: "partial" });
+      continue;
+    }
+
+    if (macro === "eqn" || macro === "part") {
+      tokens.push({ kind: "symbol", name: macro });
+      continue;
+    }
+
+    if (macro === "prime") {
+      tokens.push({ kind: "symbol", name: "prime" });
+      continue;
+    }
+
     if (macro === "Delta") {
       let lookahead = i + 1;
       while (nodes[lookahead]?.type === "whitespace") {
@@ -884,7 +906,11 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
       continue;
     }
 
-    tokens.push({ kind: "symbol", name: macro });
+    tokens.push({
+      kind: "unsupported",
+      message: `Unsupported LaTeX macro \\${macro}.`,
+      latex: `\\${macro}`,
+    });
   }
   return tokens;
 }
@@ -1340,6 +1366,12 @@ class TokenParser {
   }
 
   parseEquation(): Expr {
+    if (this.tokens.length === 1 && this.tokens[0]?.kind === "unsupported") {
+      return {
+        ...immutableExpression(this.tokens[0].latex),
+        error: this.tokens[0].message,
+      };
+    }
     const sides: Expr[] = [this.parseAdditive()];
     while (this.consumeOperator("=")) {
       sides.push(this.parseAdditive());
@@ -1483,6 +1515,7 @@ class TokenParser {
       if (next.kind === "exponent") {
         this.next();
         const exponent = parseGroupNodes(next.value) ?? sym("missing");
+        this.throwIfErroredExpression(exponent);
         const primeOrder = primeOrderFromExponent(exponent);
         expr = primeOrder
           ? applyPrime(expr, primeOrder)
@@ -1733,8 +1766,13 @@ class TokenParser {
 
       return this.parseFunctionCall(tokenName) ?? sym(tokenName);
     }
+    if (token.kind === "unsupported") throw new UnsupportedLatexError(token.message);
 
-    return sym("unexpected");
+    throw new UnsupportedLatexError(`Unexpected ${token.kind} in expression.`);
+  }
+
+  private throwIfErroredExpression(expr: Expr): void {
+    if (expr.error) throw new UnsupportedLatexError(expr.error);
   }
 }
 

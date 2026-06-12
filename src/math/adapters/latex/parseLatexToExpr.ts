@@ -28,7 +28,10 @@ export function parseLatexToExpr(
 ): Expr | null {
   const parseLatex = coerceLatexForExpressionParser(latex).latex;
   const { expr, error } = parseLatexToExprWithUnifiedLatexResult(parseLatex);
-  if (expr) return { ...normalizeLegacyNegates(expr), error: null };
+  if (expr) {
+    const normalized = normalizeLegacyNegates(expr);
+    return { ...normalized, error: normalized.error ?? null };
+  }
 
   const onError = options.onError ?? "immutable_expression";
   if (onError === "null") return null;

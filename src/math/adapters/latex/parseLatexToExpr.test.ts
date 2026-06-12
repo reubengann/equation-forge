@@ -690,6 +690,16 @@ describe("parseLatexToExpr", () => {
     expect(() => parseLatexToExpr("", { onError: "throw" })).toThrow(/Input LaTeX is empty/);
   });
 
+  it("returns an error instead of rendering unexpected parse artifacts", () => {
+    const expr = parseLatexToExpr(String.raw`F^{*}`);
+
+    expectExprKind(expr, "immutable_expression");
+    expect(expr.error).toBe("Unexpected operator in expression.");
+    expect(() => parseLatexToExpr(String.raw`F^{*}`, { onError: "throw" })).toThrow(
+      /Unexpected operator in expression/,
+    );
+  });
+
   it("falls back to immutable expression by default", () => {
     const expr = parseLatexToExpr("");
     expectExprKind(expr, "immutable_expression");
@@ -805,6 +815,33 @@ describe("parseLatexToExpr", () => {
     const expr = parseLatexToExpr(String.raw`\rho`);
     expectExprKind(expr, "symbol");
     expect(expr.name).toBe(String.raw`\rho`);
+  });
+
+  it("rejects unsupported macros instead of reducing them to plain symbols", () => {
+    const expr = parseLatexToExpr(String.raw`\notARealMacro`);
+
+    expectExprKind(expr, "immutable_expression");
+    expect(expr.error).toBe(String.raw`Unsupported LaTeX macro \notARealMacro.`);
+  });
+
+  it("fails larger expressions containing unsupported macros", () => {
+    const expr = parseLatexToExpr(String.raw`F^{\notARealMacro}`);
+
+    expectExprKind(expr, "immutable_expression");
+    expect(expr.error).toBe(String.raw`Unsupported LaTeX macro \notARealMacro.`);
+    expect(() => parseLatexToExpr(String.raw`F^{\notARealMacro}`, { onError: "throw" })).toThrow(
+      /Unsupported LaTeX macro \\notARealMacro/,
+    );
+  });
+
+  it("parses ast macro as a symbol", () => {
+    const expr = parseLatexToExpr(String.raw`F^{\ast}`);
+
+    expectExprKind(expr, "power");
+    expectExprKind(expr.base, "symbol");
+    expect(expr.base.name).toBe("F");
+    expectExprKind(expr.exponent, "symbol");
+    expect(expr.exponent.name).toBe(String.raw`\ast`);
   });
 
   it("parses subscripted Greek symbol macros as single symbols", () => {

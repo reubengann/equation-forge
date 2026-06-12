@@ -1,11 +1,10 @@
 ## Low
 
-- When we have parse weirdness, I frequently get $unexpected$ in the output. Would be much better if that resulted in an error that described why that was happening. Example `F^{*}`
-- When parsing `\ast` it reduces this to `ast` and drops the macro entirely. Since it's not comprehended, I expected it to be an immutable_expression, but it's not.
 - Page-level option to copy full equations with $$ $$ around them (persist)
-- `\left(\frac{\partial{F}}{\partial{T}}\right)_{X_1 , X_2} = -S` In my opinion, the subscript should be parsed as an immutable_expression. I don't think it is right now. It's not something that should be understood, but somehow X_1 and X_2 are individually selectable and replaceable in the character replace modal.
 
 ## Medium
+
+- `\left(\frac{\partial{F}}{\partial{T}}\right)_{X_1 , X_2} = -S` In my opinion, the subscript should be parsed as an immutable_expression. I don't think it is right now. It's not something that should be understood, but somehow X_1 and X_2 are individually selectable and replaceable in the character replace modal. This is not desirable, as they are just acting as a label at that point, I think. Also, comma appears as a replaceable character in the modal. Now, I get why we would want to understand something like `f(X_1, X_2)`, since that's arguments of a function. If we are going to try to comprehend "list of variables" in a subscript, at least we need to omit comma from the modal.
 
 ## Hard/Uncertain
 
