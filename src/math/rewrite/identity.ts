@@ -513,6 +513,7 @@ function squaredTrigCall(expr: Expr): { name: "sin" | "cos"; argument: Expr } | 
   const base = unwrapDisplayGroup(unwrapped.base);
   if (base.kind !== "call" || base.args.length !== 1) return null;
   const name = trigName(base.callee);
+  if (name !== "sin" && name !== "cos") return null;
   const [argument] = base.args;
   return name && argument ? { name, argument: cloneExpr(argument) } : null;
 }

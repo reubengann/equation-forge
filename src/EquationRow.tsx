@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { EquationEditor } from "./EquationEditor";
 import { MathliveEditor } from "./MathliveEditor";
 import type { EquationEditorRecordingHooks } from "./TestRecorder";
-import { parseLatexToExpr } from "./math/adapters/latex";
+import { coerceLatexForExpressionParser, parseLatexToExpr } from "./math/adapters/latex";
 import { compileMathDocument } from "./math/compile/compileMathDocument";
 import {
   createEquationHistory,
@@ -30,6 +30,8 @@ type EquationRowProps = {
 function acceptButtonLabel(mode: EquationMode) {
   return mode === "display" ? "Edit" : "✓";
 }
+
+const equationBodyMinHeight = "150px";
 
 export function EquationRow({
   state,
@@ -82,7 +84,8 @@ export function EquationRow({
   const handleAcceptToggle = (latestLatex?: unknown) => {
     if (state.mode === "entry") {
       const previousLatex = lastAcceptedLatexRef.current;
-      const nextLatex = typeof latestLatex === "string" ? latestLatex : state.latex;
+      const rawLatex = typeof latestLatex === "string" ? latestLatex : state.latex;
+      const nextLatex = coerceLatexForExpressionParser(rawLatex).latex;
       let acceptedLatex = nextLatex;
       try {
         parseLatexToExpr(nextLatex, { onError: "throw" });
@@ -217,7 +220,15 @@ export function EquationRow({
             </div>
           )
         ) : (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "6px" }}>
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              gap: "6px",
+              minHeight: equationBodyMinHeight,
+            }}
+          >
             <MathliveEditor
               slotRef={slotRef}
               latex={state.latex}

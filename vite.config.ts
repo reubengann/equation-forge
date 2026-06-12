@@ -1,22 +1,19 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
 // https://vite.dev/config/
 export default defineConfig({
   build: {
-    chunkSizeWarningLimit: 1500,
+    chunkSizeWarningLimit: 1900,
     rollupOptions: {
       onwarn(warning, warn) {
-        if (
-          warning.code === 'EVAL' &&
-          warning.id?.includes('node_modules/algebrite/')
-        ) {
-          return
+        if (warning.code === "EVAL" && warning.id?.includes("node_modules/algebrite/")) {
+          return;
         }
 
-        warn(warning)
+        warn(warning);
       },
     },
   },
   plugins: [react()],
-})
+});

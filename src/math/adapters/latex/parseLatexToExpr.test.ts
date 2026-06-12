@@ -26,6 +26,27 @@ describe("parseLatexToExpr", () => {
     expect(expr.sides[0]?.kind).toBe("add");
   });
 
+  it("parses a single expression from a stale MathLive eqnarray shell", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\begin{eqnarray}\left(\frac{\partial{F}}{\partial{T}}\right)_{X_1,X_2}=-S \quad \quad & & {}\end{eqnarray}`,
+    );
+
+    expectExprKind(expr, "equation");
+    expect(expr.sides).toHaveLength(2);
+    expectExprKind(expr.sides[1], "symbol");
+    expect(expr.sides[1].sign).toBe(-1);
+    expect(expr.sides[1].name).toBe("S");
+  });
+
+  it("parses the first expression from multi-expression eqnarray input", () => {
+    const expr = parseLatexToExpr(String.raw`\begin{eqnarray}a=b & c=d & {}\end{eqnarray}`);
+
+    expectExprKind(expr, "equation");
+    expect(expr.sides).toHaveLength(2);
+    expect(expr.sides[0]).toMatchObject({ kind: "symbol", name: "a" });
+    expect(expr.sides[1]).toMatchObject({ kind: "symbol", name: "b" });
+  });
+
   it("stays on internal AST at the adapter boundary", () => {
     const expr = parseLatexToExpr(String.raw`x^2`);
     expectExprKind(expr, "power");
