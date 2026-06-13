@@ -36,6 +36,7 @@ export {
   specialFont,
   text,
   uniteratedIntegral,
+  userFunction,
   vector,
   power,
   sym,

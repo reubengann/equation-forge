@@ -4,6 +4,7 @@ export type EquationMode = "entry" | "display";
 
 export type EquationHistoryStep = {
   latex: string;
+  functionSymbols: FunctionSymbolTag[];
 };
 
 export type EquationHistory = {
@@ -14,14 +15,20 @@ export type EquationHistory = {
 
 export type EquationRowState = {
   latex: string;
+  functionSymbols: FunctionSymbolTag[];
   history: EquationHistory;
   mode: EquationMode;
 };
 
-export function createEquationHistory(latex: string): EquationHistory {
+export type FunctionSymbolTag = {
+  nodeId: string;
+  name: string;
+};
+
+export function createEquationHistory(latex: string, functionSymbols: FunctionSymbolTag[] = []): EquationHistory {
   return {
     past: [],
-    present: { latex },
+    present: { latex, functionSymbols },
     future: [],
   };
 }
@@ -30,6 +37,7 @@ export function createEquationRowState(latex: string, mode: EquationMode = "entr
   const canonicalLatex = compileMathDocument(latex).plainLatex;
   return {
     latex: canonicalLatex,
+    functionSymbols: [],
     history: createEquationHistory(canonicalLatex),
     mode,
   };
@@ -38,6 +46,7 @@ export function createEquationRowState(latex: string, mode: EquationMode = "entr
 export function createDraftEquationRowState(latex: string): EquationRowState {
   return {
     latex,
+    functionSymbols: [],
     history: createEquationHistory(latex),
     mode: "entry",
   };

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseLatexToExpr } from "../adapters/latex/parseLatexToExpr";
 import { exprToLatex } from "../adapters/latex";
 import { compileMathDocumentFromExpr, type CompiledMathDocument } from "../compile/compileMathDocument";
+import { userFunction } from "../ast";
 import {
   canSubstituteSelection,
   getReplaceableSymbols,
@@ -83,6 +84,31 @@ describe("substituteSelection", () => {
 
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(String.raw`\left(x + y\right) b`);
+  });
+
+  it("renders numeric replacements in products without merging adjacent factors", () => {
+    const document = buildDocument(String.raw`5 b c = e`);
+    const selectedNodeId = firstNodeIdMatching(document, (expr) => expr.kind === "symbol" && expr.name === "b");
+    const next = substituteSelection(document, { kind: "single", nodeId: selectedNodeId }, replacement("5"));
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`5 \left(5\right) c = e`);
+  });
+
+  it("renders numeric replacements after user functions without merging with coefficients", () => {
+    const document = compileMathDocumentFromExpr("source", {
+      kind: "multiply",
+      factors: [
+        { kind: "number", value: 2 },
+        userFunction("f", { kind: "symbol", name: "x" }),
+        { kind: "symbol", name: "x" },
+      ],
+    });
+    const selectedNodeId = firstNodeIdMatching(document, (expr) => expr.kind === "user_function" && expr.name === "f");
+    const next = substituteSelection(document, { kind: "single", nodeId: selectedNodeId }, replacement("5"));
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`2 \left(5\right) x`);
   });
 
   it("splices product replacements into integral integrand products", () => {

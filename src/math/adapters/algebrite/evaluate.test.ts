@@ -2,6 +2,8 @@ import { describe, expect, it, test } from "vitest";
 import { exprToLatex } from "../latex";
 import { parseLatexToExpr } from "../latex/parseLatexToExpr";
 import { canEvaluateAlgebrite, evaluateAlgebrite } from "./evaluate";
+import { compileMathDocument, compileMathDocumentFromExpr } from "../../compile/compileMathDocument";
+import { applyFunctionSymbolSemantics, toggleFunctionSymbol } from "../../compile/functionSymbols";
 
 function expr(latex: string) {
   return parseLatexToExpr(latex, { onError: "throw" });
@@ -37,5 +39,23 @@ describe("evaluateAlgebrite", () => {
   it("checks translatability without evaluating", () => {
     expect(canEvaluateAlgebrite(expr(String.raw`\int_{0}^{1} \sin x\,\mathrm{d}{x}`))).toBe(true);
     expect(canEvaluateAlgebrite(expr(String.raw`\vec{v}`))).toBe(false);
+  });
+
+  it("evaluates expressions containing tagged user functions as opaque symbols", () => {
+    const parsedDocument = compileMathDocument(String.raw`\left(f\left(x\right)+x\right)^{2}`);
+    const functionSymbols = toggleFunctionSymbol(
+      parsedDocument,
+      [],
+      Object.entries(parsedDocument.index.nodeById).find(([, node]) => node.kind === "symbol" && node.name === "f")![0],
+    );
+    const document = compileMathDocumentFromExpr(
+      parsedDocument.sourceLatex,
+      applyFunctionSymbolSemantics(parsedDocument, functionSymbols),
+    );
+
+    expect(canEvaluateAlgebrite(document.expr)).toBe(true);
+    expect(exprToLatex(evaluateAlgebrite(document.expr)!, false)).toBe(
+      String.raw`2 f\left(x\right) x + f\left(x\right)^{2} + x^{2}`,
+    );
   });
 });

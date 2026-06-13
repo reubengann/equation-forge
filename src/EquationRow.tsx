@@ -3,13 +3,18 @@ import { EquationEditor } from "./EquationEditor";
 import { MathliveEditor } from "./MathliveEditor";
 import type { EquationEditorRecordingHooks } from "./TestRecorder";
 import { coerceLatexForExpressionParser, parseLatexToExpr } from "./math/adapters/latex";
-import { compileMathDocument } from "./math/compile/compileMathDocument";
+import { compileMathDocument, compileMathDocumentFromExpr } from "./math/compile/compileMathDocument";
 import {
   createEquationHistory,
   type EquationMode,
   type EquationRowState,
 } from "./EquationRowState";
 import type { PadDefinitionSource } from "./substituteSuggestions";
+import {
+  applyFunctionSymbolSemantics,
+  pruneFunctionSymbols,
+  remapFunctionSymbols,
+} from "./math/compile/functionSymbols";
 
 type EquationRowProps = {
   state: EquationRowState;
@@ -57,6 +62,16 @@ export function EquationRow({
       return null;
     }
   }, [state.latex]);
+  const prunedFunctionSymbols = useMemo(
+    () => (compiledDoc ? pruneFunctionSymbols(compiledDoc, state.functionSymbols) : []),
+    [compiledDoc, state.functionSymbols],
+  );
+  const semanticCompiledDoc = useMemo(() => {
+    if (!compiledDoc) return null;
+    const semanticExpr = applyFunctionSymbolSemantics(compiledDoc, prunedFunctionSymbols);
+    return compileMathDocumentFromExpr(compiledDoc.sourceLatex, semanticExpr);
+  }, [compiledDoc, prunedFunctionSymbols]);
+  const displayCompiledDoc = semanticCompiledDoc ?? compiledDoc;
 
   const updateMathFieldValue = (nextValue: string) => {
     const valueChanged = nextValue !== state.latex;
@@ -76,6 +91,7 @@ export function EquationRow({
     setPresetIndex(normalizedIndex);
     onStateChange(() => ({
       latex: compiled.plainLatex,
+      functionSymbols: [],
       history: createEquationHistory(compiled.plainLatex),
       mode: state.mode,
     }));
@@ -87,9 +103,11 @@ export function EquationRow({
       const rawLatex = typeof latestLatex === "string" ? latestLatex : state.latex;
       const nextLatex = coerceLatexForExpressionParser(rawLatex).latex;
       let acceptedLatex = nextLatex;
+      let acceptedDocument;
       try {
         parseLatexToExpr(nextLatex, { onError: "throw" });
-        acceptedLatex = compileMathDocument(nextLatex).plainLatex;
+        acceptedDocument = compileMathDocument(nextLatex);
+        acceptedLatex = acceptedDocument.plainLatex;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unable to parse LaTeX input.";
         onStateChange((current) => ({ ...current, latex: nextLatex }));
@@ -100,10 +118,15 @@ export function EquationRow({
         );
         return;
       }
+      const nextFunctionSymbols =
+        compiledDoc && acceptedDocument
+          ? remapFunctionSymbols(compiledDoc, acceptedDocument, state.functionSymbols)
+          : [];
       setEntryError(null);
       onStateChange(() => ({
         latex: acceptedLatex,
-        history: createEquationHistory(acceptedLatex),
+        functionSymbols: nextFunctionSymbols,
+        history: createEquationHistory(acceptedLatex, nextFunctionSymbols),
         mode: "display",
       }));
       onLatexAccepted?.({
@@ -121,19 +144,23 @@ export function EquationRow({
   const handleCanonicalLatexChanged = useCallback(
     (nextLatex: string) => {
       const canonicalNextLatex = compileMathDocument(nextLatex).plainLatex;
+      const nextDocument = compileMathDocument(canonicalNextLatex);
       onStateChange((current) => {
         const previousLatex = current.history.present.latex;
+        const previousDocument = compileMathDocument(previousLatex);
+        const nextFunctionSymbols = remapFunctionSymbols(previousDocument, nextDocument, current.functionSymbols);
         const nextHistory =
           previousLatex === canonicalNextLatex
             ? current.history
             : {
                 past: [...current.history.past, current.history.present],
-                present: { latex: canonicalNextLatex },
+                present: { latex: canonicalNextLatex, functionSymbols: nextFunctionSymbols },
                 future: [],
               };
         return {
           ...current,
           latex: canonicalNextLatex,
+          functionSymbols: nextFunctionSymbols,
           history: nextHistory,
         };
       });
@@ -148,6 +175,7 @@ export function EquationRow({
     onStateChange((current) => ({
       ...current,
       latex: previousStep.latex,
+      functionSymbols: previousStep.functionSymbols,
       history: {
         past: current.history.past.slice(0, -1),
         present: previousStep,
@@ -163,6 +191,7 @@ export function EquationRow({
     onStateChange((current) => ({
       ...current,
       latex: nextStep.latex,
+      functionSymbols: nextStep.functionSymbols,
       history: {
         past: [...current.history.past, current.history.present],
         present: nextStep,
@@ -201,9 +230,23 @@ export function EquationRow({
         }}
       >
         {state.mode === "display" ? (
-          compiledDoc ? (
+          displayCompiledDoc ? (
             <EquationEditor
-              compiledDoc={compiledDoc}
+              compiledDoc={displayCompiledDoc}
+              functionSymbols={prunedFunctionSymbols}
+              onFunctionSymbolsChanged={(nextFunctionSymbols) => {
+                onStateChange((current) => ({
+                  ...current,
+                  functionSymbols: nextFunctionSymbols,
+                  history: {
+                    ...current.history,
+                    present: {
+                      ...current.history.present,
+                      functionSymbols: nextFunctionSymbols,
+                    },
+                  },
+                }));
+              }}
               recordingHooks={recordingHooks}
               canUndo={state.history.past.length > 0}
               onUndoRequested={handleUndoRequested}

@@ -54,6 +54,7 @@ function canTranslateExpr(expr: Expr): boolean {
     case "number":
       return typeof expr.value === "number" || /^-?\d+(?:\.\d+)?$/.test(expr.value);
     case "symbol":
+    case "user_function":
       return true;
     case "special_font":
       return expr.value.kind === "symbol";

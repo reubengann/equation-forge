@@ -3,6 +3,7 @@ import { EquationRow } from "./EquationRow";
 import {
   createDraftEquationRowState,
   createEquationHistory,
+  type FunctionSymbolTag,
   type EquationHistory,
   type EquationMode,
   type EquationRowState,
@@ -62,6 +63,7 @@ type PadEquation = {
 type StoredPadEquation = {
   id: unknown;
   latex: unknown;
+  functionSymbols?: unknown;
   history: unknown;
   mode: unknown;
 };
@@ -116,11 +118,21 @@ function createEmptyEquation(): PadEquation {
 function cloneEquationState(state: EquationRowState): EquationRowState {
   return {
     latex: state.latex,
+    functionSymbols: state.functionSymbols.map((tag) => ({ ...tag })),
     mode: state.mode,
     history: {
-      past: state.history.past.map((step) => ({ ...step })),
-      present: { ...state.history.present },
-      future: state.history.future.map((step) => ({ ...step })),
+      past: state.history.past.map((step) => ({
+        ...step,
+        functionSymbols: step.functionSymbols.map((tag) => ({ ...tag })),
+      })),
+      present: {
+        ...state.history.present,
+        functionSymbols: state.history.present.functionSymbols.map((tag) => ({ ...tag })),
+      },
+      future: state.history.future.map((step) => ({
+        ...step,
+        functionSymbols: step.functionSymbols.map((tag) => ({ ...tag })),
+      })),
     },
   };
 }
@@ -132,20 +144,44 @@ function duplicateEquation(equation: PadEquation): PadEquation {
   };
 }
 
-function isHistory(value: unknown, fallbackLatex: string): EquationHistory {
-  if (!value || typeof value !== "object") return createEquationHistory(fallbackLatex);
+function parseFunctionSymbols(value: unknown): FunctionSymbolTag[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((tag) => {
+    if (!tag || typeof tag !== "object") return [];
+    const candidate = tag as Partial<FunctionSymbolTag>;
+    if (typeof candidate.nodeId !== "string" || typeof candidate.name !== "string") return [];
+    return [{ nodeId: candidate.nodeId, name: candidate.name }];
+  });
+}
+
+function isHistory(value: unknown, fallbackLatex: string, fallbackFunctionSymbols: FunctionSymbolTag[]): EquationHistory {
+  if (!value || typeof value !== "object") return createEquationHistory(fallbackLatex, fallbackFunctionSymbols);
   const candidate = value as Partial<EquationHistory>;
-  const presentLatex = candidate.present?.latex;
-  if (typeof presentLatex !== "string") return createEquationHistory(fallbackLatex);
+  const present = candidate.present;
+  if (!present || typeof present !== "object") return createEquationHistory(fallbackLatex, fallbackFunctionSymbols);
+  const presentLatex = present.latex;
+  if (typeof presentLatex !== "string") return createEquationHistory(fallbackLatex, fallbackFunctionSymbols);
   const past = Array.isArray(candidate.past)
-    ? candidate.past.flatMap((step) => (typeof step?.latex === "string" ? [{ latex: step.latex }] : []))
+    ? candidate.past.flatMap((step) =>
+        typeof step?.latex === "string"
+          ? [{ latex: step.latex, functionSymbols: parseFunctionSymbols(step.functionSymbols) }]
+          : [],
+      )
     : [];
   const future = Array.isArray(candidate.future)
-    ? candidate.future.flatMap((step) => (typeof step?.latex === "string" ? [{ latex: step.latex }] : []))
+    ? candidate.future.flatMap((step) =>
+        typeof step?.latex === "string"
+          ? [{ latex: step.latex, functionSymbols: parseFunctionSymbols(step.functionSymbols) }]
+          : [],
+      )
     : [];
+  const presentFunctionSymbols = parseFunctionSymbols(present.functionSymbols);
   return {
     past,
-    present: { latex: presentLatex },
+    present: {
+      latex: presentLatex,
+      functionSymbols: presentFunctionSymbols.length ? presentFunctionSymbols : fallbackFunctionSymbols,
+    },
     future,
   };
 }
@@ -156,11 +192,20 @@ function parseStoredEquation(value: unknown, index: number): PadEquation | null 
   const latex = typeof candidate.latex === "string" ? candidate.latex : null;
   if (!latex) return null;
   const mode: EquationMode = candidate.mode === "display" ? "display" : "entry";
+  const functionSymbols = parseFunctionSymbols(candidate.functionSymbols);
+  const history = isHistory(candidate.history, latex, functionSymbols);
   return {
     id: typeof candidate.id === "string" ? candidate.id : `eq-restored-${index + 1}`,
     state: {
       latex,
-      history: isHistory(candidate.history, latex),
+      functionSymbols,
+      history: {
+        ...history,
+        present: {
+          ...history.present,
+          functionSymbols,
+        },
+      },
       mode,
     },
   };
@@ -194,6 +239,7 @@ function savePadEquations(equations: PadEquation[]) {
     equations: equations.map((equation) => ({
       id: equation.id,
       latex: equation.state.latex,
+      functionSymbols: equation.state.functionSymbols,
       history: equation.state.history,
       mode: equation.state.mode,
     })),

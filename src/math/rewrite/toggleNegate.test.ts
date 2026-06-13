@@ -2,11 +2,18 @@ import { describe, expect, it } from "vitest";
 import { exprToLatex } from "../adapters/latex";
 import { parseLatexToExpr } from "../adapters/latex/parseLatexToExpr";
 import { compileMathDocumentFromExpr, type CompiledMathDocument } from "../compile/compileMathDocument";
+import { applyFunctionSymbolSemantics, toggleFunctionSymbol } from "../compile/functionSymbols";
 import { canToggleNegateSelection, toggleNegateSelection } from "./toggleNegate";
 
 function buildDocument(latex: string): CompiledMathDocument {
   const expr = parseLatexToExpr(latex, { onError: "throw" });
   return compileMathDocumentFromExpr(latex, expr);
+}
+
+function firstNodeIdMatching(document: CompiledMathDocument, predicate: (expr: CompiledMathDocument["expr"]) => boolean): string {
+  const entry = Object.entries(document.index.nodeById).find(([, expr]) => predicate(expr));
+  expect(entry).toBeDefined();
+  return entry![0];
 }
 
 describe("toggleNegateSelection", () => {
@@ -84,6 +91,23 @@ describe("toggleNegateSelection", () => {
 
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(String.raw`\left(-b + a\right)^{2}`);
+  });
+
+  it("pushes force negation into a squared additive base with tagged user functions", () => {
+    const parsedDocument = buildDocument(String.raw`\left(f\left(x\right)+x\right)^{2}`);
+    const functionSymbols = toggleFunctionSymbol(
+      parsedDocument,
+      [],
+      firstNodeIdMatching(parsedDocument, (expr) => expr.kind === "symbol" && expr.name === "f"),
+    );
+    const document = compileMathDocumentFromExpr(
+      parsedDocument.sourceLatex,
+      applyFunctionSymbolSemantics(parsedDocument, functionSymbols),
+    );
+    const next = toggleNegateSelection(document, firstNodeIdMatching(document, (expr) => expr.kind === "power"));
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\left(-f\left(x\right) - x\right)^{2}`);
   });
 
   it("pushes force negation into even positive integer powers without changing the sign", () => {

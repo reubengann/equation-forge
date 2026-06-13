@@ -67,6 +67,12 @@ export type FunctionCallExpr = {
   delimiter: "paren" | "bracket" | "bare";
 };
 
+export type UserFunctionExpr = {
+  kind: "user_function";
+  name: string;
+  argument: Expr;
+};
+
 export type TextExpr = {
   kind: "text";
   text: string;
@@ -231,6 +237,7 @@ type ExprCore =
   | EquationExpr
   | InequalityExpr
   | FunctionCallExpr
+  | UserFunctionExpr
   | TextExpr
   | AbsoluteValueExpr
   | VectorExpr

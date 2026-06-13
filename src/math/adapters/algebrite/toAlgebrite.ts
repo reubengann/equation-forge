@@ -1,4 +1,5 @@
 import Algebrite, { type AlgebriteNode } from "algebrite";
+import { exprToLatex } from "../latex";
 import { findIntegralDifferentialVariable, type Expr } from "../../ast";
 
 export type SymbolSubstitution = {
@@ -76,6 +77,8 @@ function translatePositiveExpr(expr: Expr, context: TranslationContext): Algebri
       if (expr.name === String.raw`\pi`) return Algebrite.parse("pi");
       if (expr.name === "e") return Algebrite.parse("e");
       return Algebrite.usr_symbol(safeSymbolName(expr.name, context.symbols));
+    case "user_function":
+      return Algebrite.usr_symbol(safeSymbolName(exprToLatex(expr, false), context.symbols));
     case "special_font": {
       const name = specialFontSymbolName(expr);
       if (!name) {

@@ -39,6 +39,9 @@ type EquationToolbarProps = {
   onApplyIdentityRequested: (identityId: string) => void;
   canToggleNegate: boolean;
   onToggleNegateRequested: () => void;
+  canToggleFunctionSymbol: boolean;
+  isFunctionSymbolSelected: boolean;
+  onToggleFunctionSymbolRequested: () => void;
   canToggleDelimiter: boolean;
   onToggleDelimiterRequested: () => void;
   canCycleDelimiter: boolean;
@@ -195,6 +198,9 @@ export function EquationToolbar({
   onApplyIdentityRequested,
   canToggleNegate,
   onToggleNegateRequested,
+  canToggleFunctionSymbol,
+  isFunctionSymbolSelected,
+  onToggleFunctionSymbolRequested,
   canToggleDelimiter,
   onToggleDelimiterRequested,
   canCycleDelimiter,
@@ -602,6 +608,24 @@ export function EquationToolbar({
         >
           <span style={materialSymbolStyle} aria-hidden="true">
             exposure_neg_1
+          </span>
+        </button>
+        <button
+          type="button"
+          data-testid="toggle-function-symbol"
+          aria-label="Toggle function symbol"
+          title="Toggle function symbol"
+          aria-pressed={isFunctionSymbolSelected}
+          disabled={!canToggleFunctionSymbol}
+          onClick={onToggleFunctionSymbolRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            ...(isFunctionSymbolSelected ? iconButtonActiveStyle : {}),
+            ...(!canToggleFunctionSymbol ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <span style={materialSymbolStyle} aria-hidden="true">
+            function
           </span>
         </button>
         <button

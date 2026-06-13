@@ -63,6 +63,12 @@ import {
   validateForceFactorExpr,
 } from "./math/rewrite/forceFactor";
 import { getSelectionRewriteTarget } from "./math/rewrite/selectionRewrite";
+import type { FunctionSymbolTag } from "./EquationRowState";
+import {
+  canToggleFunctionSymbol,
+  isFunctionSymbolSelectionTagged,
+  toggleFunctionSymbol,
+} from "./math/compile/functionSymbols";
 
 type InsertionLineStyle = {
   left: number;
@@ -132,8 +138,24 @@ function isSelectionValidInDocument(document: CompiledMathDocument, selection: T
   return selection.nodeIds.every((nodeId) => !!nodeById[nodeId]);
 }
 
+function selectionSubtreeSet(document: CompiledMathDocument, selection: TermSelection | null): Set<string> {
+  const selectedNodeIds = selectionSet(selection);
+  const nodeIds = new Set<string>(selectedNodeIds);
+  const visit = (nodeId: string) => {
+    for (const childId of document.index.childrenById[nodeId] ?? []) {
+      if (nodeIds.has(childId)) continue;
+      nodeIds.add(childId);
+      visit(childId);
+    }
+  };
+  for (const nodeId of selectedNodeIds) visit(nodeId);
+  return nodeIds;
+}
+
 type EquationEditorProps = {
   compiledDoc: CompiledMathDocument;
+  functionSymbols: FunctionSymbolTag[];
+  onFunctionSymbolsChanged: (nextFunctionSymbols: FunctionSymbolTag[]) => void;
   onCanonicalLatexChanged: (nextLatex: string) => void;
   canUndo?: boolean;
   onUndoRequested?: () => void;
@@ -149,6 +171,8 @@ const DEBUG_DRAW_NODE_RECTS = false;
 
 export function EquationEditor({
   compiledDoc,
+  functionSymbols,
+  onFunctionSymbolsChanged,
   onCanonicalLatexChanged,
   canUndo = false,
   onUndoRequested,
@@ -202,11 +226,6 @@ export function EquationEditor({
   const symbolReplacementModalSessionRef = useRef(0);
   const applyOperationModalSessionRef = useRef(0);
   const canFlip = canFlipRelation(compiledDoc.expr);
-  const canApplyOperationToCurrentRelation = canApplyOperationToRelation(compiledDoc.expr);
-  const canApplyOperationToSelectedFraction = canApplyOperationToFraction(compiledDoc, selection);
-  const canApplyOperation = canApplyOperationToCurrentRelation || canApplyOperationToSelectedFraction;
-  const canSwitchApplyOperationInequality =
-    applyOperationTargetKind === "relation" && compiledDoc.expr.kind === "inequality";
   const substitutionSelection = useMemo(
     () => getSubstitutionSelection(compiledDoc, selection),
     [compiledDoc, selection],
@@ -221,6 +240,11 @@ export function EquationEditor({
   const canSubstitute = substitutionSelection !== null;
   const replaceableSymbols = useMemo(() => getReplaceableSymbols(compiledDoc), [compiledDoc]);
   const canSubstituteAllMatches = replaceableSymbols.length > 0;
+  const canApplyOperationToCurrentRelation = canApplyOperationToRelation(compiledDoc.expr);
+  const canApplyOperationToSelectedFraction = canApplyOperationToFraction(compiledDoc, selection);
+  const canApplyOperation = canApplyOperationToCurrentRelation || canApplyOperationToSelectedFraction;
+  const canSwitchApplyOperationInequality =
+    applyOperationTargetKind === "relation" && compiledDoc.expr.kind === "inequality";
   const canFactor = canAutoRewrite(compiledDoc, selection, "factor");
   const canForceFactor = canForceFactorSelection(compiledDoc, selection);
   const canDistribute = canAutoRewrite(compiledDoc, selection, "distribute");
@@ -235,6 +259,9 @@ export function EquationEditor({
     selection?.kind === "single" ? canToggleNegateSelection(compiledDoc, selection.nodeId) : false;
   const canToggleDelimiter = canToggleDelimiterSelection(compiledDoc, selection);
   const canCycleDelimiter = canCycleDelimiterSelection(compiledDoc, selection);
+  const selectedNodeId = selection?.kind === "single" ? selection.nodeId : null;
+  const canToggleFunctionSymbolSelection = canToggleFunctionSymbol(compiledDoc, selectedNodeId);
+  const isFunctionSymbolSelected = isFunctionSymbolSelectionTagged(compiledDoc, functionSymbols, selectedNodeId);
 
   const publishGeometrySnapshot = useCallback(() => {
     const snapshot = captureGeometryFromMathdiv(mathDivRef.current);
@@ -289,12 +316,23 @@ export function EquationEditor({
     const shadowRoot = host?.shadowRoot;
     if (!shadowRoot) return;
 
+    const functionEls = Array.from(shadowRoot.querySelectorAll<HTMLElement>(".pdp-user-function"));
+    for (const el of functionEls) {
+      el.style.color = "rgba(255, 255, 255, 0.72)";
+    }
+
     const els = Array.from(shadowRoot.querySelectorAll<HTMLElement>("[data-node-id]"));
-    const selectedNodeIds = selectionSet(nextSelection);
+    const selectedNodeIds = selectionSubtreeSet(compiledDoc, nextSelection);
     for (const el of els) {
       const nodeId = el.dataset.nodeId;
       const isSelected = !!nodeId && selectedNodeIds.has(nodeId);
       el.style.color = isSelected ? "#ff9800" : "";
+      if (isSelected) {
+        for (const functionEl of Array.from(el.querySelectorAll<HTMLElement>(".pdp-user-function"))) {
+          functionEl.style.color = "#ff9800";
+        }
+      }
+      el.style.opacity = "";
       el.style.outline = "";
     }
   };
@@ -332,7 +370,7 @@ export function EquationEditor({
 
   useEffect(() => {
     applySelectionHighlight(selection);
-  }, [compiledDoc, selection]);
+  }, [compiledDoc, functionSymbols, selection]);
 
   useEffect(() => {
     if (!selection || isSelectionValidInDocument(compiledDoc, selection)) return;
@@ -540,6 +578,17 @@ export function EquationEditor({
     },
     [canApplyIdentityRewrite, compiledDoc, onCanonicalLatexChanged, selection, updateSelection],
   );
+
+  const onToggleFunctionSymbolRequested = useCallback(() => {
+    if (!selection || selection.kind !== "single" || !canToggleFunctionSymbolSelection) return;
+    onFunctionSymbolsChanged(toggleFunctionSymbol(compiledDoc, functionSymbols, selection.nodeId));
+  }, [
+    canToggleFunctionSymbolSelection,
+    compiledDoc,
+    functionSymbols,
+    onFunctionSymbolsChanged,
+    selection,
+  ]);
 
   const onToggleNegateRequested = useCallback(() => {
     if (!selection || selection.kind !== "single" || !canToggleNegate) return;
@@ -1289,6 +1338,9 @@ export function EquationEditor({
         onApplyIdentityRequested={onApplyIdentityRequested}
         canToggleNegate={canToggleNegate}
         onToggleNegateRequested={onToggleNegateRequested}
+        canToggleFunctionSymbol={canToggleFunctionSymbolSelection}
+        isFunctionSymbolSelected={isFunctionSymbolSelected}
+        onToggleFunctionSymbolRequested={onToggleFunctionSymbolRequested}
         canToggleDelimiter={canToggleDelimiter}
         onToggleDelimiterRequested={onToggleDelimiterRequested}
         canCycleDelimiter={canCycleDelimiter}

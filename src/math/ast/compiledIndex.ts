@@ -59,6 +59,8 @@ function exprChildLocations(expr: Expr): ExprChildLocation[] {
         { expr: expr.callee, field: "callee" },
         ...expr.args.map((arg, index) => ({ expr: arg, field: "args", index })),
       ];
+    case "user_function":
+      return [{ expr: expr.argument, field: "argument" }];
     case "absolute_value":
     case "vector":
     case "hat":

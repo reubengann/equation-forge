@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseLatexToExpr } from "./parseLatexToExpr";
+import { userFunction, sym } from "../../ast";
 import { exprToLatex } from "./exprToLatex";
 import { compileMathDocumentFromExpr } from "../../compile/compileMathDocument";
 import type { Expr } from "../../ast";
@@ -352,6 +353,13 @@ describe("exprToLatex", () => {
     expect(latex).toContain(
       String.raw`\htmlData{node-id="${callNodeId}"}{\sin \htmlData{node-id="${piNodeId}"}{\pi}}`,
     );
+  });
+
+  it("wraps user functions in a MathLive class when tagged", () => {
+    expect(exprToLatex(userFunction("f", sym("x")), true)).toBe(
+      String.raw`\htmlData{node-id="n1"}{\class{pdp-user-function}{f\!\left(\htmlData{node-id="n2"}{x}\right)}}`,
+    );
+    expect(exprToLatex(userFunction("f", sym("x")), false)).toBe(String.raw`f\left(x\right)`);
   });
 
   it("converts text", () => {

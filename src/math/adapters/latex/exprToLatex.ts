@@ -149,6 +149,8 @@ class LatexGenerator {
           case "bare":
             return `\\${expr.callee.name} ${expr.args.map((x) => this.generate(x)).join(", ")} `;
         }
+      case "user_function":
+        return `${expr.name}\\left(${this.generate(expr.argument)}\\right)`;
       case "display_group": {
         const [open, close] = this.delimiterPair(expr.delimiter);
         return `\\left${open}${this.generate(expr.expression)}\\right${close}`;
@@ -256,6 +258,13 @@ class LatexGenerator {
               " "
             );
         }
+      case "user_function":
+        return this.wrap(
+          this.tags
+            ? `\\class{pdp-user-function}{${expr.name}\\!\\left(${this.generate(expr.argument)}\\right)}`
+            : `${expr.name}\\left(${this.generate(expr.argument)}\\right)`,
+          id,
+        );
       case "text":
         return this.wrap(`\\text{${expr.text}}`, id);
       case "absolute_value":
@@ -377,6 +386,7 @@ class LatexGenerator {
       .map((factor, index) => {
         const rendered = this.generate(factor, "productFactor");
         if (index === 0) return `${productSign === -1 ? "-" : ""}${rendered}`;
+        if (unsignedFactors[index - 1]?.kind === "number" && factor.kind === "number") return `\\left(${rendered}\\right)`;
         return factor.kind === "differential" ? `\\,${rendered}` : rendered;
       })
       .join(" ");

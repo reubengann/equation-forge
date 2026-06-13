@@ -73,6 +73,12 @@ export const call = (
   delimiter,
 }, options);
 
+export const userFunction = (name: string, argument: Expr, options?: ExprOptions): Expr => withOptions({
+  kind: "user_function",
+  name,
+  argument,
+}, options);
+
 export const text = (value: string, options?: ExprOptions): Expr => withOptions({
   kind: "text",
   text: value,

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseLatexToExpr } from "../adapters/latex/parseLatexToExpr";
 import type { Expr } from "../ast";
 import { compileMathDocumentFromExpr, type CompiledMathDocument } from "../compile/compileMathDocument";
+import { applyFunctionSymbolSemantics, toggleFunctionSymbol } from "../compile/functionSymbols";
 import { resolveHorizontalInsertionSlot } from "./types";
 import {
   canExecuteMove,
@@ -19,6 +20,10 @@ function findNodeId(document: CompiledMathDocument, predicate: (expr: Expr) => b
   const entry = Object.entries(document.index.nodeById).find(([, expr]) => predicate(expr));
   expect(entry).toBeDefined();
   return entry![0];
+}
+
+function symbolNodeId(document: CompiledMathDocument, name: string): string {
+  return findNodeId(document, (expr) => expr.kind === "symbol" && expr.name === name);
 }
 
 describe("RulesPipeline", () => {
@@ -169,6 +174,27 @@ describe("canExecuteMove", () => {
     });
 
     expect(result?.latex).toBe("b + a = c");
+  });
+
+  it("moves a tagged user function as one additive term", () => {
+    const parsedDocument = buildDocument(String.raw`a\left(x\right)+b`);
+    const functionSymbols = toggleFunctionSymbol(parsedDocument, [], symbolNodeId(parsedDocument, "a"));
+    const document = compileMathDocumentFromExpr(
+      parsedDocument.sourceLatex,
+      applyFunctionSymbolSemantics(parsedDocument, functionSymbols),
+    );
+    const functionNodeId = findNodeId(document, (expr) => expr.kind === "user_function" && expr.name === "a");
+    const bNodeId = symbolNodeId(document, "b");
+
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: functionNodeId },
+      destinationId: bNodeId,
+      moveType: "additive",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`b + a\left(x\right)`);
   });
 
   it("moves a multiplicative factor into an existing fraction numerator", () => {
