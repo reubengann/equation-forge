@@ -106,7 +106,7 @@ class LatexGenerator {
       case "number":
         return expr.value.toString();
       case "symbol":
-        return expr.name;
+        return renderSymbolName(expr.name);
       case "add":
         return this.generateAddTerms(expr.terms);
       case "multiply":
@@ -203,7 +203,7 @@ class LatexGenerator {
       case "number":
         return this.wrap(expr.value.toString(), id);
       case "symbol":
-        return this.wrap(expr.name, id);
+        return this.wrap(renderSymbolName(expr.name), id);
       case "add":
         return this.wrap(this.generateAddTerms(expr.terms), id);
       case "multiply":
@@ -425,6 +425,14 @@ function startsWithNegativeFactor(expr: Extract<Expr, { kind: "multiply" }>): bo
   const signed = splitSign(firstFactor);
   if (signed.sign === -1) return true;
   return signed.value.kind === "multiply" && startsWithNegativeFactor(signed.value);
+}
+
+function renderSymbolName(name: string): string {
+  const separatorIndex = name.lastIndexOf("_");
+  if (separatorIndex <= 0 || separatorIndex === name.length - 1 || name.endsWith("}")) return name;
+  const base = name.slice(0, separatorIndex);
+  const subscript = name.slice(separatorIndex + 1);
+  return subscript.length === 1 ? name : `${base}_{${subscript}}`;
 }
 
 function splitAdditiveTermSign(expr: Expr): { sign: 1 | -1; value: Expr } {

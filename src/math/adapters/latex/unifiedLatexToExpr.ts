@@ -508,6 +508,15 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
         tokens.push({ kind: "prime", order: trailingPrimeMatch[2].length });
         continue;
       }
+      const trailingExponentMatch = /^(.+)\^$/.exec(stringContent);
+      const exponentGroup = nodes[i + 1];
+      if (trailingExponentMatch && exponentGroup?.type === "group" && Array.isArray(exponentGroup.content)) {
+        const baseToken = tokenFromStringContent(trailingExponentMatch[1]);
+        if (baseToken) tokens.push(baseToken);
+        tokens.push({ kind: "exponent", value: exponentGroup.content });
+        i += 1;
+        continue;
+      }
       if (stringContent === "d") {
         const primeOrder = primeOrderFromMacroExponent(nodes[i + 1]);
         if (primeOrder === 1) {
@@ -865,8 +874,8 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
       continue;
     }
 
-    if (macro === "prime") {
-      tokens.push({ kind: "symbol", name: "prime" });
+    if (macro === "prime" || macro === "doubleprime") {
+      tokens.push({ kind: "symbol", name: macro });
       continue;
     }
 
@@ -1784,12 +1793,21 @@ function applyPrime(expr: Expr, order: number): Expr {
 
 function primeOrderFromExponent(exponent: Expr): number | null {
   if (exponent.kind === "symbol" && exponent.name === "prime") return 1;
+  if (exponent.kind === "symbol" && exponent.name === "doubleprime") return 2;
   if (exponent.kind !== "multiply") return null;
 
   let order = 0;
   for (const factor of exponent.factors) {
-    if (factor.kind !== "symbol" || factor.name !== "prime") return null;
-    order += 1;
+    if (factor.kind !== "symbol") return null;
+    if (factor.name === "prime") {
+      order += 1;
+      continue;
+    }
+    if (factor.name === "doubleprime") {
+      order += 2;
+      continue;
+    }
+    return null;
   }
   return order > 0 ? order : null;
 }

@@ -426,6 +426,11 @@ describe("exprToLatex", () => {
     );
   });
 
+  it("copies MathLive double-prime exponents as repeated prime marks", () => {
+    const expr = parseLatexToExpr(String.raw`n^{\doubleprime}`);
+    expect(exprToLatex(expr, false)).toBe("n''");
+  });
+
   it("converts script font", () => {
     const expr = parseLatexToExpr(String.raw`\mathscr{A}`);
     const latex = exprToLatex(expr, true);
@@ -603,6 +608,18 @@ describe("exprToLatex", () => {
     const expr = parseLatexToExpr(String.raw`A_{T,P}`);
     const latex = exprToLatex(expr, false);
     expect(latex).toBe("A_{T,P}");
+  });
+
+  it("renders multi-character numeric subscripts with braces", () => {
+    const expr = parseLatexToExpr(String.raw`l_{23}`);
+    const latex = exprToLatex(expr, false);
+    expect(latex).toBe("l_{23}");
+  });
+
+  it("round-trips MathLive prime macros with multi-character subscripts", () => {
+    const expr = parseLatexToExpr(String.raw`s^{\doubleprime\prime}-s^{\doubleprime}=\frac{l_{23}}{T}`);
+    const latex = exprToLatex(expr, false);
+    expect(latex).toBe(String.raw`s''' - s'' = \frac{l_{23}}{T}`);
   });
 
   it("round-trips limits without tags", () => {

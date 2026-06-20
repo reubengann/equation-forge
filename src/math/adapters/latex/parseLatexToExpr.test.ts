@@ -284,6 +284,22 @@ describe("parseLatexToExpr", () => {
     expect(expr.order).toBe(2);
   });
 
+  it("parses MathLive double-prime exponents as primed symbols", () => {
+    const expr = parseLatexToExpr(String.raw`n^{\doubleprime}`);
+    expectExprKind(expr, "primed");
+    expectExprKind(expr.value, "symbol");
+    expect(expr.value.name).toBe("n");
+    expect(expr.order).toBe(2);
+  });
+
+  it("parses MathLive double-prime plus prime exponents as triple-primed symbols", () => {
+    const expr = parseLatexToExpr(String.raw`n^{\doubleprime\prime}`);
+    expectExprKind(expr, "primed");
+    expectExprKind(expr.value, "symbol");
+    expect(expr.value.name).toBe("n");
+    expect(expr.order).toBe(3);
+  });
+
   it("parses primed differential variables", () => {
     const expr = parseLatexToExpr(String.raw`\mathrm{d}{T'}`);
     expectExprKind(expr, "differential");
@@ -531,6 +547,31 @@ describe("parseLatexToExpr", () => {
       const lhs = expr.sides[0];
       expectExprKind(lhs, "partial_at_const_quantity");
     }
+  });
+
+  it("parses partials at constant quantity with primed unbraced quantities", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\left(\dfrac{\partial g^{\prime\prime\prime}}{\partial T}\right)_{P}=-s^{\prime\prime\prime}`,
+    );
+
+    expectExprKind(expr, "equation");
+    const lhs = expr.sides[0];
+    expectExprKind(lhs, "partial_at_const_quantity");
+    expectExprKind(lhs.quantity, "primed");
+    expect(lhs.quantity.order).toBe(3);
+    expectExprKind(lhs.quantity.value, "symbol");
+    expect(lhs.quantity.value.name).toBe("g");
+    expectExprKind(lhs.variable, "symbol");
+    expect(lhs.variable.name).toBe("T");
+    expectExprKind(lhs.constantQuantity, "symbol");
+    expect(lhs.constantQuantity.name).toBe("P");
+
+    const rhs = expr.sides[1];
+    expectExprKind(rhs, "primed");
+    expect(rhs.sign).toBe(-1);
+    expect(rhs.order).toBe(3);
+    expectExprKind(rhs.value, "symbol");
+    expect(rhs.value.name).toBe("s");
   });
 
   it("parses regular partial derivatives", () => {
