@@ -535,6 +535,25 @@ describe("parseLatexToExpr", () => {
     expect(expr.independentVariables[1].name).toBe("T");
   });
 
+  it("parses second order partial derivatives at constant quantity", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\left(\frac{\partial{^2g}}{\partial{T}^2}\right)_{P}=-\left(\frac{\partial{s}}{\partial{T}}\right)_{P}=-\frac{c_{P}}{T}`,
+    );
+
+    expectExprKind(expr, "equation");
+    const lhs = expr.sides[0];
+    expectExprKind(lhs, "partial_at_const_quantity");
+    expectExprKind(lhs.quantity, "second_order_partial_derivative");
+    expect(lhs.quantity.degree).toBe(2);
+    expectExprKind(lhs.quantity.dependentVariable, "symbol");
+    expect(lhs.quantity.dependentVariable.name).toBe("g");
+    expect(lhs.quantity.independentVariables).toHaveLength(1);
+    expectExprKind(lhs.quantity.independentVariables[0], "symbol");
+    expect(lhs.quantity.independentVariables[0].name).toBe("T");
+    expectExprKind(lhs.constantQuantity, "symbol");
+    expect(lhs.constantQuantity.name).toBe("P");
+  });
+
   it("parses partials at constant quantity", () => {
     for (const latex of [
       String.raw`\left(\frac{\partial{s}}{\partial{T}}\right)_{P} = \frac{c_{P}}{T}`,

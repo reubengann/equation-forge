@@ -1289,6 +1289,13 @@ class TokenParser {
         subscript,
       );
     }
+    if (unwrappedBase.kind === "second_order_partial_derivative") {
+      return partialAtConstQuantity(
+        unwrappedBase,
+        unwrappedBase.independentVariables[0] ?? sym("missing"),
+        subscript,
+      );
+    }
     if (unwrappedBase.kind === "differential") {
       return differential(
         this.applyPostfixSubscript(unwrappedBase.variable, subscript),

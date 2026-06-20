@@ -558,6 +558,16 @@ describe("exprToLatex", () => {
     );
   });
 
+  it("round-trips second-order partials at constant quantity without swallowing partial macros", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\left(\frac{\partial{^2g}}{\partial{T}^2}\right)_{P}=-\left(\frac{\partial{s}}{\partial{T}}\right)_{P}=-\frac{c_{P}}{T}`,
+    );
+
+    expect(exprToLatex(expr, false)).toBe(
+      String.raw`\left(\frac{\partial^{2}{g}}{\partial{T}^{2}}\right)_{P} = -\left(\frac{\partial{s}}{\partial{T}}\right)_{P} = -\frac{c_P}{T}`,
+    );
+  });
+
   it("passes through immutable input and rejects invalid input", () => {
     const immutable = parseLatexToExpr("");
     const invalid = parseLatexToExpr(String.raw`\frac{a + b}{c + d`);

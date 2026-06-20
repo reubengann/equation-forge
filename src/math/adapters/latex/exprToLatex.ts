@@ -343,14 +343,12 @@ class LatexGenerator {
       }
       case "second_order_partial_derivative":
         return this.wrap(
-          `\\frac{\\partial^{${expr.degree}}{${this.generate(expr.dependentVariable)}}}{${expr.independentVariables
-            .map((variable) => `\\partial{${this.generate(variable)}}`)
-            .join(" ")}}`,
+          this.generateSecondOrderPartialDerivative(expr),
           id,
         );
       case "partial_at_const_quantity":
         return this.wrap(
-          `\\left(\\frac{\\partial{${this.generate(expr.quantity)}}}{\\partial{${this.generate(expr.variable)}}}\\right)_{${this.generate(expr.constantQuantity)}}`,
+          `${this.generatePartialAtConstBody(expr)}`,
           id,
         );
       case "immutable_expression":
@@ -372,6 +370,25 @@ class LatexGenerator {
         return index === 0 ? renderedTerm : `+ ${renderedTerm}`;
       })
       .join(" ");
+  }
+
+  generateSecondOrderPartialDerivative(expr: Extract<Expr, { kind: "second_order_partial_derivative" }>): string {
+    return `\\frac{\\partial^{${expr.degree}}{${this.generate(expr.dependentVariable)}}}{${this.generateSecondOrderPartialDenominator(expr)}}`;
+  }
+
+  generateSecondOrderPartialDenominator(expr: Extract<Expr, { kind: "second_order_partial_derivative" }>): string {
+    if (expr.independentVariables.length === 1) {
+      const [variable] = expr.independentVariables;
+      return `\\partial{${this.generate(variable)}}${expr.degree === 1 ? "" : `^{${expr.degree}}`}`;
+    }
+    return expr.independentVariables.map((variable) => `\\partial{${this.generate(variable)}}`).join(" ");
+  }
+
+  generatePartialAtConstBody(expr: Extract<Expr, { kind: "partial_at_const_quantity" }>): string {
+    if (expr.quantity.kind === "second_order_partial_derivative") {
+      return `\\left(${this.generateSecondOrderPartialDerivative(expr.quantity)}\\right)_{${this.generate(expr.constantQuantity)}}`;
+    }
+    return `\\left(\\frac{\\partial{${this.generate(expr.quantity)}}}{\\partial{${this.generate(expr.variable)}}}\\right)_{${this.generate(expr.constantQuantity)}}`;
   }
 
   generateProductFactors(factors: Expr[]): string {
