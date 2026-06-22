@@ -916,6 +916,12 @@ describe("parseLatexToExpr", () => {
     expect(expr.name).toBe("A_{T,P}");
   });
 
+  it("parses nested symbol subscripts as one symbol", () => {
+    const expr = parseLatexToExpr(String.raw`C_{X_a}`);
+    expectExprKind(expr, "symbol");
+    expect(expr.name).toBe("C_X_a");
+  });
+
   it("parses full derivative operator with bare differential denominator", () => {
     const expr = parseLatexToExpr(String.raw`\frac{d}{dx} f g`);
     expectExprKind(expr, "full_derivative_operator");

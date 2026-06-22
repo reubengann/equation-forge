@@ -1,4 +1,4 @@
-import type { Expr } from "../ast";
+import { sym, type Expr } from "../ast";
 import { exprToLatex } from "../adapters/latex";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import type { TermSelection } from "../../selection/types";
@@ -107,6 +107,7 @@ export function getReplaceableSymbols(document: CompiledMathDocument): Replaceab
   };
 
   walkExpr(document.expr, (expr) => {
+    if (expr.kind === "user_function") addSymbol(sym(expr.name));
     if (isReplaceableSymbolExpr(expr)) addSymbol(expr);
     if (expr.kind === "symbol") {
       const subscript = symbolicSubscriptExpr(expr.name);
@@ -182,6 +183,15 @@ function substituteAllMatchingExpr(
       next.callee = replaceChild(next.callee);
       next.args = next.args.map(replaceChild);
       break;
+    case "user_function": {
+      const renamed = replaceSymbolFromPlan(next.name, plan.symbolNameReplacements);
+      if (renamed) {
+        next.name = renamed;
+        changed = true;
+      }
+      next.argument = replaceChild(next.argument);
+      break;
+    }
     case "inner_product":
     case "outer_product":
       next.factors = next.factors.map(replaceChild);
@@ -320,6 +330,9 @@ function walkExpr(expr: Expr, visit: (expr: Expr) => void): void {
       walkExpr(expr.callee, visit);
       expr.args.forEach((arg) => walkExpr(arg, visit));
       return;
+    case "user_function":
+      walkExpr(expr.argument, visit);
+      return;
     case "inner_product":
     case "outer_product":
       expr.factors.forEach((factor) => walkExpr(factor, visit));
@@ -390,6 +403,13 @@ function replaceSymbolicSubscriptFromPlan(name: string, replacements: SymbolName
   for (const replacement of replacements) {
     const renamed = replaceSymbolicSubscript(name, replacement.targetName, replacement.replacementName);
     if (renamed) return renamed;
+  }
+  return null;
+}
+
+function replaceSymbolFromPlan(name: string, replacements: SymbolNameReplacement[]): string | null {
+  for (const replacement of replacements) {
+    if (name === replacement.targetName) return replacement.replacementName;
   }
   return null;
 }

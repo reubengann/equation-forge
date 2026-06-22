@@ -73,7 +73,7 @@ export function pruneFunctionSymbols(
   const pruned: FunctionSymbolTag[] = [];
   for (const tag of functionSymbols) {
     if (seen.has(tag.name)) continue;
-    const candidate = getFunctionSymbolCandidate(document, tag.nodeId);
+    const candidate = getFunctionSymbolCandidate(document, tag.nodeId) ?? findFunctionSymbolCandidateByName(document, tag.name);
     if (!candidate || candidate.name !== tag.name) continue;
     seen.add(tag.name);
     pruned.push(candidate);
@@ -184,6 +184,14 @@ export function applyFunctionSymbolSemantics(
 function functionSymbolName(expr: Expr): string | null {
   if (expr.kind === "symbol") return expr.name;
   if (expr.kind === "special_font" && expr.value.kind === "symbol") return expr.value.name;
+  return null;
+}
+
+function findFunctionSymbolCandidateByName(document: CompiledMathDocument, name: string): FunctionSymbolTag | null {
+  for (const nodeId of Object.keys(document.index.nodeById)) {
+    const candidate = getFunctionSymbolCandidate(document, nodeId);
+    if (candidate?.name === name) return candidate;
+  }
   return null;
 }
 

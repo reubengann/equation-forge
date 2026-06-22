@@ -220,6 +220,24 @@ describe("getReplaceableSymbols", () => {
       "x_0",
     ]);
   });
+
+  it("discovers tagged user function names as replaceable symbols", () => {
+    const document = compileMathDocumentFromExpr("source", {
+      kind: "equation",
+      sides: [
+        userFunction("S", {
+          kind: "multiply",
+          factors: [
+            { kind: "symbol", name: "V" },
+            { kind: "symbol", name: "T" },
+          ],
+        }),
+        { kind: "integral", lowerBound: { kind: "number", value: 0 }, upperBound: { kind: "symbol", name: "T" }, integrand: { kind: "symbol", name: "C_V" } },
+      ],
+    });
+
+    expect(getReplaceableSymbols(document).map((symbol) => symbol.latex)).toEqual(["C_V", "S", "T", "V"]);
+  });
 });
 
 describe("substituteAllMatchingExpressions", () => {
@@ -248,5 +266,26 @@ describe("substituteAllMatchingExpressions", () => {
     expect(exprToLatex(next!, false)).toBe(
       String.raw`S = -\left(\frac{\partial{F}}{\partial{T}}\right)_{V}`,
     );
+  });
+
+  it("renames tagged user function names during symbol replacement", () => {
+    const document = compileMathDocumentFromExpr("source", {
+      kind: "equation",
+      sides: [
+        userFunction("S", {
+          kind: "multiply",
+          factors: [
+            { kind: "symbol", name: "V" },
+            { kind: "symbol", name: "T" },
+          ],
+        }),
+        userFunction("S", { kind: "symbol", name: "T" }),
+      ],
+    });
+
+    const next = substituteAllMatchingExpression(document, replacement("S"), replacement("A"));
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`A\left(V T\right) = A\left(T\right)`);
   });
 });

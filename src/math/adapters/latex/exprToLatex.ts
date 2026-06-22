@@ -445,7 +445,7 @@ function startsWithNegativeFactor(expr: Extract<Expr, { kind: "multiply" }>): bo
 }
 
 function renderSymbolName(name: string): string {
-  const separatorIndex = name.lastIndexOf("_");
+  const separatorIndex = name.indexOf("_");
   if (separatorIndex <= 0 || separatorIndex === name.length - 1 || name.endsWith("}")) return name;
   const base = name.slice(0, separatorIndex);
   const subscript = name.slice(separatorIndex + 1);

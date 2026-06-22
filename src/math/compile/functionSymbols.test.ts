@@ -168,6 +168,26 @@ describe("function symbol metadata", () => {
     expect(exprToLatex(semanticDocument.expr, false)).toBe(String.raw`2 f\left(x\right) x + f\left(x\right)^{2} + x^{2}`);
   });
 
+  it("preserves existing tagged functions when tagging another subscripted function from the display document", () => {
+    const document = compileMathDocument(String.raw`S_1\left(X_a , T_a\right)=S_2\left(X_b , T_b\right)`);
+    const firstFunctionSymbols = toggleFunctionSymbol(document, [], symbolNodeId(document, "S_1"));
+    const semanticDocument = compileMathDocumentFromExpr(
+      document.sourceLatex,
+      applyFunctionSymbolSemantics(document, firstFunctionSymbols),
+    );
+    const secondFunctionId = symbolNodeId(semanticDocument, "S_2");
+    const displayFunctionSymbols = toggleFunctionSymbol(semanticDocument, firstFunctionSymbols, secondFunctionId);
+
+    expect(displayFunctionSymbols.map((tag) => tag.name)).toEqual(["S_1", "S_2"]);
+
+    const nextSemanticDocument = compileMathDocumentFromExpr(
+      document.sourceLatex,
+      applyFunctionSymbolSemantics(document, displayFunctionSymbols),
+    );
+
+    expect(Object.values(nextSemanticDocument.index.nodeById).filter((expr) => expr.kind === "user_function")).toHaveLength(2);
+  });
+
   it("remaps tags across accept when the same function application remains", () => {
     const previousDocument = compileMathDocument(String.raw`f\left(x\right)+y`);
     const nextDocument = compileMathDocument(String.raw`f\left(x\right)+z`);

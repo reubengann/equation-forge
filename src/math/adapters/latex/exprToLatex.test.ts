@@ -620,6 +620,12 @@ describe("exprToLatex", () => {
     expect(latex).toBe("A_{T,P}");
   });
 
+  it("round-trips nested symbol subscripts with braces", () => {
+    const expr = parseLatexToExpr(String.raw`C_{X_a}`);
+    const latex = exprToLatex(expr, false);
+    expect(latex).toBe("C_{X_a}");
+  });
+
   it("renders multi-character numeric subscripts with braces", () => {
     const expr = parseLatexToExpr(String.raw`l_{23}`);
     const latex = exprToLatex(expr, false);
