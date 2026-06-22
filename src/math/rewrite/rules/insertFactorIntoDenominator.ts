@@ -64,6 +64,7 @@ function divideByPayload(numerator: Expr, denominator: Expr): Expr {
         kind: "multiply",
         factors: [numerator.denominator, cloneExpr(denominator)],
       },
+      ...(numerator.sign === -1 ? { sign: -1 } : {}),
     };
   }
 

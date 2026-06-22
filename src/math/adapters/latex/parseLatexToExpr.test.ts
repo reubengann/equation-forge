@@ -933,6 +933,16 @@ describe("parseLatexToExpr", () => {
     expectExprKind(expr.operand.expression, "add");
   });
 
+  it("preserves explicit groups around limit expressions", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\lim_{T\to0} \left(\frac{\partial{\left(G_2 - G_1\right)}}{\partial{T}}\right)`,
+    );
+
+    expectExprKind(expr, "limit");
+    expectExprKind(expr.expression, "display_group");
+    expectExprKind(expr.expression.expression, "partial_derivative");
+  });
+
   it("parses partial derivative operator", () => {
     const expr = parseLatexToExpr(String.raw`\frac{\partial}{\partial x} f`);
     expectExprKind(expr, "partial_derivative_operator");

@@ -9,7 +9,7 @@ import {
   SINGLE_CONTAINER_RULES,
   UPWARD_REWRITE_RULES,
 } from "./ruleRegistry";
-import { applySign, splitSign, structuralKey } from "./algebraUtils";
+import { splitSign, structuralKey, withSign } from "./algebraUtils";
 import type {
   InsertionPreview,
   InsertionSlot,
@@ -532,7 +532,7 @@ function rebuildUpdatedSubtree(
       const nextSigned = splitSign(next);
       const originalChildSigned = splitSign(originalChild);
       if (structuralKey(nextSigned.value) === structuralKey(originalChildSigned.value)) {
-        return applySign(nextSigned.sign, updatedChild);
+        return withSign(updatedChild, nextSigned.sign);
       }
     }
 

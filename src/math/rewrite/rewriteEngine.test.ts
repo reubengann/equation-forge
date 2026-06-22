@@ -783,6 +783,22 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe(String.raw`\frac{1}{a c} b = 5`);
   });
 
+  it("keeps a signed fraction negative when moving a denominator factor into it", () => {
+    const document = buildDocument(String.raw`\ln\left(P\right) = -\frac{l_{23}}{R} \frac{1}{T}`);
+    const selectedNodeId = findNodeId(document, (expr) => expr.kind === "symbol" && expr.name === "T");
+    const destinationId = findNodeId(document, (expr) => expr.kind === "symbol" && expr.name === "R");
+
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: selectedNodeId },
+      destinationId,
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\ln\left(P\right) = -\frac{l_{23}}{R T}`);
+  });
+
   it("executes moving a numerator from one fraction into another fraction", () => {
     const document = buildDocument(String.raw`\frac{1}{a} \frac{b}{c}=5`);
     const result = executeMove({

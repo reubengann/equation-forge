@@ -1710,10 +1710,7 @@ class TokenParser {
       }
 
       const expressionTokens = this.consumeUntilEquationBoundary();
-      const rawExpression =
-        expressionTokens.length > 0 ? this.parseFromSlice(expressionTokens) : sym("missing");
-      const expression =
-        rawExpression.kind === "display_group" ? rawExpression.expression : rawExpression;
+      const expression = expressionTokens.length > 0 ? this.parseFromSlice(expressionTokens) : sym("missing");
       return limit(expression, lowerBound);
     }
     if (token.kind === "root") {

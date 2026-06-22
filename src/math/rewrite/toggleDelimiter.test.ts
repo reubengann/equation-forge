@@ -172,6 +172,22 @@ describe("toggleDelimiterSelection", () => {
     expect(exprToLatex(next!, false)).toBe("a + b < c");
   });
 
+  it("adds delimiters around a limit body derivative", () => {
+    const document = buildDocument(
+      String.raw`\lim_{T\to0} \frac{\partial{\left(G_2 - G_1\right)}}{\partial{T}}`,
+    );
+    const derivativeId = Object.entries(document.index.nodeById).find(([, expr]) => expr.kind === "partial_derivative")?.[0];
+    expect(derivativeId).toBeDefined();
+
+    const next = toggleDelimiterSelection(document, { kind: "single", nodeId: derivativeId! });
+
+    expect(canToggleDelimiterSelection(document, { kind: "single", nodeId: derivativeId! })).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\lim_{T\to0} \left(\frac{\partial{\left(G_2 - G_1\right)}}{\partial{T}}\right)`,
+    );
+  });
+
   it("adds delimiters around contiguous selected additive terms", () => {
     const document = buildDocument(String.raw`a+b+c`);
     const next = toggleDelimiterSelection(

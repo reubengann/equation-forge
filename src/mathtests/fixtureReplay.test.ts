@@ -24,6 +24,111 @@ describe("mathtest fixtures", () => {
     expect(failures).toEqual([]);
   });
 
+  it("can_drag_from_denom_to_rhs", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_drag_from_denom_to_rhs.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_drag_numerator_to_rhs", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_drag_numerator_to_rhs.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_drag_numerator_to_right", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_drag_numerator_to_right.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_drag_out_from_denom", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_drag_out_from_denom.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_drag_out_of_denom_2", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_drag_out_of_denom_2.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_drag_whole_denom_to_rhs", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_drag_whole_denom_to_rhs.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_extract_from_delimiter", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_extract_from_delimiter.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_move_denom_to_rhs_from_left", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_denom_to_rhs_from_left.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_move_factor_out_of_integral_from_frac", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_factor_out_of_integral_from_frac.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_move_mult_single_term", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_mult_single_term.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_move_negated_to_rhs", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_negated_to_rhs.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_move_out_of_frac_to_other_side", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_out_of_frac_to_other_side.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_move_out_of_frac", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_out_of_frac.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_move_terms_in_integral", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_terms_in_integral.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_move_to_reciprocal", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_to_reciprocal.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
   it("can_mult_select_in_sum", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_mult_select_in_sum.json`);
     const replayResult = replayEvents(fixture);
@@ -31,6 +136,40 @@ describe("mathtest fixtures", () => {
     expect(failures).toEqual([]);
   });
 
+  it("can_preview_rearrange_terms_in_sum", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_preview_rearrange_terms_in_sum.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_rearrange_sum_in_numerator", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_rearrange_sum_in_numerator.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_rearrange_sum", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_rearrange_sum.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_rearrange_terms_in_sum_product", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_rearrange_terms_in_sum_product.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_remove_numerator_from_fraction", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_remove_numerator_from_fraction.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
 
   it("can_select_a_different_thing", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_select_a_different_thing.json`);
@@ -39,8 +178,22 @@ describe("mathtest fixtures", () => {
     expect(failures).toEqual([]);
   });
 
+  it("can_select_delimiter_entire_numerator", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_select_delimiter_entire_numerator.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
   it("can_select_item_in_sum", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_select_item_in_sum.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_select_multiple_subsets_of_sum", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_select_multiple_subsets_of_sum.json`);
     const replayResult = replayEvents(fixture);
     const failures = buildAssertions(fixture, replayResult);
     expect(failures).toEqual([]);
@@ -60,9 +213,43 @@ describe("mathtest fixtures", () => {
     expect(failures).toEqual([]);
   });
 
+  it("cannot_move_single_term_from_denominator_to_other_side", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/cannot_move_single_term_from_denominator_to_other_side.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("cant_move_bare_zero_additively", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/cant_move_bare_zero_additively.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("correctly_moves_negative_term_outside", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/correctly_moves_negative_term_outside.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
 
   it("do_not_deselect_on_clicking_equals", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/do_not_deselect_on_clicking_equals.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("doesnt_move_when_in_same_place", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/doesnt_move_when_in_same_place.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("dont_move_single_1_mult", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/dont_move_single_1_mult.json`);
     const replayResult = replayEvents(fixture);
     const failures = buildAssertions(fixture, replayResult);
     expect(failures).toEqual([]);
@@ -75,6 +262,124 @@ describe("mathtest fixtures", () => {
     expect(failures).toEqual([]);
   });
 
+  it("drag_denom_from_one_frac_to_another", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/drag_denom_from_one_frac_to_another.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("drag_numer_from_one_frac_to_another", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/drag_numer_from_one_frac_to_another.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("forgives_stray_marquee", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/forgives_stray_marquee.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("inequality_additive_moves", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/inequality_additive_moves.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("keeps_minus_sign_when_moving_denom", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/keeps_minus_sign_when_moving_denom.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("marquee_selects_whole_sum_terms", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/marquee_selects_whole_sum_terms.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("minus_sign_from_frac", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/minus_sign_from_frac.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("minus_sign_go_missing", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/minus_sign_go_missing.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("more_ranking", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/more_ranking.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("more_vanishing_minus", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/more_vanishing_minus.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("move_into_frac", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/move_into_frac.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("move_term_into_frac_again", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/move_term_into_frac_again.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("moves_minus_b_correctly", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/moves_minus_b_correctly.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("multi_select_move_vanishes", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/multi_select_move_vanishes.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("multiplicative_terms_from_integral_after_minus", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/multiplicative_terms_from_integral_after_minus.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("negation_moving_out_of_frac_additively", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/negation_moving_out_of_frac_additively.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("no_vanishing_terms", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/no_vanishing_terms.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
 
   it("plus_sign_not_selectable", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/plus_sign_not_selectable.json`);
@@ -83,8 +388,85 @@ describe("mathtest fixtures", () => {
     expect(failures).toEqual([]);
   });
 
+  it("products_go_after_minus", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/products_go_after_minus.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
   it("rejects_multi_selection_on_rhs", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/rejects_multi_selection_on_rhs.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("rubber_band_selection_rank", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/rubber_band_selection_rank.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("rubber_band_sum_terms_in_delimiter", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/rubber_band_sum_terms_in_delimiter.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("select_square_cos", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/select_square_cos.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("should_deselect_after_move", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/should_deselect_after_move.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("should_move_left_out_of_denom", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/should_move_left_out_of_denom.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("should_not_move_single_term_mult_in_sum", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/should_not_move_single_term_mult_in_sum.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("should_remove_minus", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/should_remove_minus.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("should_remove_zero_when_only_thing", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/should_remove_zero_when_only_thing.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("single_clicking_should_not_move", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/single_clicking_should_not_move.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("vanishing_T", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/vanishing_T.json`);
     const replayResult = replayEvents(fixture);
     const failures = buildAssertions(fixture, replayResult);
     expect(failures).toEqual([]);
