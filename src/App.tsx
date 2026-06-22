@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import EditorEntryToggle from "./EditorEntryToggle";
 import { PadView } from "./PadView";
 import type { EventFixture, ExportedEvent } from "./interaction/eventFixture";
@@ -12,6 +12,8 @@ import { selectionNodeIds } from "./interaction/selectionController";
 import type { TermSelection } from "./selection/types";
 import { TestRecorder, type EquationEditorRecordingHooks, type TestRecorderEvent } from "./TestRecorder";
 import { MathfieldElement } from "mathlive";
+import { compileMathDocument, type CompiledMathDocument } from "./math/compile/compileMathDocument";
+import type { Expr } from "./math/ast";
 
 async function saveFixtureJson(fixture: EventFixture): Promise<void> {
   const json = `${JSON.stringify(fixture, null, 2)}\n`;
@@ -66,6 +68,68 @@ async function saveFixtureJson(fixture: EventFixture): Promise<void> {
 
 MathfieldElement.fontsDirectory = "/fonts";
 
+function summarizeDebugExpr(expr: Expr): string {
+  switch (expr.kind) {
+    case "number":
+      return `value=${String(expr.value)}`;
+    case "symbol":
+      return `name=${expr.name}`;
+    case "text":
+      return `text=${JSON.stringify(expr.text)}`;
+    case "call":
+      return `delimiter=${expr.delimiter}`;
+    case "display_group":
+      return `delimiter=${expr.delimiter}`;
+    case "dotted_expr":
+    case "primed":
+    case "multiple_integral":
+      return `order=${expr.order}`;
+    case "special_font":
+      return `font=${expr.font}`;
+    case "second_order_partial_derivative":
+      return `degree=${expr.degree}`;
+    case "user_function":
+      return `name=${expr.name}`;
+    case "inequality":
+      return `operator=${expr.operator}`;
+    case "immutable_expression":
+    case "invalid_input":
+      return `latex=${JSON.stringify(expr.latex)}`;
+    default:
+      return "";
+  }
+}
+
+function renderDebugTree(doc: CompiledMathDocument, showNodeLabels: boolean): string {
+  const { rootId, nodeById, childrenById, locationById } = doc.index;
+  const lines: string[] = [];
+
+  const walk = (nodeId: string, depth: number) => {
+    const expr = nodeById[nodeId];
+    if (!expr) {
+      lines.push(`${"  ".repeat(depth)}- ${showNodeLabels ? `${nodeId} ` : ""}<missing>`);
+      return;
+    }
+
+    const location = locationById[nodeId];
+    const locationLabel =
+      showNodeLabels && location?.field
+        ? ` [${location.index == null ? location.field : `${location.field}[${location.index}]`}]`
+        : "";
+    const nodeLabel = showNodeLabels ? `${nodeId} ` : "";
+    const summary = summarizeDebugExpr(expr);
+    const summarySuffix = summary ? ` (${summary})` : "";
+    lines.push(`${"  ".repeat(depth)}- ${nodeLabel}${expr.kind}${locationLabel}${summarySuffix}`);
+
+    for (const childId of childrenById[nodeId] ?? []) {
+      walk(childId, depth + 1);
+    }
+  };
+
+  walk(rootId, 0);
+  return lines.join("\n");
+}
+
 function isStopRecordingShortcut(event: KeyboardEvent): boolean {
   if (event.repeat) return false;
   const key = event.key.toLowerCase();
@@ -86,6 +150,17 @@ function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [view, setView] = useState<"pad" | "debug">("pad");
+  const [debugLatex, setDebugLatex] = useState<string | null>(null);
+  const [showDebugTreeLabels, setShowDebugTreeLabels] = useState(false);
+
+  const debugTree = useMemo(() => {
+    if (!debugLatex?.trim()) return null;
+    try {
+      return renderDebugTree(compileMathDocument(debugLatex), showDebugTreeLabels);
+    } catch (error) {
+      return error instanceof Error ? `Unable to compile current LaTeX: ${error.message}` : "Unable to compile current LaTeX.";
+    }
+  }, [debugLatex, showDebugTreeLabels]);
 
   const syncRecordedEvents = () => {
     const nextEvents = recorderRef.current.getEvents();
@@ -338,6 +413,7 @@ function App() {
       <EditorEntryToggle
         onLatexAccepted={(payload) => {
           currentLatexRef.current = payload.nextLatex;
+          setDebugLatex(payload.nextLatex);
           // We can record this ourselves, since we are the actor
           if (!isRecording) return;
           recorderRef.current.recordLatexAccepted(payload);
@@ -345,6 +421,7 @@ function App() {
         }}
         onCanonicalLatexChanged={(nextLatex) => {
           currentLatexRef.current = nextLatex;
+          setDebugLatex(nextLatex);
         }}
         recordingHooks={
           {
@@ -424,6 +501,33 @@ function App() {
       <div style={{ textAlign: "left", fontSize: "14px" }}>
         <div>Selected nodes: {selectedNodeIds.length > 0 ? selectedNodeIds.join(", ") : "none"}</div>
         <div> Recorded events: {recordedEventCount} </div>
+        <label style={{ display: "flex", alignItems: "center", gap: "6px", margin: "8px 0" }}>
+          <input
+            type="checkbox"
+            checked={showDebugTreeLabels}
+            onChange={(event) => setShowDebugTreeLabels(event.currentTarget.checked)}
+          />
+          Show tree with node labels
+        </label>
+        {showDebugTreeLabels && (
+          <pre
+            data-testid="debug-node-tree"
+            style={{
+              maxHeight: "320px",
+              overflow: "auto",
+              padding: "8px",
+              border: "1px solid #555",
+              borderRadius: "3px",
+              background: "#1e1e1e",
+              color: "rgba(255, 255, 255, 0.87)",
+              fontSize: "12px",
+              lineHeight: 1.35,
+              whiteSpace: "pre",
+            }}
+          >
+            {debugTree ?? "Accept or change an equation to show its compiled tree."}
+          </pre>
+        )}
         <div>
           {recordedEvents
             .slice() // Seems goofy, but I need to take the 20 most recent *in reverse order*, so slice(-20, 0) doesn't work

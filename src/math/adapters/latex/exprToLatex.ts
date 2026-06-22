@@ -165,6 +165,16 @@ class LatexGenerator {
         return `${"\\int".repeat(expr.order)} ${this.generate(expr.integrand)}`;
       case "differential":
         return `\\mathrm{d${expr.inexact ? "'" : ""}}{${this.generate(expr.variable)}}`;
+      case "partial_derivative":
+        return `\\frac{\\partial{${this.generate(expr.quantity)}}}{\\partial{${this.generate(expr.variable)}}}`;
+      case "full_derivative_operator":
+        return `\\frac{\\mathrm{d}}{\\mathrm{d}{${this.generate(expr.variable)}}} ${this.generate(expr.operand)}`;
+      case "partial_derivative_operator":
+        return `\\frac{\\partial}{\\partial{${this.generate(expr.variable)}}} ${this.generate(expr.operand)}`;
+      case "second_order_partial_derivative":
+        return this.generateSecondOrderPartialDerivative(expr);
+      case "partial_at_const_quantity":
+        return this.generatePartialAtConstBody(expr);
       default:
         return this.generate(expr);
     }

@@ -26,10 +26,7 @@ import {
   applyIdentityRewriteToSelection,
   getApplicableIdentityRewritesForSelection,
 } from "./math/rewrite/identity";
-import {
-  canEvaluateWithAlgebrite,
-  evaluateSelectionWithAlgebrite,
-} from "./math/rewrite/algebrite";
+import { canEvaluateWithAlgebrite, evaluateSelectionWithAlgebrite } from "./math/rewrite/algebrite";
 import {
   applyOperationToFraction,
   applyOperationToRelation,
@@ -49,7 +46,12 @@ import {
   substituteAllMatchingExpressions,
   substituteSelection,
 } from "./math/rewrite/substitute";
-import { resolveHorizontalInsertionSlot, type InsertionPreview, type MoveType, type NodeHorizontalBounds } from "./math/rewrite/types";
+import {
+  resolveHorizontalInsertionSlot,
+  type InsertionPreview,
+  type MoveType,
+  type NodeHorizontalBounds,
+} from "./math/rewrite/types";
 import type { EquationEditorRecordingHooks } from "./TestRecorder";
 import { EquationToolbar } from "./EquationToolbar";
 import { SubstituteModal } from "./SubstituteModal";
@@ -196,7 +198,8 @@ export function EquationEditor({
   const [isSymbolReplacementModalOpen, setIsSymbolReplacementModalOpen] = useState(false);
   const [isApplyOperationModalOpen, setIsApplyOperationModalOpen] = useState(false);
   const [isForceFactorModalOpen, setIsForceFactorModalOpen] = useState(false);
-  const [applyOperationTargetKind, setApplyOperationTargetKind] = useState<ApplyOperationTargetKind>("relation");
+  const [applyOperationTargetKind, setApplyOperationTargetKind] =
+    useState<ApplyOperationTargetKind>("relation");
   const [substituteLatex, setSubstituteLatex] = useState("");
   const [forceFactorLatex, setForceFactorLatex] = useState("");
   const [substituteError, setSubstituteError] = useState<string | null>(null);
@@ -261,14 +264,20 @@ export function EquationEditor({
   const canCycleDelimiter = canCycleDelimiterSelection(compiledDoc, selection);
   const selectedNodeId = selection?.kind === "single" ? selection.nodeId : null;
   const canToggleFunctionSymbolSelection = canToggleFunctionSymbol(compiledDoc, selectedNodeId);
-  const isFunctionSymbolSelected = isFunctionSymbolSelectionTagged(compiledDoc, functionSymbols, selectedNodeId);
+  const isFunctionSymbolSelected = isFunctionSymbolSelectionTagged(
+    compiledDoc,
+    functionSymbols,
+    selectedNodeId,
+  );
 
   const publishGeometrySnapshot = useCallback(() => {
     const snapshot = captureGeometryFromMathdiv(mathDivRef.current);
-    const currentNodeRects = snapshot?.nodeRects.filter((rect) => !!compiledDoc.index.nodeById[rect.nodeId]) ?? [];
-    nodeRectsRef.current = currentNodeRects;
+    const currentNodeRects =
+      snapshot?.nodeRects.filter((rect) => !!compiledDoc.index.nodeById[rect.nodeId]) ?? [];
+    const nodeResolution = buildNodeResolutionSource(currentNodeRects, compiledDoc.index);
+    nodeRectsRef.current = nodeResolution.nodeRects;
     if (DEBUG_DRAW_NODE_RECTS) setDebugNodeRects(nodeRectsRef.current);
-    nodeResolutionRef.current = buildNodeResolutionSource(nodeRectsRef.current, compiledDoc.index);
+    nodeResolutionRef.current = nodeResolution;
 
     if (!snapshot) {
       lastSnapshotKeyRef.current = null;
@@ -282,7 +291,7 @@ export function EquationEditor({
 
     const currentSnapshot = {
       ...snapshot,
-      nodeRects: currentNodeRects,
+      nodeRects: nodeResolution.nodeRects,
     };
 
     const snapshotKey = JSON.stringify(currentSnapshot);
@@ -552,13 +561,7 @@ export function EquationEditor({
     if (!result.ok) return;
     updateSelection(null);
     onCanonicalLatexChanged(exprToLatex(result.expr, false));
-  }, [
-    canEvaluateSelectionWithAlgebrite,
-    compiledDoc,
-    onCanonicalLatexChanged,
-    selection,
-    updateSelection,
-  ]);
+  }, [canEvaluateSelectionWithAlgebrite, compiledDoc, onCanonicalLatexChanged, selection, updateSelection]);
 
   const onApplyDefaultIdentityRequested = useCallback(() => {
     if (!selection || !canApplyIdentityRewrite) return;
@@ -582,13 +585,7 @@ export function EquationEditor({
   const onToggleFunctionSymbolRequested = useCallback(() => {
     if (!selection || selection.kind !== "single" || !canToggleFunctionSymbolSelection) return;
     onFunctionSymbolsChanged(toggleFunctionSymbol(compiledDoc, functionSymbols, selection.nodeId));
-  }, [
-    canToggleFunctionSymbolSelection,
-    compiledDoc,
-    functionSymbols,
-    onFunctionSymbolsChanged,
-    selection,
-  ]);
+  }, [canToggleFunctionSymbolSelection, compiledDoc, functionSymbols, onFunctionSymbolsChanged, selection]);
 
   const onToggleNegateRequested = useCallback(() => {
     if (!selection || selection.kind !== "single" || !canToggleNegate) return;
@@ -680,7 +677,13 @@ export function EquationEditor({
         return;
       }
 
-      if (isSubstituteModalOpen || isSymbolReplacementModalOpen || isApplyOperationModalOpen || isForceFactorModalOpen) return;
+      if (
+        isSubstituteModalOpen ||
+        isSymbolReplacementModalOpen ||
+        isApplyOperationModalOpen ||
+        isForceFactorModalOpen
+      )
+        return;
 
       if ((event.ctrlKey || event.metaKey) && !event.altKey && event.shiftKey && key === "c") {
         if (!canCopySelection) return;
@@ -856,8 +859,7 @@ export function EquationEditor({
     publishGeometrySnapshot();
     const marqueeDraft = marqueeDraftRef.current;
     if (marqueeDraft && marqueeDraft.pointerId === event.pointerId) {
-      const hasDragged =
-        distanceBetweenPoints(marqueeDraft.origin, pointerUp) >= DRAG_COMMIT_THRESHOLD_PX;
+      const hasDragged = distanceBetweenPoints(marqueeDraft.origin, pointerUp) >= DRAG_COMMIT_THRESHOLD_PX;
       if (hasDragged) {
         applySelectionEvent({
           type: "marquee_select",
@@ -1068,9 +1070,7 @@ export function EquationEditor({
   };
 
   const updateSymbolReplacementRowEnabled = (key: string, enabled: boolean) => {
-    setSymbolReplacementRows((rows) =>
-      rows.map((row) => (row.key === key ? { ...row, enabled } : row)),
-    );
+    setSymbolReplacementRows((rows) => rows.map((row) => (row.key === key ? { ...row, enabled } : row)));
     setSymbolReplacementError(null);
   };
 
@@ -1197,7 +1197,9 @@ export function EquationEditor({
       }
 
       if (!isValidSubstitutionReplacement(replacement)) {
-        setSymbolReplacementError(`Enter an expression for ${row.source.latex}, not an equation or inequality.`);
+        setSymbolReplacementError(
+          `Enter an expression for ${row.source.latex}, not an equation or inequality.`,
+        );
         return;
       }
 
@@ -1271,7 +1273,9 @@ export function EquationEditor({
   const selectedForceFactorLatex = selection
     ? exprToLatex(getSelectionRewriteTarget(compiledDoc, selection)?.expr ?? compiledDoc.expr, false)
     : "";
-  const marqueeRect: RectBounds | null = marqueeDraft ? rectFromPoints(marqueeDraft.origin, marqueeDraft.current) : null;
+  const marqueeRect: RectBounds | null = marqueeDraft
+    ? rectFromPoints(marqueeDraft.origin, marqueeDraft.current)
+    : null;
   const marqueeStyle =
     marqueeRect && editorRootRect
       ? {

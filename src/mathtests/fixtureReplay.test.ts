@@ -206,6 +206,13 @@ describe("mathtest fixtures", () => {
     expect(failures).toEqual([]);
   });
 
+  it("can_select_parts_of_PV", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_select_parts_of_PV.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
   it("can_select_whole_sum_from_frac", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_select_whole_sum_from_frac.json`);
     const replayResult = replayEvents(fixture);

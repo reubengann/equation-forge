@@ -247,6 +247,18 @@ describe("exprToLatex", () => {
     expect(new Set(renderedIds)).toEqual(new Set(Object.keys(document.index.nodeById)));
   });
 
+  it("keeps signed partial-at-constant ids aligned with the compiled index", () => {
+    const expr = parseLatexToExpr(
+      String.raw`H = F + T \left(-\left(\frac{\partial{F}}{\partial{T}}\right)_{V}\right) + P V`,
+    );
+    const document = compileMathDocumentFromExpr("", expr);
+    const latex = exprToLatex(expr, true);
+    const renderedIds = Array.from(latex.matchAll(/node-id="(n\d+)"/g), (match) => match[1]);
+
+    expect(renderedIds).toEqual(Object.keys(document.index.nodeById));
+    expect(latex).toContain(String.raw`\htmlData{node-id="n13"}{P} \htmlData{node-id="n14"}{V}`);
+  });
+
   it("wraps divide as fraction", () => {
     const expr = parseLatexToExpr("a / b");
     const latex = exprToLatex(expr, true);
