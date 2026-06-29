@@ -476,6 +476,19 @@ describe("autoRewriteSelection cleanup", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`2 v^{3} a`);
   });
 
+  it("wraps combined derivative factors before rendering powers", () => {
+    const document = buildDocument(
+      String.raw`\frac{1}{R} P^{2} \frac{\partial{A}}{\partial{T}} \frac{\partial{A}}{\partial{T}}`,
+    );
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\frac{1}{R} P^{2} \left(\frac{\partial{A}}{\partial{T}}\right)^{2}`,
+    );
+  });
+
   it("combines powers through a negative grouped product factor", () => {
     const document = buildDocument(String.raw`v \left(-R T b v^{2}\right)`);
     const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");

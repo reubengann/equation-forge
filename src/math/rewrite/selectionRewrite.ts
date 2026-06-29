@@ -2,7 +2,7 @@ import type { TermSelection } from "../../selection/types";
 import { add, displayGroup, divide, multiply, type Expr } from "../ast";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import { cloneExpr, replaceCompiledNode } from "../ast/utils";
-import { flipSign, isNegativeExpr } from "./algebraUtils";
+import { flipSign, isNegativeExpr, splitSign } from "./algebraUtils";
 
 export type SelectionRewriteTarget = {
   expr: Expr;
@@ -143,17 +143,31 @@ function mergeReciprocalReplacementIntoProduct(
   replacementIndex: number,
   replacement: Extract<Expr, { kind: "multiply" }>,
 ): Expr | null {
-  const [firstReplacementFactor, ...remainingReplacementFactors] = replacement.factors;
-  if (!firstReplacementFactor || firstReplacementFactor.kind !== "divide") return null;
-  if (firstReplacementFactor.numerator.kind !== "number" || Number(firstReplacementFactor.numerator.value) !== 1) {
+  const signedReplacement = splitSign(replacement);
+  if (signedReplacement.value.kind !== "multiply") return null;
+
+  const [firstReplacementFactor, ...remainingReplacementFactors] = signedReplacement.value.factors;
+  if (!firstReplacementFactor) return null;
+
+  const signedFirstReplacementFactor = splitSign(firstReplacementFactor);
+  const mergedSign = signedReplacement.sign === signedFirstReplacementFactor.sign ? 1 : -1;
+  if (signedFirstReplacementFactor.value.kind !== "divide") return null;
+  if (
+    signedFirstReplacementFactor.value.numerator.kind !== "number" ||
+    Number(signedFirstReplacementFactor.value.numerator.value) !== 1
+  ) {
     return null;
   }
 
   const precedingFactors = parent.factors.slice(0, replacementIndex).map(cloneExpr);
   if (precedingFactors.length === 0) return null;
+  const mergedFraction = divide(
+    collapseProduct(precedingFactors),
+    signedFirstReplacementFactor.value.denominator,
+  );
 
   return multiply([
-    divide(collapseProduct(precedingFactors), firstReplacementFactor.denominator),
+    mergedSign === -1 ? flipSign(mergedFraction) : mergedFraction,
     ...remainingReplacementFactors.map(cloneExpr),
     ...parent.factors.slice(replacementIndex + 1).map(cloneExpr),
   ]);

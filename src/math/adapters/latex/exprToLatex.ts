@@ -442,7 +442,12 @@ function shouldGroupPowerBase(expr: Expr): boolean {
     signed.value.kind === "add" ||
     signed.value.kind === "multiply" ||
     signed.value.kind === "divide" ||
-    signed.value.kind === "display_group"
+    signed.value.kind === "display_group" ||
+    signed.value.kind === "full_derivative_operator" ||
+    signed.value.kind === "partial_derivative" ||
+    signed.value.kind === "partial_derivative_operator" ||
+    signed.value.kind === "partial_at_const_quantity" ||
+    signed.value.kind === "second_order_partial_derivative"
   );
 }
 

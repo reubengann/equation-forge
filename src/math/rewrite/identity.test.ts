@@ -27,6 +27,12 @@ function buildDocument(latex: string): CompiledMathDocument {
   return compileMathDocumentFromExpr(latex, expr);
 }
 
+function firstNodeIdMatching(document: CompiledMathDocument, predicate: (expr: Expr) => boolean): string {
+  const entry = Object.entries(document.index.nodeById).find(([, expr]) => predicate(expr));
+  expect(entry).toBeDefined();
+  return entry![0];
+}
+
 function roundTripLatex(latex: string): string {
   return exprToLatex(parse(latex), false);
 }
@@ -79,6 +85,107 @@ describe("identity rewrites", () => {
     expect(rewriteLatex(String.raw`\ln a+\ln b`, "combine-natural-logs")).toBe(
       String.raw`\ln \left(a b\right) `,
     );
+  });
+
+  it("applies the derivative product rule", () => {
+    const expr = parse(String.raw`\frac{\partial}{\partial{x}} f g`);
+    const options = getApplicableIdentityRewrites(expr);
+
+    expect(options.map((option) => option.id)).toContain("derivative-product-rule");
+    expect(rewriteLatex(String.raw`\frac{\partial}{\partial{x}} f g`, "derivative-product-rule")).toBe(
+      String.raw`g \frac{\partial}{\partial{x}} f + f \frac{\partial}{\partial{x}} g`,
+    );
+  });
+
+  it("applies the derivative product rule to direct partial derivatives", () => {
+    expect(rewriteLatex(String.raw`\frac{\partial{f g}}{\partial{x}}`, "derivative-product-rule")).toBe(
+      String.raw`g \frac{\partial{f}}{\partial{x}} + f \frac{\partial{g}}{\partial{x}}`,
+    );
+  });
+
+  it("applies the derivative product rule to products with more than two factors", () => {
+    expect(rewriteLatex(String.raw`\frac{\partial}{\partial{x}} a b c`, "derivative-product-rule")).toBe(
+      String.raw`b c \frac{\partial}{\partial{x}} a + a c \frac{\partial}{\partial{x}} b + a b \frac{\partial}{\partial{x}} c`,
+    );
+  });
+
+  it("applies the derivative quotient identity", () => {
+    const expr = parse(String.raw`\frac{\partial}{\partial{x}} \frac{f}{g}`);
+    const options = getApplicableIdentityRewrites(expr);
+
+    expect(options.map((option) => option.id)).toContain("derivative-quotient-as-product-rule");
+    expect(rewriteLatex(String.raw`\frac{\partial}{\partial{x}} \frac{f}{g}`, "derivative-quotient-as-product-rule")).toBe(
+      String.raw`\frac{1}{g} \frac{\partial}{\partial{x}} f + f \frac{\partial}{\partial{x}} \frac{1}{g}`,
+    );
+  });
+
+  it("applies the derivative quotient identity to direct partial derivatives", () => {
+    expect(rewriteLatex(String.raw`\frac{\partial{\frac{f}{g}}}{\partial{x}}`, "derivative-quotient-as-product-rule")).toBe(
+      String.raw`\frac{1}{g} \frac{\partial{f}}{\partial{x}} + f \frac{\partial{\frac{1}{g}}}{\partial{x}}`,
+    );
+  });
+
+  it("applies the derivative reciprocal identity", () => {
+    const expr = parse(String.raw`\frac{\partial}{\partial{x}} \frac{1}{f}`);
+    const options = getApplicableIdentityRewrites(expr);
+
+    expect(options.map((option) => option.id)).toContain("derivative-reciprocal-rule");
+    expect(rewriteLatex(String.raw`\frac{\partial}{\partial{x}} \frac{1}{f}`, "derivative-reciprocal-rule")).toBe(
+      String.raw`-\frac{1}{f^{2}} \frac{\partial}{\partial{x}} f`,
+    );
+  });
+
+  it("applies the derivative reciprocal identity to direct partial derivatives", () => {
+    expect(rewriteLatex(String.raw`\frac{\partial{\frac{1}{f}}}{\partial{x}}`, "derivative-reciprocal-rule")).toBe(
+      String.raw`-\frac{1}{f^{2}} \frac{\partial{f}}{\partial{x}}`,
+    );
+  });
+
+  it("preserves reciprocal identity signs when replacing a factor in a larger product", () => {
+    const document = buildDocument(
+      String.raw`R T^{2} \frac{\partial}{\partial{T}} \frac{1}{\left(v + A\right)}`,
+    );
+    const selectedNodeId = firstNodeIdMatching(document, (expr) => expr.kind === "partial_derivative_operator");
+    const next = applyIdentityRewriteToSelection(
+      document,
+      { kind: "single", nodeId: selectedNodeId },
+      "derivative-reciprocal-rule",
+    );
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`-\frac{R T^{2}}{\left(v + A\right)^{2}} \frac{\partial}{\partial{T}} \left(v + A\right)`,
+    );
+  });
+
+  it("does not apply the derivative reciprocal identity to non-reciprocal quotients", () => {
+    expect(applyIdentityRewrite(
+      parse(String.raw`\frac{\partial}{\partial{x}} \frac{a}{f}`),
+      "derivative-reciprocal-rule",
+    )).toBeNull();
+  });
+
+  it("converts nested same-variable partial derivatives to second-order partial derivatives", () => {
+    const expr = parse(String.raw`\frac{\partial}{\partial{T}} \frac{\partial{A}}{\partial{T}}`);
+    const options = getApplicableIdentityRewrites(expr);
+
+    expect(options.map((option) => option.id)).toContain("nested-partial-to-second-partial");
+    expect(rewriteLatex(String.raw`\frac{\partial}{\partial{T}} \frac{\partial{A}}{\partial{T}}`, "nested-partial-to-second-partial")).toBe(
+      String.raw`\frac{\partial^{2}{A}}{\partial{T}^{2}}`,
+    );
+  });
+
+  it("converts direct nested partial derivatives to second-order partial derivatives", () => {
+    expect(rewriteLatex(String.raw`\frac{\partial{\frac{\partial{A}}{\partial{T}}}}{\partial{T}}`, "nested-partial-to-second-partial")).toBe(
+      String.raw`\frac{\partial^{2}{A}}{\partial{T}^{2}}`,
+    );
+  });
+
+  it("does not convert nested partial derivatives with different variables", () => {
+    expect(applyIdentityRewrite(
+      parse(String.raw`\frac{\partial}{\partial{x}} \frac{\partial{A}}{\partial{T}}`),
+      "nested-partial-to-second-partial",
+    )).toBeNull();
   });
 
   it("combines a natural log difference into a quotient", () => {

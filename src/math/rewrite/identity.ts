@@ -7,7 +7,11 @@ import {
   divide,
   multiply,
   num,
+  partialDerivative,
+  partialDerivativeOperator,
+  fullDerivativeOperator,
   power,
+  secondOrderPartialDerivative,
   sym,
   type Expr,
 } from "../ast";
@@ -49,6 +53,30 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
     label: "sin^2(theta) -> (1 - cos(2 theta))/2",
     defaultPriority: 45,
     apply: sinSquarePowerReduction,
+  },
+  {
+    id: "nested-partial-to-second-partial",
+    label: "d/dx(df/dx) -> d^2f/dx^2",
+    defaultPriority: 96,
+    apply: nestedPartialToSecondPartial,
+  },
+  {
+    id: "derivative-product-rule",
+    label: "d(f g) -> g df + f dg",
+    defaultPriority: 95,
+    apply: derivativeProductRule,
+  },
+  {
+    id: "derivative-quotient-as-product-rule",
+    label: "d(f / g) -> 1/g df + f d(1/g)",
+    defaultPriority: 94,
+    apply: derivativeQuotientAsProductRule,
+  },
+  {
+    id: "derivative-reciprocal-rule",
+    label: "d(1/f) -> -1/f^2 df",
+    defaultPriority: 93,
+    apply: derivativeReciprocalRule,
   },
   {
     id: "combine-natural-logs",
@@ -226,6 +254,156 @@ function combineNaturalLogs(expr: Expr): Expr | null {
   const [left, right] = args;
   if (!left || !right) return null;
   return naturalLog(displayGroup("paren", multiply([left, right])));
+}
+
+function nestedPartialToSecondPartial(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  if (signed.sign === -1) return null;
+
+  const outer = signed.value;
+  const nested = nestedPartialDerivative(outer);
+  if (!nested) return null;
+  if (structuralKeyIgnoringDisplayGroups(nested.inner.variable) !== structuralKeyIgnoringDisplayGroups(nested.outerVariable)) {
+    return null;
+  }
+
+  return secondOrderPartialDerivative(
+    cloneExpr(nested.inner.quantity),
+    [cloneExpr(nested.outerVariable)],
+    2,
+  );
+}
+
+function nestedPartialDerivative(expr: Expr): {
+  inner: Extract<Expr, { kind: "partial_derivative" }>;
+  outerVariable: Expr;
+} | null {
+  switch (expr.kind) {
+    case "partial_derivative": {
+      const quantity = unwrapDisplayGroup(expr.quantity);
+      return quantity.kind === "partial_derivative"
+        ? { inner: quantity, outerVariable: expr.variable }
+        : null;
+    }
+    case "partial_derivative_operator": {
+      const operand = unwrapDisplayGroup(expr.operand);
+      return operand.kind === "partial_derivative"
+        ? { inner: operand, outerVariable: expr.variable }
+        : null;
+    }
+    default:
+      return null;
+  }
+}
+
+function derivativeProductRule(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  if (signed.sign === -1) return null;
+
+  const product = derivativeProductOperand(signed.value);
+  if (!product || product.factors.length < 2) return null;
+
+  return add(
+    product.factors.map((factor, factorIndex) => {
+      const outsideFactors = product.factors
+        .filter((_, index) => index !== factorIndex)
+        .map(cloneExpr);
+      return multiply([
+        ...outsideFactors,
+        derivativeWithOperand(signed.value, factor),
+      ]);
+    }),
+  );
+}
+
+function derivativeQuotientAsProductRule(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  if (signed.sign === -1) return null;
+
+  const quotient = derivativeQuotientOperand(signed.value);
+  if (!quotient) return null;
+
+  const reciprocalDenominator = divide(num(1), quotient.denominator);
+  return add([
+    multiply([
+      reciprocalDenominator,
+      derivativeWithOperand(signed.value, quotient.numerator),
+    ]),
+    multiply([
+      cloneExpr(quotient.numerator),
+      derivativeWithOperand(signed.value, reciprocalDenominator),
+    ]),
+  ]);
+}
+
+function derivativeReciprocalRule(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  if (signed.sign === -1) return null;
+
+  const reciprocal = derivativeReciprocalOperand(signed.value);
+  if (!reciprocal) return null;
+
+  return flipSign(
+    multiply([
+      divide(num(1), power(reciprocal.denominator, num(2))),
+      derivativeWithOperand(signed.value, reciprocal.denominator),
+    ]),
+  );
+}
+
+function derivativeProductOperand(expr: Expr): Extract<Expr, { kind: "multiply" }> | null {
+  switch (expr.kind) {
+    case "partial_derivative":
+      return productOperand(expr.quantity);
+    case "full_derivative_operator":
+    case "partial_derivative_operator":
+      return productOperand(expr.operand);
+    default:
+      return null;
+  }
+}
+
+function derivativeQuotientOperand(expr: Expr): Extract<Expr, { kind: "divide" }> | null {
+  switch (expr.kind) {
+    case "partial_derivative":
+      return quotientOperand(expr.quantity);
+    case "full_derivative_operator":
+    case "partial_derivative_operator":
+      return quotientOperand(expr.operand);
+    default:
+      return null;
+  }
+}
+
+function derivativeReciprocalOperand(expr: Expr): Extract<Expr, { kind: "divide" }> | null {
+  const quotient = derivativeQuotientOperand(expr);
+  if (!quotient) return null;
+  const signedNumerator = splitSign(quotient.numerator);
+  if (signedNumerator.sign !== 1 || !isNumberOne(signedNumerator.value)) return null;
+  return quotient;
+}
+
+function productOperand(expr: Expr): Extract<Expr, { kind: "multiply" }> | null {
+  const unwrapped = unwrapDisplayGroup(expr);
+  return unwrapped.kind === "multiply" ? unwrapped : null;
+}
+
+function quotientOperand(expr: Expr): Extract<Expr, { kind: "divide" }> | null {
+  const unwrapped = unwrapDisplayGroup(expr);
+  return unwrapped.kind === "divide" ? unwrapped : null;
+}
+
+function derivativeWithOperand(expr: Expr, operand: Expr): Expr {
+  switch (expr.kind) {
+    case "partial_derivative":
+      return partialDerivative(cloneExpr(operand), cloneExpr(expr.variable));
+    case "full_derivative_operator":
+      return fullDerivativeOperator(cloneExpr(expr.variable), cloneExpr(operand));
+    case "partial_derivative_operator":
+      return partialDerivativeOperator(cloneExpr(expr.variable), cloneExpr(operand));
+    default:
+      return cloneExpr(expr);
+  }
 }
 
 function combineNaturalLogQuotient(expr: Expr): Expr | null {

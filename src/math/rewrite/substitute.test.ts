@@ -123,6 +123,23 @@ describe("substituteSelection", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`w = \int_{P_i}^{P_f} P \left(-v_0 \kappa \,\mathrm{d}{P}\right)`);
   });
 
+  it("preserves a negative reciprocal sign when merging a product replacement", () => {
+    const document = buildDocument(
+      String.raw`R T^{2} \frac{\partial}{\partial{T}} \frac{1}{\left(v + A\right)}`,
+    );
+    const selectedNodeId = firstNodeIdMatching(document, (expr) => expr.kind === "partial_derivative_operator");
+    const next = substituteSelection(
+      document,
+      { kind: "single", nodeId: selectedNodeId },
+      replacement(String.raw`-\frac{1}{\left(v+A\right)^2}\dfrac{\partial A}{\partial T}`),
+    );
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`-\frac{R T^{2}}{\left(v + A\right)^{2}} \frac{\partial{A}}{\partial{T}}`,
+    );
+  });
+
   it("wraps compound replacements as power bases", () => {
     const document = buildDocument(String.raw`a^2`);
     const next = substituteSelection(document, { kind: "single", nodeId: "n2" }, replacement("x+y"));
