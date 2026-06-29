@@ -77,8 +77,17 @@ describe("forceFactorSelection", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`a^{2} \left(b + \frac{c}{a^{2}}\right)`);
   });
 
-  it("only enables force factoring on selected sums", () => {
-    const document = buildDocument(String.raw`a b`);
+  it("force-factors a selected product", () => {
+    const document = buildDocument(String.raw`R T^{2}`);
+    const next = forceFactorSelection(document, { kind: "single", nodeId: "n1" }, parseExpr("T"));
+
+    expect(canForceFactorSelection(document, { kind: "single", nodeId: "n1" })).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`T \left(R T\right)`);
+  });
+
+  it("only enables force factoring on selected sums and products", () => {
+    const document = buildDocument(String.raw`a`);
 
     expect(canForceFactorSelection(document, { kind: "single", nodeId: "n1" })).toBe(false);
     expect(forceFactorSelection(document, { kind: "single", nodeId: "n1" }, parseExpr("a"))).toBeNull();

@@ -1,5 +1,5 @@
 import type { TermSelection } from "../../selection/types";
-import { add, displayGroup, divide, multiply, num, type Expr } from "../ast";
+import { add, displayGroup, divide, multiply, num, power, type Expr } from "../ast";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import { cloneExpr } from "../ast/utils";
 import { cleanupExpr } from "./cleanup";
@@ -18,6 +18,11 @@ type RationalParts = {
   sign: Sign;
   numeratorFactors: Expr[];
   denominatorFactors: Expr[];
+};
+
+type ForceFactorTarget = {
+  expr: Extract<Expr, { kind: "add" | "multiply" }>;
+  kind: "sum" | "product";
 };
 
 export function canForceFactorSelection(
@@ -49,15 +54,14 @@ export function forceFactorSelection(
   if (!target) return null;
 
   const factorExpr = cloneExpr(factor);
-  const remainderTerms = target.terms.map((term) => {
+  const targetTerms = target.kind === "sum" ? target.expr.terms : [target.expr];
+  const remainderTerms = targetTerms.map((term) => {
     const quotient = quotientByFactor(term, factorExpr);
     return cleanupExpr(quotient) ?? quotient;
   });
-  const factored = multiply([
-    cloneExpr(factorExpr),
-    displayGroup("paren", add(remainderTerms)),
-  ]);
-  const cleanedFactored = cleanupExpr(factored) ?? factored;
+  const remainder = target.kind === "sum" ? add(remainderTerms) : remainderTerms[0]!;
+  const factored = multiply([cloneExpr(factorExpr), displayGroup("paren", remainder)]);
+  const cleanedFactored = target.kind === "sum" ? cleanupExpr(factored) ?? factored : factored;
 
   return replaceSelectionWithExpr(document, selection, cleanedFactored);
 }
@@ -65,11 +69,17 @@ export function forceFactorSelection(
 function getForceFactorTarget(
   document: CompiledMathDocument,
   selection: TermSelection | null,
-): Extract<Expr, { kind: "add" }> | null {
+): ForceFactorTarget | null {
   const expr = getSelectionRewriteTarget(document, selection)?.expr ?? null;
   if (!expr) return null;
-  if (expr.kind === "add") return expr;
-  if (expr.kind === "display_group" && expr.expression.kind === "add") return expr.expression;
+  if (expr.kind === "add") return { expr, kind: "sum" };
+  if (expr.kind === "multiply") return { expr, kind: "product" };
+  if (expr.kind === "display_group" && expr.expression.kind === "add") {
+    return { expr: expr.expression, kind: "sum" };
+  }
+  if (expr.kind === "display_group" && expr.expression.kind === "multiply") {
+    return { expr: expr.expression, kind: "product" };
+  }
   return null;
 }
 
@@ -178,15 +188,36 @@ function pullNumericFactor(factors: Expr[]): number {
 
 function cancelCommonFactors(numeratorFactors: Expr[], denominatorFactors: Expr[]): void {
   for (let numeratorIndex = 0; numeratorIndex < numeratorFactors.length; numeratorIndex += 1) {
-    const numeratorKey = structuralKeyIgnoringDisplayGroups(numeratorFactors[numeratorIndex]!);
-    const denominatorIndex = denominatorFactors.findIndex(
-      (factor) => structuralKeyIgnoringDisplayGroups(factor) === numeratorKey,
-    );
+    const numeratorFactor = numeratorFactors[numeratorIndex]!;
+    const numeratorKey = structuralKeyIgnoringDisplayGroups(numeratorFactor);
+    const denominatorIndex = denominatorFactors.findIndex((factor) => {
+      if (structuralKeyIgnoringDisplayGroups(factor) === numeratorKey) return true;
+      return reducedPowerAfterCancelingFactor(numeratorFactor, factor) !== null;
+    });
     if (denominatorIndex < 0) continue;
-    numeratorFactors.splice(numeratorIndex, 1);
+    const reducedNumerator = reducedPowerAfterCancelingFactor(numeratorFactor, denominatorFactors[denominatorIndex]!);
+    if (reducedNumerator) {
+      numeratorFactors[numeratorIndex] = reducedNumerator;
+    } else {
+      numeratorFactors.splice(numeratorIndex, 1);
+      numeratorIndex -= 1;
+    }
     denominatorFactors.splice(denominatorIndex, 1);
-    numeratorIndex -= 1;
   }
+}
+
+function reducedPowerAfterCancelingFactor(numerator: Expr, denominator: Expr): Expr | null {
+  const unwrappedNumerator = unwrapDisplayGroups(numerator);
+  if (unwrappedNumerator.kind !== "power") return null;
+  if (structuralKeyIgnoringDisplayGroups(unwrappedNumerator.base) !== structuralKeyIgnoringDisplayGroups(denominator)) {
+    return null;
+  }
+
+  const exponent = positiveIntegerExponent(unwrappedNumerator.exponent);
+  if (exponent === null || exponent <= 1) return null;
+  return exponent === 2
+    ? cloneExpr(unwrappedNumerator.base)
+    : power(cloneExpr(unwrappedNumerator.base), num(exponent - 1));
 }
 
 function numericFactorsFirst(factors: Expr[]): Expr[] {
@@ -210,6 +241,13 @@ function greatestCommonDivisor(left: number, right: number): number {
 function isNumericExponent(expr: Expr): boolean {
   const positive = unwrapDisplayGroups(expr);
   return positive.kind === "number" && typeof positive.value === "number";
+}
+
+function positiveIntegerExponent(expr: Expr): number | null {
+  const positive = unwrapDisplayGroups(expr);
+  if (positive.kind !== "number" || typeof positive.value !== "number") return null;
+  if (!Number.isInteger(positive.value) || positive.value <= 0) return null;
+  return positive.value;
 }
 
 function unwrapDisplayGroups(expr: Expr): Expr {
