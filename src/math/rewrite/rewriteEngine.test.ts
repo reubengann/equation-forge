@@ -90,6 +90,23 @@ describe("RulesPipeline", () => {
     expect(result).toBe(false);
   });
 
+  it("allows multiplicative reorder within a fraction numerator when targeting a power base", () => {
+    const document = buildDocument(
+      String.raw`u = \frac{T^{2} R}{\left(v + A\right)} \frac{\partial{A}}{\partial{T}} - T R`,
+    );
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n10" },
+      destinationId: "n8",
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(
+      String.raw`u = \frac{R T^{2}}{\left(v + A\right)} \frac{\partial{A}}{\partial{T}} - T R`,
+    );
+  });
+
   it("returns insertion preview with container and orientation", () => {
     const document = buildDocument(String.raw`a+b`);
     const preview = new RulesPipeline(

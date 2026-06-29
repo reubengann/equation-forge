@@ -600,6 +600,18 @@ function shouldUseGeneralPipelineForSingleContainerMove(
 ): boolean {
   if (moveType !== "multiplicative") return false;
 
+  const sourceParentId = document.index.parentById[selectionNodeId];
+  const sourceParent = sourceParentId ? document.index.nodeById[sourceParentId] : null;
+  if (
+    sourceParentId &&
+    sourceParent &&
+    isReorderContainer(sourceParent) &&
+    hasAncestorLocationField(document, sourceParentId, "numerator") &&
+    directChildIdUnderContainer(document, sourceParentId, destinationId)
+  ) {
+    return false;
+  }
+
   if (hasAncestorLocationField(document, selectionNodeId, "numerator")) return true;
   return hasAncestorLocationField(document, destinationId, "numerator");
 }
