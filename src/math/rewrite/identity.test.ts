@@ -87,6 +87,28 @@ describe("identity rewrites", () => {
     );
   });
 
+  it("applies the derivative sum rule", () => {
+    const expr = parse(String.raw`\frac{\partial}{\partial{x}} \left(f+g\right)`);
+    const options = getApplicableIdentityRewrites(expr);
+
+    expect(options.map((option) => option.id)).toContain("derivative-sum-rule");
+    expect(rewriteLatex(String.raw`\frac{\partial}{\partial{x}} \left(f+g\right)`, "derivative-sum-rule")).toBe(
+      String.raw`\frac{\partial}{\partial{x}} f + \frac{\partial}{\partial{x}} g`,
+    );
+  });
+
+  it("applies the derivative sum rule to direct partial derivatives", () => {
+    expect(rewriteLatex(String.raw`\frac{\partial{f+g}}{\partial{x}}`, "derivative-sum-rule")).toBe(
+      String.raw`\frac{\partial{f}}{\partial{x}} + \frac{\partial{g}}{\partial{x}}`,
+    );
+  });
+
+  it("preserves subtraction signs when applying the derivative sum rule", () => {
+    expect(rewriteLatex(String.raw`\frac{\partial}{\partial{x}} \left(f-g\right)`, "derivative-sum-rule")).toBe(
+      String.raw`\frac{\partial}{\partial{x}} f - \frac{\partial}{\partial{x}} g`,
+    );
+  });
+
   it("applies the derivative product rule", () => {
     const expr = parse(String.raw`\frac{\partial}{\partial{x}} f g`);
     const options = getApplicableIdentityRewrites(expr);

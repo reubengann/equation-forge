@@ -55,6 +55,12 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
     apply: sinSquarePowerReduction,
   },
   {
+    id: "derivative-sum-rule",
+    label: "d(f + g) -> df + dg",
+    defaultPriority: 97,
+    apply: derivativeSumRule,
+  },
+  {
     id: "nested-partial-to-second-partial",
     label: "d/dx(df/dx) -> d^2f/dx^2",
     defaultPriority: 96,
@@ -256,6 +262,22 @@ function combineNaturalLogs(expr: Expr): Expr | null {
   return naturalLog(displayGroup("paren", multiply([left, right])));
 }
 
+function derivativeSumRule(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  if (signed.sign === -1) return null;
+
+  const sum = derivativeSumOperand(signed.value);
+  if (!sum || sum.terms.length < 2) return null;
+
+  return add(
+    sum.terms.map((term) => {
+      const signedTerm = splitSign(term);
+      const derivative = derivativeWithOperand(signed.value, signedTerm.value);
+      return signedTerm.sign === -1 ? flipSign(derivative) : derivative;
+    }),
+  );
+}
+
 function nestedPartialToSecondPartial(expr: Expr): Expr | null {
   const signed = splitSign(expr);
   if (signed.sign === -1) return null;
@@ -375,12 +397,29 @@ function derivativeQuotientOperand(expr: Expr): Extract<Expr, { kind: "divide" }
   }
 }
 
+function derivativeSumOperand(expr: Expr): Extract<Expr, { kind: "add" }> | null {
+  switch (expr.kind) {
+    case "partial_derivative":
+      return sumOperand(expr.quantity);
+    case "full_derivative_operator":
+    case "partial_derivative_operator":
+      return sumOperand(expr.operand);
+    default:
+      return null;
+  }
+}
+
 function derivativeReciprocalOperand(expr: Expr): Extract<Expr, { kind: "divide" }> | null {
   const quotient = derivativeQuotientOperand(expr);
   if (!quotient) return null;
   const signedNumerator = splitSign(quotient.numerator);
   if (signedNumerator.sign !== 1 || !isNumberOne(signedNumerator.value)) return null;
   return quotient;
+}
+
+function sumOperand(expr: Expr): Extract<Expr, { kind: "add" }> | null {
+  const unwrapped = unwrapDisplayGroup(expr);
+  return unwrapped.kind === "add" ? unwrapped : null;
 }
 
 function productOperand(expr: Expr): Extract<Expr, { kind: "multiply" }> | null {
