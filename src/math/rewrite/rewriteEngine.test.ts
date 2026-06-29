@@ -606,6 +606,36 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe(String.raw`c \int_{a}^{b} P \,\mathrm{d}{v}`);
   });
 
+  it("executes extracting a multiplicative factor out of a partial derivative operator", () => {
+    const document = buildDocument(String.raw`\frac{\partial}{\partial{x}} a x`);
+    const selectedNodeId = symbolNodeId(document, "a");
+    const destinationId = findNodeId(document, (expr) => expr.kind === "partial_derivative_operator");
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: selectedNodeId },
+      destinationId,
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`a \frac{\partial}{\partial{x}} x`);
+  });
+
+  it("executes extracting a multiplicative factor out of a direct partial derivative", () => {
+    const document = buildDocument(String.raw`\frac{\partial{a x}}{\partial{x}}`);
+    const selectedNodeId = symbolNodeId(document, "a");
+    const destinationId = findNodeId(document, (expr) => expr.kind === "partial_derivative");
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: selectedNodeId },
+      destinationId,
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`a \frac{\partial{x}}{\partial{x}}`);
+  });
+
   it("keeps the sign inside a grouped product when extracting a selected negated factor value", () => {
     const document = buildDocument(String.raw`w = \int_{P_i}^{P_f} P \left(-v_0 \kappa \mathrm{d}{P}\right)`);
     const selectedNodeId = findNodeId(

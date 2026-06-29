@@ -97,6 +97,18 @@ describe("applyOperationToRelation", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`-a = -b`);
   });
 
+  it("distributes a unary minus operation across compound equation sides", () => {
+    const next = applyOperationToRelation(
+      expr(String.raw`-s = R \ln \frac{P}{P_0} - P \frac{\partial{A}}{\partial{T}}`),
+      expr(String.raw`-\eqn`),
+    );
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`s = -R \ln \frac{P}{P_0}  + P \frac{\partial{A}}{\partial{T}}`,
+    );
+  });
+
   it("rejects non-relation current expressions", () => {
     expect(canApplyOperationToRelation(expr("a+b"))).toBe(false);
     expect(applyOperationToRelation(expr("a+b"), expr(String.raw`1/\eqn`))).toBeNull();

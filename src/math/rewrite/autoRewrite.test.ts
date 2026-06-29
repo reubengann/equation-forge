@@ -240,6 +240,18 @@ describe("autoRewriteSelection distribute", () => {
     );
   });
 
+  it("preserves signs when distributing an explicit negative one factor", () => {
+    const document = buildDocument(
+      String.raw`-1 \left(R \ln \frac{P}{P_0} - P \frac{\partial{A}}{\partial{T}}\right)`,
+    );
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "distribute");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`-R \ln \frac{P}{P_0}  + P \frac{\partial{A}}{\partial{T}}`,
+    );
+  });
+
   it("distributes a selected product slice inside a larger product", () => {
     const document = buildDocument(String.raw`x b\left(a+c\right)`);
     const next = autoRewriteSelection(
@@ -259,6 +271,38 @@ describe("autoRewriteSelection distribute", () => {
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(
       String.raw`\left(a + b\right) c + \left(a + b\right) e`,
+    );
+  });
+
+  it("distributes a partial derivative operator over a selected additive operand", () => {
+    const document = buildDocument(String.raw`\frac{\partial}{\partial{x}} \left(f+g\right)`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "distribute");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\frac{\partial}{\partial{x}} f + \frac{\partial}{\partial{x}} g`,
+    );
+  });
+
+  it("distributes a full derivative operator across negative add terms", () => {
+    const document = buildDocument(String.raw`\frac{d}{dx}\left(f-g\right)`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "distribute");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\frac{\mathrm{d}}{\mathrm{d}{x}} f - \frac{\mathrm{d}}{\mathrm{d}{x}} g`,
+    );
+  });
+
+  it("pulls a leading product factor sign outside a distributed derivative", () => {
+    const document = buildDocument(
+      String.raw`\frac{\partial}{\partial{v}} \left(-a \left(\frac{1}{v} - \frac{1}{v_0}\right) - R T \ln\left(\frac{v - b}{v_0 - b}\right)\right)`,
+    );
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "distribute");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`-\frac{\partial}{\partial{v}} a \left(\frac{1}{v} - \frac{1}{v_0}\right) - \frac{\partial}{\partial{v}} R T \ln\left(\frac{v - b}{v_0 - b}\right)`,
     );
   });
 

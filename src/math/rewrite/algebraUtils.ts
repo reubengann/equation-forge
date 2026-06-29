@@ -1,4 +1,4 @@
-import { multiply, num, type Expr } from "../ast";
+import { add, multiply, num, type Expr } from "../ast";
 import { cloneExpr } from "../ast/utils";
 
 export type Sign = 1 | -1;
@@ -43,7 +43,12 @@ export function splitSign(expr: Expr): { sign: Sign; value: Expr } {
 }
 
 export function applySign(sign: Sign, expr: Expr): Expr {
-  return withSign(expr, multiplySigns(sign, exprSign(expr)));
+  const signed = splitSign(expr);
+  const nextSign = multiplySigns(sign, signed.sign);
+  if (nextSign === -1 && signed.value.kind === "add") {
+    return add(signed.value.terms.map(flipSign));
+  }
+  return withSign(signed.value, nextSign);
 }
 
 export function isNegativeExpr(expr: Expr): boolean {
@@ -57,14 +62,23 @@ export function normalizeLegacyNegates(expr: Expr): Expr {
 }
 
 export function collapseProduct(factors: Expr[]): Expr {
-  const keptFactors = factors.filter((factor) => !isNumberValue(factor, 1));
-  if (keptFactors.length === 0) return num(1);
-  if (keptFactors.length === 1) return cloneExpr(keptFactors[0]);
-  return multiply(keptFactors.map(cloneExpr));
+  let sign: Sign = 1;
+  const keptFactors: Expr[] = [];
+
+  factors.forEach((factor) => {
+    const signed = splitSign(factor);
+    sign = multiplySigns(sign, signed.sign);
+    if (!isNumberValue(signed.value, 1)) keptFactors.push(signed.value);
+  });
+
+  if (keptFactors.length === 0) return withSign(num(1), sign);
+  if (keptFactors.length === 1) return withSign(cloneExpr(keptFactors[0]!), sign);
+  return withSign(multiply(keptFactors.map(cloneExpr)), sign);
 }
 
 export function isNumberValue(expr: Expr, value: number): boolean {
-  return expr.kind === "number" && Number(expr.value) === value;
+  const signed = splitSign(expr);
+  return signed.value.kind === "number" && Number(signed.value.value) * signed.sign === value;
 }
 
 export function structuralKey(expr: Expr): string {
