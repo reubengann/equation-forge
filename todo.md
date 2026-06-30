@@ -10,6 +10,8 @@
   very common.
 - Awkward: suppose we have `\left(\frac{\partial{M}}{\partial{y}}\right)_{x} = \left(\frac{\partial{N}}{\partial{x}}\right)_{y}`
   and apply symbol replacement with `N -> -S`. We get `\left(\frac{\partial{-S}}{\partial{L}}\right)_{T}`
+- Sometimes it wouldbe good to move modals to see equations on the page
+- I have seen keyboard shortcuts work on an equation while a modal is shown. Should not
 
 ## Medium
 
