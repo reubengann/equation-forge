@@ -392,10 +392,14 @@ function derivativeSumRule(expr: Expr): Expr | null {
   return add(
     sum.terms.map((term) => {
       const signedTerm = splitAdditiveTermSign(term);
-      const derivative = derivativeWithOperand(signed.value, signedTerm.value);
+      const derivative = derivativeWithOperand(signed.value, groupedDerivativeSumOperand(signedTerm.value));
       return signedTerm.sign === -1 ? flipSign(derivative) : derivative;
     }),
   );
+}
+
+function groupedDerivativeSumOperand(expr: Expr): Expr {
+  return expr.kind === "multiply" ? displayGroup("paren", expr) : expr;
 }
 
 function nestedPartialToSecondPartial(expr: Expr): Expr | null {

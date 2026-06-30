@@ -164,7 +164,18 @@ describe("identity rewrites", () => {
 
   it("moves embedded product signs outside derivatives when applying the derivative sum rule", () => {
     expect(rewriteLatex(String.raw`\frac{\partial}{\partial{x}} \left(-a b+c\right)`, "derivative-sum-rule")).toBe(
-      String.raw`-\frac{\partial}{\partial{x}} a b + \frac{\partial}{\partial{x}} c`,
+      String.raw`-\frac{\partial}{\partial{x}} \left(a b\right) + \frac{\partial}{\partial{x}} c`,
+    );
+  });
+
+  it("groups product operands when applying the derivative sum rule", () => {
+    expect(
+      rewriteLatex(
+        String.raw`\frac{\partial}{\partial{T}} \left(R T \ln \frac{v_0}{v}  + C T^{2} v\right)`,
+        "derivative-sum-rule",
+      ),
+    ).toBe(
+      String.raw`\frac{\partial}{\partial{T}} \left(R T \ln \frac{v_0}{v} \right) + \frac{\partial}{\partial{T}} \left(C T^{2} v\right)`,
     );
   });
 
