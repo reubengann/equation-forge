@@ -629,6 +629,16 @@ describe("parseLatexToExpr", () => {
     expect(denominatorPartial.constantQuantity).toMatchObject({ kind: "symbol", name: String.raw`\theta` });
   });
 
+  it("parses unbraced starred symbols inside partials at constant quantity", () => {
+    const expr = parseLatexToExpr(String.raw`\left(\frac{\partial{F^\ast}}{\partial{T}}\right)_{X_1 , Y_2} = -S`);
+
+    expectExprKind(expr, "equation");
+    const lhs = expr.sides[0];
+    expectExprKind(lhs, "partial_at_const_quantity");
+    expect(lhs.quantity).toMatchObject({ kind: "symbol", name: String.raw`F^\ast` });
+    expect(lhs.variable).toMatchObject({ kind: "symbol", name: "T" });
+  });
+
   it("parses integrals", () => {
     const expr = parseLatexToExpr(
       String.raw`v_{0}^{2} = \int_{0}^{x_{0}} 2 g \sin\left(\theta\right) \,\mathrm{d}{x}`,

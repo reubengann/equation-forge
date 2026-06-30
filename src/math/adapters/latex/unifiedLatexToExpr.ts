@@ -510,6 +510,14 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
       }
       const trailingExponentMatch = /^(.+)\^$/.exec(stringContent);
       const exponentGroup = nodes[i + 1];
+      if (trailingExponentMatch && exponentGroup?.type === "macro" && exponentGroup.content === "ast") {
+        const baseToken = tokenFromStringContent(trailingExponentMatch[1]);
+        if (baseToken?.kind === "symbol") {
+          tokens.push({ kind: "symbol", name: `${baseToken.name}^\\ast` });
+          i += 1;
+          continue;
+        }
+      }
       if (trailingExponentMatch && exponentGroup?.type === "group" && Array.isArray(exponentGroup.content)) {
         const baseToken = tokenFromStringContent(trailingExponentMatch[1]);
         if (baseToken) tokens.push(baseToken);
