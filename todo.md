@@ -8,6 +8,8 @@
   if it was highlighted you could just hit `zero enter`. If you don't want to substitute the whole thing,
   and instead want to edit what you have, you now have to press something to deselect everything, but that's not
   very common.
+- Awkward: suppose we have `\left(\frac{\partial{M}}{\partial{y}}\right)_{x} = \left(\frac{\partial{N}}{\partial{x}}\right)_{y}`
+  and apply symbol replacement with `N -> -S`. We get `\left(\frac{\partial{-S}}{\partial{L}}\right)_{T}`
 
 ## Medium
 
