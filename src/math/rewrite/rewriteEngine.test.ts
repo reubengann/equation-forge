@@ -394,6 +394,30 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe("c_P - R = c_v");
   });
 
+  it("cancels embedded product signs when moving additive terms across equations", () => {
+    const document = buildDocument(
+      String.raw`\mathrm{d}{\Phi} = -\frac{V}{T} \,\mathrm{d}{P} + \frac{\left(U + P V\right)}{T^{2}} \,\mathrm{d}{T}`,
+    );
+    const selectedNodeId = findNodeId(
+      document,
+      (expr) =>
+        expr.kind === "multiply" &&
+        expr.factors.some((factor) => factor.kind === "divide" && factor.sign === -1),
+    );
+    const destinationId = findNodeId(document, (expr) => expr.kind === "differential" && expr.variable.kind === "symbol" && expr.variable.name === String.raw`\Phi`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: selectedNodeId },
+      destinationId,
+      moveType: "additive",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(
+      String.raw`\mathrm{d}{\Phi} + \frac{V}{T} \,\mathrm{d}{P} = \frac{\left(U + P V\right)}{T^{2}} \,\mathrm{d}{T}`,
+    );
+  });
+
   it("inserts a cross-equation additive move into an existing sum", () => {
     const document = buildDocument(String.raw`a=b+c`);
     const result = executeMove({

@@ -1,6 +1,6 @@
 import { cloneExpr } from "../../ast/utils";
 import type { Expr } from "../../ast/expr";
-import { flipSign } from "../algebraUtils";
+import { applySign, collapseProduct, flipSign, splitSign } from "../algebraUtils";
 import type { MoveContext, PivotRewriteRule } from "../types";
 
 export function pivotAdditiveAcrossEquation(): PivotRewriteRule {
@@ -27,7 +27,13 @@ export function pivotAdditiveAcrossEquation(): PivotRewriteRule {
 
 function additiveInverse(expr: Expr): Expr {
   if (expr.kind === "add") return flipSign({ kind: "display_group", delimiter: "paren", expression: cloneExpr(expr) });
-  return flipSign(expr);
+  return applySign(-1, normalizeAdditiveTermSign(expr));
+}
+
+function normalizeAdditiveTermSign(expr: Expr): Expr {
+  const signed = splitSign(expr);
+  if (signed.value.kind !== "multiply") return cloneExpr(expr);
+  return applySign(signed.sign, collapseProduct(signed.value.factors));
 }
 
 function isAdditiveRelation(expr: Expr): boolean {

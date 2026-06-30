@@ -21,7 +21,7 @@ type RationalParts = {
 };
 
 type ForceFactorTarget = {
-  expr: Extract<Expr, { kind: "add" | "multiply" }>;
+  expr: Expr;
   kind: "sum" | "product";
 };
 
@@ -74,10 +74,14 @@ function getForceFactorTarget(
   if (!expr) return null;
   if (expr.kind === "add") return { expr, kind: "sum" };
   if (expr.kind === "multiply") return { expr, kind: "product" };
+  if (expr.kind === "power") return { expr, kind: "product" };
   if (expr.kind === "display_group" && expr.expression.kind === "add") {
     return { expr: expr.expression, kind: "sum" };
   }
   if (expr.kind === "display_group" && expr.expression.kind === "multiply") {
+    return { expr: expr.expression, kind: "product" };
+  }
+  if (expr.kind === "display_group" && expr.expression.kind === "power") {
     return { expr: expr.expression, kind: "product" };
   }
   return null;

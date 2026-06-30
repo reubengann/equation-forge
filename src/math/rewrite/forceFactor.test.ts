@@ -86,6 +86,25 @@ describe("forceFactorSelection", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`T \left(R T\right)`);
   });
 
+  it("force-factors a selected power", () => {
+    const document = buildDocument(String.raw`T^{2}`);
+    const next = forceFactorSelection(document, { kind: "single", nodeId: "n1" }, parseExpr("T"));
+
+    expect(canForceFactorSelection(document, { kind: "single", nodeId: "n1" })).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`T \left(T\right)`);
+  });
+
+  it("force-factors a selected power inside a product", () => {
+    const document = buildDocument(String.raw`R T^{2}`);
+    const powerNodeId = findNodeId(document, (expr) => expr.kind === "power");
+    const next = forceFactorSelection(document, { kind: "single", nodeId: powerNodeId }, parseExpr("T"));
+
+    expect(canForceFactorSelection(document, { kind: "single", nodeId: powerNodeId })).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`R T \left(T\right)`);
+  });
+
   it("only enables force factoring on selected sums and products", () => {
     const document = buildDocument(String.raw`a`);
 
