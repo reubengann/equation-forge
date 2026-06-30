@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { IdentityRewriteOption } from "./math/rewrite/identity";
 import type { MoveType } from "./math/rewrite/types";
 import { StaticMath } from "./StaticMath";
@@ -222,6 +222,36 @@ export function EquationToolbar({
   canCycleDelimiter,
   onCycleDelimiterRequested,
 }: EquationToolbarProps) {
+  const [isIdentityMenuOpen, setIsIdentityMenuOpen] = useState(false);
+  const identityMenuRef = useRef<HTMLDetailsElement | null>(null);
+
+  useEffect(() => {
+    if (!canApplyIdentityRewrite) setIsIdentityMenuOpen(false);
+  }, [canApplyIdentityRewrite]);
+
+  useEffect(() => {
+    setIsIdentityMenuOpen(false);
+  }, [identityRewriteOptions]);
+
+  useEffect(() => {
+    if (!isIdentityMenuOpen) return;
+
+    const closeOnOutsidePointerDown = (event: PointerEvent) => {
+      if (identityMenuRef.current?.contains(event.target as Node)) return;
+      setIsIdentityMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsIdentityMenuOpen(false);
+    };
+
+    document.addEventListener("pointerdown", closeOnOutsidePointerDown, true);
+    document.addEventListener("keydown", closeOnEscape, true);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointerDown, true);
+      document.removeEventListener("keydown", closeOnEscape, true);
+    };
+  }, [isIdentityMenuOpen]);
+
   return (
     <div
       style={{
@@ -589,7 +619,14 @@ export function EquationToolbar({
             rule
           </span>
         </button>
-        <details style={menuContainerStyle}>
+        <details
+          ref={identityMenuRef}
+          open={isIdentityMenuOpen}
+          onToggle={(event) => {
+            setIsIdentityMenuOpen(event.currentTarget.open && canApplyIdentityRewrite);
+          }}
+          style={menuContainerStyle}
+        >
           <summary
             role="button"
             aria-label="Choose identity"
@@ -601,7 +638,8 @@ export function EquationToolbar({
               ...(!canApplyIdentityRewrite ? iconButtonDisabledStyle : {}),
             }}
             onClick={(event) => {
-              if (!canApplyIdentityRewrite) event.preventDefault();
+              event.preventDefault();
+              setIsIdentityMenuOpen((current) => canApplyIdentityRewrite && !current);
             }}
           >
             <span style={materialSymbolStyle} aria-hidden="true">
@@ -615,9 +653,9 @@ export function EquationToolbar({
                 type="button"
                 role="menuitem"
                 data-testid={`identity-rewrite-${option.id}`}
-                onClick={(event) => {
+                onClick={() => {
                   onApplyIdentityRequested(option.id);
-                  event.currentTarget.closest("details")?.removeAttribute("open");
+                  setIsIdentityMenuOpen(false);
                 }}
                 style={menuItemStyle}
               >

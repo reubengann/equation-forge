@@ -1,7 +1,5 @@
 ## Low
 
-- If the identity drop down is active and a different term is selected that has no identity, you just have a weird empty box hanging out. I think any interaction other than selecting an item within the menu should close it.
-
 ## Medium
 
 ## Hard
