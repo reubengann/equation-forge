@@ -277,6 +277,32 @@ describe("getReplaceableSymbols", () => {
 
     expect(getReplaceableSymbols(document).map((symbol) => symbol.latex)).toEqual(["C_V", "S", "T", "V"]);
   });
+
+  it("does not offer built-in function names as replaceable symbols", () => {
+    const document = buildDocument(String.raw`\ln\left(a b\right)`);
+
+    expect(getReplaceableSymbols(document).map((symbol) => symbol.latex)).toEqual(["a", "b"]);
+  });
+
+  it("does not offer punctuation from parsed subscript lists as replaceable symbols", () => {
+    const document = buildDocument(
+      String.raw`\left(\frac{\partial{F}}{\partial{T}}\right)_{X_1 , X_2} = -S`,
+    );
+
+    expect(getReplaceableSymbols(document).map((symbol) => symbol.latex)).toEqual([
+      "F",
+      "S",
+      "T",
+      "X_1",
+      "X_2",
+    ]);
+  });
+
+  it("deduplicates signed and unsigned occurrences of the same symbol", () => {
+    const document = buildDocument(String.raw`S + b = -S`);
+
+    expect(getReplaceableSymbols(document).map((symbol) => symbol.latex)).toEqual(["b", "S"]);
+  });
 });
 
 describe("substituteAllMatchingExpressions", () => {

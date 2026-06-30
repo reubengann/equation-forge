@@ -96,10 +96,11 @@ export function substituteAllMatchingExpressions(
 export function getReplaceableSymbols(document: CompiledMathDocument): ReplaceableSymbol[] {
   const symbolsByKey = new Map<string, ReplaceableSymbol>();
   const addSymbol = (expr: Expr) => {
-    if (!isValidSubstitutionReplacement(expr)) return;
-    const key = structuralKeyIgnoringDisplayGroups(expr);
+    if (!isValidSubstitutionReplacement(expr) || !isReplaceableSymbolExpr(expr)) return;
+    const canonical = splitSign(expr).value;
+    const key = structuralKeyIgnoringDisplayGroups(canonical);
     if (symbolsByKey.has(key)) return;
-    const cloned = cloneExpr(expr);
+    const cloned = cloneExpr(canonical);
     symbolsByKey.set(key, {
       key,
       expr: cloned,
@@ -405,9 +406,15 @@ function buildReplacementPlan(substitutions: SimultaneousSubstitution[]): Replac
 
 function isReplaceableSymbolExpr(expr: Expr): boolean {
   return (
-    expr.kind === "symbol" ||
-    (expr.kind === "special_font" && expr.value.kind === "symbol")
+    (expr.kind === "symbol" && isReplaceableSymbolName(expr.name)) ||
+    (expr.kind === "special_font" &&
+      expr.value.kind === "symbol" &&
+      isReplaceableSymbolName(expr.value.name))
   );
+}
+
+function isReplaceableSymbolName(name: string): boolean {
+  return /[A-Za-z\\]/.test(name);
 }
 
 function walkExpr(expr: Expr, visit: (expr: Expr) => void): void {
@@ -455,7 +462,6 @@ function walkExpr(expr: Expr, visit: (expr: Expr) => void): void {
       walkExpr(expr.rhs, visit);
       return;
     case "call":
-      walkExpr(expr.callee, visit);
       expr.args.forEach((arg) => walkExpr(arg, visit));
       return;
     case "user_function":
@@ -547,6 +553,13 @@ function symbolicSubscriptExpr(name: string): Expr | null {
   if (separatorIndex <= 0) return null;
 
   const subscriptName = name.slice(separatorIndex + 1);
-  if (!subscriptName || /^\d+(?:\.\d+)?$/.test(subscriptName) || subscriptName.startsWith("{")) return null;
+  if (
+    !subscriptName ||
+    !isReplaceableSymbolName(subscriptName) ||
+    /^\d+(?:\.\d+)?$/.test(subscriptName) ||
+    subscriptName.startsWith("{")
+  ) {
+    return null;
+  }
   return { kind: "symbol", name: subscriptName };
 }

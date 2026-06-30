@@ -4,7 +4,6 @@
 
 ## Medium
 
-- Terms in symbol substitution are buggy. When you have `$$\ln\left(a b\right)$$` it offers to replace `ln`. In `\left(\frac{\partial{F}}{\partial{T}}\right)_{X_1 , X_2} = -S` it offers to replace the comma. There needs to be enforced criteria that determine whether something is eligible. I thought it was things that were "symbol-like", but clearly a comma is not that.
 - `\mathrm{d}{F} = \mathrm{d'}{Q} - \mathrm{d'}{W} - S \,\mathrm{d}{T} - T \,\mathrm{d}{S}`
   `\mathrm{d'}{W} = -\mathscr{F} \,\mathrm{d}{L}`
   Choose to replace `\mathrm{d'}{W}` in the first equation.
