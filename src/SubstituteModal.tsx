@@ -1,4 +1,5 @@
 import { useEffect, useRef, type CSSProperties } from "react";
+import { DraggableModal } from "./DraggableModal";
 import { MathEntry } from "./MathEntry";
 import { StaticMath } from "./StaticMath";
 
@@ -24,17 +25,6 @@ type SubstituteModalProps = {
   onReplacementLatexChange: (nextLatex: string) => void;
   onAccept: (latestLatex?: string) => void;
   onCancel: () => void;
-};
-
-const overlayStyle: CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 10000,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 16,
-  background: "rgba(0, 0, 0, 0.35)",
 };
 
 const modalStyle: CSSProperties = {
@@ -154,12 +144,7 @@ export function SubstituteModal({
   }, [onCancel]);
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="substitute-modal-title" style={overlayStyle}>
-      <div style={modalStyle}>
-        <h2 id="substitute-modal-title" style={{ margin: 0, fontSize: "1.15rem" }}>
-          Substitute
-        </h2>
-
+    <DraggableModal titleId="substitute-modal-title" title="Substitute" style={modalStyle}>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={labelStyle}>{selectedLabel}</div>
           {selectedLatexReadonly ? (
@@ -249,7 +234,6 @@ export function SubstituteModal({
             Accept
           </button>
         </div>
-      </div>
-    </div>
+    </DraggableModal>
   );
 }

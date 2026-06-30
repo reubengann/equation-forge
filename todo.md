@@ -1,7 +1,6 @@
 ## Low
 
-- It would be good to be able to move the modals so that one can see the equations on the page
-- I have seen keyboard shortcuts work on an equation while a modal is shown. That should not happen.
+- I have seen keyboard shortcuts work on an equation while a modal is shown. That should not happen. I believe it only happens when the mathlive input is not selected, but still. When the modal is up, all page input should be blocked.
 - The grouping of icons may be kind of arbitrary right now. Probably want to categorize somehow.
 
 ## Medium

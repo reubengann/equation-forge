@@ -1,4 +1,5 @@
 import { useEffect, useRef, type CSSProperties } from "react";
+import { DraggableModal } from "./DraggableModal";
 import { MathEntry } from "./MathEntry";
 import type { ReplaceableSymbol } from "./math/rewrite/substitute";
 
@@ -22,17 +23,6 @@ type SymbolReplacementModalProps = {
   onReplacementLatexChange: (key: string, latex: string) => void;
   onAccept: () => void;
   onCancel: () => void;
-};
-
-const overlayStyle: CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 10000,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 16,
-  background: "rgba(0, 0, 0, 0.35)",
 };
 
 const modalStyle: CSSProperties = {
@@ -123,11 +113,7 @@ export function SymbolReplacementModal({
   }, [onCancel]);
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="symbol-replacement-modal-title" style={overlayStyle}>
-      <div style={modalStyle}>
-        <h2 id="symbol-replacement-modal-title" style={{ margin: 0, fontSize: "1.15rem" }}>
-          Replace Symbols
-        </h2>
+    <DraggableModal titleId="symbol-replacement-modal-title" title="Replace Symbols" style={modalStyle}>
         <div style={labelStyle}>Select symbols to replace. All checked replacements are applied at the same time.</div>
 
         <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingRight: 4 }}>
@@ -186,7 +172,6 @@ export function SymbolReplacementModal({
             Accept
           </button>
         </div>
-      </div>
-    </div>
+    </DraggableModal>
   );
 }

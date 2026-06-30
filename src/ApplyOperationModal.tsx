@@ -1,4 +1,5 @@
 import { useEffect, type CSSProperties } from "react";
+import { DraggableModal } from "./DraggableModal";
 import { MathEntry } from "./MathEntry";
 import { MATH_ENTRY_MACROS, type MathEntryMacro } from "./mathEntry/mathEntryMacros";
 import type { ApplyOperationTargetKind } from "./math/rewrite/applyOperation";
@@ -15,17 +16,6 @@ type ApplyOperationModalProps = {
   onOperationLatexChange: (nextLatex: string) => void;
   onAccept: (latestLatex?: string) => void;
   onCancel: () => void;
-};
-
-const overlayStyle: CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 10000,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 16,
-  background: "rgba(0, 0, 0, 0.35)",
 };
 
 const modalStyle: CSSProperties = {
@@ -133,12 +123,7 @@ export function ApplyOperationModal({
       : { reciprocal: String.raw`1/\part`, root: String.raw`\sqrt{\part}` };
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="apply-operation-modal-title" style={overlayStyle}>
-      <div style={modalStyle}>
-        <h2 id="apply-operation-modal-title" style={{ margin: 0, fontSize: "1.15rem" }}>
-          Apply Operation
-        </h2>
-
+    <DraggableModal titleId="apply-operation-modal-title" title="Apply Operation" style={modalStyle}>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={labelStyle}>Operation template</div>
           <MathEntry
@@ -197,7 +182,6 @@ export function ApplyOperationModal({
             Accept
           </button>
         </div>
-      </div>
-    </div>
+    </DraggableModal>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, type CSSProperties } from "react";
+import { DraggableModal } from "./DraggableModal";
 import { MathEntry } from "./MathEntry";
 
 type MathDivLike = HTMLElement & {
@@ -14,17 +15,6 @@ type ForceFactorModalProps = {
   onFactorLatexChange: (nextLatex: string) => void;
   onAccept: (latestLatex?: string) => void;
   onCancel: () => void;
-};
-
-const overlayStyle: CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 10000,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 16,
-  background: "rgba(0, 0, 0, 0.35)",
 };
 
 const modalStyle: CSSProperties = {
@@ -99,12 +89,7 @@ export function ForceFactorModal({
   }, [onCancel]);
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="force-factor-modal-title" style={overlayStyle}>
-      <div style={modalStyle}>
-        <h2 id="force-factor-modal-title" style={{ margin: 0, fontSize: "1.15rem" }}>
-          Force Factor
-        </h2>
-
+    <DraggableModal titleId="force-factor-modal-title" title="Force Factor" style={modalStyle}>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={labelStyle}>Selected sum</div>
           <div style={selectedExpressionStyle}>
@@ -159,7 +144,6 @@ export function ForceFactorModal({
             Accept
           </button>
         </div>
-      </div>
-    </div>
+    </DraggableModal>
   );
 }
