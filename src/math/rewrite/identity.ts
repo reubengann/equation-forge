@@ -24,6 +24,7 @@ import { getSelectionRewriteTarget, replaceSelectionWithExpr } from "./selection
 export type IdentityRewrite = {
   id: string;
   label: string;
+  latex: string;
   caveat?: string;
   defaultPriority: number;
   apply: (expr: Expr) => Expr | null;
@@ -40,78 +41,91 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
   {
     id: "pythagorean-trig-identity",
     label: "sin^2(theta) + cos^2(theta) -> 1",
+    latex: String.raw`\sin^{2}\theta + \cos^{2}\theta \to 1`,
     defaultPriority: 110,
     apply: pythagoreanTrigIdentity,
   },
   {
     id: "cos-square-power-reduction",
     label: "cos^2(theta) -> (1 + cos(2 theta))/2",
+    latex: String.raw`\cos^{2}\theta \to \frac{1 + \cos\left(2\theta\right)}{2}`,
     defaultPriority: 45,
     apply: cosSquarePowerReduction,
   },
   {
     id: "sin-square-power-reduction",
     label: "sin^2(theta) -> (1 - cos(2 theta))/2",
+    latex: String.raw`\sin^{2}\theta \to \frac{1 - \cos\left(2\theta\right)}{2}`,
     defaultPriority: 45,
     apply: sinSquarePowerReduction,
   },
   {
     id: "integral-sum-rule",
     label: "int(f + g) dx -> int f dx + int g dx",
+    latex: String.raw`\int \left(f + g\right)\,dx \to \int f\,dx + \int g\,dx`,
     defaultPriority: 99,
     apply: integralSumRule,
   },
   {
     id: "differential-sum-rule",
     label: "d(f + g) -> df + dg",
+    latex: String.raw`\mathrm{d}\left(f + g\right) \to \mathrm{d}{f} + \mathrm{d}{g}`,
     defaultPriority: 98,
     apply: differentialSumRule,
   },
   {
     id: "derivative-sum-rule",
     label: "d(f + g) -> df + dg",
+    latex: String.raw`\frac{d}{dx}\left(f + g\right) \to \frac{df}{dx} + \frac{dg}{dx}`,
     defaultPriority: 97,
     apply: derivativeSumRule,
   },
   {
     id: "nested-partial-to-second-partial",
     label: "d/dx(df/dx) -> d^2f/dx^2",
+    latex: String.raw`\frac{\partial}{\partial x}\left(\frac{\partial f}{\partial x}\right) \to \frac{\partial^{2}f}{\partial x^{2}}`,
     defaultPriority: 96,
     apply: nestedPartialToSecondPartial,
   },
   {
     id: "derivative-product-rule",
     label: "d(f g) -> g df + f dg",
+    latex: String.raw`\frac{d}{dx}\left(fg\right) \to g\frac{df}{dx} + f\frac{dg}{dx}`,
     defaultPriority: 95,
     apply: derivativeProductRule,
   },
   {
     id: "differential-product-rule",
     label: "d(f g) -> g df + f dg",
+    latex: String.raw`\mathrm{d}\left(fg\right) \to g\,\mathrm{d}{f} + f\,\mathrm{d}{g}`,
     defaultPriority: 95,
     apply: differentialProductRule,
   },
   {
     id: "derivative-quotient-as-product-rule",
     label: "d(f / g) -> 1/g df + f d(1/g)",
+    latex: String.raw`\frac{d}{dx}\left(\frac{f}{g}\right) \to \frac{1}{g}\frac{df}{dx} + f\frac{d}{dx}\left(\frac{1}{g}\right)`,
     defaultPriority: 94,
     apply: derivativeQuotientAsProductRule,
   },
   {
     id: "differential-quotient-rule",
     label: "d(f / g) -> 1/g df - f/g^2 dg",
+    latex: String.raw`\mathrm{d}\left(\frac{f}{g}\right) \to \frac{1}{g}\mathrm{d}{f} - \frac{f}{g^{2}}\mathrm{d}{g}`,
     defaultPriority: 94,
     apply: differentialQuotientRule,
   },
   {
     id: "derivative-reciprocal-rule",
     label: "d(1/f) -> -1/f^2 df",
+    latex: String.raw`\frac{d}{dx}\left(\frac{1}{f}\right) \to -\frac{1}{f^{2}}\frac{df}{dx}`,
     defaultPriority: 93,
     apply: derivativeReciprocalRule,
   },
   {
     id: "combine-natural-logs",
     label: "ln a + ln b -> ln(a b)",
+    latex: String.raw`\ln a + \ln b \to \ln\left(ab\right)`,
     caveat: POSITIVE_LOG_CAVEAT,
     defaultPriority: 100,
     apply: combineNaturalLogs,
@@ -119,6 +133,7 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
   {
     id: "combine-natural-log-quotient",
     label: "ln a - ln b -> ln(a / b)",
+    latex: String.raw`\ln a - \ln b \to \ln\left(\frac{a}{b}\right)`,
     caveat: POSITIVE_LOG_CAVEAT,
     defaultPriority: 100,
     apply: combineNaturalLogQuotient,
@@ -126,6 +141,7 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
   {
     id: "expand-natural-log-product",
     label: "ln(a b) -> ln a + ln b",
+    latex: String.raw`\ln\left(ab\right) \to \ln a + \ln b`,
     caveat: POSITIVE_LOG_CAVEAT,
     defaultPriority: 90,
     apply: expandNaturalLogProduct,
@@ -133,6 +149,7 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
   {
     id: "expand-natural-log-quotient",
     label: "ln(a / b) -> ln a - ln b",
+    latex: String.raw`\ln\left(\frac{a}{b}\right) \to \ln a - \ln b`,
     caveat: POSITIVE_LOG_CAVEAT,
     defaultPriority: 90,
     apply: expandNaturalLogQuotient,
@@ -140,6 +157,7 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
   {
     id: "combine-log-coefficient",
     label: "a ln b -> ln(b^a)",
+    latex: String.raw`a\ln b \to \ln\left(b^{a}\right)`,
     caveat: POSITIVE_LOG_CAVEAT,
     defaultPriority: 85,
     apply: combineLogCoefficient,
@@ -147,18 +165,21 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
   {
     id: "expand-exponential-sum",
     label: "exp(x + y) -> exp(x) exp(y)",
+    latex: String.raw`\exp\left(x + y\right) \to \exp\left(x\right)\exp\left(y\right)`,
     defaultPriority: 80,
     apply: expandExponentialSum,
   },
   {
     id: "combine-exponential-product",
     label: "exp(x) exp(y) -> exp(x + y)",
+    latex: String.raw`\exp\left(x\right)\exp\left(y\right) \to \exp\left(x + y\right)`,
     defaultPriority: 70,
     apply: combineExponentialProduct,
   },
   {
     id: "power-of-power",
     label: "(a^b)^c -> a^(b c)",
+    latex: String.raw`\left(a^{b}\right)^{c} \to a^{bc}`,
     caveat: POWER_BRANCH_CAVEAT,
     defaultPriority: 60,
     apply: flattenPowerOfPower,
@@ -166,6 +187,7 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
   {
     id: "power-of-product",
     label: "(a b)^n -> a^n b^n",
+    latex: String.raw`\left(ab\right)^{n} \to a^{n}b^{n}`,
     caveat: POWER_BRANCH_CAVEAT,
     defaultPriority: 59,
     apply: expandPowerOfProduct,
@@ -173,6 +195,7 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
   {
     id: "combine-product-powers",
     label: "a^n b^n -> (a b)^n",
+    latex: String.raw`a^{n}b^{n} \to \left(ab\right)^{n}`,
     caveat: POWER_BRANCH_CAVEAT,
     defaultPriority: 58,
     apply: combineProductPowers,
@@ -180,18 +203,21 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
   {
     id: "reciprocal-to-negative-power",
     label: "1 / x <-> x^(-1)",
+    latex: String.raw`\frac{1}{x} \leftrightarrow x^{-1}`,
     defaultPriority: 57,
     apply: reciprocalToNegativePower,
   },
   {
     id: "sqrt-square-to-absolute-value",
     label: "sqrt(x^2) -> |x|",
+    latex: String.raw`\sqrt{x^{2}} \to \left|x\right|`,
     defaultPriority: 55,
     apply: sqrtSquareToAbsoluteValue,
   },
   {
     id: "sqrt-square-to-positive-base",
     label: "sqrt(x^2) -> x",
+    latex: String.raw`\sqrt{x^{2}} \to x`,
     caveat: POSITIVE_BASE_CAVEAT,
     defaultPriority: 54,
     apply: sqrtSquareToPositiveBase,
@@ -199,6 +225,7 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
   {
     id: "sin-complement-to-cos",
     label: "sin(pi/2 - theta) -> cos(theta)",
+    latex: String.raw`\sin\left(\frac{\pi}{2} - \theta\right) \to \cos\theta`,
     caveat: ANGLE_IDENTITY_CAVEAT,
     defaultPriority: 50,
     apply: sinComplementToCos,
@@ -206,6 +233,7 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
   {
     id: "cos-to-sin-complement",
     label: "cos(theta) -> sin(pi/2 - theta)",
+    latex: String.raw`\cos\theta \to \sin\left(\frac{\pi}{2} - \theta\right)`,
     caveat: ANGLE_IDENTITY_CAVEAT,
     defaultPriority: 10,
     apply: cosToSinComplement,
@@ -215,9 +243,10 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
 export function getApplicableIdentityRewrites(expr: Expr): IdentityRewriteOption[] {
   return IDENTITY_REWRITES.filter((rewrite) => rewrite.apply(expr) !== null)
     .sort((left, right) => right.defaultPriority - left.defaultPriority)
-    .map(({ id, label, caveat, defaultPriority }) => ({
+    .map(({ id, label, latex, caveat, defaultPriority }) => ({
       id,
       label,
+      latex,
       caveat,
       defaultPriority,
     }));

@@ -1,6 +1,5 @@
 ## Low
 
-- Render options in replace modal with LaTeX instead of plain text. Also for the preview of identities.
 - We should select the mathlive content when going into the substitute modal. Fairly often the substitution you
   want to make is to set the whole thing to zero, so in that case you have to do `home shift+end 0 enter`, whereas
   if it was highlighted you could just hit `zero enter`. If you don't want to substitute the whole thing,

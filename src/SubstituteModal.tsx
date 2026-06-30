@@ -1,5 +1,6 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import { MathEntry } from "./MathEntry";
+import { StaticMath } from "./StaticMath";
 
 type MathDivLike = HTMLElement & {
   value?: string;
@@ -109,6 +110,13 @@ const actionButtonStyle: CSSProperties = {
   cursor: "pointer",
 };
 
+const suggestionButtonStyle: CSSProperties = {
+  ...actionButtonStyle,
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+};
+
 export function SubstituteModal({
   selectedLatex,
   selectedLabel = "Selected expression",
@@ -208,10 +216,12 @@ export function SubstituteModal({
                   key={suggestion.equationId}
                   type="button"
                   data-testid={`substitute-suggestion-${suggestion.equationId}`}
+                  aria-label={`${suggestion.label}: ${suggestion.rhsLatex}`}
                   onClick={() => onSuggestionSelected?.(suggestion)}
-                  style={actionButtonStyle}
+                  style={suggestionButtonStyle}
                 >
-                  {suggestion.label}: {suggestion.rhsLatex}
+                  <span>{suggestion.label}:</span>
+                  <StaticMath latex={suggestion.rhsLatex} style={{ fontSize: "1.05rem" }} />
                 </button>
               ))}
             </div>

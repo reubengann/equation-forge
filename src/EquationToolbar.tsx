@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import type { IdentityRewriteOption } from "./math/rewrite/identity";
 import type { MoveType } from "./math/rewrite/types";
+import { StaticMath } from "./StaticMath";
 
 type EquationToolbarProps = {
   moveType: MoveType;
@@ -133,10 +134,19 @@ const menuItemStyle: CSSProperties = {
   textAlign: "left",
 };
 
-const menuItemLabelStyle: CSSProperties = {
+const menuItemMathStyle: CSSProperties = {
   display: "block",
-  fontSize: 13,
-  lineHeight: 1.2,
+  fontSize: 16,
+  lineHeight: 1.25,
+};
+
+const visuallyHiddenStyle: CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  overflow: "hidden",
+  clipPath: "inset(50%)",
+  whiteSpace: "nowrap",
 };
 
 const menuItemCaveatStyle: CSSProperties = {
@@ -611,7 +621,8 @@ export function EquationToolbar({
                 }}
                 style={menuItemStyle}
               >
-                <span style={menuItemLabelStyle}>{option.label}</span>
+                <span style={visuallyHiddenStyle}>{option.label}</span>
+                <StaticMath latex={option.latex} style={menuItemMathStyle} />
                 {option.caveat && <span style={menuItemCaveatStyle}>{option.caveat}</span>}
               </button>
             ))}
