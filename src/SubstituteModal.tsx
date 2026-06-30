@@ -132,19 +132,8 @@ export function SubstituteModal({
     selectedMath.render?.();
   }, [selectedLatex]);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      onCancel();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onCancel]);
-
   return (
-    <DraggableModal titleId="substitute-modal-title" title="Substitute" style={modalStyle}>
+    <DraggableModal titleId="substitute-modal-title" title="Substitute" style={modalStyle} onCancel={onCancel}>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={labelStyle}>{selectedLabel}</div>
           {selectedLatexReadonly ? (

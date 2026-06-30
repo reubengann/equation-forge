@@ -101,19 +101,13 @@ export function SymbolReplacementModal({
   onAccept,
   onCancel,
 }: SymbolReplacementModalProps) {
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      onCancel();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onCancel]);
-
   return (
-    <DraggableModal titleId="symbol-replacement-modal-title" title="Replace Symbols" style={modalStyle}>
+    <DraggableModal
+      titleId="symbol-replacement-modal-title"
+      title="Replace Symbols"
+      style={modalStyle}
+      onCancel={onCancel}
+    >
         <div style={labelStyle}>Select symbols to replace. All checked replacements are applied at the same time.</div>
 
         <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingRight: 4 }}>

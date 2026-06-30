@@ -77,19 +77,8 @@ export function ForceFactorModal({
     selectedMath.render?.();
   }, [selectedLatex]);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      onCancel();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onCancel]);
-
   return (
-    <DraggableModal titleId="force-factor-modal-title" title="Force Factor" style={modalStyle}>
+    <DraggableModal titleId="force-factor-modal-title" title="Force Factor" style={modalStyle} onCancel={onCancel}>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={labelStyle}>Selected sum</div>
           <div style={selectedExpressionStyle}>

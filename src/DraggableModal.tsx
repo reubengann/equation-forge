@@ -1,9 +1,18 @@
-import { useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+} from "react";
 
 type DraggableModalProps = {
   titleId: string;
   title: string;
   style: CSSProperties;
+  onCancel: () => void;
   children: ReactNode;
 };
 
@@ -34,9 +43,35 @@ type DragState = {
   originY: number;
 };
 
-export function DraggableModal({ titleId, title, style, children }: DraggableModalProps) {
+export function DraggableModal({ titleId, title, style, onCancel, children }: DraggableModalProps) {
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const modalRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
+
+  useEffect(() => {
+    const onWindowKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        onCancel();
+        return;
+      }
+
+      const modal = modalRef.current;
+      const target = event.target;
+      if (modal && target instanceof Node && modal.contains(target)) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    window.addEventListener("keydown", onWindowKeyDown, true);
+    return () => window.removeEventListener("keydown", onWindowKeyDown, true);
+  }, [onCancel]);
+
+  const onModalKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+  };
 
   const onTitlePointerDown = (event: PointerEvent<HTMLHeadingElement>) => {
     if (event.button !== 0) return;
@@ -72,6 +107,8 @@ export function DraggableModal({ titleId, title, style, children }: DraggableMod
   return (
     <div role="dialog" aria-modal="true" aria-labelledby={titleId} style={overlayStyle}>
       <div
+        ref={modalRef}
+        onKeyDown={onModalKeyDown}
         style={{
           ...style,
           transform: `translate(${offset.x}px, ${offset.y}px)`,

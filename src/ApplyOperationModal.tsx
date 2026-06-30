@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { DraggableModal } from "./DraggableModal";
 import { MathEntry } from "./MathEntry";
 import { MATH_ENTRY_MACROS, type MathEntryMacro } from "./mathEntry/mathEntryMacros";
@@ -103,17 +103,6 @@ export function ApplyOperationModal({
   onAccept,
   onCancel,
 }: ApplyOperationModalProps) {
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      onCancel();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onCancel]);
-
   const operationMacros = targetKind === "relation" ? relationOperationMacros : fractionOperationMacros;
   const placeholderLatex = `\\${placeholder}`;
   const currentPartName = targetKind === "relation" ? "side" : "numerator/denominator";
@@ -123,7 +112,12 @@ export function ApplyOperationModal({
       : { reciprocal: String.raw`1/\part`, root: String.raw`\sqrt{\part}` };
 
   return (
-    <DraggableModal titleId="apply-operation-modal-title" title="Apply Operation" style={modalStyle}>
+    <DraggableModal
+      titleId="apply-operation-modal-title"
+      title="Apply Operation"
+      style={modalStyle}
+      onCancel={onCancel}
+    >
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={labelStyle}>Operation template</div>
           <MathEntry

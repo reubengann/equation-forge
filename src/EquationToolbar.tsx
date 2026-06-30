@@ -367,46 +367,6 @@ export function EquationToolbar({
         </button>
         <button
           type="button"
-          data-testid="flip-relation"
-          aria-label="Flip relation"
-          title="Flip relation"
-          disabled={!canFlip}
-          onClick={onFlipRelationRequested}
-          style={{
-            ...iconButtonBaseStyle,
-            borderRightWidth: 0,
-            ...(!canFlip ? iconButtonDisabledStyle : {}),
-          }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="1.5"
-              d="M5 9a7 7 0 0 1 11.95-2.85L20 9"
-            />
-            <path
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="1.5"
-              d="M20 5v4h-4"
-            />
-            <path
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="1.5"
-              d="M7.5 14h9M7.5 17.5h9"
-            />
-          </svg>
-        </button>
-        <button
-          type="button"
           data-testid="substitute-selection"
           aria-label="Substitute"
           title="Substitute (S)"
@@ -481,25 +441,6 @@ export function EquationToolbar({
             functions
           </span>
         </button>
-      </div>
-
-      <div role="group" aria-label="Automatic rewrites" style={toolbarGroupStyle}>
-        <button
-          type="button"
-          data-testid="factor-selection"
-          aria-label="Factor selection"
-          title="Factor selection (F)"
-          disabled={!canFactor}
-          onClick={onFactorRequested}
-          style={{
-            ...iconButtonBaseStyle,
-            ...(!canFactor ? iconButtonDisabledStyle : {}),
-          }}
-        >
-          <span style={materialSymbolStyle} aria-hidden="true">
-            call_split
-          </span>
-        </button>
         <button
           type="button"
           data-testid="force-factor-selection"
@@ -515,6 +456,65 @@ export function EquationToolbar({
         >
           <span style={materialSymbolStyle} aria-hidden="true">
             input
+          </span>
+        </button>
+      </div>
+
+      <div role="group" aria-label="Automatic rewrites" style={toolbarGroupStyle}>
+        <button
+          type="button"
+          data-testid="flip-relation"
+          aria-label="Flip relation"
+          title="Flip relation"
+          disabled={!canFlip}
+          onClick={onFlipRelationRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            borderRightWidth: 0,
+            ...(!canFlip ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.5"
+              d="M5 9a7 7 0 0 1 11.95-2.85L20 9"
+            />
+            <path
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.5"
+              d="M20 5v4h-4"
+            />
+            <path
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.5"
+              d="M7.5 14h9M7.5 17.5h9"
+            />
+          </svg>
+        </button>
+        <button
+          type="button"
+          data-testid="factor-selection"
+          aria-label="Factor selection"
+          title="Factor selection (F)"
+          disabled={!canFactor}
+          onClick={onFactorRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            ...(!canFactor ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <span style={materialSymbolStyle} aria-hidden="true">
+            call_split
           </span>
         </button>
         <button

@@ -1,8 +1,5 @@
 ## Low
 
-- I have seen keyboard shortcuts work on an equation while a modal is shown. That should not happen. I believe it only happens when the mathlive input is not selected, but still. When the modal is up, all page input should be blocked.
-- The grouping of icons may be kind of arbitrary right now. Probably want to categorize somehow.
-
 ## Medium
 
 - Awkward: Start with `x = y + z`. If we apply `d\eqn` we get `dx = dy+z` (wrong). That's because we don't
