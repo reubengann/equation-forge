@@ -1,13 +1,11 @@
 ## Low
 
+- If the identity drop down is active and a different term is selected that has no identity, you just have a weird empty box hanging out. I think any interaction other than selecting an item within the menu should close it.
+
 ## Medium
 
-- Awkward: Start with `x = y + z`. If we apply `d\eqn` we get `dx = dy+z` (wrong). That's because we don't
-  comprehend an expression while we're applying. My workaround is to do `d(\eqn)`, which works, but results in
-  `\mathrm{d}{\left(x\right)} = \mathrm{d}{\left(y + z\right)}`. The RHS can be expanded with identities, but
-  oddly enough the LHS cannot! So I actually have to substitute it with `dx` myself.
 - Suppose we have `\left(\frac{\partial{M}}{\partial{y}}\right)_{x} = \left(\frac{\partial{N}}{\partial{x}}\right)_{y}` and apply symbol replacement with `N -> -S`. We get `\left(\frac{\partial{-S}}{\partial{L}}\right)_{T}`
-- `\left(\frac{\partial{F}}{\partial{T}}\right)_{X_1 , X_2} = -S` In my opinion, the subscript should be parsed as an immutable_expression. I don't think it is right now. It's not something that can be understood in that context, but somehow X_1 and X_2 are individually selectable and replaceable in the character replace modal. This is not necessarily desirable, as they are just acting as a label at that point, I think. Also, comma appears as a replaceable character in the modal. Now, I get why we would want to understand something like `f(X_1, X_2)`, since that's arguments of a function. If we are going to try to comprehend "list of variables" in a subscript, at least we need to omit comma from the modal.
+- Terms in symbol substitution are kind of a mess. When you have `$$\ln\left(a b\right)$$` it offers to replace `ln`. In `\left(\frac{\partial{F}}{\partial{T}}\right)_{X_1 , X_2} = -S` it offers to replace the comma.
 - `\mathrm{d}{F} = \mathrm{d'}{Q} - \mathrm{d'}{W} - S \,\mathrm{d}{T} - T \,\mathrm{d}{S}`
   `\mathrm{d'}{W} = -\mathscr{F} \,\mathrm{d}{L}`
   Choose to replace `\mathrm{d'}{W}` in the first equation.

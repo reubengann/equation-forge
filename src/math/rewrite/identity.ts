@@ -74,6 +74,13 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
     apply: differentialSumRule,
   },
   {
+    id: "simplify-grouped-differential-operand",
+    label: "d(x) -> dx",
+    latex: String.raw`\mathrm{d}\left(x\right) \to \mathrm{d}{x}`,
+    defaultPriority: 98,
+    apply: simplifyGroupedDifferentialOperand,
+  },
+  {
     id: "derivative-sum-rule",
     label: "d(f + g) -> df + dg",
     latex: String.raw`\frac{d}{dx}\left(f + g\right) \to \frac{df}{dx} + \frac{dg}{dx}`,
@@ -382,6 +389,23 @@ function differentialSumRule(expr: Expr): Expr | null {
 
 function groupedDifferentialSumOperand(expr: Expr): Expr {
   return expr.kind === "multiply" ? displayGroup("paren", expr) : cloneExpr(expr);
+}
+
+function simplifyGroupedDifferentialOperand(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  if (signed.value.kind !== "differential") return null;
+
+  const variable = signed.value.variable;
+  if (variable.kind !== "display_group") return null;
+
+  const unwrappedVariable = unwrapDisplayGroup(variable);
+  if (!isSymbolLikeAtom(unwrappedVariable)) return null;
+
+  const simplified = differential(
+    unwrappedVariable,
+    signed.value.inexact ? { inexact: true } : undefined,
+  );
+  return signed.sign === -1 ? flipSign(simplified) : simplified;
 }
 
 type IntegralLikeExpr = Extract<

@@ -124,6 +124,25 @@ describe("identity rewrites", () => {
     );
   });
 
+  it("simplifies grouped symbol differential operands", () => {
+    const expr = parse(String.raw`\mathrm{d}{\left(x\right)}`);
+    const options = getApplicableIdentityRewrites(expr);
+
+    expect(options.map((option) => option.id)).toContain("simplify-grouped-differential-operand");
+    expect(rewriteLatex(String.raw`\mathrm{d}{\left(x\right)}`, "simplify-grouped-differential-operand")).toBe(
+      String.raw`\mathrm{d}{x}`,
+    );
+    expect(
+      rewriteLatex(String.raw`\mathrm{d'}{\left(x\right)}`, "simplify-grouped-differential-operand"),
+    ).toBe(String.raw`\mathrm{d'}{x}`);
+  });
+
+  it("does not simplify grouped compound differential operands", () => {
+    expect(
+      rewriteLatex(String.raw`\mathrm{d}{\left(y+z\right)}`, "simplify-grouped-differential-operand"),
+    ).toBeNull();
+  });
+
   it("applies the integral sum rule", () => {
     const expr = parse(String.raw`\int \left(f+g\right) \,\mathrm{d}{x}`);
     const options = getApplicableIdentityRewrites(expr);

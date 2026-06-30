@@ -38,6 +38,20 @@ describe("applyOperationToRelation", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`\mathrm{d}{\left(a\right)} = \mathrm{d}{\left(b\right)}`);
   });
 
+  it("treats inferred differential templates as differentials of each side", () => {
+    const next = applyOperationToRelation(expr("x=y+z"), expr(String.raw`d\eqn`));
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\mathrm{d}{x} = \mathrm{d}{\left(y + z\right)}`);
+  });
+
+  it("treats inferred inexact differential templates as inexact differentials of each side", () => {
+    const next = applyOperationToRelation(expr("x=y+z"), expr(String.raw`d'\eqn`));
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\mathrm{d'}{x} = \mathrm{d'}{\left(y + z\right)}`);
+  });
+
   it("applies a MathLive-rendered differential with the side as its argument", () => {
     const template = expr(String.raw`\mathrm{d}\left(\eqn\right)`);
 
@@ -58,6 +72,13 @@ describe("applyOperationToRelation", () => {
 
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(String.raw`2 \left(a + 1\right) = 2 \left(2\right)`);
+  });
+
+  it("wraps compound sides inserted as bare function arguments", () => {
+    const next = applyOperationToRelation(expr("x=y+z"), expr(String.raw`\sin\eqn`));
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\sin x  = \sin \left(y + z\right) `);
   });
 
   it("wraps compound sides inserted as partial derivative operands", () => {
