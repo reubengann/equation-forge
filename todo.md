@@ -5,6 +5,12 @@
 ## Medium
 
 - `\left(\frac{\partial{F}}{\partial{T}}\right)_{X_1 , X_2} = -S` In my opinion, the subscript should be parsed as an immutable_expression. I don't think it is right now. It's not something that can be understood in that context, but somehow X_1 and X_2 are individually selectable and replaceable in the character replace modal. This is not necessarily desirable, as they are just acting as a label at that point, I think. Also, comma appears as a replaceable character in the modal. Now, I get why we would want to understand something like `f(X_1, X_2)`, since that's arguments of a function. If we are going to try to comprehend "list of variables" in a subscript, at least we need to omit comma from the modal.
+- `\mathrm{d}{F} = \mathrm{d'}{Q} - \mathrm{d'}{W} - S \,\mathrm{d}{T} - T \,\mathrm{d}{S}`
+  `\mathrm{d'}{W} = -\mathscr{F} \,\mathrm{d}{L}`
+  Choose to replace `\mathrm{d'}{W}` in the first equation.
+  In the modal, we get the option to replace with `-\mathscr{F} \,\mathrm{d}{L}` from the other equation (good)
+  When the option is chosen, mathlive shows `--\mathscr{F}\,\mathrm{d}{L}` (double negative signs). Although the final
+  result works, this is ugly and awkward.
 
 ## Hard/Uncertain
 
