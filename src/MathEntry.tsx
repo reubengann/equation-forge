@@ -6,6 +6,7 @@ type MathfieldElementLike = HTMLElement & {
   value?: string;
   macros?: Record<string, string>;
   getValue?: (format: "latex") => string;
+  select?: () => void;
   insert?: (
     latex: string,
     options: {
@@ -27,16 +28,25 @@ type MathEntryProps = {
   mathfieldMacros?: Record<string, string>;
   autoFocus?: boolean;
   focusAtEnd?: boolean;
+  selectOnFocus?: boolean;
   focusSession?: number;
   mathFieldId?: string;
   macroButtonTabIndex?: number;
 };
 
-function focusMathField(field: MathfieldElementLike | null, options: { atEnd?: boolean } = {}): boolean {
+function focusMathField(
+  field: MathfieldElementLike | null,
+  options: { atEnd?: boolean; selectAll?: boolean } = {},
+): boolean {
   if (!field || !field.isConnected) return false;
   try {
     field.focus();
-    if (options.atEnd) field.executeCommand?.("moveToMathfieldEnd");
+    if (options.selectAll) {
+      if (typeof field.executeCommand === "function") field.executeCommand("selectAll");
+      else field.select?.();
+    } else if (options.atEnd) {
+      field.executeCommand?.("moveToMathfieldEnd");
+    }
     return true;
   } catch {
     return false;
@@ -52,6 +62,7 @@ export function MathEntry({
   mathfieldMacros,
   autoFocus = false,
   focusAtEnd = false,
+  selectOnFocus = false,
   focusSession,
   mathFieldId = "equation-mathfield",
   macroButtonTabIndex,
@@ -83,7 +94,13 @@ export function MathEntry({
     const tryFocus = () => {
       if (cancelled) return;
       attempts += 1;
-      if (focusMathField(mathFieldRef.current, { atEnd: focusAtEnd }) || attempts >= maxAttempts) return;
+      const didFocus = focusMathField(mathFieldRef.current, {
+        atEnd: focusAtEnd,
+        selectAll: selectOnFocus,
+      });
+      if (didFocus || attempts >= maxAttempts) {
+        return;
+      }
 
       timeoutId = window.setTimeout(() => {
         animationFrameId = requestAnimationFrame(tryFocus);
@@ -97,7 +114,7 @@ export function MathEntry({
       if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
       if (timeoutId !== null) window.clearTimeout(timeoutId);
     };
-  }, [autoFocus, focusAtEnd, focusSession]);
+  }, [autoFocus, focusAtEnd, focusSession, selectOnFocus]);
 
   const readLatexFromField = (): string => {
     const field = mathFieldRef.current;

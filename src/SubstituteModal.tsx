@@ -181,6 +181,7 @@ export function SubstituteModal({
               onLatexChange={onSelectedLatexChange ?? (() => undefined)}
               onAccept={onAccept}
               autoFocus
+              selectOnFocus
               focusSession={focusSession}
               mathFieldId="substitute-target-mathfield"
               macroButtonTabIndex={-1}
@@ -196,6 +197,7 @@ export function SubstituteModal({
             onLatexChange={onReplacementLatexChange}
             onAccept={onAccept}
             autoFocus={selectedLatexReadonly}
+            selectOnFocus={selectedLatexReadonly}
             focusSession={focusSession}
             mathFieldId="substitute-mathfield"
             macroButtonTabIndex={-1}
