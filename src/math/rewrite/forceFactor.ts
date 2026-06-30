@@ -21,8 +21,11 @@ type RationalParts = {
 };
 
 type ForceFactorTarget = {
+  expr: Extract<Expr, { kind: "add" }>;
+  kind: "sum";
+} | {
   expr: Expr;
-  kind: "sum" | "product";
+  kind: "product";
 };
 
 export function canForceFactorSelection(

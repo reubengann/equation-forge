@@ -12,6 +12,7 @@ import { compileMathDocument } from "./math/compile/compileMathDocument";
 import type { PadDefinitionSource } from "./substituteSuggestions";
 
 const STORAGE_KEY = "physics-derivation-pad-equations";
+const COPY_OPTIONS_STORAGE_KEY = "physics-derivation-pad-copy-options";
 const STORAGE_SCHEMA_VERSION = 1;
 const materialSymbolStyle: CSSProperties = {
   fontVariationSettings: `"FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24`,
@@ -247,9 +248,32 @@ function savePadEquations(equations: PadEquation[]) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }
 
+function loadWrapEquationCopiesInDisplayMath(): boolean {
+  if (typeof window === "undefined") return false;
+
+  try {
+    return window.localStorage.getItem(COPY_OPTIONS_STORAGE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function saveWrapEquationCopiesInDisplayMath(value: boolean) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(COPY_OPTIONS_STORAGE_KEY, String(value));
+  } catch {
+    // Copying still works if the browser blocks localStorage.
+  }
+}
+
 export function PadView() {
   const [equations, setEquations] = useState<PadEquation[]>(loadPadEquations);
   const [activeEquationId, setActiveEquationId] = useState<string | null>(() => equations[0]?.id ?? null);
+  const [wrapEquationCopiesInDisplayMath, setWrapEquationCopiesInDisplayMath] = useState(
+    loadWrapEquationCopiesInDisplayMath,
+  );
 
   const compiledSourcesByEquationId = useMemo(() => {
     const sources = new Map<string, PadDefinitionSource>();
@@ -333,6 +357,11 @@ export function PadView() {
     setActiveEquationId(duplicatedEquation.id);
   };
 
+  const updateWrapEquationCopiesInDisplayMath = (value: boolean) => {
+    setWrapEquationCopiesInDisplayMath(value);
+    saveWrapEquationCopiesInDisplayMath(value);
+  };
+
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: "14px", alignItems: "stretch" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" }}>
@@ -342,22 +371,42 @@ export function PadView() {
             Equations persist locally. Click an equation to make its shortcuts active.
           </div>
         </div>
-        <button
-          type="button"
-          data-testid="add-pad-equation"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={addEquation}
-          style={{
-            boxSizing: "border-box",
-            border: "1px solid #757575",
-            borderRadius: "3px",
-            background: "#424242",
-            color: "rgba(255, 255, 255, 0.87)",
-            padding: "8px 12px",
-          }}
-        >
-          Add equation
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <label
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              fontSize: "0.9rem",
+              color: "rgba(255, 255, 255, 0.82)",
+              userSelect: "none",
+            }}
+          >
+            <input
+              type="checkbox"
+              data-testid="wrap-equation-copy-display-math"
+              checked={wrapEquationCopiesInDisplayMath}
+              onChange={(event) => updateWrapEquationCopiesInDisplayMath(event.currentTarget.checked)}
+            />
+            Copy full equations with $$
+          </label>
+          <button
+            type="button"
+            data-testid="add-pad-equation"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={addEquation}
+            style={{
+              boxSizing: "border-box",
+              border: "1px solid #757575",
+              borderRadius: "3px",
+              background: "#424242",
+              color: "rgba(255, 255, 255, 0.87)",
+              padding: "8px 12px",
+            }}
+          >
+            Add equation
+          </button>
+        </div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: "12px", overflowX: "auto" }}>
@@ -417,6 +466,7 @@ export function PadView() {
                   isActive={isActive}
                   mathFieldId={`equation-mathfield-${equation.id}`}
                   substituteSuggestionSources={definitionSources}
+                  wrapEquationCopiesInDisplayMath={wrapEquationCopiesInDisplayMath}
                 />
                 <span
                   style={{

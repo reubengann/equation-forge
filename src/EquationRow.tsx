@@ -30,6 +30,7 @@ type EquationRowProps = {
   onActivate?: () => void;
   mathFieldId?: string;
   substituteSuggestionSources?: PadDefinitionSource[];
+  wrapEquationCopiesInDisplayMath?: boolean;
 };
 
 function acceptButtonLabel(mode: EquationMode) {
@@ -49,6 +50,7 @@ export function EquationRow({
   onActivate,
   mathFieldId,
   substituteSuggestionSources = [],
+  wrapEquationCopiesInDisplayMath = false,
 }: EquationRowProps) {
   const [entryError, setEntryError] = useState<string | null>(null);
   const [presetIndex, setPresetIndex] = useState(0);
@@ -72,6 +74,14 @@ export function EquationRow({
     return compileMathDocumentFromExpr(compiledDoc.sourceLatex, semanticExpr);
   }, [compiledDoc, prunedFunctionSymbols]);
   const displayCompiledDoc = semanticCompiledDoc ?? compiledDoc;
+  const equationHistoryLatexes = useMemo(
+    () => [
+      ...state.history.past.map((step) => step.latex),
+      state.history.present.latex,
+      ...state.history.future.map((step) => step.latex),
+    ],
+    [state.history],
+  );
 
   const updateMathFieldValue = (nextValue: string) => {
     const valueChanged = nextValue !== state.latex;
@@ -256,6 +266,8 @@ export function EquationRow({
               onCanonicalLatexChanged={handleCanonicalLatexChanged}
               isActive={isActive}
               substituteSuggestionSources={substituteSuggestionSources}
+              wrapEquationCopiesInDisplayMath={wrapEquationCopiesInDisplayMath}
+              equationHistoryLatexes={equationHistoryLatexes}
             />
           ) : (
             <div role="alert" style={{ flex: 1, color: "#ffb4ab", alignSelf: "center" }}>

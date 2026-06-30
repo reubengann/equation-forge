@@ -1,8 +1,5 @@
 ## Low
 
-- Page-level option to copy full equations with $$ $$ around them (persist this option in localStorage). This does not apply
-  to copying a term.
-- Copy with history button, copies all of the forms of this equation as separate lines with $$ $$
 - Render options in replace modal with LaTeX instead of plain text. Also for the preview of identities.
 - We should select the mathlive content when going into the substitute modal. Fairly often the substitution you
   want to make is to set the whole thing to zero, so in that case you have to do `home shift+end 0 enter`, whereas
@@ -11,6 +8,7 @@
   very common.
 - It would be good to be able to move the modals so that one can see the equations on the page
 - I have seen keyboard shortcuts work on an equation while a modal is shown. That should not happen.
+- The grouping of icons may be kind of arbitrary right now. Probably want to categorize somehow.
 
 ## Medium
 

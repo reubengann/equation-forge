@@ -12,6 +12,9 @@ type EquationToolbarProps = {
   canCopyEquation: boolean;
   onCopyEquationRequested: () => void;
   copyEquationFeedback: "idle" | "done";
+  canCopyHistory: boolean;
+  onCopyHistoryRequested: () => void;
+  copyHistoryFeedback: "idle" | "done";
   canCopySelection: boolean;
   onCopySelectionRequested: () => void;
   copySelectionFeedback: "idle" | "done";
@@ -171,6 +174,9 @@ export function EquationToolbar({
   canCopyEquation,
   onCopyEquationRequested,
   copyEquationFeedback,
+  canCopyHistory,
+  onCopyHistoryRequested,
+  copyHistoryFeedback,
   canCopySelection,
   onCopySelectionRequested,
   copySelectionFeedback,
@@ -330,6 +336,23 @@ export function EquationToolbar({
         >
           <span style={materialSymbolStyle} aria-hidden="true">
             {copySelectionFeedback === "done" ? "check" : "content_copy"}
+          </span>
+        </button>
+        <button
+          type="button"
+          data-testid="copy-equation-history-latex"
+          aria-label={copyHistoryFeedback === "done" ? "Equation history copied" : "Copy equation history"}
+          title="Copy equation history LaTeX"
+          disabled={!canCopyHistory}
+          onClick={onCopyHistoryRequested}
+          style={{
+            ...iconButtonBaseStyle,
+            borderRightWidth: 0,
+            ...(!canCopyHistory ? iconButtonDisabledStyle : {}),
+          }}
+        >
+          <span style={materialSymbolStyle} aria-hidden="true">
+            {copyHistoryFeedback === "done" ? "check" : "history"}
           </span>
         </button>
         <button

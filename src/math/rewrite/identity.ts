@@ -336,14 +336,15 @@ function differentialSumRule(expr: Expr): Expr | null {
   const signed = splitSign(expr);
   if (signed.sign === -1 || signed.value.kind !== "differential") return null;
 
-  const sum = sumOperand(signed.value.variable);
+  const differentialExpr = signed.value;
+  const sum = sumOperand(differentialExpr.variable);
   if (!sum || sum.terms.length < 2) return null;
 
   return add(
     sum.terms.map((term) => {
       const signedTerm = splitAdditiveTermSign(term);
       const termDifferential = differential(groupedDifferentialSumOperand(signedTerm.value), {
-        ...(signed.value.inexact ? { inexact: true } : {}),
+        ...(differentialExpr.inexact ? { inexact: true } : {}),
       });
       return signedTerm.sign === -1 ? flipSign(termDifferential) : termDifferential;
     }),
@@ -363,14 +364,15 @@ function integralSumRule(expr: Expr): Expr | null {
   const signed = splitSign(expr);
   if (signed.sign === -1 || !isIntegralLike(signed.value)) return null;
 
-  const split = integralSumIntegrand(signed.value);
+  const integralExpr = signed.value;
+  const split = integralSumIntegrand(integralExpr);
   if (!split || split.sum.terms.length < 2) return null;
 
   return add(
     split.sum.terms.map((term) => {
       const signedTerm = splitAdditiveTermSign(term);
       const termIntegral = withIntegralIntegrand(
-        signed.value,
+        integralExpr,
         split.integrandForTerm(signedTerm.value),
       );
       return signedTerm.sign === -1 ? flipSign(termIntegral) : termIntegral;
