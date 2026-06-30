@@ -1,17 +1,16 @@
 ## Low
 
-- Page-level option to copy full equations with $$ $$ around them (persist this option in localStorage)
+- Page-level option to copy full equations with $$ $$ around them (persist this option in localStorage). This does not apply
+  to copying a term.
 - Copy with history button, copies all of the forms of this equation as separate lines with $$ $$
 - Render options in replace modal with LaTeX instead of plain text. Also for the preview of identities.
-- Should we select the mathlive content when going into a substitute modal? Fairly often the substitution you
+- We should select the mathlive content when going into the substitute modal. Fairly often the substitution you
   want to make is to set the whole thing to zero, so in that case you have to do `home shift+end 0 enter`, whereas
   if it was highlighted you could just hit `zero enter`. If you don't want to substitute the whole thing,
   and instead want to edit what you have, you now have to press something to deselect everything, but that's not
   very common.
-- Awkward: suppose we have `\left(\frac{\partial{M}}{\partial{y}}\right)_{x} = \left(\frac{\partial{N}}{\partial{x}}\right)_{y}`
-  and apply symbol replacement with `N -> -S`. We get `\left(\frac{\partial{-S}}{\partial{L}}\right)_{T}`
-- Sometimes it wouldbe good to move modals to see equations on the page
-- I have seen keyboard shortcuts work on an equation while a modal is shown. Should not
+- It would be good to be able to move the modals so that one can see the equations on the page
+- I have seen keyboard shortcuts work on an equation while a modal is shown. That should not happen.
 
 ## Medium
 
@@ -19,6 +18,7 @@
   comprehend an expression while we're applying. My workaround is to do `d(\eqn)`, which works, but results in
   `\mathrm{d}{\left(x\right)} = \mathrm{d}{\left(y + z\right)}`. The RHS can be expanded with identities, but
   oddly enough the LHS cannot! So I actually have to substitute it with `dx` myself.
+- Suppose we have `\left(\frac{\partial{M}}{\partial{y}}\right)_{x} = \left(\frac{\partial{N}}{\partial{x}}\right)_{y}` and apply symbol replacement with `N -> -S`. We get `\left(\frac{\partial{-S}}{\partial{L}}\right)_{T}`
 - `\left(\frac{\partial{F}}{\partial{T}}\right)_{X_1 , X_2} = -S` In my opinion, the subscript should be parsed as an immutable_expression. I don't think it is right now. It's not something that can be understood in that context, but somehow X_1 and X_2 are individually selectable and replaceable in the character replace modal. This is not necessarily desirable, as they are just acting as a label at that point, I think. Also, comma appears as a replaceable character in the modal. Now, I get why we would want to understand something like `f(X_1, X_2)`, since that's arguments of a function. If we are going to try to comprehend "list of variables" in a subscript, at least we need to omit comma from the modal.
 - `\mathrm{d}{F} = \mathrm{d'}{Q} - \mathrm{d'}{W} - S \,\mathrm{d}{T} - T \,\mathrm{d}{S}`
   `\mathrm{d'}{W} = -\mathscr{F} \,\mathrm{d}{L}`
