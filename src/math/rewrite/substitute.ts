@@ -3,7 +3,7 @@ import { exprToLatex } from "../adapters/latex";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import type { TermSelection } from "../../selection/types";
 import { cloneExpr } from "../ast/utils";
-import { splitSign, structuralKeyIgnoringDisplayGroups, withSign } from "./algebraUtils";
+import { applySign, collapseProduct, splitSign, structuralKeyIgnoringDisplayGroups, withSign } from "./algebraUtils";
 import {
   getSelectionRewriteTarget,
   replaceSelectionWithExpr,
@@ -49,7 +49,8 @@ export function getSubstitutionSelection(
 ): SubstitutionSelection | null {
   const target = getSelectionRewriteTarget(document, selection);
   if (!target) return null;
-  return { expr: target.expr, latex: exprToLatex(target.expr, false) };
+  const unsigned = splitSign(target.expr).value;
+  return { expr: unsigned, latex: exprToLatex(unsigned, false) };
 }
 
 export function substituteSelection(
@@ -58,8 +59,35 @@ export function substituteSelection(
   replacement: Expr,
 ): Expr | null {
   if (!isValidSubstitutionReplacement(replacement)) return null;
-  const next = replaceSelectionWithExpr(document, selection, replacement);
+  const next = replaceSelectionWithExpr(document, selection, contextualReplacement(document, selection, replacement));
   return next ? normalizeSubstitutionSigns(next) : null;
+}
+
+function contextualReplacement(
+  document: CompiledMathDocument,
+  selection: TermSelection,
+  replacement: Expr,
+): Expr {
+  if (selection.kind !== "single") return replacement;
+  const selected = document.index.nodeById[selection.nodeId];
+  if (!selected) return replacement;
+  if (!shouldApplySelectedSign(document, selection.nodeId)) return replacement;
+  return applySign(splitSign(selected).sign, normalizeReplacementProductSign(replacement));
+}
+
+function normalizeReplacementProductSign(replacement: Expr): Expr {
+  return replacement.kind === "multiply" ? collapseProduct(replacement.factors) : replacement;
+}
+
+function shouldApplySelectedSign(document: CompiledMathDocument, nodeId: string): boolean {
+  const selected = document.index.nodeById[nodeId];
+  if (!selected || splitSign(selected).sign === 1) return false;
+
+  const location = document.index.locationById[nodeId];
+  if (!location?.parentId || location.field !== "terms") return false;
+
+  const parent = document.index.nodeById[location.parentId];
+  return parent?.kind === "add";
 }
 
 export function substituteAllMatchingSelection(

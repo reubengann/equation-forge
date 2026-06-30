@@ -123,6 +123,49 @@ describe("substituteSelection", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`w = \int_{P_i}^{P_f} P \left(-v_0 \kappa \,\mathrm{d}{P}\right)`);
   });
 
+  it("shows the unsigned selected expression for negative signed nodes", () => {
+    const document = buildDocument(
+      String.raw`\mathrm{d}{F} = \mathrm{d'}{Q} - \mathrm{d'}{W} - S \,\mathrm{d}{T} - T \,\mathrm{d}{S}`,
+    );
+    const selectedNodeId = firstNodeIdMatching(
+      document,
+      (expr) =>
+        expr.kind === "differential" &&
+        expr.inexact === true &&
+        expr.variable.kind === "symbol" &&
+        expr.variable.name === "W",
+    );
+
+    expect(getSubstitutionSelection(document, { kind: "single", nodeId: selectedNodeId })?.latex).toBe(
+      String.raw`\mathrm{d'}{W}`,
+    );
+  });
+
+  it("cancels signs when replacing a negative term with a negative differential definition", () => {
+    const document = buildDocument(
+      String.raw`\mathrm{d}{F} = \mathrm{d'}{Q} - \mathrm{d'}{W} - S \,\mathrm{d}{T} - T \,\mathrm{d}{S}`,
+    );
+    const selectedNodeId = firstNodeIdMatching(
+      document,
+      (expr) =>
+        expr.kind === "differential" &&
+        expr.inexact === true &&
+        expr.variable.kind === "symbol" &&
+        expr.variable.name === "W",
+    );
+
+    const next = substituteSelection(
+      document,
+      { kind: "single", nodeId: selectedNodeId },
+      replacement(String.raw`-\mathscr{F} \,\mathrm{d}{L}`),
+    );
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\mathrm{d}{F} = \mathrm{d'}{Q} + \mathscr{F} \,\mathrm{d}{L} - S \,\mathrm{d}{T} - T \,\mathrm{d}{S}`,
+    );
+  });
+
   it("preserves a negative reciprocal sign when merging a product replacement", () => {
     const document = buildDocument(
       String.raw`R T^{2} \frac{\partial}{\partial{T}} \frac{1}{\left(v + A\right)}`,

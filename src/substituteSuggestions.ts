@@ -1,7 +1,7 @@
 import { exprToLatex } from "./math/adapters/latex";
 import type { CompiledMathDocument } from "./math/compile/compileMathDocument";
 import type { Expr } from "./math/ast";
-import { applySign, flipSign, splitSign, structuralKeyIgnoringDisplayGroups } from "./math/rewrite/algebraUtils";
+import { applySign, collapseProduct, flipSign, splitSign, structuralKeyIgnoringDisplayGroups } from "./math/rewrite/algebraUtils";
 import { add } from "./math/ast";
 import type { SubstitutionSelection } from "./math/rewrite/substitute";
 
@@ -39,6 +39,9 @@ function negateSuggestion(expr: Expr): Expr {
   const signed = splitSign(expr);
   if (signed.value.kind === "add") {
     return add(signed.value.terms.map((term) => applySign(signed.sign === 1 ? -1 : 1, term)));
+  }
+  if (signed.value.kind === "multiply") {
+    return applySign(signed.sign === 1 ? -1 : 1, collapseProduct(signed.value.factors));
   }
   return flipSign(expr);
 }

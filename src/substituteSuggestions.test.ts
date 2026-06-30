@@ -74,6 +74,38 @@ describe("buildPadSubstituteSuggestions", () => {
     expect(suggestions[0]?.rhsLatex).toBe("-y - z");
   });
 
+  it("suggests the signed RHS for matching inexact differentials", () => {
+    const selected = parseLatexToExpr(String.raw`\mathrm{d'}{W}`);
+    const suggestions = buildPadSubstituteSuggestions(
+      { expr: selected, latex: String.raw`\mathrm{d'}{W}` },
+      [
+        {
+          equationId: "eq-1",
+          label: "Equation 1",
+          compiledDoc: compileMathDocument(String.raw`\mathrm{d'}{W} = -\mathscr{F} \,\mathrm{d}{L}`),
+        },
+      ],
+    );
+
+    expect(suggestions[0]?.rhsLatex).toBe(String.raw`-\mathscr{F} \,\mathrm{d}{L}`);
+  });
+
+  it("can still cancel signs for explicitly negative selected inexact differentials", () => {
+    const selected = parseLatexToExpr(String.raw`-\mathrm{d'}{W}`);
+    const suggestions = buildPadSubstituteSuggestions(
+      { expr: selected, latex: String.raw`-\mathrm{d'}{W}` },
+      [
+        {
+          equationId: "eq-1",
+          label: "Equation 1",
+          compiledDoc: compileMathDocument(String.raw`\mathrm{d'}{W} = -\mathscr{F} \,\mathrm{d}{L}`),
+        },
+      ],
+    );
+
+    expect(suggestions[0]?.rhsLatex).toBe(String.raw`\mathscr{F} \,\mathrm{d}{L}`);
+  });
+
   it("ignores non-matching equations", () => {
     const selected = parseLatexToExpr(String.raw`F`);
     const suggestions = buildPadSubstituteSuggestions(
