@@ -4,8 +4,7 @@
 
 ## Medium
 
-- Suppose we have `\left(\frac{\partial{M}}{\partial{y}}\right)_{x} = \left(\frac{\partial{N}}{\partial{x}}\right)_{y}` and apply symbol replacement with `N -> -S`. We get `\left(\frac{\partial{-S}}{\partial{L}}\right)_{T}`
-- Terms in symbol substitution are kind of a mess. When you have `$$\ln\left(a b\right)$$` it offers to replace `ln`. In `\left(\frac{\partial{F}}{\partial{T}}\right)_{X_1 , X_2} = -S` it offers to replace the comma.
+- Terms in symbol substitution are buggy. When you have `$$\ln\left(a b\right)$$` it offers to replace `ln`. In `\left(\frac{\partial{F}}{\partial{T}}\right)_{X_1 , X_2} = -S` it offers to replace the comma. There needs to be enforced criteria that determine whether something is eligible. I thought it was things that were "symbol-like", but clearly a comma is not that.
 - `\mathrm{d}{F} = \mathrm{d'}{Q} - \mathrm{d'}{W} - S \,\mathrm{d}{T} - T \,\mathrm{d}{S}`
   `\mathrm{d'}{W} = -\mathscr{F} \,\mathrm{d}{L}`
   Choose to replace `\mathrm{d'}{W}` in the first equation.

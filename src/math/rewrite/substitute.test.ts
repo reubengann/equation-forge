@@ -219,6 +219,28 @@ describe("substituteAllMatchingExpression", () => {
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(String.raw`E_y + x_0`);
   });
+
+  it("promotes negative replacement signs out of partial derivatives at constant quantity", () => {
+    const document = buildDocument(
+      String.raw`\left(\frac{\partial{M}}{\partial{y}}\right)_{x} = \left(\frac{\partial{N}}{\partial{x}}\right)_{y}`,
+    );
+
+    const next = substituteAllMatchingExpression(document, replacement("N"), replacement("-S"));
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\left(\frac{\partial{M}}{\partial{y}}\right)_{x} = -\left(\frac{\partial{S}}{\partial{x}}\right)_{y}`,
+    );
+  });
+
+  it("cancels derivative signs when a negative derivative quantity is already negated", () => {
+    const document = buildDocument(String.raw`-\frac{\partial{N}}{\partial{x}}`);
+
+    const next = substituteAllMatchingExpression(document, replacement("N"), replacement("-S"));
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\frac{\partial{S}}{\partial{x}}`);
+  });
 });
 
 describe("getReplaceableSymbols", () => {

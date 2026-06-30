@@ -3,7 +3,7 @@ import { exprToLatex } from "../adapters/latex";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import type { TermSelection } from "../../selection/types";
 import { cloneExpr } from "../ast/utils";
-import { structuralKeyIgnoringDisplayGroups } from "./algebraUtils";
+import { splitSign, structuralKeyIgnoringDisplayGroups, withSign } from "./algebraUtils";
 import {
   getSelectionRewriteTarget,
   replaceSelectionWithExpr,
@@ -58,7 +58,8 @@ export function substituteSelection(
   replacement: Expr,
 ): Expr | null {
   if (!isValidSubstitutionReplacement(replacement)) return null;
-  return replaceSelectionWithExpr(document, selection, replacement);
+  const next = replaceSelectionWithExpr(document, selection, replacement);
+  return next ? normalizeSubstitutionSigns(next) : null;
 }
 
 export function substituteAllMatchingSelection(
@@ -246,7 +247,134 @@ function substituteAllMatchingExpr(
       break;
   }
 
-  return { expr: next, changed };
+  return { expr: normalizeSubstitutionSigns(next), changed };
+}
+
+function normalizeSubstitutionSigns(expr: Expr): Expr {
+  const next = cloneExpr(expr);
+  const replaceChild = normalizeSubstitutionSigns;
+  const replaceOptionalChild = (child: Expr | null): Expr | null => (child ? replaceChild(child) : null);
+
+  switch (next.kind) {
+    case "number":
+    case "symbol":
+    case "text":
+    case "immutable_expression":
+    case "invalid_input":
+      return next;
+    case "add":
+      next.terms = next.terms.map(replaceChild);
+      return next;
+    case "multiply":
+      next.factors = next.factors.map(replaceChild);
+      return next;
+    case "power":
+      next.base = replaceChild(next.base);
+      next.exponent = replaceChild(next.exponent);
+      return next;
+    case "negate":
+      next.value = replaceChild(next.value);
+      return next;
+    case "divide":
+      next.numerator = replaceChild(next.numerator);
+      next.denominator = replaceChild(next.denominator);
+      return next;
+    case "root":
+    case "absolute_value":
+    case "vector":
+    case "hat":
+    case "dotted_expr":
+    case "primed":
+    case "special_font":
+      next.value = replaceChild(next.value);
+      return next;
+    case "equation":
+      next.sides = next.sides.map(replaceChild);
+      return next;
+    case "inequality":
+      next.lhs = replaceChild(next.lhs);
+      next.rhs = replaceChild(next.rhs);
+      return next;
+    case "call":
+      next.callee = replaceChild(next.callee);
+      next.args = next.args.map(replaceChild);
+      return next;
+    case "user_function":
+      next.argument = replaceChild(next.argument);
+      return next;
+    case "inner_product":
+    case "outer_product":
+      next.factors = next.factors.map(replaceChild);
+      return next;
+    case "big_sum":
+      next.summand = replaceChild(next.summand);
+      next.lowerBound = replaceOptionalChild(next.lowerBound);
+      next.upperBound = replaceOptionalChild(next.upperBound);
+      return next;
+    case "big_prod":
+      next.muliplicand = replaceChild(next.muliplicand);
+      next.lowerBound = replaceOptionalChild(next.lowerBound);
+      next.upperBound = replaceOptionalChild(next.upperBound);
+      return next;
+    case "limit":
+      next.expression = replaceChild(next.expression);
+      next.lowerBound = replaceOptionalChild(next.lowerBound);
+      return next;
+    case "integral":
+      next.integrand = replaceChild(next.integrand);
+      next.lowerBound = replaceOptionalChild(next.lowerBound);
+      next.upperBound = replaceOptionalChild(next.upperBound);
+      return next;
+    case "uniterated_integral":
+    case "closed_integral":
+    case "multiple_integral":
+      next.integrand = replaceChild(next.integrand);
+      return next;
+    case "differential":
+      next.variable = replaceChild(next.variable);
+      return promoteChildSign(next, "variable");
+    case "partial_derivative":
+      next.quantity = replaceChild(next.quantity);
+      next.variable = replaceChild(next.variable);
+      return promoteChildSign(next, "quantity");
+    case "full_derivative_operator":
+    case "partial_derivative_operator":
+      next.variable = replaceChild(next.variable);
+      next.operand = replaceChild(next.operand);
+      return promoteChildSign(next, "operand");
+    case "display_group":
+      next.expression = replaceChild(next.expression);
+      return next;
+    case "second_order_partial_derivative":
+      next.dependentVariable = replaceChild(next.dependentVariable);
+      next.independentVariables = next.independentVariables.map(replaceChild);
+      return promoteChildSign(next, "dependentVariable");
+    case "partial_at_const_quantity":
+      next.quantity = replaceChild(next.quantity);
+      next.variable = replaceChild(next.variable);
+      next.constantQuantity = replaceChild(next.constantQuantity);
+      return promoteChildSign(next, "quantity");
+  }
+}
+
+function promoteChildSign<T extends Expr, K extends keyof T>(expr: T, key: K): Expr {
+  const child = expr[key];
+  if (!isExpr(child)) return expr;
+  const signedChild = splitSign(child);
+  if (signedChild.sign === 1) return expr;
+
+  const signedExpr = splitSign(expr);
+  return withSign(
+    {
+      ...signedExpr.value,
+      [key]: signedChild.value,
+    } as Expr,
+    signedExpr.sign === signedChild.sign ? 1 : -1,
+  );
+}
+
+function isExpr(value: unknown): value is Expr {
+  return typeof value === "object" && value !== null && "kind" in value;
 }
 
 function buildReplacementPlan(substitutions: SimultaneousSubstitution[]): ReplacementPlan | null {
