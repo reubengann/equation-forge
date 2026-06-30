@@ -109,7 +109,13 @@ describe("identity rewrites", () => {
         String.raw`\mathrm{d}{\left(-R T \ln \frac{v}{v_0}  + B v\right)}`,
         "differential-sum-rule",
       ),
-    ).toBe(String.raw`-\mathrm{d}{R T \ln \frac{v}{v_0} } + \mathrm{d}{B v}`);
+    ).toBe(String.raw`-\mathrm{d}{\left(R T \ln \frac{v}{v_0} \right)} + \mathrm{d}{\left(B v\right)}`);
+  });
+
+  it("groups product operands when applying the differential sum rule", () => {
+    expect(rewriteLatex(String.raw`\mathrm{d}{\left(U + P V\right)}`, "differential-sum-rule")).toBe(
+      String.raw`\mathrm{d}{U} + \mathrm{d}{\left(P V\right)}`,
+    );
   });
 
   it("preserves inexact notation when applying the differential sum rule", () => {
@@ -201,6 +207,22 @@ describe("identity rewrites", () => {
     );
   });
 
+  it("applies the differential product rule", () => {
+    const expr = parse(String.raw`\mathrm{d}{\left(P V\right)}`);
+    const options = getApplicableIdentityRewrites(expr);
+
+    expect(options.map((option) => option.id)).toContain("differential-product-rule");
+    expect(rewriteLatex(String.raw`\mathrm{d}{\left(P V\right)}`, "differential-product-rule")).toBe(
+      String.raw`V \,\mathrm{d}{P} + P \,\mathrm{d}{V}`,
+    );
+  });
+
+  it("applies the differential product rule to negative differentials", () => {
+    expect(rewriteLatex(String.raw`-\mathrm{d}{\left(P V\right)}`, "differential-product-rule")).toBe(
+      String.raw`-V \,\mathrm{d}{P} - P \,\mathrm{d}{V}`,
+    );
+  });
+
   it("applies the derivative quotient identity", () => {
     const expr = parse(String.raw`\frac{\partial}{\partial{x}} \frac{f}{g}`);
     const options = getApplicableIdentityRewrites(expr);
@@ -214,6 +236,22 @@ describe("identity rewrites", () => {
   it("applies the derivative quotient identity to direct partial derivatives", () => {
     expect(rewriteLatex(String.raw`\frac{\partial{\frac{f}{g}}}{\partial{x}}`, "derivative-quotient-as-product-rule")).toBe(
       String.raw`\frac{1}{g} \frac{\partial{f}}{\partial{x}} + f \frac{\partial{\frac{1}{g}}}{\partial{x}}`,
+    );
+  });
+
+  it("applies the differential quotient identity", () => {
+    const expr = parse(String.raw`\mathrm{d}{\frac{f}{g}}`);
+    const options = getApplicableIdentityRewrites(expr);
+
+    expect(options.map((option) => option.id)).toContain("differential-quotient-rule");
+    expect(rewriteLatex(String.raw`\mathrm{d}{\frac{f}{g}}`, "differential-quotient-rule")).toBe(
+      String.raw`\frac{1}{g} \,\mathrm{d}{f} - \frac{f}{g^{2}} \,\mathrm{d}{g}`,
+    );
+  });
+
+  it("applies the differential quotient identity to negative differentials", () => {
+    expect(rewriteLatex(String.raw`-\mathrm{d}{\frac{U + P V}{T}}`, "differential-quotient-rule")).toBe(
+      String.raw`-\frac{1}{T} \,\mathrm{d}{\left(U + P V\right)} + \frac{\left(U + P V\right)}{T^{2}} \,\mathrm{d}{T}`,
     );
   });
 
@@ -895,5 +933,30 @@ describe("identity rewrites for selections", () => {
     expect(options.map((option) => option.id)).toContain("expand-natural-log-product");
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(String.raw`\ln T  + \ln v_0  - \ln T_0  - \ln v `);
+  });
+
+  it("offers the differential sum rule when selecting the differential argument", () => {
+    const document = buildDocument(String.raw`\mathrm{d}{\left(S - \frac{U + P V}{T}\right)}`);
+    const selectedNodeId = firstNodeIdMatching(
+      document,
+      (expr) => expr.kind === "add" && expr.terms.some((term) => term.kind === "symbol" && term.name === "S"),
+    );
+
+    const options = getApplicableIdentityRewritesForSelection(document, {
+      kind: "single",
+      nodeId: selectedNodeId,
+    });
+    const next = applyIdentityRewriteToSelection(
+      document,
+      {
+        kind: "single",
+        nodeId: selectedNodeId,
+      },
+      "differential-sum-rule",
+    );
+
+    expect(options.map((option) => option.id)).toContain("differential-sum-rule");
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\mathrm{d}{S} - \mathrm{d}{\frac{U + P V}{T}}`);
   });
 });

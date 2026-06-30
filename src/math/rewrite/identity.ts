@@ -86,10 +86,22 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
     apply: derivativeProductRule,
   },
   {
+    id: "differential-product-rule",
+    label: "d(f g) -> g df + f dg",
+    defaultPriority: 95,
+    apply: differentialProductRule,
+  },
+  {
     id: "derivative-quotient-as-product-rule",
     label: "d(f / g) -> 1/g df + f d(1/g)",
     defaultPriority: 94,
     apply: derivativeQuotientAsProductRule,
+  },
+  {
+    id: "differential-quotient-rule",
+    label: "d(f / g) -> 1/g df - f/g^2 dg",
+    defaultPriority: 94,
+    apply: differentialQuotientRule,
   },
   {
     id: "derivative-reciprocal-rule",
@@ -228,7 +240,11 @@ export function getApplicableIdentityRewritesForSelection(
   selection: TermSelection | null,
 ): IdentityRewriteOption[] {
   const target = getSelectionRewriteTarget(document, selection);
-  return target ? getApplicableIdentityRewrites(target.expr) : [];
+  const directOptions = target ? getApplicableIdentityRewrites(target.expr) : [];
+  if (directOptions.length > 0) return directOptions;
+
+  const contextualTarget = getContextualIdentityRewriteTarget(document, selection);
+  return contextualTarget ? getApplicableIdentityRewrites(contextualTarget.expr) : [];
 }
 
 export function canApplyIdentityRewriteToSelection(
@@ -245,10 +261,14 @@ export function applyIdentityRewriteToSelection(
 ): Expr | null {
   if (!selection) return null;
   const target = getSelectionRewriteTarget(document, selection);
-  if (!target) return null;
-  const rewritten = applyIdentityRewrite(target.expr, id);
-  if (!rewritten) return null;
-  return replaceSelectionWithExpr(document, selection, rewritten);
+  const rewritten = target ? applyIdentityRewrite(target.expr, id) : null;
+  if (rewritten) return replaceSelectionWithExpr(document, selection, rewritten);
+
+  const contextualTarget = getContextualIdentityRewriteTarget(document, selection);
+  if (!contextualTarget) return null;
+  const contextualRewritten = applyIdentityRewrite(contextualTarget.expr, id);
+  if (!contextualRewritten) return null;
+  return replaceSelectionWithExpr(document, contextualTarget.selection, contextualRewritten);
 }
 
 export function applyDefaultIdentityRewriteToSelection(
@@ -257,10 +277,47 @@ export function applyDefaultIdentityRewriteToSelection(
 ): Expr | null {
   if (!selection) return null;
   const target = getSelectionRewriteTarget(document, selection);
-  if (!target) return null;
-  const rewritten = applyDefaultIdentityRewrite(target.expr);
-  if (!rewritten) return null;
-  return replaceSelectionWithExpr(document, selection, rewritten);
+  const rewritten = target ? applyDefaultIdentityRewrite(target.expr) : null;
+  if (rewritten) return replaceSelectionWithExpr(document, selection, rewritten);
+
+  const contextualTarget = getContextualIdentityRewriteTarget(document, selection);
+  if (!contextualTarget) return null;
+  const contextualRewritten = applyDefaultIdentityRewrite(contextualTarget.expr);
+  if (!contextualRewritten) return null;
+  return replaceSelectionWithExpr(document, contextualTarget.selection, contextualRewritten);
+}
+
+function getContextualIdentityRewriteTarget(
+  document: CompiledMathDocument,
+  selection: TermSelection | null,
+): { expr: Expr; selection: TermSelection } | null {
+  if (selection?.kind !== "single") return null;
+
+  const contextualNodeId = differentialNodeIdForSelectedArgument(document, selection.nodeId);
+  if (!contextualNodeId) return null;
+
+  const expr = document.index.nodeById[contextualNodeId];
+  return expr ? { expr: cloneExpr(expr), selection: { kind: "single", nodeId: contextualNodeId } } : null;
+}
+
+function differentialNodeIdForSelectedArgument(document: CompiledMathDocument, nodeId: string): string | null {
+  const location = document.index.locationById[nodeId];
+  if (!location?.parentId) return null;
+
+  const parent = document.index.nodeById[location.parentId];
+  if (parent?.kind === "differential" && location.field === "variable") {
+    return location.parentId;
+  }
+
+  const parentLocation = document.index.locationById[location.parentId];
+  if (!parentLocation?.parentId || parent?.kind !== "display_group" || location.field !== "expression") {
+    return null;
+  }
+
+  const grandparent = document.index.nodeById[parentLocation.parentId];
+  return grandparent?.kind === "differential" && parentLocation.field === "variable"
+    ? parentLocation.parentId
+    : null;
 }
 
 function combineNaturalLogs(expr: Expr): Expr | null {
@@ -285,12 +342,16 @@ function differentialSumRule(expr: Expr): Expr | null {
   return add(
     sum.terms.map((term) => {
       const signedTerm = splitAdditiveTermSign(term);
-      const termDifferential = differential(cloneExpr(signedTerm.value), {
+      const termDifferential = differential(groupedDifferentialSumOperand(signedTerm.value), {
         ...(signed.value.inexact ? { inexact: true } : {}),
       });
       return signedTerm.sign === -1 ? flipSign(termDifferential) : termDifferential;
     }),
   );
+}
+
+function groupedDifferentialSumOperand(expr: Expr): Expr {
+  return expr.kind === "multiply" ? displayGroup("paren", expr) : cloneExpr(expr);
 }
 
 type IntegralLikeExpr = Extract<
@@ -462,6 +523,29 @@ function derivativeProductRule(expr: Expr): Expr | null {
   );
 }
 
+function differentialProductRule(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  if (signed.value.kind !== "differential") return null;
+
+  const product = productOperand(signed.value.variable);
+  if (!product || product.factors.length < 2) return null;
+
+  return add(
+    product.factors.map((factor, factorIndex) => {
+      const outsideFactors = product.factors
+        .filter((_, index) => index !== factorIndex)
+        .map(cloneExpr);
+      const term = multiply([
+        ...outsideFactors,
+        differential(cloneExpr(factor), {
+          ...(signed.value.kind === "differential" && signed.value.inexact ? { inexact: true } : {}),
+        }),
+      ]);
+      return signed.sign === -1 ? flipSign(term) : term;
+    }),
+  );
+}
+
 function derivativeQuotientAsProductRule(expr: Expr): Expr | null {
   const signed = splitSign(expr);
   if (signed.sign === -1) return null;
@@ -480,6 +564,37 @@ function derivativeQuotientAsProductRule(expr: Expr): Expr | null {
       derivativeWithOperand(signed.value, reciprocalDenominator),
     ]),
   ]);
+}
+
+function differentialQuotientRule(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  if (signed.value.kind !== "differential") return null;
+
+  const quotient = quotientOperand(signed.value.variable);
+  if (!quotient) return null;
+
+  const numerator = groupedDifferentialQuotientOperand(quotient.numerator);
+  const denominator = groupedDifferentialQuotientOperand(quotient.denominator);
+  const firstTerm = multiply([
+    divide(num(1), denominator),
+    differential(numerator, {
+      ...(signed.value.inexact ? { inexact: true } : {}),
+    }),
+  ]);
+  const secondTerm = flipSign(
+    multiply([
+      divide(cloneExpr(numerator), power(denominator, num(2))),
+      differential(cloneExpr(denominator), {
+        ...(signed.value.inexact ? { inexact: true } : {}),
+      }),
+    ]),
+  );
+  const terms = signed.sign === -1 ? [flipSign(firstTerm), flipSign(secondTerm)] : [firstTerm, secondTerm];
+  return add(terms);
+}
+
+function groupedDifferentialQuotientOperand(expr: Expr): Expr {
+  return expr.kind === "add" ? displayGroup("paren", expr) : cloneExpr(expr);
 }
 
 function derivativeReciprocalRule(expr: Expr): Expr | null {
