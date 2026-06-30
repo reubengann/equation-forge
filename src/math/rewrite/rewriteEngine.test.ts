@@ -846,6 +846,25 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe(String.raw`\ln\left(P\right) = -\frac{l_{23}}{R T}`);
   });
 
+  it("keeps a negative reciprocal sign when moving its denominator into another fraction", () => {
+    const document = buildDocument(String.raw`-\frac{1}{v} \frac{R T}{v}`);
+    const selectedNodeId = findNodeId(document, (expr) => expr.kind === "symbol" && expr.name === "v");
+    const destinationId = findNodeId(
+      document,
+      (expr) => expr.kind === "divide" && expr.numerator.kind === "multiply",
+    );
+
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: selectedNodeId },
+      destinationId,
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`-\frac{R T}{v v}`);
+  });
+
   it("executes moving a numerator from one fraction into another fraction", () => {
     const document = buildDocument(String.raw`\frac{1}{a} \frac{b}{c}=5`);
     const result = executeMove({

@@ -1,5 +1,6 @@
 import { cloneExpr } from "../../ast/utils";
 import type { DivideExpr, Expr } from "../../ast/expr";
+import { applySign, splitSign } from "../algebraUtils";
 import type { MoveContext, DownwardRewriteRule } from "../types";
 
 export function insertFactorIntoDenominator(): DownwardRewriteRule {
@@ -24,7 +25,7 @@ export function insertFactorIntoDenominator(): DownwardRewriteRule {
 
       return {
         updatedNodeId: downContext.sideId,
-        updatedNode: divideByPayload(cloneExpr(downContext.sideNode), context.payload.denominator),
+        updatedNode: divideByPayload(cloneExpr(downContext.sideNode), context.payload),
         insertionPreview: {
           containerId: downContext.sideId,
           containerKind: "divide",
@@ -38,7 +39,12 @@ export function insertFactorIntoDenominator(): DownwardRewriteRule {
 }
 
 function isReciprocalPayload(expr: Expr): expr is DivideExpr {
-  return expr.kind === "divide" && expr.numerator.kind === "number" && String(expr.numerator.value) === "1";
+  const signed = splitSign(expr);
+  return (
+    signed.value.kind === "divide" &&
+    signed.value.numerator.kind === "number" &&
+    String(signed.value.numerator.value) === "1"
+  );
 }
 
 function isDestinationInDenominator(context: MoveContext, sideId: string, destinationId: string): boolean {
@@ -55,9 +61,13 @@ function isDestinationInsideSide(context: MoveContext, sideId: string, destinati
   return context.document.index.ancestorsById[destinationId]?.includes(sideId) ?? false;
 }
 
-function divideByPayload(numerator: Expr, denominator: Expr): Expr {
+function divideByPayload(numerator: Expr, payload: DivideExpr): Expr {
+  const signedPayload = splitSign(payload);
+  if (signedPayload.value.kind !== "divide") return numerator;
+  const denominator = signedPayload.value.denominator;
+
   if (numerator.kind === "divide") {
-    return {
+    return applySign(signedPayload.sign, {
       kind: "divide",
       numerator: numerator.numerator,
       denominator: {
@@ -65,12 +75,12 @@ function divideByPayload(numerator: Expr, denominator: Expr): Expr {
         factors: [numerator.denominator, cloneExpr(denominator)],
       },
       ...(numerator.sign === -1 ? { sign: -1 } : {}),
-    };
+    });
   }
 
-  return {
+  return applySign(signedPayload.sign, {
     kind: "divide",
     numerator,
     denominator: cloneExpr(denominator),
-  };
+  });
 }

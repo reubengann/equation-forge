@@ -3,6 +3,7 @@ import {
   absoluteValue,
   add,
   call,
+  differential,
   displayGroup,
   divide,
   multiply,
@@ -53,6 +54,18 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
     label: "sin^2(theta) -> (1 - cos(2 theta))/2",
     defaultPriority: 45,
     apply: sinSquarePowerReduction,
+  },
+  {
+    id: "integral-sum-rule",
+    label: "int(f + g) dx -> int f dx + int g dx",
+    defaultPriority: 99,
+    apply: integralSumRule,
+  },
+  {
+    id: "differential-sum-rule",
+    label: "d(f + g) -> df + dg",
+    defaultPriority: 98,
+    apply: differentialSumRule,
   },
   {
     id: "derivative-sum-rule",
@@ -262,6 +275,113 @@ function combineNaturalLogs(expr: Expr): Expr | null {
   return naturalLog(displayGroup("paren", multiply([left, right])));
 }
 
+function differentialSumRule(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  if (signed.sign === -1 || signed.value.kind !== "differential") return null;
+
+  const sum = sumOperand(signed.value.variable);
+  if (!sum || sum.terms.length < 2) return null;
+
+  return add(
+    sum.terms.map((term) => {
+      const signedTerm = splitAdditiveTermSign(term);
+      const termDifferential = differential(cloneExpr(signedTerm.value), {
+        ...(signed.value.inexact ? { inexact: true } : {}),
+      });
+      return signedTerm.sign === -1 ? flipSign(termDifferential) : termDifferential;
+    }),
+  );
+}
+
+type IntegralLikeExpr = Extract<
+  Expr,
+  { kind: "integral" | "uniterated_integral" | "closed_integral" | "multiple_integral" }
+>;
+
+function integralSumRule(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  if (signed.sign === -1 || !isIntegralLike(signed.value)) return null;
+
+  const split = integralSumIntegrand(signed.value);
+  if (!split || split.sum.terms.length < 2) return null;
+
+  return add(
+    split.sum.terms.map((term) => {
+      const signedTerm = splitAdditiveTermSign(term);
+      const termIntegral = withIntegralIntegrand(
+        signed.value,
+        split.integrandForTerm(signedTerm.value),
+      );
+      return signedTerm.sign === -1 ? flipSign(termIntegral) : termIntegral;
+    }),
+  );
+}
+
+function integralSumIntegrand(expr: IntegralLikeExpr): {
+  sum: Extract<Expr, { kind: "add" }>;
+  integrandForTerm: (term: Expr) => Expr;
+} | null {
+  const directSum = sumOperand(expr.integrand);
+  if (directSum) {
+    return {
+      sum: directSum,
+      integrandForTerm: cloneExpr,
+    };
+  }
+
+  const integrand = unwrapDisplayGroup(expr.integrand);
+  if (integrand.kind !== "multiply") return null;
+
+  const sumFactorIndex = integrand.factors.findIndex((factor) => sumOperand(factor) !== null);
+  if (sumFactorIndex < 0) return null;
+
+  const sum = sumOperand(integrand.factors[sumFactorIndex]!);
+  if (!sum) return null;
+
+  return {
+    sum,
+    integrandForTerm: (term) => {
+      const factors = integrand.factors.map((factor, index) =>
+        index === sumFactorIndex ? cloneExpr(term) : cloneExpr(factor),
+      );
+      return collapseProduct(factors);
+    },
+  };
+}
+
+function isIntegralLike(expr: Expr): expr is IntegralLikeExpr {
+  return (
+    expr.kind === "integral" ||
+    expr.kind === "uniterated_integral" ||
+    expr.kind === "closed_integral" ||
+    expr.kind === "multiple_integral"
+  );
+}
+
+function withIntegralIntegrand(expr: IntegralLikeExpr, integrand: Expr): IntegralLikeExpr {
+  return {
+    ...expr,
+    integrand: cloneExpr(integrand),
+  };
+}
+
+function splitAdditiveTermSign(expr: Expr): { sign: 1 | -1; value: Expr } {
+  const signed = splitSign(expr);
+  if (signed.value.kind !== "multiply") return signed;
+
+  let sign = signed.sign;
+  const factors = signed.value.factors.map((factor) => {
+    const signedFactor = splitSign(factor);
+    sign = sign === signedFactor.sign ? 1 : -1;
+    return signedFactor.value;
+  });
+
+  return {
+    sign,
+    value: collapseProduct(factors),
+  };
+}
+
 function derivativeSumRule(expr: Expr): Expr | null {
   const signed = splitSign(expr);
   if (signed.sign === -1) return null;
@@ -271,7 +391,7 @@ function derivativeSumRule(expr: Expr): Expr | null {
 
   return add(
     sum.terms.map((term) => {
-      const signedTerm = splitSign(term);
+      const signedTerm = splitAdditiveTermSign(term);
       const derivative = derivativeWithOperand(signed.value, signedTerm.value);
       return signedTerm.sign === -1 ? flipSign(derivative) : derivative;
     }),

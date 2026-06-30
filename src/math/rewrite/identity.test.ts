@@ -87,6 +87,59 @@ describe("identity rewrites", () => {
     );
   });
 
+  it("applies the differential sum rule", () => {
+    const expr = parse(String.raw`\mathrm{d}\left(f+g\right)`);
+    const options = getApplicableIdentityRewrites(expr);
+
+    expect(options.map((option) => option.id)).toContain("differential-sum-rule");
+    expect(rewriteLatex(String.raw`\mathrm{d}\left(f+g\right)`, "differential-sum-rule")).toBe(
+      String.raw`\mathrm{d}{f} + \mathrm{d}{g}`,
+    );
+  });
+
+  it("preserves subtraction signs when applying the differential sum rule", () => {
+    expect(rewriteLatex(String.raw`\mathrm{d}\left(f-g\right)`, "differential-sum-rule")).toBe(
+      String.raw`\mathrm{d}{f} - \mathrm{d}{g}`,
+    );
+  });
+
+  it("moves embedded product signs outside differentials when applying the differential sum rule", () => {
+    expect(
+      rewriteLatex(
+        String.raw`\mathrm{d}{\left(-R T \ln \frac{v}{v_0}  + B v\right)}`,
+        "differential-sum-rule",
+      ),
+    ).toBe(String.raw`-\mathrm{d}{R T \ln \frac{v}{v_0} } + \mathrm{d}{B v}`);
+  });
+
+  it("preserves inexact notation when applying the differential sum rule", () => {
+    expect(rewriteLatex(String.raw`\mathrm{d}^{\prime}\left(f+g\right)`, "differential-sum-rule")).toBe(
+      String.raw`\mathrm{d'}{f} + \mathrm{d'}{g}`,
+    );
+  });
+
+  it("applies the integral sum rule", () => {
+    const expr = parse(String.raw`\int \left(f+g\right) \,\mathrm{d}{x}`);
+    const options = getApplicableIdentityRewrites(expr);
+
+    expect(options.map((option) => option.id)).toContain("integral-sum-rule");
+    expect(rewriteLatex(String.raw`\int \left(f+g\right) \,\mathrm{d}{x}`, "integral-sum-rule")).toBe(
+      String.raw`\int f \,\mathrm{d}{x} + \int g \,\mathrm{d}{x}`,
+    );
+  });
+
+  it("preserves subtraction signs when applying the integral sum rule", () => {
+    expect(rewriteLatex(String.raw`\int \left(f-g\right) \,\mathrm{d}{x}`, "integral-sum-rule")).toBe(
+      String.raw`\int f \,\mathrm{d}{x} - \int g \,\mathrm{d}{x}`,
+    );
+  });
+
+  it("moves embedded product signs outside integrals when applying the integral sum rule", () => {
+    expect(rewriteLatex(String.raw`\int \left(-a b+c\right) \,\mathrm{d}{x}`, "integral-sum-rule")).toBe(
+      String.raw`-\int a b \,\mathrm{d}{x} + \int c \,\mathrm{d}{x}`,
+    );
+  });
+
   it("applies the derivative sum rule", () => {
     const expr = parse(String.raw`\frac{\partial}{\partial{x}} \left(f+g\right)`);
     const options = getApplicableIdentityRewrites(expr);
@@ -106,6 +159,12 @@ describe("identity rewrites", () => {
   it("preserves subtraction signs when applying the derivative sum rule", () => {
     expect(rewriteLatex(String.raw`\frac{\partial}{\partial{x}} \left(f-g\right)`, "derivative-sum-rule")).toBe(
       String.raw`\frac{\partial}{\partial{x}} f - \frac{\partial}{\partial{x}} g`,
+    );
+  });
+
+  it("moves embedded product signs outside derivatives when applying the derivative sum rule", () => {
+    expect(rewriteLatex(String.raw`\frac{\partial}{\partial{x}} \left(-a b+c\right)`, "derivative-sum-rule")).toBe(
+      String.raw`-\frac{\partial}{\partial{x}} a b + \frac{\partial}{\partial{x}} c`,
     );
   });
 
