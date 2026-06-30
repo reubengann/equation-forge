@@ -3,6 +3,11 @@
 - Page-level option to copy full equations with $$ $$ around them (persist this option in localStorage)
 - Copy with history button, copies all of the forms of this equation as separate lines with $$ $$
 - Render options in replace modal with LaTeX instead of plain text. Also for the preview of identities.
+- Should we select the mathlive content when going into a substitute modal? Fairly often the substitution you
+  want to make is to set the whole thing to zero, so in that case you have to do `home shift+end 0 enter`, whereas
+  if it was highlighted you could just hit `zero enter`. If you don't want to substitute the whole thing,
+  and instead want to edit what you have, you now have to press something to deselect everything, but that's not
+  very common.
 
 ## Medium
 
