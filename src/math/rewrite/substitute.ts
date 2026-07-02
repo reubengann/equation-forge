@@ -156,6 +156,16 @@ function substituteAllMatchingExpr(
   if (directReplacement) {
     return { expr: cloneExpr(directReplacement), changed: true };
   }
+  const signed = splitSign(expr);
+  if (signed.sign === -1) {
+    const unsignedReplacement = plan.replacementByKey.get(structuralKeyIgnoringDisplayGroups(signed.value));
+    if (unsignedReplacement) {
+      return {
+        expr: applySign(signed.sign, normalizeReplacementProductSign(unsignedReplacement)),
+        changed: true,
+      };
+    }
+  }
 
   const next = cloneExpr(expr);
   let changed = false;

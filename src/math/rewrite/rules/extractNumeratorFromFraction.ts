@@ -21,6 +21,7 @@ export function extractNumeratorFromFraction(): UpwardRewriteRule {
       if (context.document.index.locationById[edge.childId]?.field !== "numerator") return null;
 
       if (context.payload) {
+        const extractedPayload = applySign(exprSign(edge.parentNode), cloneExpr(context.payload));
         const remainingFraction: Expr = {
           kind: "divide",
           numerator: cloneExpr(edge.childNode),
@@ -31,8 +32,8 @@ export function extractNumeratorFromFraction(): UpwardRewriteRule {
           if (context.destinationId !== edge.parentId) return null;
           const outputFactors =
             context.destinationSlot === "after"
-              ? [remainingFraction, cloneExpr(context.payload)]
-              : [cloneExpr(context.payload), remainingFraction];
+              ? [remainingFraction, extractedPayload]
+              : [extractedPayload, remainingFraction];
 
           return {
             updatedNodeId: edge.parentId,
@@ -51,7 +52,7 @@ export function extractNumeratorFromFraction(): UpwardRewriteRule {
         }
 
         return {
-          payload: cloneExpr(context.payload),
+          payload: extractedPayload,
           updatedNodeId: edge.parentId,
           updatedNode: remainingFraction,
         };

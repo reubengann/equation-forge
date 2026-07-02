@@ -284,6 +284,17 @@ describe("substituteAllMatchingExpression", () => {
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(String.raw`\frac{\partial{S}}{\partial{x}}`);
   });
+
+  it("replaces negative symbol occurrences with sign cancellation", () => {
+    const document = buildDocument(String.raw`\left(\frac{\partial{F}}{\partial{Z}}\right)_{T} = -P`);
+
+    const next = substituteAllMatchingExpression(document, replacement("P"), replacement(String.raw`-\mathscr{E}`));
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\left(\frac{\partial{F}}{\partial{Z}}\right)_{T} = \mathscr{E}`,
+    );
+  });
 });
 
 describe("getReplaceableSymbols", () => {
