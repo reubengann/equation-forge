@@ -80,8 +80,36 @@ describe("mathtest fixtures", () => {
     expect(failures).toEqual([]);
   });
 
+  it("can_move_denominator_factor_out_of_negative_fraction", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_denominator_factor_out_of_negative_fraction.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_move_factor_out_of_derivative_fraction", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_factor_out_of_derivative_fraction.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
   it("can_move_factor_out_of_integral_from_frac", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_factor_out_of_integral_from_frac.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_move_factor_out_of_negative_differential", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_factor_out_of_negative_differential.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_move_factor_out_of_negative_numerator_fraction", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_factor_out_of_negative_numerator_fraction.json`);
     const replayResult = replayEvents(fixture);
     const failures = buildAssertions(fixture, replayResult);
     expect(failures).toEqual([]);
@@ -94,8 +122,22 @@ describe("mathtest fixtures", () => {
     expect(failures).toEqual([]);
   });
 
+  it("can_move_multi_selected_factors_before_parentheses", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_multi_selected_factors_before_parentheses.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
   it("can_move_negated_to_rhs", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_negated_to_rhs.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_move_negative_rhs_term_to_lhs", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_negative_rhs_term_to_lhs.json`);
     const replayResult = replayEvents(fixture);
     const failures = buildAssertions(fixture, replayResult);
     expect(failures).toEqual([]);
@@ -110,6 +152,34 @@ describe("mathtest fixtures", () => {
 
   it("can_move_out_of_frac", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_out_of_frac.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_move_reciprocal_into_parenthesized_sum", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_reciprocal_into_parenthesized_sum.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_move_subtracted_rhs_term_to_lhs", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_subtracted_rhs_term_to_lhs.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_move_t_into_fraction_numerator", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_t_into_fraction_numerator.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("can_move_term_to_other_side_of_square", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_term_to_other_side_of_square.json`);
     const replayResult = replayEvents(fixture);
     const failures = buildAssertions(fixture, replayResult);
     expect(failures).toEqual([]);
@@ -234,13 +304,6 @@ describe("mathtest fixtures", () => {
     expect(failures).toEqual([]);
   });
 
-  it("correctly_moves_negative_term_outside", async () => {
-    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/correctly_moves_negative_term_outside.json`);
-    const replayResult = replayEvents(fixture);
-    const failures = buildAssertions(fixture, replayResult);
-    expect(failures).toEqual([]);
-  });
-
   it("do_not_deselect_on_clicking_equals", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/do_not_deselect_on_clicking_equals.json`);
     const replayResult = replayEvents(fixture);
@@ -304,6 +367,20 @@ describe("mathtest fixtures", () => {
     expect(failures).toEqual([]);
   });
 
+  it("keeps_minus_when_combining_fraction_products", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/keeps_minus_when_combining_fraction_products.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
+  it("marquee_selects_top_level_terms_over_nested_terms", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/marquee_selects_top_level_terms_over_nested_terms.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
   it("marquee_selects_whole_sum_terms", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/marquee_selects_whole_sum_terms.json`);
     const replayResult = replayEvents(fixture);
@@ -313,27 +390,6 @@ describe("mathtest fixtures", () => {
 
   it("minus_sign_from_frac", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/minus_sign_from_frac.json`);
-    const replayResult = replayEvents(fixture);
-    const failures = buildAssertions(fixture, replayResult);
-    expect(failures).toEqual([]);
-  });
-
-  it("minus_sign_go_missing", async () => {
-    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/minus_sign_go_missing.json`);
-    const replayResult = replayEvents(fixture);
-    const failures = buildAssertions(fixture, replayResult);
-    expect(failures).toEqual([]);
-  });
-
-  it("more_ranking", async () => {
-    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/more_ranking.json`);
-    const replayResult = replayEvents(fixture);
-    const failures = buildAssertions(fixture, replayResult);
-    expect(failures).toEqual([]);
-  });
-
-  it("more_vanishing_minus", async () => {
-    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/more_vanishing_minus.json`);
     const replayResult = replayEvents(fixture);
     const failures = buildAssertions(fixture, replayResult);
     expect(failures).toEqual([]);
@@ -353,20 +409,6 @@ describe("mathtest fixtures", () => {
     expect(failures).toEqual([]);
   });
 
-  it("moves_minus_b_correctly", async () => {
-    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/moves_minus_b_correctly.json`);
-    const replayResult = replayEvents(fixture);
-    const failures = buildAssertions(fixture, replayResult);
-    expect(failures).toEqual([]);
-  });
-
-  it("multi_select_move_vanishes", async () => {
-    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/multi_select_move_vanishes.json`);
-    const replayResult = replayEvents(fixture);
-    const failures = buildAssertions(fixture, replayResult);
-    expect(failures).toEqual([]);
-  });
-
   it("multiplicative_terms_from_integral_after_minus", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/multiplicative_terms_from_integral_after_minus.json`);
     const replayResult = replayEvents(fixture);
@@ -376,13 +418,6 @@ describe("mathtest fixtures", () => {
 
   it("negation_moving_out_of_frac_additively", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/negation_moving_out_of_frac_additively.json`);
-    const replayResult = replayEvents(fixture);
-    const failures = buildAssertions(fixture, replayResult);
-    expect(failures).toEqual([]);
-  });
-
-  it("no_vanishing_terms", async () => {
-    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/no_vanishing_terms.json`);
     const replayResult = replayEvents(fixture);
     const failures = buildAssertions(fixture, replayResult);
     expect(failures).toEqual([]);
@@ -467,13 +502,6 @@ describe("mathtest fixtures", () => {
 
   it("single_clicking_should_not_move", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/single_clicking_should_not_move.json`);
-    const replayResult = replayEvents(fixture);
-    const failures = buildAssertions(fixture, replayResult);
-    expect(failures).toEqual([]);
-  });
-
-  it("vanishing_T", async () => {
-    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/vanishing_T.json`);
     const replayResult = replayEvents(fixture);
     const failures = buildAssertions(fixture, replayResult);
     expect(failures).toEqual([]);
