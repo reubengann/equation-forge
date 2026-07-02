@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { exprToLatex, parseLatexToExpr } from "../../adapters/latex";
-import { sym } from "../../ast";
+import { sym, type Expr } from "../../ast";
 import { compileMathDocumentFromExpr, type CompiledMathDocument } from "../../compile/compileMathDocument";
 import { insertFactorIntoProduct } from "./insertFactorIntoProduct";
 
@@ -77,5 +77,32 @@ describe("insertFactorIntoProduct", () => {
     expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`\frac{b}{a}`);
     expect(result?.insertionPreview?.containerId).toBe("n4");
     expect(result?.insertionPreview?.destinationId).toBe("n4");
+  });
+
+  it("preserves a negative numerator when inserting a factor into a fraction", () => {
+    const expr = {
+      kind: "divide",
+      numerator: { kind: "number", value: 1, sign: -1 },
+      denominator: { kind: "number", value: 2 },
+    } satisfies Expr;
+    const document = compileMathDocumentFromExpr(String.raw`\frac{-1}{2}`, expr);
+    const rule = insertFactorIntoProduct();
+    const result = rule.apply(
+      {
+        document,
+        selection: { kind: "single", nodeId: "n2" },
+        payload: sym("a"),
+        destinationId: "n2",
+        destinationSlot: "before",
+      },
+      {
+        sideId: "n1",
+        sideNode: document.index.nodeById.n1!,
+        destinationId: "n2",
+        destinationNode: document.index.nodeById.n2!,
+      },
+    );
+
+    expect(exprToLatex(result!.updatedNode!, false)).toBe(String.raw`\frac{-a 1}{2}`);
   });
 });

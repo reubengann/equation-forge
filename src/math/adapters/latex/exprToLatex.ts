@@ -452,11 +452,17 @@ function shouldGroupPowerBase(expr: Expr): boolean {
 }
 
 function startsWithNegativeFactor(expr: Extract<Expr, { kind: "multiply" }>): boolean {
-  const firstFactor = expr.factors[0];
-  if (!firstFactor) return false;
-  const signed = splitSign(firstFactor);
-  if (signed.sign === -1) return true;
-  return signed.value.kind === "multiply" && startsWithNegativeFactor(signed.value);
+  let negativeFactorCount = 0;
+  const unsignedFactors = expr.factors.map((factor) => {
+    if (factor.kind === "multiply" && splitSign(factor).sign === -1) return factor;
+    const signed = splitSign(factor);
+    if (signed.sign === -1) negativeFactorCount += 1;
+    return signed.value;
+  });
+  if (negativeFactorCount % 2 === 1) return true;
+
+  const firstFactor = unsignedFactors[0];
+  return firstFactor?.kind === "multiply" ? startsWithNegativeFactor(firstFactor) : false;
 }
 
 function renderSymbolName(name: string): string {

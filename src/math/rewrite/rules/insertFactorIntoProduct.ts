@@ -1,5 +1,6 @@
 import { cloneExpr } from "../../ast/utils";
 import type { Expr } from "../../ast/expr";
+import { splitSign } from "../algebraUtils";
 import type { MoveContext, DownwardRewriteRule } from "../types";
 
 export function insertFactorIntoProduct(): DownwardRewriteRule {
@@ -100,7 +101,8 @@ function multiplyWithPayload(destination: Expr, payload: Expr, destinationSlot: 
 }
 
 function isMultiplicativeIdentity(expr: Expr): boolean {
-  return expr.kind === "number" && String(expr.value) === "1";
+  const signed = splitSign(expr);
+  return signed.sign === 1 && signed.value.kind === "number" && String(signed.value.value) === "1";
 }
 
 function isDestinationInNumerator(context: MoveContext, sideId: string, destinationId: string): boolean {

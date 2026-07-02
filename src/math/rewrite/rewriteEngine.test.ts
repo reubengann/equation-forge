@@ -272,6 +272,45 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe(String.raw`\left(\frac{\partial{h}}{\partial{P}}\right)_{T} = v - \frac{R T}{P}`);
   });
 
+  it("moves a factor into the numerator of a signed fraction in a product", () => {
+    const document = buildDocument(String.raw`-\left(b\right) \frac{4}{3} \frac{5}{2}`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n2" },
+      destinationId: "n5",
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`-\frac{\left(b\right) 4}{3} \frac{5}{2}`);
+  });
+
+  it("moves a factor out of a display group before a signed fraction without double-negating", () => {
+    const document = buildDocument(String.raw`-\left(b\right) \frac{4}{3} \frac{5}{2}`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n3" },
+      destinationId: "n4",
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`-\left(b\right) \frac{4}{3} \frac{5}{2}`);
+  });
+
+  it("moves a factor into a same-product identity without dropping the payload", () => {
+    const document = buildDocument(String.raw`-\left(a\right) 1 \left(-2\right)`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n3" },
+      destinationId: "n4",
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`-\left(a\right) \left(-2\right)`);
+  });
+
   it("keeps the remaining numerator sign when extracting a sibling factor", () => {
     const document = buildDocument(String.raw`\Delta T = \frac{-\frac{a}{v_0} \frac{9}{10}}{c_v}`);
     const result = executeMove({

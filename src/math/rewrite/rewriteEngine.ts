@@ -418,7 +418,17 @@ export class RulesPipeline {
   }
 
   private nodeForPipeline(state: GeneralPipelineState, nodeId: string): Expr | null {
-    return state.updatedNodes[nodeId] ?? this.document.index.nodeById[nodeId] ?? null;
+    if (state.updatedNodes[nodeId]) return state.updatedNodes[nodeId];
+
+    const parentId = this.document.index.parentById[nodeId];
+    const updatedParent = parentId ? state.updatedNodes[parentId] : null;
+    const originalNode = this.document.index.nodeById[nodeId];
+    if (updatedParent && originalNode) {
+      const currentChild = findChildInUpdatedParent(this.document, nodeId, updatedParent, originalNode);
+      if (currentChild) return currentChild;
+    }
+
+    return originalNode ?? null;
   }
 
   private applyPipelineUpdates(pivotId: string, updatedNodes: Record<string, Expr>): Expr | null {
@@ -541,7 +551,7 @@ function rebuildUpdatedSubtree(
       if (!Array.isArray(current)) continue;
       const nextChildren = [...current];
       const replacementIndex = hasDirectUpdate
-        ? nextChildren.findIndex((child) => isExprNode(child) && structuralKey(child) === structuralKey(originalChild))
+        ? nextChildren.findIndex((child) => isExprNode(child) && matchesOriginalChildAfterDirectUpdate(child, originalChild))
         : location.index;
       if (replacementIndex < 0 || replacementIndex >= nextChildren.length) continue;
       nextChildren[replacementIndex] = updatedChild;
@@ -567,6 +577,36 @@ function hasUpdatedNodeInSubtree(
 
 function isExprNode(value: unknown): value is Expr {
   return typeof value === "object" && value !== null && "kind" in value;
+}
+
+function findChildInUpdatedParent(
+  document: CompiledMathDocument,
+  nodeId: string,
+  updatedParent: Expr,
+  originalNode: Expr,
+): Expr | null {
+  const location = document.index.locationById[nodeId];
+  if (!location.field) return null;
+  const updatedParentRecord = updatedParent as Record<string, unknown>;
+  const current = updatedParentRecord[location.field];
+
+  if (Array.isArray(current)) {
+    const indexedCandidate = location.index == null ? null : current[location.index];
+    if (isExprNode(indexedCandidate) && matchesOriginalChildAfterDirectUpdate(indexedCandidate, originalNode)) {
+      return indexedCandidate;
+    }
+    return current.find((candidate) =>
+      isExprNode(candidate) && matchesOriginalChildAfterDirectUpdate(candidate, originalNode)) ?? null;
+  }
+
+  return isExprNode(current) && matchesOriginalChildAfterDirectUpdate(current, originalNode) ? current : null;
+}
+
+function matchesOriginalChildAfterDirectUpdate(candidate: Expr, originalChild: Expr): boolean {
+  if (structuralKey(candidate) === structuralKey(originalChild)) return true;
+  const candidateSigned = splitSign(candidate);
+  const originalSigned = splitSign(originalChild);
+  return structuralKey(candidateSigned.value) === structuralKey(originalSigned.value);
 }
 
 function serializeRuleMoveResult(

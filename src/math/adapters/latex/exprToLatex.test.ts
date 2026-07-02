@@ -180,6 +180,32 @@ describe("exprToLatex", () => {
     expect(exprToLatex(expr, false)).toBe(String.raw`P \left(-a b\right)`);
   });
 
+  it("groups nested product factors whose sign comes from a later factor", () => {
+    const expr = {
+      kind: "multiply",
+      factors: [
+        {
+          kind: "divide",
+          numerator: { kind: "number", value: 1 },
+          denominator: { kind: "symbol", name: "T" },
+        },
+        {
+          kind: "multiply",
+          factors: [
+            {
+              kind: "power",
+              base: { kind: "number", value: 4, sign: -1 },
+              exponent: { kind: "number", value: 3 },
+            },
+            { kind: "symbol", name: "c", sign: -1 },
+          ],
+        },
+      ],
+    } satisfies Expr;
+
+    expect(exprToLatex(expr, false)).toBe(String.raw`\frac{1}{T} \left(-\left(-4\right)^{3} c\right)`);
+  });
+
   it("wraps product", () => {
     const expr = parseLatexToExpr("a b");
     const latex = exprToLatex(expr, true);

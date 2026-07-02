@@ -53,7 +53,7 @@ export function extractFactorFromProduct(): UpwardRewriteRule {
       const sourceFactorIndexes = selectedFactorIndexes(context, factorIds);
       if (sourceFactorIndexes.length === 0) return null;
 
-      const split = splitProductFactors(edge.parentNode, sourceFactorIndexes);
+      const split = splitProductFactors(context, edge.parentNode, factorIds, sourceFactorIndexes);
 
       return {
         payload: split.payload,
@@ -87,19 +87,33 @@ function selectedFactorIndexes(context: MoveContext, factorIds: string[]): numbe
   return indexes.sort((a, b) => a - b);
 }
 
-function splitProductFactors(product: Extract<Expr, { kind: "multiply" }>, sourceFactorIndexes: number[]): { payload: Expr; remaining: Expr } {
+type FactorEntry = {
+  expr: Expr;
+  preserveIdentity: boolean;
+};
+
+function splitProductFactors(
+  context: MoveContext,
+  product: Extract<Expr, { kind: "multiply" }>,
+  factorIds: string[],
+  sourceFactorIndexes: number[],
+): { payload: Expr; remaining: Expr } {
   const signedProduct = splitSign(product);
   const productValue = signedProduct.value as Extract<Expr, { kind: "multiply" }>;
   const factors = productValue.factors;
   const selectedIndexSet = new Set(sourceFactorIndexes);
+  const destinationIndexSet = new Set(destinationFactorIndexes(context, factorIds));
   const payloadFactors: Expr[] = [];
-  const remainingFactors: Expr[] = [];
+  const remainingFactors: FactorEntry[] = [];
   let remainingSign: Sign = signedProduct.sign;
 
   factors.forEach((factor, index) => {
     const signedFactor = splitSign(factor);
     if (!selectedIndexSet.has(index)) {
-      remainingFactors.push(signedFactor.value);
+      remainingFactors.push({
+        expr: signedFactor.value,
+        preserveIdentity: destinationIndexSet.has(index),
+      });
       remainingSign = multiplySigns(remainingSign, signedFactor.sign);
       return;
     }
@@ -115,11 +129,26 @@ function splitProductFactors(product: Extract<Expr, { kind: "multiply" }>, sourc
   };
 }
 
-function collapseMultiplicativeFactors(factors: Expr[]): Expr {
-  const keptFactors = factors.filter((factor) => !isMultiplicativeIdentity(factor));
+function destinationFactorIndexes(context: MoveContext, factorIds: string[]): number[] {
+  const destinationAncestors = new Set(context.document.index.ancestorsById[context.destinationId] ?? []);
+  return factorIds.reduce<number[]>((indexes, factorId, index) => {
+    if (factorId === context.destinationId || destinationAncestors.has(factorId)) indexes.push(index);
+    return indexes;
+  }, []);
+}
+
+function collapseMultiplicativeFactors(factors: Array<Expr | FactorEntry>): Expr {
+  const keptFactors = factors
+    .map((factor) => isFactorEntry(factor) ? factor : { expr: factor, preserveIdentity: false })
+    .filter((factor) => factor.preserveIdentity || !isMultiplicativeIdentity(factor.expr))
+    .map((factor) => factor.expr);
   if (keptFactors.length === 0) return { kind: "number", value: 1 };
   if (keptFactors.length === 1) return keptFactors[0]!;
   return { kind: "multiply", factors: keptFactors };
+}
+
+function isFactorEntry(factor: Expr | FactorEntry): factor is FactorEntry {
+  return "expr" in factor;
 }
 
 function isMultiplicativeIdentity(expr: Expr): boolean {
