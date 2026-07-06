@@ -393,6 +393,20 @@ describe("exprToLatex", () => {
     );
   });
 
+  it("keeps tagged second-order partial-at-constant ids aligned with compiled index ids", () => {
+    const source = String.raw`\left(\frac{\partial^{2}{g}}{\partial{P}^{2}}\right)_{T} = -\kappa v`;
+    const expr = parseLatexToExpr(source);
+    const latex = exprToLatex(expr, true);
+    const doc = compileMathDocumentFromExpr(source, expr);
+
+    expect(doc.index.nodeById.n2?.kind).toBe("partial_at_const_quantity");
+    expect(doc.index.nodeById.n8?.kind).toBe("multiply");
+    expect(latex).toContain(String.raw`\htmlData{node-id="n2"}{\left(\htmlData{node-id="n3"}{\frac`);
+    expect(latex).toContain(String.raw`_{\htmlData{node-id="n7"}{T}}}`);
+    expect(latex).toContain(String.raw` = \htmlData{node-id="n8"}{-`);
+    expect(latex).not.toContain(String.raw`node-id="n6"}{-`);
+  });
+
   it("wraps user functions in a MathLive class when tagged", () => {
     expect(exprToLatex(userFunction("f", sym("x")), true)).toBe(
       String.raw`\htmlData{node-id="n1"}{\class{pdp-user-function}{f\!\left(\htmlData{node-id="n2"}{x}\right)}}`,

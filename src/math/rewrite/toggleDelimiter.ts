@@ -2,7 +2,7 @@ import type { TermSelection } from "../../selection/types";
 import { add, displayGroup, multiply, type Expr } from "../ast";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import { cloneExpr, replaceCompiledNode } from "../ast/utils";
-import { applySign, multiplySigns, splitSign, withSign, type Sign } from "./algebraUtils";
+import { applySign, collapseProduct, flipSign, multiplySigns, splitSign, withSign, type Sign } from "./algebraUtils";
 
 type ToggleDelimiterTarget = {
   nodeId: string;
@@ -101,7 +101,7 @@ function resolveSingleSelection(document: CompiledMathDocument, nodeId: string):
           kind: "add",
           terms: [
             ...parent.terms.slice(0, location.index).map(cloneExpr),
-            ...signedSelected.value.expression.terms.map((term) => applySign(-1, cloneExpr(term))),
+            ...signedSelected.value.expression.terms.map(flipAdditiveTermSign),
             ...parent.terms.slice(location.index + 1).map(cloneExpr),
           ],
         },
@@ -109,7 +109,7 @@ function resolveSingleSelection(document: CompiledMathDocument, nodeId: string):
     }
     return {
       nodeId,
-      replacement: add(signedSelected.value.expression.terms.map((term) => applySign(-1, cloneExpr(term)))),
+      replacement: add(signedSelected.value.expression.terms.map(flipAdditiveTermSign)),
     };
   }
 
@@ -118,6 +118,28 @@ function resolveSingleSelection(document: CompiledMathDocument, nodeId: string):
     replacement: signedSelected.value.kind === "display_group"
       ? applySign(signedSelected.sign, cloneExpr(signedSelected.value.expression))
       : applySign(signedSelected.sign, cloneExpr(selected)),
+  };
+}
+
+function flipAdditiveTermSign(term: Expr): Expr {
+  const signed = splitAdditiveTermSign(term);
+  return signed.sign === -1 ? signed.value : flipSign(signed.value);
+}
+
+function splitAdditiveTermSign(expr: Expr): { sign: Sign; value: Expr } {
+  const signed = splitSign(expr);
+  if (signed.value.kind !== "multiply") return signed;
+
+  let sign = signed.sign;
+  const factors = signed.value.factors.map((factor) => {
+    const signedFactor = splitSign(factor);
+    sign = multiplySigns(sign, signedFactor.sign);
+    return signedFactor.value;
+  });
+
+  return {
+    sign,
+    value: collapseProduct(factors),
   };
 }
 

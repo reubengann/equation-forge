@@ -1176,6 +1176,15 @@ class TokenParser {
         if (!exponent) return null;
         independentVariables.push(variableTerm.base);
         degree += exponent;
+      } else if (variableTerm.kind === "symbol") {
+        const compactPower = this.extractCompactDenominatorPower(variableTerm);
+        if (compactPower) {
+          independentVariables.push(compactPower.variable);
+          degree += compactPower.degree;
+        } else {
+          independentVariables.push(variableTerm);
+          degree += 1;
+        }
       } else {
         independentVariables.push(variableTerm);
         degree += 1;
@@ -1184,6 +1193,20 @@ class TokenParser {
     }
     if (degree < 2 || independentVariables.length === 0) return null;
     return { independentVariables, degree };
+  }
+
+  private extractCompactDenominatorPower(variableTerm: Extract<Expr, { kind: "symbol" }>): {
+    variable: Expr;
+    degree: number;
+  } | null {
+    const match = /^(.+)\^(\d+)$/.exec(variableTerm.name);
+    if (!match) return null;
+    const degree = Number(match[2]);
+    if (!Number.isInteger(degree) || degree < 2) return null;
+    return {
+      variable: sym(match[1]!),
+      degree,
+    };
   }
 
   private extractSecondOrderPartialDerivative(

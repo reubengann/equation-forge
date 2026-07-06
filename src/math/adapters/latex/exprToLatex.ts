@@ -396,7 +396,9 @@ class LatexGenerator {
 
   generatePartialAtConstBody(expr: Extract<Expr, { kind: "partial_at_const_quantity" }>): string {
     if (expr.quantity.kind === "second_order_partial_derivative") {
-      return `\\left(${this.generateSecondOrderPartialDerivative(expr.quantity)}\\right)_{${this.generate(expr.constantQuantity)}}`;
+      const quantity = this.generate(expr.quantity);
+      if (this.tags) this.generate(expr.variable); // Reserve the duplicate variable id so rendered ids stay aligned.
+      return `\\left(${quantity}\\right)_{${this.generate(expr.constantQuantity)}}`;
     }
     return `\\left(\\frac{\\partial{${this.generate(expr.quantity)}}}{\\partial{${this.generate(expr.variable)}}}\\right)_{${this.generate(expr.constantQuantity)}}`;
   }

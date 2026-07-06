@@ -58,6 +58,52 @@ describe("buildPadSubstituteSuggestions", () => {
     expect(suggestions[0]?.rhsLatex).toBe("y + z");
   });
 
+  it("suggests the RHS for a selected second-order partial at constant quantity", () => {
+    const selected = parseLatexToExpr(
+      String.raw`\left(\frac{\partial^{2}{g}}{\partial{P}^{2}}\right)_{T}`,
+    );
+    const suggestions = buildPadSubstituteSuggestions(
+      {
+        expr: selected,
+        latex: String.raw`\left(\frac{\partial^{2}{g}}{\partial{P}^{2}}\right)_{T}`,
+      },
+      [
+        {
+          equationId: "eq-1",
+          label: "Equation 1",
+          compiledDoc: compileMathDocument(
+            String.raw`\left(\frac{\partial^{2}{g}}{\partial{P}^{2}}\right)_{T} = -\kappa v`,
+          ),
+        },
+      ],
+    );
+
+    expect(suggestions[0]?.rhsLatex).toBe(String.raw`-\kappa v`);
+  });
+
+  it("suggests the RHS for a compact selected second-order partial at constant quantity", () => {
+    const selected = parseLatexToExpr(
+      String.raw`\left(\frac{\partial{^2g}}{\partial{P^2}}\right)_{T}`,
+    );
+    const suggestions = buildPadSubstituteSuggestions(
+      {
+        expr: selected,
+        latex: String.raw`\left(\frac{\partial{^2g}}{\partial{P^2}}\right)_{T}`,
+      },
+      [
+        {
+          equationId: "eq-1",
+          label: "Equation 1",
+          compiledDoc: compileMathDocument(
+            String.raw`\left(\frac{\partial^{2}{g}}{\partial{P}^{2}}\right)_{T} = -\kappa v`,
+          ),
+        },
+      ],
+    );
+
+    expect(suggestions[0]?.rhsLatex).toBe(String.raw`-\kappa v`);
+  });
+
   it("negates every RHS term when selecting a negative symbol inside another equation", () => {
     const selected = parseLatexToExpr(String.raw`-x`);
     const suggestions = buildPadSubstituteSuggestions(

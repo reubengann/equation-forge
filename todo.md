@@ -2,6 +2,7 @@
 
 - Identity that takes `\left(\frac{\partial{S}}{\partial{U}}\right)_{L}` to `1/\left(\frac{\partial{U}}{\partial{S}}\right)_{L}`
 - In substitute modal, the mouse cursor changes to text select over suggestion button. Should stay arrow.
+- Editing should not remove history.
 
 ## Medium
 

@@ -93,6 +93,19 @@ describe("toggleDelimiterSelection", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`\frac{v}{v_0} - 1 - \beta \left(T - T_0\right)`);
   });
 
+  it("cancels an inner negative first term when removing a negated additive group", () => {
+    const document = buildDocument(String.raw`P_2 V_1 - \left(-T_1 S_1 + P_1 V_1\right)`);
+    const groupId = Object.entries(document.index.nodeById).find(
+      ([, expr]) => expr.kind === "display_group" && expr.sign === -1,
+    )?.[0];
+    expect(groupId).toBeDefined();
+
+    const next = toggleDelimiterSelection(document, { kind: "single", nodeId: groupId! });
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`P_2 V_1 + T_1 S_1 - P_1 V_1`);
+  });
+
   it("preserves the sign when removing delimiters around a negated non-additive group", () => {
     const document = buildDocument(String.raw`\frac{-\left(\left(v + v_0\right)^{2}\right)}{2 v_0 \kappa}`);
     const groupId = Object.entries(document.index.nodeById).find(

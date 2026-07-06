@@ -554,6 +554,23 @@ describe("parseLatexToExpr", () => {
     expect(lhs.constantQuantity.name).toBe("P");
   });
 
+  it("parses compact squared denominator symbols in second order partials at constant quantity", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\left(\frac{\partial{^2g}}{\partial{P^2}}\right)_{T}`,
+    );
+
+    expectExprKind(expr, "partial_at_const_quantity");
+    expectExprKind(expr.quantity, "second_order_partial_derivative");
+    expect(expr.quantity.degree).toBe(2);
+    expectExprKind(expr.quantity.dependentVariable, "symbol");
+    expect(expr.quantity.dependentVariable.name).toBe("g");
+    expect(expr.quantity.independentVariables).toHaveLength(1);
+    expectExprKind(expr.quantity.independentVariables[0], "symbol");
+    expect(expr.quantity.independentVariables[0].name).toBe("P");
+    expectExprKind(expr.constantQuantity, "symbol");
+    expect(expr.constantQuantity.name).toBe("T");
+  });
+
   it("parses partials at constant quantity", () => {
     for (const latex of [
       String.raw`\left(\frac{\partial{s}}{\partial{T}}\right)_{P} = \frac{c_{P}}{T}`,
