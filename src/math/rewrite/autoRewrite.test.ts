@@ -441,6 +441,15 @@ describe("autoRewriteSelection cleanup", () => {
     expect(exprToLatex(next!, false)).toBe("4");
   });
 
+  it("folds decimal subtraction exactly", () => {
+    const document = buildDocument(String.raw`0.04 - 0.03`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("0.01");
+  });
+
   it("enables cleanup for selected numeric subtraction on equation side", () => {
     const document = buildDocument(String.raw`a+b=5-1`);
     const next = autoRewriteSelection(document, { kind: "single", nodeId: "n5" }, "cleanup");
@@ -448,6 +457,15 @@ describe("autoRewriteSelection cleanup", () => {
     expect(canAutoRewrite(document, { kind: "single", nodeId: "n5" }, "cleanup")).toBe(true);
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe("a + b = 4");
+  });
+
+  it("folds selected decimal subtraction on an equation side", () => {
+    const document = buildDocument(String.raw`a+b=0.04 - 0.03`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n5" }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n5" }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("a + b = 0.01");
   });
 
   it("cleans nested numeric multiplication before folding selected subtraction", () => {

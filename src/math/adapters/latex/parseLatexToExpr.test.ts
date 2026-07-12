@@ -211,6 +211,17 @@ describe("parseLatexToExpr", () => {
     expect(expr.terms[1].text).toBe("some $x + y$ stuff");
   });
 
+  it("ignores unescaped math dollar delimiters outside text", () => {
+    const expr = parseLatexToExpr(String.raw`$0.03 - \frac{4}{T} $ = 0.04 - \frac{6}{T}$`);
+
+    expectExprKind(expr, "equation");
+    expect(expr.sides).toHaveLength(2);
+    expectExprKind(expr.sides[0], "add");
+    expect(expr.sides[0].terms).toHaveLength(2);
+    expectExprKind(expr.sides[1], "add");
+    expect(expr.sides[1].terms).toHaveLength(2);
+  });
+
   it("parses absolute value", () => {
     const expr = parseLatexToExpr(String.raw`|x + b|`);
     expectExprKind(expr, "absolute_value");

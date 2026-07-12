@@ -24,6 +24,7 @@ const SPACING_COMMANDS = new Set([
 ]);
 
 export function coerceLatexForExpressionParser(latex: string): CoercedLatex {
+  latex = stripMathDollarDelimiters(latex);
   const wrapped = readWrappedEnvironment(latex);
   if (!wrapped || !SUPPORTED_ENVIRONMENTS.has(wrapped.name)) return { latex };
 
@@ -34,6 +35,58 @@ export function coerceLatexForExpressionParser(latex: string): CoercedLatex {
 
   if (meaningfulCells.length === 0) return { latex };
   return { latex: meaningfulCells[0]! };
+}
+
+function stripMathDollarDelimiters(latex: string): string {
+  let output = "";
+  for (let index = 0; index < latex.length; index += 1) {
+    const char = latex[index]!;
+    if (char === "\\") {
+      const commandMatch = /^\\([A-Za-z]+)/.exec(latex.slice(index));
+      if (commandMatch?.[1] === "text" && latex[index + commandMatch[0].length] === "{") {
+        const consumed = consumeBracedCommand(latex, index, commandMatch[0].length);
+        output += consumed.value;
+        index = consumed.endIndex;
+        continue;
+      }
+
+      output += char;
+      if (index + 1 < latex.length) {
+        index += 1;
+        output += latex[index]!;
+      }
+      continue;
+    }
+
+    if (char === "$") continue;
+    output += char;
+  }
+  return output;
+}
+
+function consumeBracedCommand(
+  input: string,
+  startIndex: number,
+  commandLength: number,
+): { value: string; endIndex: number } {
+  let braceDepth = 0;
+  let index = startIndex;
+  let value = "";
+  while (index < input.length) {
+    const char = input[index]!;
+    value += char;
+    if (char === "\\") {
+      index += 1;
+      if (index < input.length) value += input[index]!;
+    } else if (char === "{" && index >= startIndex + commandLength) {
+      braceDepth += 1;
+    } else if (char === "}") {
+      braceDepth -= 1;
+      if (braceDepth === 0) break;
+    }
+    index += 1;
+  }
+  return { value, endIndex: index };
 }
 
 function readWrappedEnvironment(latex: string): WrappedEnvironment | null {

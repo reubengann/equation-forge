@@ -32,6 +32,7 @@ type CleanupContext = {
 type Rational = {
   numerator: number;
   denominator: number;
+  decimalPlaces?: number;
 };
 
 export function canCleanupExpr(expr: Expr): boolean {
@@ -756,8 +757,7 @@ function numericRationalValue(expr: Expr): Rational | null {
     return value ? normalizeRational({ numerator: sign * -value.numerator, denominator: value.denominator }) : null;
   }
   if (positive.kind === "number" && typeof positive.value === "number" && Number.isFinite(positive.value)) {
-    if (!Number.isInteger(positive.value)) return null;
-    return { numerator: sign * positive.value, denominator: 1 };
+    return numericLiteralRational(sign * positive.value);
   }
   if (positive.kind === "divide") {
     const numerator = numericLiteralValue(positive.numerator);
@@ -773,6 +773,7 @@ function addRationals(left: Rational, right: Rational): Rational {
   return normalizeRational({
     numerator: left.numerator * right.denominator + right.numerator * left.denominator,
     denominator: left.denominator * right.denominator,
+    decimalPlaces: maxDefined(left.decimalPlaces, right.decimalPlaces),
   });
 }
 
@@ -785,14 +786,45 @@ function normalizeRational(value: Rational): Rational {
   return {
     numerator: numerator / divisor,
     denominator: denominator / divisor,
+    ...(value.decimalPlaces != null ? { decimalPlaces: value.decimalPlaces } : {}),
   };
 }
 
 function rationalToExpr(value: Rational): Expr {
   const normalized = normalizeRational(value);
+  const decimal = rationalToDecimalNumber(normalized);
+  if (decimal != null) return num(decimal);
   if (normalized.denominator === 1) return num(normalized.numerator);
   const sign = normalized.numerator < 0 ? -1 : 1;
   return withSign(divide(num(Math.abs(normalized.numerator)), num(normalized.denominator)), sign);
+}
+
+function numericLiteralRational(value: number): Rational | null {
+  if (Number.isInteger(value)) return { numerator: value, denominator: 1 };
+  const text = value.toString();
+  if (/[eE]/.test(text)) return null;
+  const decimalPlaces = text.split(".")[1]?.length ?? 0;
+  if (decimalPlaces === 0) return { numerator: value, denominator: 1 };
+  const denominator = 10 ** decimalPlaces;
+  return normalizeRational({
+    numerator: Math.round(value * denominator),
+    denominator,
+    decimalPlaces,
+  });
+}
+
+function rationalToDecimalNumber(value: Rational): number | null {
+  if (value.decimalPlaces == null) return null;
+  const scale = 10 ** value.decimalPlaces;
+  if (scale % value.denominator !== 0) return null;
+  const scaledNumerator = value.numerator * (scale / value.denominator);
+  return Number((scaledNumerator / scale).toFixed(value.decimalPlaces));
+}
+
+function maxDefined(left: number | undefined, right: number | undefined): number | undefined {
+  if (left == null) return right;
+  if (right == null) return left;
+  return Math.max(left, right);
 }
 
 function greatestCommonDivisor(left: number, right: number): number {
