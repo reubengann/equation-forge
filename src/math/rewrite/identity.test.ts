@@ -87,6 +87,18 @@ describe("identity rewrites", () => {
     );
   });
 
+  it("applies the exponential natural-log inverse identity", () => {
+    const expr = parse(String.raw`e^{\ln P}`);
+    const options = getApplicableIdentityRewrites(expr);
+
+    expect(options[0]).toMatchObject({
+      id: "exponential-natural-log-inverse",
+      caveat: "Assumes the log arguments are positive.",
+    });
+    expect(rewriteLatex(String.raw`e^{\ln P}`, "exponential-natural-log-inverse")).toBe("P");
+    expect(rewriteLatex(String.raw`\exp\left(\ln P\right)`, "exponential-natural-log-inverse")).toBe("P");
+  });
+
   it("applies the differential sum rule", () => {
     const expr = parse(String.raw`\mathrm{d}\left(f+g\right)`);
     const options = getApplicableIdentityRewrites(expr);
@@ -791,6 +803,16 @@ describe("identity rewrites for selections", () => {
 
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(String.raw`x = \ln \left(a b\right) `);
+  });
+
+  it("offers the exponential natural-log inverse for a selected power", () => {
+    const document = buildDocument(String.raw`y=e^{\ln P}`);
+    const options = getApplicableIdentityRewritesForSelection(document, { kind: "single", nodeId: "n3" });
+    const next = applyIdentityRewriteToSelection(document, { kind: "single", nodeId: "n3" }, "exponential-natural-log-inverse");
+
+    expect(options.map((option) => option.id)).toContain("exponential-natural-log-inverse");
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe("y = P");
   });
 
   it("offers power-of-product for a selected product power", () => {

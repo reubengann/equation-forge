@@ -170,6 +170,14 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
     apply: combineLogCoefficient,
   },
   {
+    id: "exponential-natural-log-inverse",
+    label: "e^(ln x) -> x",
+    latex: String.raw`e^{\ln x} \to x`,
+    caveat: POSITIVE_LOG_CAVEAT,
+    defaultPriority: 82,
+    apply: exponentialNaturalLogInverse,
+  },
+  {
     id: "expand-exponential-sum",
     label: "exp(x + y) -> exp(x) exp(y)",
     latex: String.raw`\exp\left(x + y\right) \to \exp\left(x\right)\exp\left(y\right)`,
@@ -821,6 +829,16 @@ function combineLogCoefficient(expr: Expr): Expr | null {
     ? flipSign(collapseProduct(coefficientFactors))
     : collapseProduct(coefficientFactors);
   return naturalLogWithCompoundParens(power(unwrapDisplayGroup(logEntry.argument), exponent));
+}
+
+function exponentialNaturalLogInverse(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  const exponential = exponentialArgument(signed.value);
+  if (!exponential) return null;
+
+  const argument = naturalLogArgument(exponential.argument);
+  if (!argument) return null;
+  return signed.sign === -1 ? flipSign(argument) : argument;
 }
 
 function expandExponentialSum(expr: Expr): Expr | null {
