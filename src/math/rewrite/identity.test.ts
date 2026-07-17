@@ -648,7 +648,7 @@ describe("identity rewrites", () => {
   it("expands and combines exponential sums", () => {
     expect(rewriteLatex(String.raw`\exp(a+b)`, "expand-exponential-sum")).toBe(String.raw`\exp a  \exp b `);
     expect(rewriteLatex(String.raw`\exp a \exp b`, "combine-exponential-product")).toBe(
-      String.raw`\exp a + b `,
+      String.raw`\exp \left(a + b\right) `,
     );
   });
 
@@ -767,7 +767,7 @@ describe("identity rewrites", () => {
       String.raw`\cos \theta `,
     );
     expect(rewriteLatex(String.raw`\cos\theta`, "cos-to-sin-complement")).toBe(
-      String.raw`\sin \frac{\pi}{2} - \theta `,
+      String.raw`\sin \left(\frac{\pi}{2} - \theta\right) `,
     );
   });
 

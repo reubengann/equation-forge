@@ -86,6 +86,14 @@ describe("substituteSelection", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`\left(x + y\right) b`);
   });
 
+  it("renders additive replacements inside bare function calls as one argument", () => {
+    const document = buildDocument(String.raw`\ln x`);
+    const next = substituteSelection(document, { kind: "single", nodeId: "n3" }, replacement("a+b"));
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\ln \left(a + b\right) `);
+  });
+
   it("renders numeric replacements in products without merging adjacent factors", () => {
     const document = buildDocument(String.raw`5 b c = e`);
     const selectedNodeId = firstNodeIdMatching(document, (expr) => expr.kind === "symbol" && expr.name === "b");

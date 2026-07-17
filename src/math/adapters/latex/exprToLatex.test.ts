@@ -393,6 +393,25 @@ describe("exprToLatex", () => {
     );
   });
 
+  it("groups compound bare function call arguments", () => {
+    const expr = {
+      kind: "call",
+      callee: { kind: "symbol", name: "ln" },
+      args: [
+        {
+          kind: "add",
+          terms: [
+            { kind: "symbol", name: "a" },
+            { kind: "symbol", name: "b" },
+          ],
+        },
+      ],
+      delimiter: "bare",
+    } satisfies Expr;
+
+    expect(exprToLatex(expr, false)).toBe(String.raw`\ln \left(a + b\right) `);
+  });
+
   it("keeps tagged second-order partial-at-constant ids aligned with compiled index ids", () => {
     const source = String.raw`\left(\frac{\partial^{2}{g}}{\partial{P}^{2}}\right)_{T} = -\kappa v`;
     const expr = parseLatexToExpr(source);

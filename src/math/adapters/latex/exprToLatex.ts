@@ -147,7 +147,7 @@ class LatexGenerator {
           case "bracket":
             return `\\${expr.callee.name}\\left[${expr.args.map((x) => this.generate(x)).join(", ")}\\right]`;
           case "bare":
-            return `\\${expr.callee.name} ${expr.args.map((x) => this.generate(x)).join(", ")} `;
+            return `\\${expr.callee.name} ${expr.args.map((x) => this.generateBareCallArgument(x)).join(", ")} `;
         }
       case "user_function":
         return `${expr.name}\\left(${this.generate(expr.argument)}\\right)`;
@@ -264,7 +264,7 @@ class LatexGenerator {
             );
           case "bare":
             return (
-              this.wrap(`\\${expr.callee.name} ${expr.args.map((x) => this.generate(x)).join(", ")}`, id) +
+              this.wrap(`\\${expr.callee.name} ${expr.args.map((x) => this.generateBareCallArgument(x)).join(", ")}`, id) +
               " "
             );
         }
@@ -403,6 +403,11 @@ class LatexGenerator {
     return `\\left(\\frac{\\partial{${this.generate(expr.quantity)}}}{\\partial{${this.generate(expr.variable)}}}\\right)_{${this.generate(expr.constantQuantity)}}`;
   }
 
+  generateBareCallArgument(expr: Expr): string {
+    const rendered = this.generate(expr);
+    return shouldGroupBareCallArgument(expr) ? `\\left(${rendered}\\right)` : rendered;
+  }
+
   generateProductFactors(factors: Expr[]): string {
     let productSign: 1 | -1 = 1;
     const unsignedFactors = factors.map((factor) => {
@@ -435,6 +440,18 @@ function shouldGroupNegativeProductFactor(expr: Expr): boolean {
 
 function shouldGroupProductFactor(expr: Expr): boolean {
   return expr.kind === "add" || (expr.kind === "multiply" && startsWithNegativeFactor(expr));
+}
+
+function shouldGroupBareCallArgument(expr: Expr): boolean {
+  const signed = splitSign(expr);
+  if (signed.sign === -1) return true;
+  switch (signed.value.kind) {
+    case "add":
+    case "multiply":
+      return true;
+    default:
+      return false;
+  }
 }
 
 function shouldGroupPowerBase(expr: Expr): boolean {
