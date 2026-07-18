@@ -306,7 +306,7 @@ describe("substituteAllMatchingExpression", () => {
 });
 
 describe("getReplaceableSymbols", () => {
-  it("discovers standalone symbols, derivative fields, special fonts, and symbolic subscripts", () => {
+  it("discovers standalone symbols, derivative fields, special fonts, and whole subscripted symbols", () => {
     const document = buildDocument(
       String.raw`E_x+\mathscr{H}+\left(\frac{\partial{F}}{\partial{V}}\right)_{T}+x_0`,
     );
@@ -317,7 +317,6 @@ describe("getReplaceableSymbols", () => {
       "F",
       "T",
       "V",
-      "x",
       "x_0",
     ]);
   });
@@ -364,6 +363,15 @@ describe("getReplaceableSymbols", () => {
     const document = buildDocument(String.raw`S + b = -S`);
 
     expect(getReplaceableSymbols(document).map((symbol) => symbol.latex)).toEqual(["b", "S"]);
+  });
+
+  it("does not offer inferred subscript parts as separate symbols", () => {
+    const document = buildDocument(String.raw`G_f = n_1 g_{1f} + n_2 g_{2f}`);
+    const symbols = getReplaceableSymbols(document).map((symbol) => symbol.latex);
+
+    expect(symbols).toEqual(expect.arrayContaining(["G_f", "g_{1f}", "g_{2f}", "n_1", "n_2"]));
+    expect(symbols).toHaveLength(5);
+    expect(symbols).not.toEqual(expect.arrayContaining(["f", "1f", "2f"]));
   });
 });
 

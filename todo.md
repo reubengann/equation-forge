@@ -1,7 +1,5 @@
 ## Low
 
-- `G_f = n_1 g_{1f} + n_2 g_{2f}` replace symbol option gives options like `2f` but also `g_{2f}`.
-
 ## Medium
 
 ## Hard

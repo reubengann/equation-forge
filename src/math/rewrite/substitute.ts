@@ -139,10 +139,6 @@ export function getReplaceableSymbols(document: CompiledMathDocument): Replaceab
   walkExpr(document.expr, (expr) => {
     if (expr.kind === "user_function") addSymbol(sym(expr.name));
     if (isReplaceableSymbolExpr(expr)) addSymbol(expr);
-    if (expr.kind === "symbol") {
-      const subscript = symbolicSubscriptExpr(expr.name);
-      if (subscript) addSymbol(subscript);
-    }
   });
 
   return [...symbolsByKey.values()].sort((left, right) => left.latex.localeCompare(right.latex));
@@ -586,18 +582,3 @@ function replaceSymbolFromPlan(name: string, replacements: SymbolNameReplacement
   return null;
 }
 
-function symbolicSubscriptExpr(name: string): Expr | null {
-  const separatorIndex = name.lastIndexOf("_");
-  if (separatorIndex <= 0) return null;
-
-  const subscriptName = name.slice(separatorIndex + 1);
-  if (
-    !subscriptName ||
-    !isReplaceableSymbolName(subscriptName) ||
-    /^\d+(?:\.\d+)?$/.test(subscriptName) ||
-    subscriptName.startsWith("{")
-  ) {
-    return null;
-  }
-  return { kind: "symbol", name: subscriptName };
-}
