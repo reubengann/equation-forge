@@ -1,6 +1,5 @@
 ## Low
 
-- In substitute modal, the mouse cursor changes to text select over suggestion button. Should stay arrow.
 - Editing should not remove history. Duplicating expression maybe shouldn't copy history.
 - `G_f = n_1 g_{1f} + n_2 g_{2f}` replace symbol option gives options like `2f` but also `g_{2f}`.
 

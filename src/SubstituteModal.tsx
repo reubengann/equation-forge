@@ -105,6 +105,7 @@ const suggestionButtonStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: 8,
+  cursor: "default",
 };
 
 export function SubstituteModal({
@@ -196,8 +197,11 @@ export function SubstituteModal({
                   onClick={() => onSuggestionSelected?.(suggestion)}
                   style={suggestionButtonStyle}
                 >
-                  <span>{suggestion.label}:</span>
-                  <StaticMath latex={suggestion.rhsLatex} style={{ fontSize: "1.05rem" }} />
+                  <span style={{ pointerEvents: "none" }}>{suggestion.label}:</span>
+                  <StaticMath
+                    latex={suggestion.rhsLatex}
+                    style={{ cursor: "default", fontSize: "1.05rem", pointerEvents: "none" }}
+                  />
                 </button>
               ))}
             </div>
