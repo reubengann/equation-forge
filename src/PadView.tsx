@@ -116,32 +116,16 @@ function createEmptyEquation(): PadEquation {
   };
 }
 
-function cloneEquationState(state: EquationRowState): EquationRowState {
-  return {
-    latex: state.latex,
-    functionSymbols: state.functionSymbols.map((tag) => ({ ...tag })),
-    mode: state.mode,
-    history: {
-      past: state.history.past.map((step) => ({
-        ...step,
-        functionSymbols: step.functionSymbols.map((tag) => ({ ...tag })),
-      })),
-      present: {
-        ...state.history.present,
-        functionSymbols: state.history.present.functionSymbols.map((tag) => ({ ...tag })),
-      },
-      future: state.history.future.map((step) => ({
-        ...step,
-        functionSymbols: step.functionSymbols.map((tag) => ({ ...tag })),
-      })),
-    },
-  };
-}
-
 function duplicateEquation(equation: PadEquation): PadEquation {
+  const functionSymbols = equation.state.functionSymbols.map((tag) => ({ ...tag }));
   return {
     id: createEquationId(),
-    state: cloneEquationState(equation.state),
+    state: {
+      latex: equation.state.latex,
+      functionSymbols,
+      mode: equation.state.mode,
+      history: createEquationHistory(equation.state.latex, functionSymbols),
+    },
   };
 }
 

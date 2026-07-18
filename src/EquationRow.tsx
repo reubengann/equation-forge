@@ -5,6 +5,7 @@ import type { EquationEditorRecordingHooks } from "./TestRecorder";
 import { coerceLatexForExpressionParser, parseLatexToExpr } from "./math/adapters/latex";
 import { compileMathDocument, compileMathDocumentFromExpr } from "./math/compile/compileMathDocument";
 import {
+  appendEquationHistoryStep,
   createEquationHistory,
   type EquationMode,
   type EquationRowState,
@@ -133,10 +134,11 @@ export function EquationRow({
           ? remapFunctionSymbols(compiledDoc, acceptedDocument, state.functionSymbols)
           : [];
       setEntryError(null);
-      onStateChange(() => ({
+      onStateChange((current) => ({
+        ...current,
         latex: acceptedLatex,
         functionSymbols: nextFunctionSymbols,
-        history: createEquationHistory(acceptedLatex, nextFunctionSymbols),
+        history: appendEquationHistoryStep(current.history, acceptedLatex, nextFunctionSymbols),
         mode: "display",
       }));
       onLatexAccepted?.({
@@ -159,19 +161,11 @@ export function EquationRow({
         const previousLatex = current.history.present.latex;
         const previousDocument = compileMathDocument(previousLatex);
         const nextFunctionSymbols = remapFunctionSymbols(previousDocument, nextDocument, current.functionSymbols);
-        const nextHistory =
-          previousLatex === canonicalNextLatex
-            ? current.history
-            : {
-                past: [...current.history.past, current.history.present],
-                present: { latex: canonicalNextLatex, functionSymbols: nextFunctionSymbols },
-                future: [],
-              };
         return {
           ...current,
           latex: canonicalNextLatex,
           functionSymbols: nextFunctionSymbols,
-          history: nextHistory,
+          history: appendEquationHistoryStep(current.history, canonicalNextLatex, nextFunctionSymbols),
         };
       });
       onCanonicalLatexChanged?.(canonicalNextLatex);

@@ -33,6 +33,25 @@ export function createEquationHistory(latex: string, functionSymbols: FunctionSy
   };
 }
 
+export function appendEquationHistoryStep(
+  history: EquationHistory,
+  latex: string,
+  functionSymbols: FunctionSymbolTag[] = [],
+): EquationHistory {
+  if (history.present.latex === latex) {
+    return {
+      ...history,
+      present: { latex, functionSymbols },
+    };
+  }
+
+  return {
+    past: [...history.past, history.present],
+    present: { latex, functionSymbols },
+    future: [],
+  };
+}
+
 export function createEquationRowState(latex: string, mode: EquationMode = "entry"): EquationRowState {
   const canonicalLatex = compileMathDocument(latex).plainLatex;
   return {
