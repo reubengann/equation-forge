@@ -1,4 +1,11 @@
 import type { ReactNode } from "react";
+import derivativeIconSvg from "../../public/icons/derivative.svg?raw";
+import derivativeOperatorIconSvg from "../../public/icons/derivative-operator.svg?raw";
+import definiteIntegralIconSvg from "../../public/icons/definite-integral.svg?raw";
+import indefiniteIntegralIconSvg from "../../public/icons/indefinite-integral.svg?raw";
+import partialDerivativeIconSvg from "../../public/icons/partial-derivative.svg?raw";
+import partialDerivativeOperatorIconSvg from "../../public/icons/partial-derivative-operator.svg?raw";
+import partialDerivativeSubscriptIconSvg from "../../public/icons/partial-derivative-subscript.svg?raw";
 
 export type MathEntryMacro = {
   id: string;
@@ -8,24 +15,20 @@ export type MathEntryMacro = {
   icon: ReactNode;
 };
 
-const iconProps = {
-  width: 18,
-  height: 18,
-  viewBox: "0 0 24 24",
-  "aria-hidden": true,
-} as const;
-
-function macroIcon(src: string, size = 22) {
+function macroIcon(svg: string, size = 22) {
+  const sizedSvg = svg.replace("<svg", '<svg style="width:100%;height:100%;display:block" focusable="false"');
   return (
-    <img
-      src={src}
-      width={size}
-      height={size}
-      loading="eager"
-      decoding="async"
-      alt=""
+    <span
       aria-hidden="true"
-      style={{ filter: "invert(1)", display: "block" }}
+      dangerouslySetInnerHTML={{ __html: sizedSvg }}
+      style={{
+        width: size,
+        height: size,
+        display: "block",
+        filter: "invert(1)",
+        lineHeight: 0,
+        overflow: "hidden",
+      }}
     />
   );
 }
@@ -38,49 +41,49 @@ export const MATH_ENTRY_MACROS: MathEntryMacro[] = [
     label: "d/d",
     title: "Insert derivative",
     latex: String.raw`\dfrac{\mathrm{d}{}\placeholder{}}{\mathrm{d}{}\placeholder{}}`,
-    icon: macroIcon("/icons/derivative.svg", fractionMacroIconSize),
+    icon: macroIcon(derivativeIconSvg, fractionMacroIconSize),
   },
   {
     id: "derivative-operator",
     label: "d/d operator",
     title: "Insert derivative operator",
     latex: String.raw`\dfrac{\mathrm{d}}{\mathrm{d}{}\placeholder{}}`,
-    icon: macroIcon("/icons/derivative-operator.svg", fractionMacroIconSize),
+    icon: macroIcon(derivativeOperatorIconSvg, fractionMacroIconSize),
   },
   {
     id: "partial-derivative",
     label: "partial",
     title: "Insert partial derivative",
     latex: String.raw`\dfrac{\partial \placeholder{}}{\partial \placeholder{}}`,
-    icon: macroIcon("/icons/partial-derivative.svg", fractionMacroIconSize),
+    icon: macroIcon(partialDerivativeIconSvg, fractionMacroIconSize),
   },
   {
     id: "partial-derivative-operator",
     label: "partial operator",
     title: "Insert partial derivative operator",
     latex: String.raw`\dfrac{\partial}{\partial \placeholder{}}`,
-    icon: macroIcon("/icons/partial-derivative-operator.svg", fractionMacroIconSize),
+    icon: macroIcon(partialDerivativeOperatorIconSvg, fractionMacroIconSize),
   },
   {
     id: "partial-derivative-subscript",
     label: "partial subscript",
     title: "Insert parenthesized partial derivative with subscript",
     latex: String.raw`\left(\dfrac{\partial \placeholder{}}{\partial \placeholder{}}\right)_{\placeholder{}}`,
-    icon: macroIcon("/icons/partial-derivative-subscript.svg", 36),
+    icon: macroIcon(partialDerivativeSubscriptIconSvg, 36),
   },
   {
     id: "definite-integral",
     label: "integral",
     title: "Insert definite integral",
     latex: String.raw`\int_{\placeholder{}}^{\placeholder{}} \placeholder{}\,\mathrm{d}{}\placeholder{}`,
-    icon: macroIcon("/icons/definite-integral.svg", 22),
+    icon: macroIcon(definiteIntegralIconSvg, 22),
   },
   {
     id: "indefinite-integral",
     label: "integral dx",
     title: "Insert indefinite integral",
     latex: String.raw`\int \placeholder{}\,\mathrm{d}{}\placeholder{}`,
-    icon: macroIcon("/icons/indefinite-integral.svg", 20),
+    icon: macroIcon(indefiniteIntegralIconSvg, 20),
   },
   {
     id: "parentheses",
@@ -88,7 +91,7 @@ export const MATH_ENTRY_MACROS: MathEntryMacro[] = [
     title: "Insert parentheses",
     latex: String.raw`\left(\placeholder{}\right)`,
     icon: (
-      <svg {...iconProps}>
+      <svg width={18} height={18} viewBox="0 0 24 24" aria-hidden="true">
         <text x="5" y="15" fill="currentColor" fontSize="12" fontWeight="600">
           ( )
         </text>

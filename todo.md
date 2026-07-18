@@ -2,8 +2,6 @@
 
 ## Medium
 
-- Still having slowness/many-second delay in loading icons in the equation entry component. I thought we switched to pre-loading them, but on cold start there's significant delay. After warmed up, it's instant.
-
 ## Hard
 
 - JupyterLab plugin. Have to to think about how we store state, which will be very different.
