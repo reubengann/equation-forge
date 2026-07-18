@@ -4,7 +4,6 @@
 
 ## Hard
 
-- What is the identity API? Is it flexible enough to have user-defined identities? For instance, I want to have the chain rule for partial derivatives at constant quantities, or the cycle rule, or the reciprocal rule. Pretty specific to thermodynamics for a general math manipulation library; would be lovely if this were possible to define at a user level, but I suspect that's hard.
 - JupyterLab plugin. Have to to think about how we store state, which will be very different.
 - Refine/test hit testing. I think there's some jank around symbols.
 - Documentation and release.
