@@ -4,7 +4,7 @@
 
 ## Hard
 
-- JupyterLab plugin. Have to to think about how we store state, which will be very different.
+- JupyterLab plugin.
 - Refine/test hit testing. I think there's some jank around symbols.
 - Documentation and release.
 - vector operations. We don't have any identities surrounding cross or dot products, nor do we do any kind of checks whether a given equation makes dimensional sense (so, e.g., you can do `\eqn + 5` to `\vec{a} = \vec{v} \times \vec{w}`, which is nonsense, but there's nothing to stop you from writing it I think.) This would also presumably require logic at the parsing level, since inputting an invalid equation also breaks comprehension.
