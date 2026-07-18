@@ -1,5 +1,5 @@
-import type { RefObject } from "react";
-import { MathEntry } from "./MathEntry";
+import type { Ref, RefObject } from "react";
+import { MathEntry, type EquationEntryCommands } from "./MathEntry";
 
 type MathliveEditorProps = {
   slotRef: RefObject<HTMLDivElement | null>;
@@ -10,6 +10,7 @@ type MathliveEditorProps = {
   focusAtEnd?: boolean;
   focusSession?: number;
   mathFieldId?: string;
+  entryCommandRef?: Ref<EquationEntryCommands>;
 };
 
 export function MathliveEditor({
@@ -21,9 +22,11 @@ export function MathliveEditor({
   focusAtEnd,
   focusSession,
   mathFieldId,
+  entryCommandRef,
 }: MathliveEditorProps) {
   return (
     <MathEntry
+      ref={entryCommandRef}
       slotRef={slotRef}
       latex={latex}
       onLatexChange={updateMathFieldValue}

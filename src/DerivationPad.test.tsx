@@ -1,0 +1,80 @@
+import { act, createRef, useState, type ReactElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, describe, expect, it } from "vitest";
+import { DerivationPad, type DerivationPadCommands, type DerivationPadOptions } from "./DerivationPad";
+import { createEquationRowState } from "./EquationRowState";
+import { compileMathDocument } from "./math/compile/compileMathDocument";
+import type { PadEquation } from "./pad/padDocument";
+
+let root: Root | null = null;
+let container: HTMLDivElement | null = null;
+
+afterEach(() => {
+  if (root) {
+    act(() => root?.unmount());
+  }
+  root = null;
+  container?.remove();
+  container = null;
+});
+
+function mount(element: ReactElement) {
+  container = document.createElement("div");
+  document.body.append(container);
+  root = createRoot(container);
+  act(() => {
+    root?.render(element);
+  });
+}
+
+describe("DerivationPad commands", () => {
+  it("replaces and accepts the active equation entry through the public command ref", () => {
+    const commandsRef = createRef<DerivationPadCommands>();
+    const originalLatex = compileMathDocument("x = y").plainLatex;
+    const insertedLatex = String.raw`F=ma`;
+    const canonicalInsertedLatex = compileMathDocument(insertedLatex).plainLatex;
+    let latestEquations: PadEquation[] = [];
+
+    function Harness() {
+      const [equations, setEquations] = useState<PadEquation[]>([
+        {
+          id: "eq-1",
+          state: createEquationRowState("x = y", "display"),
+        },
+      ]);
+      const [activeEquationId, setActiveEquationId] = useState<string | null>("eq-1");
+      const [options, setOptions] = useState<DerivationPadOptions>({
+        wrapEquationCopiesInDisplayMath: false,
+      });
+      latestEquations = equations;
+      return (
+        <DerivationPad
+          ref={commandsRef}
+          equations={equations}
+          activeEquationId={activeEquationId}
+          options={options}
+          onEquationsChange={setEquations}
+          onActiveEquationIdChange={setActiveEquationId}
+          onOptionsChange={setOptions}
+        />
+      );
+    }
+
+    mount(<Harness />);
+
+    act(() => commandsRef.current?.replaceEntryLatex(insertedLatex));
+    expect(latestEquations[0]?.state).toMatchObject({
+      latex: insertedLatex,
+      mode: "entry",
+    });
+    expect(latestEquations[0]?.state.history.present.latex).toBe(originalLatex);
+
+    act(() => commandsRef.current?.acceptEntry());
+    expect(latestEquations[0]?.state).toMatchObject({
+      latex: canonicalInsertedLatex,
+      mode: "display",
+    });
+    expect(latestEquations[0]?.state.history.past.map((step) => step.latex)).toEqual([originalLatex]);
+    expect(latestEquations[0]?.state.history.present.latex).toBe(canonicalInsertedLatex);
+  });
+});

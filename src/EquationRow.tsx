@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { EquationEditor } from "./EquationEditor";
 import { MathliveEditor } from "./MathliveEditor";
+import type { EquationEntryCommands } from "./MathEntry";
 import type { EquationEditorRecordingHooks } from "./TestRecorder";
 import { coerceLatexForExpressionParser, parseLatexToExpr } from "./math/adapters/latex";
 import { compileMathDocument, compileMathDocumentFromExpr } from "./math/compile/compileMathDocument";
@@ -17,7 +18,9 @@ import {
   remapFunctionSymbols,
 } from "./math/compile/functionSymbols";
 
-type EquationRowProps = {
+export type EquationRowCommands = EquationEntryCommands;
+
+export type EquationRowProps = {
   state: EquationRowState;
   onStateChange: (updater: (current: EquationRowState) => EquationRowState) => void;
   onLatexAccepted?: (payload: {
@@ -40,7 +43,7 @@ function acceptButtonLabel(mode: EquationMode) {
 
 const equationBodyMinHeight = "150px";
 
-export function EquationRow({
+export const EquationRow = forwardRef<EquationRowCommands, EquationRowProps>(function EquationRow({
   state,
   onStateChange,
   onLatexAccepted,
@@ -52,12 +55,13 @@ export function EquationRow({
   mathFieldId,
   substituteSuggestionSources = [],
   wrapEquationCopiesInDisplayMath = false,
-}: EquationRowProps) {
+}, ref) {
   const [entryError, setEntryError] = useState<string | null>(null);
   const [presetIndex, setPresetIndex] = useState(0);
   const lastAcceptedLatexRef = useRef<string | null>(null);
   const entryFocusSessionRef = useRef(0);
   const slotRef = useRef<HTMLDivElement | null>(null);
+  const entryCommandsRef = useRef<EquationEntryCommands | null>(null);
   const compiledDoc = useMemo(() => {
     try {
       return compileMathDocument(state.latex);
@@ -108,50 +112,53 @@ export function EquationRow({
     }));
   };
 
-  const handleAcceptToggle = (latestLatex?: unknown) => {
-    if (state.mode === "entry") {
-      const previousLatex = lastAcceptedLatexRef.current;
-      const rawLatex = typeof latestLatex === "string" ? latestLatex : state.latex;
-      const nextLatex = coerceLatexForExpressionParser(rawLatex).latex;
-      let acceptedLatex = nextLatex;
-      let acceptedDocument;
-      try {
-        parseLatexToExpr(nextLatex, { onError: "throw" });
-        acceptedDocument = compileMathDocument(nextLatex);
-        acceptedLatex = acceptedDocument.plainLatex;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unable to parse LaTeX input.";
-        onStateChange((current) => ({ ...current, latex: nextLatex }));
-        setEntryError(
-          message.includes("still contains placeholders")
-            ? "Fill or remove every placeholder before accepting."
-            : message,
-        );
+  const handleAcceptToggle = useCallback(
+    (latestLatex?: unknown) => {
+      if (state.mode === "entry") {
+        const previousLatex = lastAcceptedLatexRef.current;
+        const rawLatex = typeof latestLatex === "string" ? latestLatex : state.latex;
+        const nextLatex = coerceLatexForExpressionParser(rawLatex).latex;
+        let acceptedLatex = nextLatex;
+        let acceptedDocument;
+        try {
+          parseLatexToExpr(nextLatex, { onError: "throw" });
+          acceptedDocument = compileMathDocument(nextLatex);
+          acceptedLatex = acceptedDocument.plainLatex;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Unable to parse LaTeX input.";
+          onStateChange((current) => ({ ...current, latex: nextLatex }));
+          setEntryError(
+            message.includes("still contains placeholders")
+              ? "Fill or remove every placeholder before accepting."
+              : message,
+          );
+          return;
+        }
+        const nextFunctionSymbols =
+          compiledDoc && acceptedDocument
+            ? remapFunctionSymbols(compiledDoc, acceptedDocument, state.functionSymbols)
+            : [];
+        setEntryError(null);
+        onStateChange((current) => ({
+          ...current,
+          latex: acceptedLatex,
+          functionSymbols: nextFunctionSymbols,
+          history: appendEquationHistoryStep(current.history, acceptedLatex, nextFunctionSymbols),
+          mode: "display",
+        }));
+        onLatexAccepted?.({
+          previousLatex,
+          nextLatex: acceptedLatex,
+        });
+        lastAcceptedLatexRef.current = acceptedLatex;
         return;
       }
-      const nextFunctionSymbols =
-        compiledDoc && acceptedDocument
-          ? remapFunctionSymbols(compiledDoc, acceptedDocument, state.functionSymbols)
-          : [];
-      setEntryError(null);
-      onStateChange((current) => ({
-        ...current,
-        latex: acceptedLatex,
-        functionSymbols: nextFunctionSymbols,
-        history: appendEquationHistoryStep(current.history, acceptedLatex, nextFunctionSymbols),
-        mode: "display",
-      }));
-      onLatexAccepted?.({
-        previousLatex,
-        nextLatex: acceptedLatex,
-      });
-      lastAcceptedLatexRef.current = acceptedLatex;
-      return;
-    }
 
-    entryFocusSessionRef.current += 1;
-    onStateChange((current) => ({ ...current, mode: "entry" }));
-  };
+      entryFocusSessionRef.current += 1;
+      onStateChange((current) => ({ ...current, mode: "entry" }));
+    },
+    [compiledDoc, onLatexAccepted, onStateChange, state.functionSymbols, state.latex, state.mode],
+  );
 
   const handleCanonicalLatexChanged = useCallback(
     (nextLatex: string) => {
@@ -209,6 +216,53 @@ export function EquationRow({
     entryFocusSessionRef.current += 1;
     onStateChange((current) => ({ ...current, mode: "entry" }));
   }, [onStateChange]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      insertLatex: (latexToInsert: string) => {
+        if (state.mode === "entry" && entryCommandsRef.current) {
+          entryCommandsRef.current.insertLatex(latexToInsert);
+          return;
+        }
+
+        entryFocusSessionRef.current += 1;
+        setEntryError(null);
+        onStateChange((current) => ({
+          ...current,
+          latex: `${current.latex}${latexToInsert}`,
+          mode: "entry",
+        }));
+      },
+      replaceEntryLatex: (nextLatex: string) => {
+        if (state.mode === "entry" && entryCommandsRef.current) {
+          entryCommandsRef.current.replaceEntryLatex(nextLatex);
+          return;
+        }
+
+        entryFocusSessionRef.current += 1;
+        setEntryError(null);
+        onStateChange((current) => ({ ...current, latex: nextLatex, mode: "entry" }));
+      },
+      acceptEntry: () => {
+        if (state.mode === "entry" && entryCommandsRef.current) {
+          entryCommandsRef.current.acceptEntry();
+          return;
+        }
+        if (state.mode === "entry") handleAcceptToggle();
+      },
+      focusEntry: () => {
+        if (state.mode === "entry" && entryCommandsRef.current) {
+          entryCommandsRef.current.focusEntry();
+          return;
+        }
+
+        entryFocusSessionRef.current += 1;
+        onStateChange((current) => ({ ...current, mode: "entry" }));
+      },
+    }),
+    [handleAcceptToggle, onStateChange, state.mode],
+  );
 
   return (
     <section
@@ -283,6 +337,7 @@ export function EquationRow({
               latex={state.latex}
               updateMathFieldValue={updateMathFieldValue}
               onAccept={handleAcceptToggle}
+              entryCommandRef={entryCommandsRef}
               autoFocus
               focusAtEnd
               focusSession={entryFocusSessionRef.current}
@@ -367,4 +422,4 @@ export function EquationRow({
       </div>
     </section>
   );
-}
+});

@@ -1,5 +1,12 @@
-import type { KeyboardEvent, RefObject } from "react";
-import { useEffect, useRef } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  type KeyboardEvent,
+  type RefObject,
+} from "react";
 import { MATH_ENTRY_MACROS, type MathEntryMacro } from "./mathEntry/mathEntryMacros";
 
 type MathfieldElementLike = HTMLElement & {
@@ -34,6 +41,13 @@ type MathEntryProps = {
   macroButtonTabIndex?: number;
 };
 
+export type EquationEntryCommands = {
+  insertLatex: (latex: string) => void;
+  replaceEntryLatex: (latex: string) => void;
+  acceptEntry: () => void;
+  focusEntry: () => void;
+};
+
 function focusMathField(
   field: MathfieldElementLike | null,
   options: { atEnd?: boolean; selectAll?: boolean } = {},
@@ -53,7 +67,7 @@ function focusMathField(
   }
 }
 
-export function MathEntry({
+export const MathEntry = forwardRef<EquationEntryCommands, MathEntryProps>(function MathEntry({
   slotRef,
   latex,
   onLatexChange,
@@ -66,7 +80,7 @@ export function MathEntry({
   focusSession,
   mathFieldId = "equation-mathfield",
   macroButtonTabIndex,
-}: MathEntryProps) {
+}, ref) {
   const mathFieldRef = useRef<MathfieldElementLike | null>(null);
   const appliedMathfieldMacrosRef = useRef<{
     field: MathfieldElementLike;
@@ -116,37 +130,70 @@ export function MathEntry({
     };
   }, [autoFocus, focusAtEnd, focusSession, selectOnFocus]);
 
-  const readLatexFromField = (): string => {
+  const readLatexFromField = useCallback((): string => {
     const field = mathFieldRef.current;
     if (!field) return latex;
     const value = typeof field.getValue === "function" ? field.getValue("latex") : field.value;
     return typeof value === "string" ? value : latex;
-  };
+  }, [latex]);
 
-  const syncLatexFromField = () => {
+  const syncLatexFromField = useCallback(() => {
     const nextLatex = readLatexFromField();
     onLatexChange(nextLatex);
     return nextLatex;
-  };
+  }, [onLatexChange, readLatexFromField]);
 
-  const insertMacro = (macro: MathEntryMacro) => {
+  const insertLatex = useCallback((latexToInsert: string) => {
     const field = mathFieldRef.current;
-    if (!field) return;
+    if (!field) {
+      onLatexChange(`${latex}${latexToInsert}`);
+      return;
+    }
 
     if (typeof field.insert === "function") {
-      field.insert(macro.latex, {
+      field.insert(latexToInsert, {
         insertionMode: "replaceSelection",
         selectionMode: "placeholder",
         format: "latex",
         focus: true,
       });
     } else if (typeof field.executeCommand === "function") {
-      field.executeCommand(["insert", macro.latex]);
+      field.executeCommand(["insert", latexToInsert]);
       focusMathField(field);
+    } else {
+      const nextLatex = `${readLatexFromField()}${latexToInsert}`;
+      field.value = nextLatex;
     }
 
     syncLatexFromField();
-  };
+  }, [latex, onLatexChange, readLatexFromField, syncLatexFromField]);
+
+  const replaceEntryLatex = useCallback((nextLatex: string) => {
+    const field = mathFieldRef.current;
+    if (field) {
+      field.value = nextLatex;
+      field.setAttribute("value", nextLatex);
+    }
+    onLatexChange(nextLatex);
+    focusMathField(field, { atEnd: true });
+  }, [onLatexChange]);
+
+  const acceptEntry = useCallback(() => {
+    onAccept(syncLatexFromField());
+  }, [onAccept, syncLatexFromField]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      insertLatex,
+      replaceEntryLatex,
+      acceptEntry,
+      focusEntry: () => {
+        focusMathField(mathFieldRef.current, { atEnd: true });
+      },
+    }),
+    [acceptEntry, insertLatex, replaceEntryLatex],
+  );
 
   const handleMacroKeyDownCapture = (event: KeyboardEvent<HTMLElement>) => {
     if ((event.ctrlKey || event.metaKey) && !event.altKey) {
@@ -156,7 +203,7 @@ export function MathEntry({
         event.preventDefault();
         event.stopPropagation();
         event.nativeEvent.stopImmediatePropagation?.();
-        insertMacro(macro);
+        insertLatex(macro.latex);
       }
     }
   };
@@ -194,7 +241,7 @@ export function MathEntry({
             aria-label={`${macro.title} (Ctrl+${index + 1})`}
             title={`${macro.title} (Ctrl+${index + 1})`}
             onMouseDown={(event) => event.preventDefault()}
-            onClick={() => insertMacro(macro)}
+            onClick={() => insertLatex(macro.latex)}
             tabIndex={macroButtonTabIndex}
             style={{
               width: 32,
@@ -253,4 +300,4 @@ export function MathEntry({
       </div>
     </div>
   );
-}
+});
