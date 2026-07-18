@@ -2,7 +2,8 @@
 
 - Identity that takes `\left(\frac{\partial{S}}{\partial{U}}\right)_{L}` to `1/\left(\frac{\partial{U}}{\partial{S}}\right)_{L}`
 - In substitute modal, the mouse cursor changes to text select over suggestion button. Should stay arrow.
-- Editing should not remove history.
+- Editing should not remove history. Duplicating expression maybe shouldn't copy history.
+- `G_f = n_1 g_{1f} + n_2 g_{2f}` replace symbol option gives options like `2f` but also `g_{2f}`.
 
 ## Medium
 
