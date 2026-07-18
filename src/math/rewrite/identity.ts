@@ -8,6 +8,7 @@ import {
   divide,
   multiply,
   num,
+  partialAtConstQuantity,
   partialDerivative,
   partialDerivativeOperator,
   fullDerivativeOperator,
@@ -93,6 +94,13 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
     latex: String.raw`\frac{\partial}{\partial x}\left(\frac{\partial f}{\partial x}\right) \to \frac{\partial^{2}f}{\partial x^{2}}`,
     defaultPriority: 96,
     apply: nestedPartialToSecondPartial,
+  },
+  {
+    id: "partial-at-constant-reciprocal",
+    label: "(dS/dU)_L -> 1/(dU/dS)_L",
+    latex: String.raw`\left(\frac{\partial S}{\partial U}\right)_{L} \to \frac{1}{\left(\frac{\partial U}{\partial S}\right)_{L}}`,
+    defaultPriority: 96,
+    apply: partialAtConstantReciprocal,
   },
   {
     id: "derivative-product-rule",
@@ -564,6 +572,23 @@ function nestedPartialDerivative(expr: Expr): {
     default:
       return null;
   }
+}
+
+function partialAtConstantReciprocal(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  if (signed.sign === -1) return null;
+
+  const unwrapped = unwrapDisplayGroup(signed.value);
+  if (unwrapped.kind !== "partial_at_const_quantity") return null;
+
+  return divide(
+    num(1),
+    partialAtConstQuantity(
+      cloneExpr(unwrapped.variable),
+      cloneExpr(unwrapped.quantity),
+      cloneExpr(unwrapped.constantQuantity),
+    ),
+  );
 }
 
 function derivativeProductRule(expr: Expr): Expr | null {

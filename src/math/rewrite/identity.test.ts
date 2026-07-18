@@ -349,6 +349,16 @@ describe("identity rewrites", () => {
     )).toBeNull();
   });
 
+  it("rewrites partial-at-constant derivatives to reciprocal derivatives", () => {
+    const input = String.raw`\left(\frac{\partial{S}}{\partial{U}}\right)_{L}`;
+    const options = getApplicableIdentityRewrites(parse(input));
+
+    expect(options.map((option) => option.id)).toContain("partial-at-constant-reciprocal");
+    expect(rewriteLatex(input, "partial-at-constant-reciprocal")).toBe(
+      String.raw`\frac{1}{\left(\frac{\partial{U}}{\partial{S}}\right)_{L}}`,
+    );
+  });
+
   it("combines a natural log difference into a quotient", () => {
     const expr = parse(String.raw`\ln a-\ln b`);
     const options = getApplicableIdentityRewrites(expr);
@@ -999,5 +1009,31 @@ describe("identity rewrites for selections", () => {
     expect(options.map((option) => option.id)).toContain("differential-sum-rule");
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(String.raw`\mathrm{d}{S} - \mathrm{d}{\frac{U + P V}{T}}`);
+  });
+
+  it("rewrites a selected partial-at-constant derivative inside an equation", () => {
+    const document = buildDocument(String.raw`T=\left(\frac{\partial{S}}{\partial{U}}\right)_{L}`);
+    const selectedNodeId = firstNodeIdMatching(
+      document,
+      (expr) => expr.kind === "partial_at_const_quantity",
+    );
+    const options = getApplicableIdentityRewritesForSelection(document, {
+      kind: "single",
+      nodeId: selectedNodeId,
+    });
+    const next = applyIdentityRewriteToSelection(
+      document,
+      {
+        kind: "single",
+        nodeId: selectedNodeId,
+      },
+      "partial-at-constant-reciprocal",
+    );
+
+    expect(options.map((option) => option.id)).toContain("partial-at-constant-reciprocal");
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`T = \frac{1}{\left(\frac{\partial{U}}{\partial{S}}\right)_{L}}`,
+    );
   });
 });
