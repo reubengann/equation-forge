@@ -1,0 +1,248 @@
+{
+  "schemaVersion": 1,
+  "exportedAtIso": "2026-07-20T18:43:41.643Z",
+  "domSnapshots": {
+    "s1": {
+      "hostRect": {
+        "left": 64.58332824707031,
+        "top": 188.03334045410156,
+        "right": 1392.5833282470703,
+        "bottom": 217.3000030517578,
+        "width": 1328,
+        "height": 29.26666259765625
+      },
+      "nodeRects": [
+        {
+          "nodeId": "n1",
+          "left": 64.58332824707031,
+          "top": 186.4166717529297,
+          "right": 296.5833282470703,
+          "bottom": 215.5833282470703,
+          "width": 232,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n2",
+          "left": 64.58332824707031,
+          "top": 186.4166717529297,
+          "right": 93.5,
+          "bottom": 215.5833282470703,
+          "width": 28.916671752929688,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n3",
+          "left": 76.60000610351562,
+          "top": 186.4166717529297,
+          "right": 93.5,
+          "bottom": 215.5833282470703,
+          "width": 16.899993896484375,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n4",
+          "left": 122.39999389648438,
+          "top": 186.4166717529297,
+          "right": 296.5833282470703,
+          "bottom": 215.5833282470703,
+          "width": 174.18333435058594,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n5",
+          "left": 122.39999389648438,
+          "top": 186.4166717529297,
+          "right": 151.5500030517578,
+          "bottom": 215.5833282470703,
+          "width": 29.150009155273438,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n6",
+          "left": 134.4166717529297,
+          "top": 186.4166717529297,
+          "right": 151.5500030517578,
+          "bottom": 215.5833282470703,
+          "width": 17.133331298828125,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n7",
+          "left": 178.28334045410156,
+          "top": 186.4166717529297,
+          "right": 224.06666564941406,
+          "bottom": 215.5833282470703,
+          "width": 45.7833251953125,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n8",
+          "left": 178.28334045410156,
+          "top": 186.4166717529297,
+          "right": 193.9166717529297,
+          "bottom": 215.5833282470703,
+          "width": 15.633331298828125,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n9",
+          "left": 197.51666259765625,
+          "top": 186.4166717529297,
+          "right": 224.06666564941406,
+          "bottom": 215.5833282470703,
+          "width": 26.550003051757812,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n10",
+          "left": 209.53334045410156,
+          "top": 186.4166717529297,
+          "right": 224.06666564941406,
+          "bottom": 215.5833282470703,
+          "width": 14.5333251953125,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n11",
+          "left": 250.8000030517578,
+          "top": 186.4166717529297,
+          "right": 296.5833282470703,
+          "bottom": 215.5833282470703,
+          "width": 45.7833251953125,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n12",
+          "left": 250.8000030517578,
+          "top": 186.4166717529297,
+          "right": 265.3333282470703,
+          "bottom": 215.5833282470703,
+          "width": 14.5333251953125,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n13",
+          "left": 268.933349609375,
+          "top": 186.4166717529297,
+          "right": 296.5833435058594,
+          "bottom": 215.5833282470703,
+          "width": 27.649993896484375,
+          "height": 29.166656494140625
+        },
+        {
+          "nodeId": "n14",
+          "left": 280.95001220703125,
+          "top": 186.4166717529297,
+          "right": 296.5833435058594,
+          "bottom": 215.5833282470703,
+          "width": 15.633331298828125,
+          "height": 29.166656494140625
+        }
+      ]
+    }
+  },
+  "events": [
+    {
+      "type": "move_mode_changed",
+      "moveType": "additive",
+      "ts": 1784573002863
+    },
+    {
+      "type": "latex_accepted",
+      "previousLatex": "\\mathrm{d}{F} = \\mathrm{d}{U} - T \\,\\mathrm{d}{S} - S \\,\\mathrm{d}{T}",
+      "nextLatex": "\\mathrm{d}{F} = \\mathrm{d}{U} - T \\,\\mathrm{d}{S} - S \\,\\mathrm{d}{T}",
+      "ts": 1784573004024
+    },
+    {
+      "type": "dom_changed",
+      "source": "accept",
+      "domSnapshotId": "s1",
+      "ts": 1784573004034
+    },
+    {
+      "type": "pointer_down",
+      "pointer": {
+        "x": 260,
+        "y": 205.8333282470703
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1784573007849
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 233.3333282470703,
+        "y": 202.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1784573009583
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 210,
+        "y": 202.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1784573010973
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 197.5,
+        "y": 202.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1784573012340
+    },
+    {
+      "type": "pointer_move",
+      "pointer": {
+        "x": 193.3333282470703,
+        "y": 202.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": -1,
+      "buttons": 1,
+      "ctrlKey": false,
+      "ts": 1784573012603
+    },
+    {
+      "type": "pointer_up",
+      "pointer": {
+        "x": 193.3333282470703,
+        "y": 202.5
+      },
+      "domSnapshotId": "s1",
+      "pointerType": "mouse",
+      "button": 0,
+      "buttons": 0,
+      "ctrlKey": false,
+      "ts": 1784573015430
+    }
+  ],
+  "expected": {
+    "selectedNodeIds": [
+    ],
+    "insertionPreview": null,
+    "moveType": "additive",
+    "latex": "\\mathrm{d}{F} = \\mathrm{d}{U} - S \\,\\mathrm{d}{T} - T \\,\\mathrm{d}{S}"
+  }
+}

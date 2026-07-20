@@ -388,6 +388,34 @@ export function resolveNodeAtPoint(
   };
 }
 
+function normalizeDestinationNodeForMove(
+  nodeId: string,
+  index: ExprIndex,
+  moveType: "additive" | "multiplicative",
+): string {
+  if (moveType !== "additive") return nodeId;
+
+  let cursor: string | null = nodeId;
+  while (cursor) {
+    const parentId: string | null = index.parentById[cursor] ?? null;
+    const parent = parentId ? index.nodeById[parentId] : null;
+    if (parent?.kind === "add") return cursor;
+    cursor = parentId;
+  }
+  return nodeId;
+}
+
+export function resolveMoveDestinationNodeAtPoint(
+  point: PointerLike,
+  nodeResolution: NodeResolutionSource,
+  index: ExprIndex,
+  moveType: "additive" | "multiplicative",
+  paddingPx = 0,
+): string | null {
+  const resolvedNodeId = resolveSelectableNodeAtPoint(point, nodeResolution, index, paddingPx);
+  return resolvedNodeId ? normalizeDestinationNodeForMove(resolvedNodeId, index, moveType) : null;
+}
+
 export function resolveMarqueeNodeIds(
   marqueeRect: RectBounds,
   nodeResolution: NodeResolutionSource,

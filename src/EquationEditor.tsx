@@ -9,7 +9,7 @@ import {
   DRAG_PREVIEW_HIT_TEST_PADDING_PX,
   rectFromPoints,
   resolveNodeAtPoint,
-  resolveSelectableNodeAtPoint,
+  resolveMoveDestinationNodeAtPoint,
   resolveSelectionFromEvent,
   type SelectionControllerEvent,
   selectionSet,
@@ -656,10 +656,11 @@ export function EquationEditor({
   const resolveInsertionPreviewAtPoint = (pointer: { x: number; y: number }): InsertionPreview | null => {
     if (!selection) return null;
 
-    const destinationId = resolveSelectableNodeAtPoint(
+    const destinationId = resolveMoveDestinationNodeAtPoint(
       pointer,
       nodeResolutionRef.current,
       compiledDoc.index,
+      moveType,
       DRAG_PREVIEW_HIT_TEST_PADDING_PX,
     );
     if (!destinationId || selectionContainsNode(selection, destinationId)) return null;
@@ -1003,10 +1004,11 @@ export function EquationEditor({
     if (!event.currentTarget.hasPointerCapture?.(event.pointerId)) return;
     publishGeometrySnapshot();
 
-    const destinationId = resolveSelectableNodeAtPoint(
+    const destinationId = resolveMoveDestinationNodeAtPoint(
       { x: event.clientX, y: event.clientY },
       nodeResolutionRef.current,
       compiledDoc.index,
+      moveType,
       DRAG_PREVIEW_HIT_TEST_PADDING_PX,
     );
     if (!destinationId || selectionContainsNode(selection, destinationId)) {

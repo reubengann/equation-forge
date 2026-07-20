@@ -7,11 +7,11 @@ import {
   createSelectionControllerState,
   DRAG_COMMIT_THRESHOLD_PX,
   DRAG_PREVIEW_HIT_TEST_PADDING_PX,
+  resolveMoveDestinationNodeAtPoint,
   type NodeResolutionSource,
   type SelectionGeometry,
   rectFromPoints,
   resolveNodeAtPoint,
-  resolveSelectableNodeAtPoint,
   resolveSelectionFromEvent,
   selectionNodeIds,
 } from "../src/interaction/selectionController";
@@ -191,10 +191,11 @@ export function replayEvents(fixture: EventFixture) {
         if (event.ctrlKey || !hasDragged) {
           previewToApply = null;
         } else if (selection) {
-          const destinationId = resolveSelectableNodeAtPoint(
+          const destinationId = resolveMoveDestinationNodeAtPoint(
             { x: event.pointer.x, y: event.pointer.y },
             currentNodeResolution,
             currentCompiledIndex,
+            state.moveType,
             DRAG_PREVIEW_HIT_TEST_PADDING_PX,
           );
           if (!destinationId || selectionNodeIds(selection).includes(destinationId)) {
@@ -292,10 +293,11 @@ export function replayEvents(fixture: EventFixture) {
           break;
         }
 
-        const destinationId = resolveSelectableNodeAtPoint(
+        const destinationId = resolveMoveDestinationNodeAtPoint(
           { x: event.pointer.x, y: event.pointer.y },
           currentNodeResolution,
           currentCompiledIndex,
+          state.moveType,
           DRAG_PREVIEW_HIT_TEST_PADDING_PX,
         );
         if (!destinationId || selectionNodeIds(selection).includes(destinationId)) {
