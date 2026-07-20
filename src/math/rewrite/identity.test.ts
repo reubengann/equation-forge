@@ -326,6 +326,30 @@ describe("identity rewrites", () => {
     )).toBeNull();
   });
 
+  it("distributes a numerator sum over a shared denominator", () => {
+    const input = String.raw`\frac{a+b+c}{e}`;
+    const options = getApplicableIdentityRewrites(parse(input));
+
+    expect(options.map((option) => option.id)).toContain("distribute-sum-over-denominator");
+    expect(rewriteLatex(input, "distribute-sum-over-denominator")).toBe(
+      String.raw`\frac{a}{e} + \frac{b}{e} + \frac{c}{e}`,
+    );
+  });
+
+  it("preserves signs when distributing a numerator sum", () => {
+    expect(rewriteLatex(String.raw`\frac{a-b+c}{e}`, "distribute-sum-over-denominator")).toBe(
+      String.raw`\frac{a}{e} - \frac{b}{e} + \frac{c}{e}`,
+    );
+    expect(rewriteLatex(String.raw`-\frac{a+b}{e}`, "distribute-sum-over-denominator")).toBe(
+      String.raw`-\frac{a}{e} - \frac{b}{e}`,
+    );
+  });
+
+  it("does not distribute fractions without numerator sums", () => {
+    expect(rewriteLatex(String.raw`\frac{a b}{e}`, "distribute-sum-over-denominator")).toBeNull();
+    expect(rewriteLatex(String.raw`\frac{a}{e}`, "distribute-sum-over-denominator")).toBeNull();
+  });
+
   it("converts nested same-variable partial derivatives to second-order partial derivatives", () => {
     const expr = parse(String.raw`\frac{\partial}{\partial{T}} \frac{\partial{A}}{\partial{T}}`);
     const options = getApplicableIdentityRewrites(expr);
@@ -874,6 +898,32 @@ describe("identity rewrites for selections", () => {
     expect(options.map((option) => option.id)).toContain("reciprocal-to-negative-power");
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(String.raw`y = x^{-1} + z`);
+  });
+
+  it("distributes a selected numerator sum fraction inside an equation", () => {
+    const document = buildDocument(String.raw`y=\frac{a+b+c}{e}+z`);
+    const selectedNodeId = firstNodeIdMatching(
+      document,
+      (expr) => expr.kind === "divide" && expr.numerator.kind === "add",
+    );
+    const options = getApplicableIdentityRewritesForSelection(document, {
+      kind: "single",
+      nodeId: selectedNodeId,
+    });
+    const next = applyIdentityRewriteToSelection(
+      document,
+      {
+        kind: "single",
+        nodeId: selectedNodeId,
+      },
+      "distribute-sum-over-denominator",
+    );
+
+    expect(options.map((option) => option.id)).toContain("distribute-sum-over-denominator");
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`y = \frac{a}{e} + \frac{b}{e} + \frac{c}{e} + z`,
+    );
   });
 
   it("replaces a contiguous multi-selection", () => {

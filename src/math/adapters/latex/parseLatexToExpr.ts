@@ -1,5 +1,4 @@
-import { immutableExpression, invalidInput, type Expr } from "../../ast";
-import { normalizeLegacyNegates } from "../../rewrite/algebraUtils";
+import { immutableExpression, invalidInput, normalizeLegacyNegates, type Expr } from "../../ast";
 import { coerceLatexForExpressionParser } from "./coerceLatexForExpressionParser";
 import { parseLatexToExprWithUnifiedLatexResult } from "./unifiedLatexToExpr";
 

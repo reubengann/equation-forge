@@ -138,6 +138,13 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
     apply: derivativeReciprocalRule,
   },
   {
+    id: "distribute-sum-over-denominator",
+    label: "(a + b + c) / e -> a/e + b/e + c/e",
+    latex: String.raw`\frac{a + b + c}{e} \to \frac{a}{e} + \frac{b}{e} + \frac{c}{e}`,
+    defaultPriority: 92,
+    apply: distributeSumOverDenominator,
+  },
+  {
     id: "combine-natural-logs",
     label: "ln a + ln b -> ln(a b)",
     latex: String.raw`\ln a + \ln b \to \ln\left(ab\right)`,
@@ -697,6 +704,24 @@ function derivativeReciprocalRule(expr: Expr): Expr | null {
       divide(num(1), power(reciprocal.denominator, num(2))),
       derivativeWithOperand(signed.value, reciprocal.denominator),
     ]),
+  );
+}
+
+function distributeSumOverDenominator(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  const quotient = quotientOperand(signed.value);
+  if (!quotient) return null;
+
+  const numerator = sumOperand(quotient.numerator);
+  if (!numerator || numerator.terms.length < 2) return null;
+
+  return add(
+    numerator.terms.map((term) => {
+      const signedTerm = splitAdditiveTermSign(term);
+      const fraction = divide(cloneExpr(signedTerm.value), cloneExpr(quotient.denominator));
+      const termSign = signed.sign === signedTerm.sign ? 1 : -1;
+      return termSign === -1 ? flipSign(fraction) : fraction;
+    }),
   );
 }
 

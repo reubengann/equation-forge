@@ -3,6 +3,21 @@ export type { CompiledExprIndex, CompiledExprNodeLocation } from "./compiledInde
 export { buildCompiledExprIndex } from "./compiledIndex";
 export { findIntegralDifferentialVariable } from "./integralDifferential";
 export {
+  applySign,
+  collapseProduct,
+  exprSign,
+  flipSign,
+  isNegativeExpr,
+  isNumberValue,
+  multiplySigns,
+  normalizeLegacyNegates,
+  normalizeSign,
+  splitSign,
+  withSign,
+  withoutSign,
+  type Sign,
+} from "./sign";
+export {
   add,
   absoluteValue,
   bigProd,

@@ -10,9 +10,9 @@ import {
   num,
   power,
   sym,
+  flipSign,
   type Expr,
 } from "../../ast";
-import { flipSign } from "../../rewrite/algebraUtils";
 import type { SymbolSubstitution } from "./toAlgebrite";
 
 const ALGE_BRITE_EULER_SYMBOL = "~";

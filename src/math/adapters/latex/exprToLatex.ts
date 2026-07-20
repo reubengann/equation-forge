@@ -1,5 +1,4 @@
-import { type DelimiterKind, type Expr } from "../../ast";
-import { splitSign } from "../../rewrite/algebraUtils";
+import { splitSign, type DelimiterKind, type Expr } from "../../ast";
 
 type RenderContext = "default" | "sumTerm" | "productFactor" | "prefixOperand";
 
@@ -519,4 +518,12 @@ function splitAdditiveTermSign(expr: Expr): { sign: 1 | -1; value: Expr } {
 export function exprToLatex(expr: Expr, tags: boolean): string {
   const generator = new LatexGenerator(expr, tags);
   return generator.generate();
+}
+
+export function exprToPlainLatex(expr: Expr): string {
+  return exprToLatex(expr, false);
+}
+
+export function exprToTaggedLatex(expr: Expr): string {
+  return exprToLatex(expr, true);
 }

@@ -1,11 +1,45 @@
 {
-  "name": "physics-derivation-pad",
-  "private": true,
+  "name": "@physics-derivation-pad/core",
+  "private": false,
   "version": "0.0.0",
   "type": "module",
+  "main": "./dist/math/index.js",
+  "types": "./dist/math/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/math/index.d.ts",
+      "import": "./dist/math/index.js"
+    },
+    "./ast": {
+      "types": "./dist/math/ast/index.d.ts",
+      "import": "./dist/math/ast/index.js"
+    },
+    "./latex": {
+      "types": "./dist/math/adapters/latex/index.d.ts",
+      "import": "./dist/math/adapters/latex/index.js"
+    },
+    "./sympy": {
+      "types": "./dist/math/adapters/sympy/index.d.ts",
+      "import": "./dist/math/adapters/sympy/index.js"
+    },
+    "./compile": {
+      "types": "./dist/math/compile/index.d.ts",
+      "import": "./dist/math/compile/index.js"
+    },
+    "./algebrite": {
+      "types": "./dist/math/adapters/algebrite/index.d.ts",
+      "import": "./dist/math/adapters/algebrite/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm run build:core",
+    "build:core": "tsc -p tsconfig.core.json",
     "lint": "eslint .",
     "preview": "vite preview",
     "mathtests": "tsx ./scripts/mathtests.ts",
