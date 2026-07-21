@@ -93,6 +93,18 @@ describe("applyOperationToRelation", () => {
     );
   });
 
+  it("groups additive sides when applying an integral operation", () => {
+    const next = applyOperationToRelation(
+      expr(String.raw`\mathrm{d}{G} = \mu_1 \,\mathrm{d}{n_1} + \mu_k \,\mathrm{d}{n_k}`),
+      expr(String.raw`\int \eqn`),
+    );
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\int \mathrm{d}{G} = \int \left(\mu_1 \,\mathrm{d}{n_1} + \mu_k \,\mathrm{d}{n_k}\right)`,
+    );
+  });
+
   it("applies operation to inequalities", () => {
     const next = applyOperationToRelation(expr("a<b"), expr(String.raw`\sqrt{\eqn}`));
 

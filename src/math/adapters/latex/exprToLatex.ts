@@ -157,11 +157,11 @@ class LatexGenerator {
       case "integral":
         return this.generateIntegralBody(expr);
       case "uniterated_integral":
-        return `\\int ${this.generate(expr.integrand)}`;
+        return `\\int ${this.generateIntegralIntegrand(expr.integrand)}`;
       case "closed_integral":
-        return `\\oint ${this.generate(expr.integrand)}`;
+        return `\\oint ${this.generateIntegralIntegrand(expr.integrand)}`;
       case "multiple_integral":
-        return `${"\\int".repeat(expr.order)} ${this.generate(expr.integrand)}`;
+        return `${"\\int".repeat(expr.order)} ${this.generateIntegralIntegrand(expr.integrand)}`;
       case "differential":
         return `\\mathrm{d${expr.inexact ? "'" : ""}}{${this.generate(expr.variable)}}`;
       case "partial_derivative":
@@ -189,9 +189,14 @@ class LatexGenerator {
       integratedThing = this.generateProductFactors(signedIntegrand.value.factors);
       integratedThing = this.wrap(integratedThing, integrandId);
     } else {
-      integratedThing = this.generate(signedIntegrand.value);
+      integratedThing = this.generateIntegralIntegrand(signedIntegrand.value);
     }
     return `${signedIntegrand.sign === -1 ? "-" : ""}\\int${maybeLower}${maybeUpper} ${integratedThing}`;
+  }
+
+  generateIntegralIntegrand(expr: Expr): string {
+    const rendered = this.generate(expr);
+    return shouldGroupIntegralIntegrand(expr) ? `\\left(${rendered}\\right)` : rendered;
   }
 
   generatePowerBase(base: Expr): string {
@@ -324,11 +329,11 @@ class LatexGenerator {
       case "integral":
         return this.wrap(this.generateIntegralBody(expr), id);
       case "uniterated_integral":
-        return this.wrap(`\\int ${this.generate(expr.integrand)}`, id);
+        return this.wrap(`\\int ${this.generateIntegralIntegrand(expr.integrand)}`, id);
       case "closed_integral":
-        return this.wrap(`\\oint ${this.generate(expr.integrand)}`, id);
+        return this.wrap(`\\oint ${this.generateIntegralIntegrand(expr.integrand)}`, id);
       case "multiple_integral":
-        return this.wrap(`${"\\int".repeat(expr.order)} ${this.generate(expr.integrand)}`, id);
+        return this.wrap(`${"\\int".repeat(expr.order)} ${this.generateIntegralIntegrand(expr.integrand)}`, id);
       case "differential":
         return this.wrap(`\\mathrm{d${expr.inexact ? "'" : ""}}{${this.generate(expr.variable)}}`, id);
       case "partial_derivative":
@@ -451,6 +456,11 @@ function shouldGroupBareCallArgument(expr: Expr): boolean {
     default:
       return false;
   }
+}
+
+function shouldGroupIntegralIntegrand(expr: Expr): boolean {
+  const signed = splitSign(expr);
+  return signed.value.kind === "add";
 }
 
 function shouldGroupPowerBase(expr: Expr): boolean {
