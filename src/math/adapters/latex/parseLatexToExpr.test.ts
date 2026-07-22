@@ -337,6 +337,25 @@ describe("parseLatexToExpr", () => {
     expect(expr.variable.name).toBe("W");
   });
 
+  it("parses differentials of grouped nested sums", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\mathrm{d}{G}=\mathrm{d}{\left(\sum_{j=1}^{\pi}\sum_{i=1}^{k}\mu_{i}^{\left(j\right)}n_{i}^{\left(j\right)}\right)}`,
+    );
+
+    expectExprKind(expr, "equation");
+    expectExprKind(expr.sides[1], "differential");
+    expectExprKind(expr.sides[1].variable, "display_group");
+    expectExprKind(expr.sides[1].variable.expression, "big_sum");
+  });
+
+  it("parses roman differentials with left-right grouped operands", () => {
+    const expr = parseLatexToExpr(String.raw`\mathrm{d}\left(\sum_{i=1}^{k} f_i g_i\right)`);
+
+    expectExprKind(expr, "differential");
+    expectExprKind(expr.variable, "display_group");
+    expectExprKind(expr.variable.expression, "big_sum");
+  });
+
   it("parses rendered inexact differential notation", () => {
     const expr = parseLatexToExpr(String.raw`\mathrm{d'}{W}`);
     expectExprKind(expr, "differential");
@@ -420,8 +439,9 @@ describe("parseLatexToExpr", () => {
     expectExprKind(expr, "big_sum");
     expectExprKind(expr.summand, "symbol");
     expect(expr.summand.name).toBe("x_i");
-    expectExprKind(expr.lowerBound!, "number");
-    expect(expr.lowerBound.value).toBe(1);
+    expectExprKind(expr.lowerBound!, "equation");
+    expect(expr.lowerBound.sides[0]).toMatchObject({ kind: "symbol", name: "i" });
+    expect(expr.lowerBound.sides[1]).toMatchObject({ kind: "number", value: 1 });
     expectExprKind(expr.upperBound!, "symbol");
     expect(expr.upperBound!.name).toBe("n");
   });

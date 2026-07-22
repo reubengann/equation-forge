@@ -2,6 +2,7 @@ import type { TermSelection } from "../../selection/types";
 import {
   absoluteValue,
   add,
+  bigSum,
   call,
   differential,
   displayGroup,
@@ -396,6 +397,17 @@ function differentialSumRule(expr: Expr): Expr | null {
   if (signed.sign === -1 || signed.value.kind !== "differential") return null;
 
   const differentialExpr = signed.value;
+  const bigSummation = bigSumOperand(differentialExpr.variable);
+  if (bigSummation) {
+    return bigSum(
+      differential(groupedDifferentialSumOperand(bigSummation.summand), {
+        ...(differentialExpr.inexact ? { inexact: true } : {}),
+      }),
+      cloneOptionalExpr(bigSummation.lowerBound),
+      cloneOptionalExpr(bigSummation.upperBound),
+    );
+  }
+
   const sum = sumOperand(differentialExpr.variable);
   if (!sum || sum.terms.length < 2) return null;
 
@@ -411,7 +423,11 @@ function differentialSumRule(expr: Expr): Expr | null {
 }
 
 function groupedDifferentialSumOperand(expr: Expr): Expr {
-  return expr.kind === "multiply" ? displayGroup("paren", expr) : cloneExpr(expr);
+  return expr.kind === "multiply" || expr.kind === "big_sum" ? displayGroup("paren", expr) : cloneExpr(expr);
+}
+
+function cloneOptionalExpr(expr: Expr | null): Expr | null {
+  return expr ? cloneExpr(expr) : null;
 }
 
 function simplifyGroupedDifferentialOperand(expr: Expr): Expr | null {
@@ -772,6 +788,11 @@ function derivativeReciprocalOperand(expr: Expr): Extract<Expr, { kind: "divide"
 function sumOperand(expr: Expr): Extract<Expr, { kind: "add" }> | null {
   const unwrapped = unwrapDisplayGroup(expr);
   return unwrapped.kind === "add" ? unwrapped : null;
+}
+
+function bigSumOperand(expr: Expr): Extract<Expr, { kind: "big_sum" }> | null {
+  const unwrapped = unwrapDisplayGroup(expr);
+  return unwrapped.kind === "big_sum" ? unwrapped : null;
 }
 
 function productOperand(expr: Expr): Extract<Expr, { kind: "multiply" }> | null {

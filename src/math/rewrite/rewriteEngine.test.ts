@@ -368,6 +368,25 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe(String.raw`W = -\kappa \int_{v_i}^{v_f} P v \,\mathrm{d}{P}`);
   });
 
+  it("moves a selected factor out of a differential operand", () => {
+    const document = buildDocument(String.raw`\mathrm{d}\left(\mu_i^{\left(j\right)} n_i^{\left(j\right)}\right)`);
+    const selectedNodeId = findNodeId(
+      document,
+      (expr) => expr.kind === "power" && expr.base.kind === "symbol" && expr.base.name === String.raw`\mu_i`,
+    );
+    const differentialId = findNodeId(document, (expr) => expr.kind === "differential");
+
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: selectedNodeId },
+      destinationId: differentialId,
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`\mu_i^{\left(j\right)} \,\mathrm{d}\left(n_i^{\left(j\right)}\right)`);
+  });
+
   it("splits a selected term out of a negative fraction numerator additively", () => {
     const document = buildDocument(String.raw`P_0+\frac{\beta T_0}{\kappa}-\frac{v-v_0}{2 v_0 \kappa}`);
     const result = executeMove({

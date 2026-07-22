@@ -121,12 +121,32 @@ describe("identity rewrites", () => {
         String.raw`\mathrm{d}{\left(-R T \ln \frac{v}{v_0}  + B v\right)}`,
         "differential-sum-rule",
       ),
-    ).toBe(String.raw`-\mathrm{d}{\left(R T \ln \frac{v}{v_0} \right)} + \mathrm{d}{\left(B v\right)}`);
+    ).toBe(String.raw`-\mathrm{d}\left(R T \ln \frac{v}{v_0} \right) + \mathrm{d}\left(B v\right)`);
   });
 
   it("groups product operands when applying the differential sum rule", () => {
     expect(rewriteLatex(String.raw`\mathrm{d}{\left(U + P V\right)}`, "differential-sum-rule")).toBe(
-      String.raw`\mathrm{d}{U} + \mathrm{d}{\left(P V\right)}`,
+      String.raw`\mathrm{d}{U} + \mathrm{d}\left(P V\right)`,
+    );
+  });
+
+  it("applies the differential sum rule to bounded summations", () => {
+    expect(
+      rewriteLatex(
+        String.raw`\mathrm{d}\left(\sum_{i=1}^{k} f_i g_i\right)`,
+        "differential-sum-rule",
+      ),
+    ).toBe(String.raw`\sum_{i = 1}^{k} \mathrm{d}\left(f_i g_i\right)`);
+  });
+
+  it("groups nested summation summands when applying the differential sum rule", () => {
+    expect(
+      rewriteLatex(
+        String.raw`\mathrm{d}\left(\sum_{j = 1}^{\pi} \sum_{i = 1}^{k} \mu_i^{\left(j\right)} n_i^{\left(j\right)}\right)`,
+        "differential-sum-rule",
+      ),
+    ).toBe(
+      String.raw`\sum_{j = 1}^{\pi} \mathrm{d}\left(\sum_{i = 1}^{k} \mu_i^{\left(j\right)} n_i^{\left(j\right)}\right)`,
     );
   });
 
@@ -134,6 +154,15 @@ describe("identity rewrites", () => {
     expect(rewriteLatex(String.raw`\mathrm{d}^{\prime}\left(f+g\right)`, "differential-sum-rule")).toBe(
       String.raw`\mathrm{d'}{f} + \mathrm{d'}{g}`,
     );
+  });
+
+  it("preserves inexact notation when applying the differential sum rule to summations", () => {
+    expect(
+      rewriteLatex(
+        String.raw`\mathrm{d'}\left(\sum_{i=1}^{k} f_i g_i\right)`,
+        "differential-sum-rule",
+      ),
+    ).toBe(String.raw`\sum_{i = 1}^{k} \mathrm{d'}\left(f_i g_i\right)`);
   });
 
   it("simplifies grouped symbol differential operands", () => {
@@ -282,7 +311,7 @@ describe("identity rewrites", () => {
 
   it("applies the differential quotient identity to negative differentials", () => {
     expect(rewriteLatex(String.raw`-\mathrm{d}{\frac{U + P V}{T}}`, "differential-quotient-rule")).toBe(
-      String.raw`-\frac{1}{T} \,\mathrm{d}{\left(U + P V\right)} + \frac{\left(U + P V\right)}{T^{2}} \,\mathrm{d}{T}`,
+      String.raw`-\frac{1}{T} \,\mathrm{d}\left(U + P V\right) + \frac{\left(U + P V\right)}{T^{2}} \,\mathrm{d}{T}`,
     );
   });
 

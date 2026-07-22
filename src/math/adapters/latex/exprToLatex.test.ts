@@ -529,13 +529,20 @@ describe("exprToLatex", () => {
   it("converts big sum without tags", () => {
     const expr = parseLatexToExpr(String.raw`\sum_{i=1}^{n} x_i`);
     const latex = exprToLatex(expr, false);
-    expect(latex).toBe(String.raw`\sum_{1}^{n} x_i`);
+    expect(latex).toBe(String.raw`\sum_{i = 1}^{n} x_i`);
   });
 
   it("converts big product without tags", () => {
     const expr = parseLatexToExpr(String.raw`\prod_{i=1}^{n} x_i`);
     const latex = exprToLatex(expr, false);
-    expect(latex).toBe(String.raw`\prod_{1}^{n} x_i`);
+    expect(latex).toBe(String.raw`\prod_{i = 1}^{n} x_i`);
+  });
+
+  it("preserves lower-bound assignment and parenthesized superscripts in big sums", () => {
+    const expr = parseLatexToExpr(String.raw`\sum_{i=1}^{k}\mu_{i}^{\left(j\right)}n_{i}^{\left(j\right)}`);
+    const latex = exprToLatex(expr, false);
+
+    expect(latex).toBe(String.raw`\sum_{i = 1}^{k} \mu_i^{\left(j\right)} n_i^{\left(j\right)}`);
   });
 
   it("converts integral with bounds without tags", () => {

@@ -163,7 +163,7 @@ class LatexGenerator {
       case "multiple_integral":
         return `${"\\int".repeat(expr.order)} ${this.generateIntegralIntegrand(expr.integrand)}`;
       case "differential":
-        return `\\mathrm{d${expr.inexact ? "'" : ""}}{${this.generate(expr.variable)}}`;
+        return this.generateDifferentialBody(expr);
       case "partial_derivative":
         return `\\frac{\\partial{${this.generate(expr.quantity)}}}{\\partial{${this.generate(expr.variable)}}}`;
       case "full_derivative_operator":
@@ -197,6 +197,12 @@ class LatexGenerator {
   generateIntegralIntegrand(expr: Expr): string {
     const rendered = this.generate(expr);
     return shouldGroupIntegralIntegrand(expr) ? `\\left(${rendered}\\right)` : rendered;
+  }
+
+  generateDifferentialBody(expr: Extract<Expr, { kind: "differential" }>): string {
+    const operator = `\\mathrm{d${expr.inexact ? "'" : ""}}`;
+    const variable = this.generate(expr.variable);
+    return expr.variable.kind === "display_group" ? `${operator}${variable}` : `${operator}{${variable}}`;
   }
 
   generatePowerBase(base: Expr): string {
@@ -335,7 +341,7 @@ class LatexGenerator {
       case "multiple_integral":
         return this.wrap(`${"\\int".repeat(expr.order)} ${this.generateIntegralIntegrand(expr.integrand)}`, id);
       case "differential":
-        return this.wrap(`\\mathrm{d${expr.inexact ? "'" : ""}}{${this.generate(expr.variable)}}`, id);
+        return this.wrap(this.generateDifferentialBody(expr), id);
       case "partial_derivative":
         return this.wrap(
           `\\frac{\\partial{${this.generate(expr.quantity)}}}{\\partial{${this.generate(expr.variable)}}}`,

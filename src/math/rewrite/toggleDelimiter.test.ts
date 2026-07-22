@@ -72,6 +72,15 @@ describe("toggleDelimiterSelection", () => {
     expect(toggleDelimiterSelection(document, { kind: "single", nodeId: "n2" })).toBeNull();
   });
 
+  it("does not remove delimiters around a differential operand", () => {
+    const document = buildDocument(String.raw`\mathrm{d}\left(\mu_i^{\left(j\right)} n_i^{\left(j\right)}\right)`);
+    const groupId = Object.entries(document.index.nodeById).find(([, expr]) => expr.kind === "display_group")?.[0];
+
+    expect(groupId).toBeDefined();
+    expect(canToggleDelimiterSelection(document, { kind: "single", nodeId: groupId! })).toBe(false);
+    expect(toggleDelimiterSelection(document, { kind: "single", nodeId: groupId! })).toBeNull();
+  });
+
   it("removes delimiters around a single term inside a sum", () => {
     const document = buildDocument(String.raw`\left(a+\left(b\right)\right)`);
     const next = toggleDelimiterSelection(document, { kind: "single", nodeId: "n4" });

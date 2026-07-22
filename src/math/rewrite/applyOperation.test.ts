@@ -35,21 +35,35 @@ describe("applyOperationToRelation", () => {
     const next = applyOperationToRelation(expr("a=b"), template);
 
     expect(next).not.toBeNull();
-    expect(exprToLatex(next!, false)).toBe(String.raw`\mathrm{d}{\left(a\right)} = \mathrm{d}{\left(b\right)}`);
+    expect(exprToLatex(next!, false)).toBe(String.raw`\mathrm{d}\left(a\right) = \mathrm{d}\left(b\right)`);
   });
 
   it("treats inferred differential templates as differentials of each side", () => {
     const next = applyOperationToRelation(expr("x=y+z"), expr(String.raw`d\eqn`));
 
     expect(next).not.toBeNull();
-    expect(exprToLatex(next!, false)).toBe(String.raw`\mathrm{d}{x} = \mathrm{d}{\left(y + z\right)}`);
+    expect(exprToLatex(next!, false)).toBe(String.raw`\mathrm{d}{x} = \mathrm{d}\left(y + z\right)`);
+  });
+
+  it("wraps big-operator sides when applying an inferred differential", () => {
+    const next = applyOperationToRelation(
+      expr(String.raw`G = \sum_{j = 1}^{\pi} \sum_{i = 1}^{k} \mu_i^{\left(j\right)} n_i^{\left(j\right)}`),
+      expr(String.raw`d\eqn`),
+    );
+
+    expect(next).not.toBeNull();
+    const latex = exprToLatex(next!, false);
+    expect(latex).toBe(
+      String.raw`\mathrm{d}{G} = \mathrm{d}\left(\sum_{j = 1}^{\pi} \sum_{i = 1}^{k} \mu_i^{\left(j\right)} n_i^{\left(j\right)}\right)`,
+    );
+    expect(() => parseLatexToExpr(latex, { onError: "throw" })).not.toThrow();
   });
 
   it("treats inferred inexact differential templates as inexact differentials of each side", () => {
     const next = applyOperationToRelation(expr("x=y+z"), expr(String.raw`d'\eqn`));
 
     expect(next).not.toBeNull();
-    expect(exprToLatex(next!, false)).toBe(String.raw`\mathrm{d'}{x} = \mathrm{d'}{\left(y + z\right)}`);
+    expect(exprToLatex(next!, false)).toBe(String.raw`\mathrm{d'}{x} = \mathrm{d'}\left(y + z\right)`);
   });
 
   it("applies a MathLive-rendered differential with the side as its argument", () => {
@@ -63,7 +77,7 @@ describe("applyOperationToRelation", () => {
 
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe(
-      String.raw`\mathrm{d}{\left(v\right)} = \mathrm{d}{\left(v_0 \left[1 + \beta \left(T - T_0\right) - \kappa \left(P - P_0\right)\right]\right)}`,
+      String.raw`\mathrm{d}\left(v\right) = \mathrm{d}\left(v_0 \left[1 + \beta \left(T - T_0\right) - \kappa \left(P - P_0\right)\right]\right)`,
     );
   });
 

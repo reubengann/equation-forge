@@ -61,9 +61,10 @@ function resolveSingleSelection(document: CompiledMathDocument, nodeId: string):
 
   const parentId = document.index.parentById[nodeId];
   const parent = parentId ? document.index.nodeById[parentId] : null;
+  const location = document.index.locationById[nodeId];
+  if (parent?.kind === "differential" && location?.field === "variable") return null;
   if (!canRemoveDisplayGroup(selected.expression, parent)) return null;
 
-  const location = document.index.locationById[nodeId];
   if (
     parentId &&
     parent?.kind === "multiply" &&

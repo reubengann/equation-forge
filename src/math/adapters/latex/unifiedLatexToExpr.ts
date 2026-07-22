@@ -167,7 +167,12 @@ function validateBalancedEntryDelimiters(latex: string): void {
   for (let index = 0; index < latex.length; index += 1) {
     const char = latex[index];
     if (char === "\\") {
-      index += 1;
+      const control = readControlSequence(latex, index);
+      if (control.name === "left" || control.name === "right") {
+        index = skipLatexDelimiterToken(latex, control.endIndex);
+        continue;
+      }
+      index = control.endIndex - 1;
       continue;
     }
     if (char === "(" || char === "[") {
@@ -190,6 +195,28 @@ function validateBalancedEntryDelimiters(latex: string): void {
       `Unclosed delimiter ${unclosed.open} started at "${latex.slice(unclosed.index, unclosed.index + 5)}...)`,
     );
   }
+}
+
+function readControlSequence(latex: string, backslashIndex: number): { name: string; endIndex: number } {
+  let index = backslashIndex + 1;
+  while (/[A-Za-z]/.test(latex[index] ?? "")) {
+    index += 1;
+  }
+  if (index === backslashIndex + 1) {
+    index += 1;
+  }
+  return { name: latex.slice(backslashIndex + 1, index), endIndex: index };
+}
+
+function skipLatexDelimiterToken(latex: string, startIndex: number): number {
+  let index = startIndex;
+  while (/\s/.test(latex[index] ?? "")) {
+    index += 1;
+  }
+  if (latex[index] === "\\") {
+    return readControlSequence(latex, index).endIndex - 1;
+  }
+  return index;
 }
 
 export type UnifiedLatexParseErrorCode =
@@ -466,6 +493,40 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
     if (groupNode?.type !== "group") return null;
     return Array.isArray(groupNode.content) ? groupNode.content : null;
   };
+  const readLeftRightGroupAt = (leftIndex: number): { variable: UnifiedNode[]; endIndex: number } | null => {
+    const left = nodes[leftIndex];
+    if (left?.type !== "macro" || left.content !== "left") return null;
+    const openNode = nodes[leftIndex + 1];
+    const open = delimiterStringFromNode(openNode);
+    if (open !== "(" && open !== "[" && open !== "{") return null;
+
+    const close = open === "(" ? ")" : open === "[" ? "]" : "}";
+    const variable: UnifiedNode[] = [left, openNode!];
+    let depth = 1;
+    let index = leftIndex + 2;
+    while (index < nodes.length) {
+      const candidate = nodes[index];
+      if (!candidate || candidate.type === "whitespace") break;
+      variable.push(candidate);
+      if (candidate.type === "macro" && candidate.content === "left") {
+        depth += 1;
+        index += 1;
+        if (nodes[index]) variable.push(nodes[index]!);
+      } else if (candidate.type === "macro" && candidate.content === "right") {
+        const maybeClose = delimiterStringFromNode(nodes[index + 1]);
+        if (maybeClose === close) {
+          index += 1;
+          if (nodes[index]) variable.push(nodes[index]!);
+          depth -= 1;
+          if (depth === 0) {
+            return { variable, endIndex: index };
+          }
+        }
+      }
+      index += 1;
+    }
+    return null;
+  };
   for (let i = 0; i < nodes.length; i += 1) {
     const node = nodes[i];
     if (!node || typeof node.type !== "string") continue;
@@ -740,6 +801,16 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
       } else if (differentialKind && primeOrder === 1) {
         differentialStartIndex = i + 1;
       }
+      const groupedVariable = readLeftRightGroupAt(differentialStartIndex + 1);
+      if (differentialKind && groupedVariable) {
+        tokens.push({
+          kind: "differential",
+          variable: groupedVariable.variable,
+          ...(differentialKind === "inexact" || primeOrder === 1 ? { inexact: true } : {}),
+        });
+        i = groupedVariable.endIndex;
+        continue;
+      }
       const inferred = differentialKind ? readInferredDifferential(differentialStartIndex) : null;
       if (inferred) {
         tokens.push({
@@ -751,7 +822,7 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
         continue;
       }
       if (differentialKind) {
-        tokens.push({ kind: "symbol", name: "d" });
+        tokens.push({ kind: "symbol", name: differentialKind === "inexact" || primeOrder === 1 ? "\\mathrm{d'}" : "\\mathrm{d}" });
         continue;
       }
     }
@@ -1270,7 +1341,7 @@ class TokenParser {
   }
 
   private isFullDerivativeMarker(expr: Expr): boolean {
-    return expr.kind === "symbol" && expr.name === "d";
+    return expr.kind === "symbol" && (expr.name === "d" || expr.name === "\\mathrm{d}");
   }
 
   private isPartialDerivativeMarker(expr: Expr): boolean {
@@ -1371,7 +1442,10 @@ class TokenParser {
     while (true) {
       const token = this.peek();
       if (!token) break;
-      if (depth === 0 && token.kind === "operator" && token.value === "=") break;
+      if (depth === 0) {
+        if (token.kind === "operator" && token.value === "=") break;
+        if (token.kind === "close_group") break;
+      }
       this.next();
       if (token.kind === "open_group") depth += 1;
       if (token.kind === "close_group") depth = Math.max(0, depth - 1);
@@ -1548,6 +1622,16 @@ class TokenParser {
   }
 
   private mergeMultiply(left: Expr, right: Expr): Expr {
+    if (left.kind === "symbol" && (left.name === "\\mathrm{d}" || left.name === "\\mathrm{d'}")) {
+      return differential(right, left.name === "\\mathrm{d'}" ? { inexact: true } : undefined);
+    }
+    if (
+      left.kind === "differential" &&
+      left.variable.kind === "symbol" &&
+      left.variable.name === "missing"
+    ) {
+      return differential(right, left.inexact ? { inexact: true } : undefined);
+    }
     if (left.kind === "multiply") return multiply([...left.factors, right]);
     return multiply([left, right]);
   }
@@ -1668,12 +1752,8 @@ class TokenParser {
       if (lowerToken?.kind === "subscript") {
         this.next();
         const lowerExpr = parseGroupNodes(lowerToken.value);
-        if (
-          lowerExpr?.kind === "equation" &&
-          lowerExpr.sides.length === 2 &&
-          lowerExpr.sides[0]?.kind === "symbol"
-        ) {
-          lowerBound = lowerExpr.sides[1] ?? null;
+        if (lowerExpr?.kind === "equation") {
+          lowerBound = lowerExpr;
         } else {
           const printable = lowerToken.value as unknown as Parameters<typeof printRaw>[0];
           lowerBound = immutableExpression(printRaw(printable));
@@ -1701,12 +1781,8 @@ class TokenParser {
       if (lowerToken?.kind === "subscript") {
         this.next();
         const lowerExpr = parseGroupNodes(lowerToken.value);
-        if (
-          lowerExpr?.kind === "equation" &&
-          lowerExpr.sides.length === 2 &&
-          lowerExpr.sides[0]?.kind === "symbol"
-        ) {
-          lowerBound = lowerExpr.sides[1] ?? null;
+        if (lowerExpr?.kind === "equation") {
+          lowerBound = lowerExpr;
         } else {
           const printable = lowerToken.value as unknown as Parameters<typeof printRaw>[0];
           lowerBound = immutableExpression(printRaw(printable));

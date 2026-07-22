@@ -259,7 +259,14 @@ function shouldWrapReplacementInArray(
 }
 
 function shouldWrapAsSingleOperand(expr: Expr): boolean {
-  return expr.kind === "add" || expr.kind === "multiply" || isNegativeExpr(expr);
+  return (
+    expr.kind === "add" ||
+    expr.kind === "multiply" ||
+    expr.kind === "big_sum" ||
+    expr.kind === "big_prod" ||
+    expr.kind === "limit" ||
+    isNegativeExpr(expr)
+  );
 }
 
 function childExprs(expr: Expr): Expr[] {
