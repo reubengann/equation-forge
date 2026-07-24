@@ -1,7 +1,11 @@
 export type { DelimiterKind, Expr } from "./expr";
 export type { CompiledExprIndex, CompiledExprNodeLocation } from "./compiledIndex";
 export { buildCompiledExprIndex } from "./compiledIndex";
-export { findIntegralDifferentialVariable } from "./integralDifferential";
+export {
+  extractIntegralDifferential,
+  findIntegralDifferentialVariable,
+  type IntegralDifferentialExtraction,
+} from "./integralDifferential";
 export {
   applySign,
   collapseProduct,

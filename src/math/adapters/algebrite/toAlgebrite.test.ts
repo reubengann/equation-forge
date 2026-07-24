@@ -25,6 +25,17 @@ describe("toAlgebrite", () => {
     expect(result.value.toString()).toBe("-__pdp0*cos(__pdp0)+sin(__pdp0)");
   });
 
+  it("removes differentials from integral quotient numerators during translation", () => {
+    const result = toAlgebrite(expr(String.raw`\int \frac{f \,\mathrm{d}{p}}{g}`));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.toString()).toBe("__pdp0*__pdp2/__pdp1");
+    expect(result.symbols.originalBySafe.get("__pdp0")).toBe("f");
+    expect(result.symbols.originalBySafe.get("__pdp1")).toBe("g");
+    expect(result.symbols.originalBySafe.get("__pdp2")).toBe("p");
+  });
+
   it("maps symbol-like special-font expressions to safe variables", () => {
     const result = toAlgebrite(expr(String.raw`\mathscr{H}`));
 
@@ -32,6 +43,16 @@ describe("toAlgebrite", () => {
     if (!result.ok) return;
     expect(result.value.toString()).toBe("__pdp0");
     expect(result.symbols.originalBySafe.get("__pdp0")).toBe(String.raw`\mathscr{H}`);
+  });
+
+  it("maps primed symbols to safe variables", () => {
+    const result = toAlgebrite(expr(String.raw`v'' + P`));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.toString()).toBe("__pdp0+__pdp1");
+    expect(result.symbols.originalBySafe.get("__pdp0")).toBe("v''");
+    expect(result.symbols.originalBySafe.get("__pdp1")).toBe("P");
   });
 
   it("reports unsupported expressions without throwing", () => {

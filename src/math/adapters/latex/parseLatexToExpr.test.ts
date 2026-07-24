@@ -329,6 +329,21 @@ describe("parseLatexToExpr", () => {
     expect(expr.variable.order).toBe(1);
   });
 
+  it("parses MathLive double-prime exponents inside differential variable groups", () => {
+    const expr = parseLatexToExpr(String.raw`\mathrm{d}{\mu^{\doubleprime}}=\mathrm{d}{\mu^{\doubleprime\prime}}`);
+    expectExprKind(expr, "equation");
+    expectExprKind(expr.sides[0], "differential");
+    expectExprKind(expr.sides[0].variable, "primed");
+    expectExprKind(expr.sides[0].variable.value, "symbol");
+    expect(expr.sides[0].variable.value.name).toBe(String.raw`\mu`);
+    expect(expr.sides[0].variable.order).toBe(2);
+    expectExprKind(expr.sides[1], "differential");
+    expectExprKind(expr.sides[1].variable, "primed");
+    expectExprKind(expr.sides[1].variable.value, "symbol");
+    expect(expr.sides[1].variable.value.name).toBe(String.raw`\mu`);
+    expect(expr.sides[1].variable.order).toBe(3);
+  });
+
   it("parses MathLive inexact differential notation", () => {
     const expr = parseLatexToExpr(String.raw`d^{\prime}W`);
     expectExprKind(expr, "differential");

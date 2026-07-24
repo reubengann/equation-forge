@@ -1,5 +1,5 @@
 import Algebrite from "algebrite";
-import { findIntegralDifferentialVariable, type Expr } from "../../ast";
+import { extractIntegralDifferential, type Expr } from "../../ast";
 import { fromAlgebrite } from "./fromAlgebrite";
 import { toAlgebrite } from "./toAlgebrite";
 
@@ -58,6 +58,8 @@ function canTranslateExpr(expr: Expr): boolean {
       return true;
     case "special_font":
       return expr.value.kind === "symbol";
+    case "primed":
+      return expr.value.kind === "symbol";
     case "add":
       return expr.terms.every(canTranslateExpr);
     case "multiply":
@@ -100,23 +102,13 @@ function canTranslateCall(expr: Extract<Expr, { kind: "call" }>): boolean {
 }
 
 function canTranslateIntegral(expr: Extract<Expr, { kind: "integral" }>): boolean {
-  const variable = findIntegralDifferentialVariable(expr.integrand);
-  if (!variable) return false;
+  const extraction = extractIntegralDifferential(expr.integrand);
+  if (!extraction) return false;
   if ((expr.lowerBound && !expr.upperBound) || (!expr.lowerBound && expr.upperBound)) return false;
   return (
-    canTranslateExpr(removeDifferentialFactor(expr.integrand)) &&
-    canTranslateExpr(variable) &&
+    canTranslateExpr(extraction.integrand) &&
+    canTranslateExpr(extraction.variable) &&
     (!expr.lowerBound || canTranslateExpr(expr.lowerBound)) &&
     (!expr.upperBound || canTranslateExpr(expr.upperBound))
   );
-}
-
-function removeDifferentialFactor(expr: Expr): Expr {
-  if (expr.kind === "differential") return { kind: "number", value: 1 };
-  if (expr.kind !== "multiply") return expr;
-
-  const factors = expr.factors.filter((factor) => factor.kind !== "differential");
-  if (factors.length === 0) return { kind: "number", value: 1 };
-  if (factors.length === 1) return factors[0]!;
-  return { kind: "multiply", factors };
 }

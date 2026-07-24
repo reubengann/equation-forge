@@ -49,6 +49,15 @@ describe("exprToLatex", () => {
     );
   });
 
+  it("canonicalizes MathLive double-prime differential variables as primes", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\mathrm{d}{\mu^{\doubleprime}}=\mathrm{d}{\mu^{\doubleprime\prime}}`,
+    );
+    const latex = exprToLatex(expr, false);
+
+    expect(latex).toBe(String.raw`\mathrm{d}{\mu''} = \mathrm{d}{\mu'''}`);
+  });
+
   it("prints subtraction notation in sums", () => {
     const expr = parseLatexToExpr("c-a");
     const latex = exprToLatex(expr, false);

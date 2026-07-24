@@ -26,6 +26,8 @@ describe("evaluateAlgebrite", () => {
     [String.raw`\int x^2 \, \mathrm{d}{x}`, String.raw`\frac{1}{3} x^{3}`],
     [String.raw`\int_0^\pi \sin x\,\mathrm{d}{x}`, "2"],
     [String.raw`\int_a^b \frac{1}{x} \,\mathrm{d}{x}`, String.raw`-\ln\left(a\right) + \ln\left(b\right)`],
+    [String.raw`\int_{p_0}^{p} \frac{\mathrm{d}{p}}{p}`, String.raw`\ln\left(p\right) - \ln\left(p_0\right)`],
+    [String.raw`\int_{p_0}^{P} \frac{v''}{R T} \,\mathrm{d}{P}`, String.raw`\frac{v'' \left(P - p_0\right)}{R T}`],
     [String.raw`\frac{\partial}{\partial \mathscr{H}} \mathscr{H}`, "1"],
     [String.raw`\int_{0}^{1} \sin x  \,\mathrm{d}{x}`, String.raw`1 - \cos\left(1\right)`],
   ])("evaluates %s", ([input, expected]) => {
@@ -38,6 +40,8 @@ describe("evaluateAlgebrite", () => {
 
   it("checks translatability without evaluating", () => {
     expect(canEvaluateAlgebrite(expr(String.raw`\int_{0}^{1} \sin x\,\mathrm{d}{x}`))).toBe(true);
+    expect(canEvaluateAlgebrite(expr(String.raw`\int_{p_0}^{p} \frac{\mathrm{d}{p}}{p}`))).toBe(true);
+    expect(canEvaluateAlgebrite(expr(String.raw`\int_{p_0}^{P} \frac{v''}{R T} \,\mathrm{d}{P}`))).toBe(true);
     expect(canEvaluateAlgebrite(expr(String.raw`\vec{v}`))).toBe(false);
   });
 

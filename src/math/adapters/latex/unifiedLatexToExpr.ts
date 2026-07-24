@@ -349,6 +349,8 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
     const exponent = parseGroupNodes(candidate.args?.[0]?.content);
     return exponent ? primeOrderFromExponent(exponent) : null;
   };
+  const isPrimeMacro = (candidate: UnifiedNode | undefined): boolean =>
+    candidate?.type === "macro" && (candidate.content === "prime" || candidate.content === "doubleprime");
   const mathrmDifferentialKind = (arg: UnifiedNode[] | undefined): "exact" | "inexact" | null => {
     if (
       arg?.length === 1 &&
@@ -568,6 +570,25 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
         if (baseToken) tokens.push(baseToken);
         tokens.push({ kind: "prime", order: trailingPrimeMatch[2].length });
         continue;
+      }
+      if (stringContent === "^") {
+        const nextNode = nodes[i + 1];
+        if (nextNode?.type === "group" && Array.isArray(nextNode.content) && nextNode.content.every(isPrimeMacro)) {
+          tokens.push({ kind: "exponent", value: nextNode.content });
+          i += 1;
+          continue;
+        }
+        if (isPrimeMacro(nextNode)) {
+          const exponentNodes: UnifiedNode[] = [];
+          let j = i + 1;
+          while (isPrimeMacro(nodes[j])) {
+            exponentNodes.push(nodes[j]!);
+            j += 1;
+          }
+          tokens.push({ kind: "exponent", value: exponentNodes });
+          i = j - 1;
+          continue;
+        }
       }
       const trailingExponentMatch = /^(.+)\^$/.exec(stringContent);
       const exponentGroup = nodes[i + 1];
@@ -1880,8 +1901,10 @@ class TokenParser {
       if (next?.kind === "exponent") {
         this.next();
         const exponent = parseGroupNodes(next.value) ?? sym("missing");
+        const primeOrder = primeOrderFromExponent(exponent);
         const functionCall = this.parseFunctionCall(tokenName);
-        return functionCall ? power(functionCall, exponent) : power(sym(tokenName), exponent);
+        const base = functionCall ?? sym(tokenName);
+        return primeOrder ? applyPrime(base, primeOrder) : power(base, exponent);
       }
 
       return this.parseFunctionCall(tokenName) ?? sym(tokenName);

@@ -1,6 +1,6 @@
 import Algebrite, { type AlgebriteNode } from "algebrite";
 import { exprToLatex } from "../latex";
-import { findIntegralDifferentialVariable, type Expr } from "../../ast";
+import { extractIntegralDifferential, type Expr } from "../../ast";
 
 export type SymbolSubstitution = {
   originalBySafe: Map<string, string>;
@@ -87,6 +87,12 @@ function translatePositiveExpr(expr: Expr, context: TranslationContext): Algebri
       }
       return Algebrite.usr_symbol(safeSymbolName(name, context.symbols));
     }
+    case "primed":
+      if (expr.value.kind !== "symbol") {
+        context.issues.push({ reason: "unsupported_primed_value", exprKind: expr.value.kind });
+        return null;
+      }
+      return Algebrite.usr_symbol(safeSymbolName(exprToLatex(expr, false), context.symbols));
     case "add":
       return translateNary(expr.terms, context, Algebrite.add, 0);
     case "multiply":
@@ -191,15 +197,14 @@ function translateIntegral(
   expr: Extract<Expr, { kind: "integral" }>,
   context: TranslationContext,
 ): AlgebriteNode | null {
-  const variable = findIntegralDifferentialVariable(expr.integrand);
-  if (!variable) {
+  const extraction = extractIntegralDifferential(expr.integrand);
+  if (!extraction) {
     context.issues.push({ reason: "missing_integral_differential", exprKind: "integral" });
     return null;
   }
 
-  const integrand = removeDifferentialFactor(expr.integrand);
-  const translatedIntegrand = translateExpr(integrand, context);
-  const translatedVariable = translateExpr(variable, context);
+  const translatedIntegrand = translateExpr(extraction.integrand, context);
+  const translatedVariable = translateExpr(extraction.variable, context);
   if (!translatedIntegrand || !translatedVariable) return null;
 
   if (!expr.lowerBound && !expr.upperBound) {
@@ -243,14 +248,4 @@ function specialFontSymbolName(expr: Extract<Expr, { kind: "special_font" }>): s
   const macro =
     expr.font === "script" ? "mathscr" : expr.font === "calligraphic" ? "mathcal" : "mathbb";
   return `\\${macro}{${expr.value.name}}`;
-}
-
-function removeDifferentialFactor(expr: Expr): Expr {
-  if (expr.kind === "differential") return { kind: "number", value: 1 };
-  if (expr.kind !== "multiply") return expr;
-
-  const factors = expr.factors.filter((factor) => factor.kind !== "differential");
-  if (factors.length === 0) return { kind: "number", value: 1 };
-  if (factors.length === 1) return factors[0]!;
-  return { kind: "multiply", factors };
 }
