@@ -81,6 +81,21 @@ describe("toggleDelimiterSelection", () => {
     expect(toggleDelimiterSelection(document, { kind: "single", nodeId: groupId! })).toBeNull();
   });
 
+  it("removes nested delimiters inside a grouped differential operand", () => {
+    const document = buildDocument(String.raw`\mathrm{d}\left(\left(\ln p  + \phi\right)\right)`);
+    const innerGroupId = Object.entries(document.index.nodeById).find(
+      ([, expr]) => expr.kind === "display_group" && expr.expression.kind === "add",
+    )?.[0];
+
+    expect(innerGroupId).toBeDefined();
+    expect(canToggleDelimiterSelection(document, { kind: "single", nodeId: innerGroupId! })).toBe(true);
+
+    const next = toggleDelimiterSelection(document, { kind: "single", nodeId: innerGroupId! });
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\mathrm{d}\left(\ln p  + \phi\right)`);
+  });
+
   it("removes delimiters around a single term inside a sum", () => {
     const document = buildDocument(String.raw`\left(a+\left(b\right)\right)`);
     const next = toggleDelimiterSelection(document, { kind: "single", nodeId: "n4" });

@@ -178,6 +178,40 @@ describe("identity rewrites", () => {
     ).toBe(String.raw`\mathrm{d'}{x}`);
   });
 
+  it("applies the differential natural-log rule", () => {
+    const expr = parse(String.raw`\mathrm{d}{\ln p}`);
+    const options = getApplicableIdentityRewrites(expr);
+
+    expect(options[0]).toMatchObject({
+      id: "differential-natural-log-rule",
+      caveat: "Assumes the log arguments are positive.",
+    });
+    expect(rewriteLatex(String.raw`\mathrm{d}{\ln p}`, "differential-natural-log-rule")).toBe(
+      String.raw`\frac{1}{p} \,\mathrm{d}{p}`,
+    );
+    expect(rewriteLatex(String.raw`\mathrm{d}\left(\ln p\right)`, "differential-natural-log-rule")).toBe(
+      String.raw`\frac{1}{p} \,\mathrm{d}{p}`,
+    );
+  });
+
+  it("applies the differential natural-log rule to selected log operands", () => {
+    const document = buildDocument(String.raw`0 = \mathrm{d}\left(\ln p\right)`);
+    const logId = firstNodeIdMatching(document, naturalLogName);
+    const rewritten = applyIdentityRewriteToSelection(
+      document,
+      { kind: "single", nodeId: logId },
+      "differential-natural-log-rule",
+    );
+
+    expect(rewritten).not.toBeNull();
+    expect(exprToLatex(rewritten!, false)).toBe(String.raw`0 = \frac{1}{p} \,\mathrm{d}{p}`);
+  });
+
+  it("does not apply the differential natural-log rule to inexact or compound operands", () => {
+    expect(rewriteLatex(String.raw`\mathrm{d'}{\ln p}`, "differential-natural-log-rule")).toBeNull();
+    expect(rewriteLatex(String.raw`\mathrm{d}\left(\ln\left(p q\right)\right)`, "differential-natural-log-rule")).toBeNull();
+  });
+
   it("does not simplify grouped compound differential operands", () => {
     expect(
       rewriteLatex(String.raw`\mathrm{d}{\left(y+z\right)}`, "simplify-grouped-differential-operand"),

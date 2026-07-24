@@ -229,7 +229,7 @@ export function replayEvents(fixture: EventFixture) {
             moveType: state.moveType,
             destinationSlot: previewToApply.destinationSlot,
           });
-          nextLatex = moveResult?.latex ?? null;
+          nextLatex = moveResult ? compileMathDocument(moveResult.latex).plainLatex : null;
         }
 
         const result = resolveSelectionFromEvent({

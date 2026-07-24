@@ -387,6 +387,47 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe(String.raw`\mu_i^{\left(j\right)} \,\mathrm{d}\left(n_i^{\left(j\right)}\right)`);
   });
 
+  it("moves a selected leading factor out of a differential operand in an equation", () => {
+    const document = buildDocument(String.raw`\mathrm{d}{\mu'''} = \mathrm{d}\left(R T \left(\ln p + \phi\right)\right)`);
+    const selectedNodeId = symbolNodeId(document, "R");
+    const differentialId = findNodeId(
+      document,
+      (expr) =>
+        expr.kind === "differential" &&
+        expr.variable.kind === "display_group" &&
+        expr.variable.expression.kind === "multiply",
+    );
+
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: selectedNodeId },
+      destinationId: differentialId,
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`\mathrm{d}{\mu'''} = R \,\mathrm{d}\left(T \left(\ln p  + \phi\right)\right)`);
+  });
+
+  it("moves a selected leading factor out of a differential when dropped on the grouped operand", () => {
+    const document = buildDocument(String.raw`\mathrm{d}{\mu'''} = \mathrm{d}\left(R T \left(\ln p + \phi\right)\right)`);
+    const selectedNodeId = symbolNodeId(document, "R");
+    const groupedOperandId = findNodeId(
+      document,
+      (expr) => expr.kind === "display_group" && expr.expression.kind === "multiply",
+    );
+
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: selectedNodeId },
+      destinationId: groupedOperandId,
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`\mathrm{d}{\mu'''} = R \,\mathrm{d}\left(T \left(\ln p  + \phi\right)\right)`);
+  });
+
   it("splits a selected term out of a negative fraction numerator additively", () => {
     const document = buildDocument(String.raw`P_0+\frac{\beta T_0}{\kappa}-\frac{v-v_0}{2 v_0 \kappa}`);
     const result = executeMove({

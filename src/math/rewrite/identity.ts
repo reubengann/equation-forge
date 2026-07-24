@@ -83,6 +83,14 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
     apply: simplifyGroupedDifferentialOperand,
   },
   {
+    id: "differential-natural-log-rule",
+    label: "d(ln x) -> (1/x) dx",
+    latex: String.raw`\mathrm{d}{\ln x} \to \frac{1}{x}\,\mathrm{d}{x}`,
+    caveat: POSITIVE_LOG_CAVEAT,
+    defaultPriority: 97,
+    apply: differentialNaturalLogRule,
+  },
+  {
     id: "derivative-sum-rule",
     label: "d(f + g) -> df + dg",
     latex: String.raw`\frac{d}{dx}\left(f + g\right) \to \frac{df}{dx} + \frac{dg}{dx}`,
@@ -445,6 +453,24 @@ function simplifyGroupedDifferentialOperand(expr: Expr): Expr | null {
     signed.value.inexact ? { inexact: true } : undefined,
   );
   return signed.sign === -1 ? flipSign(simplified) : simplified;
+}
+
+function differentialNaturalLogRule(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  if (signed.value.kind !== "differential" || signed.value.inexact) return null;
+
+  const argument = naturalLogArgument(signed.value.variable);
+  if (!argument) return null;
+
+  const unwrappedArgument = unwrapDisplayGroup(argument);
+  if (!isSymbolLikeAtom(unwrappedArgument)) return null;
+
+  const rewritten = multiply([
+    divide(num(1), unwrappedArgument),
+    differential(cloneExpr(unwrappedArgument)),
+  ]);
+
+  return signed.sign === -1 ? flipSign(rewritten) : rewritten;
 }
 
 type IntegralLikeExpr = Extract<

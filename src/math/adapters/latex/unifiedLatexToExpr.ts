@@ -506,7 +506,7 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
     let index = leftIndex + 2;
     while (index < nodes.length) {
       const candidate = nodes[index];
-      if (!candidate || candidate.type === "whitespace") break;
+      if (!candidate) break;
       variable.push(candidate);
       if (candidate.type === "macro" && candidate.content === "left") {
         depth += 1;

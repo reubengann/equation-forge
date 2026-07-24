@@ -107,9 +107,9 @@ export class RulesPipeline {
     this.document = document;
     this.rules = rules ?? SINGLE_CONTAINER_RULES;
     this.selection = selection;
-    this.destinationId = destinationId;
     this.destinationSlot = destinationSlot;
     this.moveType = moveType;
+    this.destinationId = normalizeDestinationForMove(document, selection, destinationId, moveType);
   }
 
   // If returns true, shouldn't we also return the insertion point?
@@ -465,6 +465,32 @@ type GeneralPipelineState = {
 function startNodeIdForSelection(selection: TermSelection): string | null {
   if (selection.kind === "single") return selection.nodeId;
   return selection.nodeIds[0] ?? null;
+}
+
+function normalizeDestinationForMove(
+  document: CompiledMathDocument,
+  selection: TermSelection,
+  destinationId: string,
+  moveType: MoveType,
+): string {
+  if (moveType !== "multiplicative") return destinationId;
+
+  const selectionStartId = startNodeIdForSelection(selection);
+  if (!selectionStartId) return destinationId;
+  if (!(document.index.ancestorsById[selectionStartId] ?? []).includes(destinationId)) return destinationId;
+
+  const destinationNode = document.index.nodeById[destinationId];
+  if (destinationNode?.kind !== "display_group") return destinationId;
+
+  const location = document.index.locationById[destinationId];
+  const parentId = location?.parentId;
+  if (!parentId) return destinationId;
+  const parentNode = parentId ? document.index.nodeById[parentId] : null;
+  if (location?.field === "variable" && parentNode?.kind === "differential") {
+    return parentId;
+  }
+
+  return destinationId;
 }
 
 function resolveMultiSelectionContainerMove(

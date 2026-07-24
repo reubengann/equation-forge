@@ -38,6 +38,17 @@ describe("exprToLatex", () => {
     expect(latex).toBe("a + b");
   });
 
+  it("round-trips differentials of left-right groups with internal whitespace", () => {
+    const expr = parseLatexToExpr(
+      String.raw`\mathrm{d}{\mu'''} = R \,\mathrm{d}\left(T \left(\ln p  + \phi\right)\right)`,
+    );
+    const latex = exprToLatex(expr, false);
+
+    expect(latex).toBe(
+      String.raw`\mathrm{d}{\mu'''} = R \,\mathrm{d}\left(T \left(\ln p  + \phi\right)\right)`,
+    );
+  });
+
   it("prints subtraction notation in sums", () => {
     const expr = parseLatexToExpr("c-a");
     const latex = exprToLatex(expr, false);
