@@ -1,6 +1,7 @@
 import { cloneExpr } from "../../ast/utils";
 import type { Expr } from "../../ast/expr";
-import { applySign, splitSign } from "../algebraUtils";
+import { findIntegralDifferentialVariable } from "../../ast/integralDifferential";
+import { applySign, splitSign, structuralKeyIgnoringDisplayGroups } from "../algebraUtils";
 import type { MoveContext, UpwardRewriteRule } from "../types";
 
 type IntegralLikeExpr = Extract<
@@ -18,13 +19,13 @@ export function extractFactorFromIntegral(): UpwardRewriteRule {
     canApply: (context, edge) => {
       if (!context.payload) return false;
       if (!isIntegralLike(edge.parentNode)) return false;
-      if (containsDifferential(context.payload)) return false;
+      if (!canExtractPayloadFromIntegral(context.payload, edge.parentNode)) return false;
       return context.document.index.locationById[edge.childId]?.field === "integrand";
     },
     apply: (context: MoveContext, edge) => {
       if (!context.payload) return null;
       if (!isIntegralLike(edge.parentNode)) return null;
-      if (containsDifferential(context.payload)) return null;
+      if (!canExtractPayloadFromIntegral(context.payload, edge.parentNode)) return null;
       if (context.document.index.locationById[edge.childId]?.field !== "integrand") return null;
 
       const signedIntegral = splitSign(edge.parentNode);
@@ -77,6 +78,33 @@ function withIntegrand(expr: IntegralLikeExpr, integrand: Expr): IntegralLikeExp
     ...expr,
     integrand: cloneExpr(integrand),
   };
+}
+
+function canExtractPayloadFromIntegral(payload: Expr, integralExpr: IntegralLikeExpr): boolean {
+  const integrationVariable = findIntegralDifferentialVariable(integralExpr.integrand);
+  if (!integrationVariable) return !containsDifferential(payload);
+  return !containsDifferentialOfVariable(payload, integrationVariable);
+}
+
+function containsDifferentialOfVariable(expr: Expr, variable: Expr): boolean {
+  switch (expr.kind) {
+    case "differential":
+      return structuralKeyIgnoringDisplayGroups(expr.variable) === structuralKeyIgnoringDisplayGroups(variable);
+    case "add":
+      return expr.terms.some((term) => containsDifferentialOfVariable(term, variable));
+    case "multiply":
+      return expr.factors.some((factor) => containsDifferentialOfVariable(factor, variable));
+    case "power":
+      return containsDifferentialOfVariable(expr.base, variable) || containsDifferentialOfVariable(expr.exponent, variable);
+    case "negate":
+      return containsDifferentialOfVariable(expr.value, variable);
+    case "divide":
+      return containsDifferentialOfVariable(expr.numerator, variable) || containsDifferentialOfVariable(expr.denominator, variable);
+    case "display_group":
+      return containsDifferentialOfVariable(expr.expression, variable);
+    default:
+      return false;
+  }
 }
 
 function containsDifferential(expr: Expr): boolean {

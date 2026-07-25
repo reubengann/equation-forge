@@ -2,6 +2,8 @@
 
 ## Medium
 
+- Right now `\frac{\mathrm{d}{\sigma}}{\mathrm{d}{T}}` is not recognized as a full derivative. This causes problems when, say, pulling it out of an integral, because it is treated as a quotient of differentials.
+
 ## Hard
 
 - JupyterLab plugin.

@@ -361,7 +361,9 @@ function getContextualIdentityRewriteTarget(
 ): { expr: Expr; selection: TermSelection } | null {
   if (selection?.kind !== "single") return null;
 
-  const contextualNodeId = differentialNodeIdForSelectedArgument(document, selection.nodeId);
+  const contextualNodeId =
+    differentialNodeIdForSelectedArgument(document, selection.nodeId) ??
+    derivativeNodeIdForSelectedOperand(document, selection.nodeId);
   if (!contextualNodeId) return null;
 
   const expr = document.index.nodeById[contextualNodeId];
@@ -386,6 +388,39 @@ function differentialNodeIdForSelectedArgument(document: CompiledMathDocument, n
   return grandparent?.kind === "differential" && parentLocation.field === "variable"
     ? parentLocation.parentId
     : null;
+}
+
+function derivativeNodeIdForSelectedOperand(document: CompiledMathDocument, nodeId: string): string | null {
+  const location = document.index.locationById[nodeId];
+  if (!location?.parentId) return null;
+
+  const parent = document.index.nodeById[location.parentId];
+  if (isDerivativeWithOperand(parent) && isDerivativeOperandField(location.field)) {
+    return location.parentId;
+  }
+
+  const parentLocation = document.index.locationById[location.parentId];
+  if (!parentLocation?.parentId || parent?.kind !== "display_group" || location.field !== "expression") {
+    return null;
+  }
+
+  const grandparent = document.index.nodeById[parentLocation.parentId];
+  return isDerivativeWithOperand(grandparent) && isDerivativeOperandField(parentLocation.field)
+    ? parentLocation.parentId
+    : null;
+}
+
+function isDerivativeWithOperand(expr: Expr | null | undefined): expr is Extract<
+  Expr,
+  { kind: "full_derivative_operator" | "partial_derivative_operator" | "partial_derivative" }
+> {
+  return expr?.kind === "full_derivative_operator" ||
+    expr?.kind === "partial_derivative_operator" ||
+    expr?.kind === "partial_derivative";
+}
+
+function isDerivativeOperandField(field: string | null | undefined): field is "operand" | "quantity" {
+  return field === "operand" || field === "quantity";
 }
 
 function combineNaturalLogs(expr: Expr): Expr | null {
@@ -642,7 +677,6 @@ function partialAtConstantReciprocal(expr: Expr): Expr | null {
 
 function derivativeProductRule(expr: Expr): Expr | null {
   const signed = splitSign(expr);
-  if (signed.sign === -1) return null;
 
   const product = derivativeProductOperand(signed.value);
   if (!product || product.factors.length < 2) return null;
@@ -652,10 +686,11 @@ function derivativeProductRule(expr: Expr): Expr | null {
       const outsideFactors = product.factors
         .filter((_, index) => index !== factorIndex)
         .map(cloneExpr);
-      return multiply([
+      const term = multiply([
         ...outsideFactors,
         derivativeWithOperand(signed.value, factor),
       ]);
+      return signed.sign === -1 ? flipSign(term) : term;
     }),
   );
 }

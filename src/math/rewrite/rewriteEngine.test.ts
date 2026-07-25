@@ -733,6 +733,19 @@ describe("canExecuteMove", () => {
     expect(result?.latex).toBe(String.raw`\Delta s = \frac{1}{T} \int P \,\mathrm{d}{v}`);
   });
 
+  it("extracts an integral factor that contains non-integration differentials", () => {
+    const document = buildDocument(String.raw`U = \int \left(\sigma - T \frac{\mathrm{d}{\sigma}}{\mathrm{d}{T}}\right) \,\mathrm{d}{A}`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: "n5" },
+      destinationId: "n3",
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`U = \left(\sigma - T \frac{\mathrm{d}{\sigma}}{\mathrm{d}{T}}\right) \int \mathrm{d}{A}`);
+  });
+
   it("executes extracting a multiplicative factor out of a bounded integral", () => {
     const document = buildDocument(String.raw`\int_a^b c P \,\mathrm{d}{v}`);
     const result = executeMove({

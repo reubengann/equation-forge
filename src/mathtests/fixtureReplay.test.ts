@@ -101,6 +101,13 @@ describe("mathtest fixtures", () => {
     expect(failures).toEqual([]);
   });
 
+  it("pull_parens_out_of_integral", async () => {
+    const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/pull_parens_out_of_integral.json`);
+    const replayResult = replayEvents(fixture);
+    const failures = buildAssertions(fixture, replayResult);
+    expect(failures).toEqual([]);
+  });
+
   it("can_move_factor_out_of_negative_differential", async () => {
     const fixture = await parseFixture(`${ROOT_DIR}/mathtests/fixtures/can_move_factor_out_of_negative_differential.json`);
     const replayResult = replayEvents(fixture);

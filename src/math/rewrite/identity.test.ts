@@ -301,6 +301,59 @@ describe("identity rewrites", () => {
     );
   });
 
+  it("applies the derivative product rule when selecting a grouped derivative operand", () => {
+    const document = buildDocument(String.raw`\frac{\partial}{\partial{T}} \left(T \frac{\mathrm{d}{\sigma}}{\mathrm{d}{T}}\right)`);
+    const productId = firstNodeIdMatching(
+      document,
+      (expr) =>
+        expr.kind === "multiply" &&
+        expr.factors.some((factor) => factor.kind === "symbol" && factor.name === "T") &&
+        expr.factors.some((factor) => factor.kind === "divide"),
+    );
+    const options = getApplicableIdentityRewritesForSelection(document, { kind: "single", nodeId: productId });
+
+    expect(options.map((option) => option.id)).toContain("derivative-product-rule");
+
+    const rewritten = applyIdentityRewriteToSelection(
+      document,
+      { kind: "single", nodeId: productId },
+      "derivative-product-rule",
+    );
+
+    expect(rewritten).not.toBeNull();
+    expect(exprToLatex(rewritten!, false)).toBe(
+      String.raw`\frac{\mathrm{d}{\sigma}}{\mathrm{d}{T}} \frac{\partial}{\partial{T}} T + T \frac{\partial}{\partial{T}} \frac{\mathrm{d}{\sigma}}{\mathrm{d}{T}}`,
+    );
+  });
+
+  it("applies the derivative product rule to a selected negated derivative term", () => {
+    const document = buildDocument(
+      String.raw`\frac{\partial}{\partial{T}} U = A \left(\frac{\partial}{\partial{T}} \sigma - \frac{\partial}{\partial{T}} \left(T \frac{\mathrm{d}{\sigma}}{\mathrm{d}{T}}\right)\right)`,
+    );
+    const derivativeId = firstNodeIdMatching(
+      document,
+      (expr) =>
+        expr.kind === "partial_derivative_operator" &&
+        expr.sign === -1 &&
+        expr.operand.kind === "display_group" &&
+        expr.operand.expression.kind === "multiply",
+    );
+    const options = getApplicableIdentityRewritesForSelection(document, { kind: "single", nodeId: derivativeId });
+
+    expect(options.map((option) => option.id)).toContain("derivative-product-rule");
+
+    const rewritten = applyIdentityRewriteToSelection(
+      document,
+      { kind: "single", nodeId: derivativeId },
+      "derivative-product-rule",
+    );
+
+    expect(rewritten).not.toBeNull();
+    expect(exprToLatex(rewritten!, false)).toBe(
+      String.raw`\frac{\partial}{\partial{T}} U = A \left(\frac{\partial}{\partial{T}} \sigma - \frac{\mathrm{d}{\sigma}}{\mathrm{d}{T}} \frac{\partial}{\partial{T}} T - T \frac{\partial}{\partial{T}} \frac{\mathrm{d}{\sigma}}{\mathrm{d}{T}}\right)`,
+    );
+  });
+
   it("applies the differential product rule", () => {
     const expr = parse(String.raw`\mathrm{d}{\left(P V\right)}`);
     const options = getApplicableIdentityRewrites(expr);

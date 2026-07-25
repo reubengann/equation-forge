@@ -38,6 +38,7 @@ import {
   type DelimiterKind,
   type Expr,
 } from "../../ast";
+import { cloneExpr } from "../../ast/utils";
 import { flipSign } from "../../rewrite/algebraUtils";
 
 type UnifiedArgument = {
@@ -348,6 +349,13 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
     if (candidate?.type !== "macro" || candidate.content !== "^") return null;
     const exponent = parseGroupNodes(candidate.args?.[0]?.content);
     return exponent ? primeOrderFromExponent(exponent) : null;
+  };
+  const integerFromMacroExponent = (candidate: UnifiedNode | undefined): number | null => {
+    if (candidate?.type !== "macro" || candidate.content !== "^") return null;
+    const exponent = parseGroupNodes(candidate.args?.[0]?.content);
+    if (exponent?.kind !== "number") return null;
+    const value = Number(exponent.value);
+    return Number.isInteger(value) ? value : null;
   };
   const isPrimeMacro = (candidate: UnifiedNode | undefined): boolean =>
     candidate?.type === "macro" && (candidate.content === "prime" || candidate.content === "doubleprime");
@@ -812,6 +820,11 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
       let differentialStartIndex = i;
       const nextNode = nodes[i + 1];
       const primeOrder = primeOrderFromMacroExponent(nextNode);
+      const derivativeDegree = integerFromMacroExponent(nextNode);
+      if (differentialKind && derivativeDegree && derivativeDegree > 1) {
+        tokens.push({ kind: "symbol", name: differentialKind === "inexact" ? "\\mathrm{d'}" : "\\mathrm{d}" });
+        continue;
+      }
       if (
         differentialKind &&
         nextNode?.type === "group" &&
@@ -1243,6 +1256,20 @@ class TokenParser {
     return { dependentVariable, degree };
   }
 
+  private extractSecondOrderFullNumerator(numerator: Expr): {
+    dependentVariable: Expr;
+    degree: number;
+  } | null {
+    const factors = this.factorList(numerator);
+    if (factors.length < 2) return null;
+    const head = factors[0];
+    if (!head || head.kind !== "power" || !this.isFullDerivativeMarker(head.base)) return null;
+    const degree = this.parsePositiveInteger(head.exponent);
+    if (!degree || degree < 2) return null;
+    const dependentVariable = factors.length === 2 ? factors[1]! : multiply(factors.slice(1));
+    return { dependentVariable, degree };
+  }
+
   private extractSecondOrderDenominator(denominator: Expr): {
     independentVariables: Expr[];
     degree: number;
@@ -1301,6 +1328,18 @@ class TokenParser {
     };
   }
 
+  private extractSecondOrderFullDenominator(denominator: Expr): {
+    variable: Expr;
+    degree: number;
+  } | null {
+    if (denominator.kind !== "power") return null;
+    const degree = this.parsePositiveInteger(denominator.exponent);
+    if (!degree || degree < 2) return null;
+    const base = denominator.base;
+    if (base.kind !== "differential") return null;
+    return { variable: cloneExpr(base.variable), degree };
+  }
+
   private extractSecondOrderPartialDerivative(
     numerator: Expr,
     denominator: Expr,
@@ -1315,6 +1354,23 @@ class TokenParser {
       denominatorData.independentVariables,
       numeratorData.degree,
     );
+  }
+
+  private extractSecondOrderFullDerivative(
+    numerator: Expr,
+    denominator: Expr,
+  ): Expr | null {
+    const numeratorData = this.extractSecondOrderFullNumerator(numerator);
+    if (!numeratorData) return null;
+
+    const denominatorData = this.extractSecondOrderFullDenominator(denominator);
+    if (!denominatorData || numeratorData.degree !== denominatorData.degree) return null;
+
+    let result = cloneExpr(numeratorData.dependentVariable);
+    for (let index = 0; index < numeratorData.degree; index += 1) {
+      result = fullDerivativeOperator(cloneExpr(denominatorData.variable), result);
+    }
+    return result;
   }
 
   private parseFractionExpression(numerator: Expr, denominator: Expr): Expr {
@@ -1341,6 +1397,11 @@ class TokenParser {
       denominator,
     );
     if (secondOrder) return secondOrder;
+    const secondOrderFullDerivative = this.extractSecondOrderFullDerivative(
+      numerator,
+      denominator,
+    );
+    if (secondOrderFullDerivative) return secondOrderFullDerivative;
     const partialQuantity = this.extractPartialOperand(numerator);
     const partialVariable = this.extractPartialOperand(denominator);
     if (partialQuantity && partialVariable) {

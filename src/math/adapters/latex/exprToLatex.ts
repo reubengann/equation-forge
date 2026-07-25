@@ -167,7 +167,7 @@ class LatexGenerator {
       case "partial_derivative":
         return `\\frac{\\partial{${this.generate(expr.quantity)}}}{\\partial{${this.generate(expr.variable)}}}`;
       case "full_derivative_operator":
-        return `\\frac{\\mathrm{d}}{\\mathrm{d}{${this.generate(expr.variable)}}} ${this.generate(expr.operand)}`;
+        return this.generateFullDerivativeOperatorBody(expr);
       case "partial_derivative_operator":
         return `\\frac{\\partial}{\\partial{${this.generate(expr.variable)}}} ${this.generate(expr.operand)}`;
       case "second_order_partial_derivative":
@@ -203,6 +203,31 @@ class LatexGenerator {
     const operator = `\\mathrm{d${expr.inexact ? "'" : ""}}`;
     const variable = this.generate(expr.variable);
     return expr.variable.kind === "display_group" ? `${operator}${variable}` : `${operator}{${variable}}`;
+  }
+
+  generateFullDerivativeOperatorBody(expr: Extract<Expr, { kind: "full_derivative_operator" }>): string {
+    const compact = this.compactRepeatedFullDerivative(expr);
+    if (compact) {
+      return `\\frac{\\mathrm{d}^{${compact.degree}}{${this.generate(compact.operand)}}}{\\mathrm{d}{${this.generate(compact.variable)}}^{${compact.degree}}}`;
+    }
+    return `\\frac{\\mathrm{d}}{\\mathrm{d}{${this.generate(expr.variable)}}} ${this.generate(expr.operand)}`;
+  }
+
+  compactRepeatedFullDerivative(expr: Extract<Expr, { kind: "full_derivative_operator" }>): {
+    degree: number;
+    variable: Expr;
+    operand: Expr;
+  } | null {
+    let degree = 1;
+    let operand = expr.operand;
+    while (
+      operand.kind === "full_derivative_operator" &&
+      sameExpr(operand.variable, expr.variable)
+    ) {
+      degree += 1;
+      operand = operand.operand;
+    }
+    return degree > 1 ? { degree, variable: expr.variable, operand } : null;
   }
 
   generatePowerBase(base: Expr): string {
@@ -348,10 +373,7 @@ class LatexGenerator {
           id,
         );
       case "full_derivative_operator":
-        return this.wrap(
-          `\\frac{\\mathrm{d}}{\\mathrm{d}{${this.generate(expr.variable)}}} ${this.generate(expr.operand)}`,
-          id,
-        );
+        return this.wrap(this.generateFullDerivativeOperatorBody(expr), id);
       case "partial_derivative_operator":
         return this.wrap(
           `\\frac{\\partial}{\\partial{${this.generate(expr.variable)}}} ${this.generate(expr.operand)}`,
@@ -497,6 +519,10 @@ function startsWithNegativeFactor(expr: Extract<Expr, { kind: "multiply" }>): bo
 
   const firstFactor = unsignedFactors[0];
   return firstFactor?.kind === "multiply" ? startsWithNegativeFactor(firstFactor) : false;
+}
+
+function sameExpr(left: Expr, right: Expr): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function renderSymbolName(name: string): string {

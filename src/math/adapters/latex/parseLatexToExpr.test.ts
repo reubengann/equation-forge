@@ -1012,6 +1012,18 @@ describe("parseLatexToExpr", () => {
     expectExprKind(expr.operand.expression, "add");
   });
 
+  it("parses compact second full derivative notation", () => {
+    const expr = parseLatexToExpr(String.raw`\frac{\mathrm{d}^2{\sigma}}{\mathrm{d}{T}^2}`);
+    expectExprKind(expr, "full_derivative_operator");
+    expectExprKind(expr.variable, "symbol");
+    expect(expr.variable.name).toBe("T");
+    expectExprKind(expr.operand, "full_derivative_operator");
+    expectExprKind(expr.operand.variable, "symbol");
+    expect(expr.operand.variable.name).toBe("T");
+    expectExprKind(expr.operand.operand, "symbol");
+    expect(expr.operand.operand.name).toBe("\\sigma");
+  });
+
   it("preserves explicit groups around limit expressions", () => {
     const expr = parseLatexToExpr(
       String.raw`\lim_{T\to0} \left(\frac{\partial{\left(G_2 - G_1\right)}}{\partial{T}}\right)`,

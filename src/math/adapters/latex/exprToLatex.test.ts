@@ -58,6 +58,13 @@ describe("exprToLatex", () => {
     expect(latex).toBe(String.raw`\mathrm{d}{\mu''} = \mathrm{d}{\mu'''}`);
   });
 
+  it("canonicalizes compact second full derivative notation compactly", () => {
+    const expr = parseLatexToExpr(String.raw`\frac{\mathrm{d}^2{\sigma}}{\mathrm{d}{T}^2}`);
+    const latex = exprToLatex(expr, false);
+
+    expect(latex).toBe(String.raw`\frac{\mathrm{d}^{2}{\sigma}}{\mathrm{d}{T}^{2}}`);
+  });
+
   it("prints subtraction notation in sums", () => {
     const expr = parseLatexToExpr("c-a");
     const latex = exprToLatex(expr, false);
