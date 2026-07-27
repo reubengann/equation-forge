@@ -59,7 +59,7 @@ export function buildPadSubstituteSuggestions(
 
     const lhs = expr.sides[0];
     const rhs = expr.sides[1];
-    const rhsExpr = matchDefinitionRhs(lhs, rhs, selection.expr);
+    const rhsExpr = matchDefinitionRhs(lhs, rhs, selection.suggestionExpr ?? selection.expr);
     if (!rhsExpr) continue;
 
     suggestions.push({

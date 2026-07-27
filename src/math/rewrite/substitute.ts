@@ -11,6 +11,7 @@ import {
 
 export type SubstitutionSelection = {
   expr: Expr;
+  suggestionExpr?: Expr;
   latex: string;
 };
 
@@ -50,7 +51,11 @@ export function getSubstitutionSelection(
   const target = getSelectionRewriteTarget(document, selection);
   if (!target) return null;
   const unsigned = splitSign(target.expr).value;
-  return { expr: unsigned, latex: exprToLatex(unsigned, false) };
+  const suggestionExpr =
+    selection?.kind === "single" && shouldApplySelectedSign(document, selection.nodeId)
+      ? unsigned
+      : target.expr;
+  return { expr: unsigned, suggestionExpr, latex: exprToLatex(unsigned, false) };
 }
 
 export function substituteSelection(

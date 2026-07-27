@@ -2,6 +2,17 @@ import { describe, expect, it } from "vitest";
 import { compileMathDocument } from "./math/compile/compileMathDocument";
 import { buildPadSubstituteSuggestions } from "./substituteSuggestions";
 import { parseLatexToExpr } from "./math/adapters/latex";
+import { getSubstitutionSelection, substituteSelection } from "./math/rewrite/substitute";
+import { exprToLatex } from "./math/adapters/latex/exprToLatex";
+import { splitSign } from "./math/rewrite/algebraUtils";
+import type { CompiledMathDocument } from "./math/compile/compileMathDocument";
+import type { Expr } from "./math/ast";
+
+function firstNodeIdMatching(document: CompiledMathDocument, predicate: (expr: Expr) => boolean): string {
+  const entry = Object.entries(document.index.nodeById).find(([, expr]) => predicate(expr));
+  if (!entry) throw new Error("Unable to find matching node.");
+  return entry[0];
+}
 
 describe("buildPadSubstituteSuggestions", () => {
   it("suggests the RHS when a selected expression matches another equation LHS", () => {
@@ -118,6 +129,39 @@ describe("buildPadSubstituteSuggestions", () => {
     );
 
     expect(suggestions[0]?.rhsLatex).toBe("-y - z");
+  });
+
+  it("negates suggestions for a negative equation side selection", () => {
+    const targetDocument = compileMathDocument(
+      String.raw`S = -\left(\frac{\partial{F}}{\partial{T}}\right)_{A}`,
+    );
+    const selectedNodeId = firstNodeIdMatching(targetDocument, (expr) => {
+      const signed = splitSign(expr);
+      return signed.sign === -1 && signed.value.kind === "partial_at_const_quantity";
+    });
+    const selection = getSubstitutionSelection(targetDocument, { kind: "single", nodeId: selectedNodeId });
+
+    const suggestions = buildPadSubstituteSuggestions(selection, [
+      {
+        equationId: "eq-1",
+        label: "Equation 1",
+        compiledDoc: compileMathDocument(
+          String.raw`\left(\frac{\partial{F}}{\partial{T}}\right)_{A} = A \frac{\mathrm{d}{\sigma}}{\mathrm{d}{T}}`,
+        ),
+      },
+    ]);
+
+    expect(suggestions[0]?.rhsLatex).toBe(String.raw`-A \frac{\mathrm{d}{\sigma}}{\mathrm{d}{T}}`);
+    expect(exprToLatex(suggestions[0]!.rhsExpr, false)).toBe(
+      String.raw`-A \frac{\mathrm{d}{\sigma}}{\mathrm{d}{T}}`,
+    );
+    const next = substituteSelection(
+      targetDocument,
+      { kind: "single", nodeId: selectedNodeId },
+      suggestions[0]!.rhsExpr,
+    );
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`S = -A \frac{\mathrm{d}{\sigma}}{\mathrm{d}{T}}`);
   });
 
   it("suggests the signed RHS for matching inexact differentials", () => {
