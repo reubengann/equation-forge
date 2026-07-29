@@ -21,9 +21,8 @@ type CompatibilityCase =
 /**
  * Representative inputs from jupyterlab-sympy-assistant's Python parser
  * tests. This is a migration inventory, not a claim that PDP should mimic
- * every legacy normalization. In particular, PDP preserves semantic nodes
- * such as differentials, text, and constrained partials instead of flattening
- * them into symbols or custom spp calls.
+ * every legacy normalization. PDP preserves semantic nodes in its AST while
+ * the SymPy adapter supplies the assistant's required output policy.
  */
 const assistantCompatibilityCases: CompatibilityCase[] = [
   {
@@ -57,23 +56,23 @@ const assistantCompatibilityCases: CompatibilityCase[] = [
   {
     name: "ordinary differential symbols",
     latex: String.raw`dU = dQ - dW`,
-    status: "unsupported",
+    status: "supported",
     exprKind: "equation",
-    issueKinds: ["differential"],
+    codeIncludes: ['spp.Symbol("dU")', 'spp.Symbol("dQ")', 'spp.Symbol("dW")'],
   },
   {
     name: "standalone text atom",
     latex: String.raw`\left(P + \frac{a}{v^{2}}\right) \left(v - b\right)^{\frac{R}{c_{v}} + 1} = \text{const}`,
-    status: "unsupported",
+    status: "supported",
     exprKind: "equation",
-    issueKinds: ["text"],
+    codeIncludes: ['spp.Symbol("const")'],
   },
   {
     name: "constrained partial derivative",
     latex: String.raw`c_P = c_v + \left[\left(\dfrac{\partial u}{\partial v}\right)_T + P\right] \left(\dfrac{\partial v}{\partial T}\right)_P`,
-    status: "unsupported",
+    status: "supported",
     exprKind: "equation",
-    issueKinds: ["partial_at_const_quantity"],
+    codeIncludes: ["spp.partial(", "hold="],
   },
   {
     name: "delta quantity",
@@ -87,7 +86,10 @@ const assistantCompatibilityCases: CompatibilityCase[] = [
 describe("jupyterlab-sympy-assistant compatibility", () => {
   it.each(assistantCompatibilityCases)("$name is explicitly $status", (testCase) => {
     const expr = parseLatexToExpr(testCase.latex);
-    const result = tryExprToSympy(expr, { namespace: "spp" });
+    const result = tryExprToSympy(expr, {
+      namespace: "spp",
+      constrainedPartialFunction: "partial",
+    });
 
     expect(expr.kind).toBe(testCase.exprKind);
 

@@ -11,6 +11,12 @@ export type ExprToSympyOptions = {
    * calls, for example `Symbol("x")` instead of `sympy.Symbol("x")`.
    */
   namespace?: string | null;
+  /**
+   * Function used for a derivative constrained at a constant quantity.
+   * For example, `"partial"` with namespace `"spp"` emits
+   * `spp.partial(quantity, variable, hold=constant)`.
+   */
+  constrainedPartialFunction?: string;
 };
 
 export type ExprToSympyIssue = {
@@ -43,6 +49,7 @@ export class ExprToSympyError extends Error {
 
 type RenderContext = {
   namespace: string | null;
+  constrainedPartialFunction?: string;
   issues: ExprToSympyIssue[];
 };
 
@@ -64,6 +71,7 @@ export function exprToSympy(expr: Expr, options: ExprToSympyOptions = {}): strin
 export function tryExprToSympy(expr: Expr, options: ExprToSympyOptions = {}): ExprToSympyResult {
   const context: RenderContext = {
     namespace: options.namespace === undefined ? "sympy" : options.namespace,
+    constrainedPartialFunction: options.constrainedPartialFunction,
     issues: [],
   };
   const code = renderExpr(expr, context);
@@ -136,6 +144,11 @@ function renderPositiveExpr(expr: Expr, context: RenderContext): string | null {
     case "second_order_partial_derivative":
       return renderSecondOrderPartial(expr, context);
     case "text":
+      return renderSymbol(expr.text, context);
+    case "differential":
+      return renderDifferential(expr, context);
+    case "partial_at_const_quantity":
+      return renderConstrainedPartial(expr, context);
     case "immutable_expression":
     case "invalid_input":
     case "vector":
@@ -147,8 +160,6 @@ function renderPositiveExpr(expr: Expr, context: RenderContext): string | null {
     case "limit":
     case "closed_integral":
     case "multiple_integral":
-    case "differential":
-    case "partial_at_const_quantity":
       return unsupported(context, expr, "unsupported_expr_kind");
   }
 }
@@ -248,6 +259,30 @@ function renderDerivative(quantity: Expr, variables: Expr[], context: RenderCont
   const renderedVariables = renderMany(variables, context);
   if (!renderedQuantity || !renderedVariables) return null;
   return sympyCall(context, "Derivative", [renderedQuantity, ...renderedVariables]);
+}
+
+function renderDifferential(
+  expr: Extract<Expr, { kind: "differential" }>,
+  context: RenderContext,
+): string | null {
+  if (expr.variable.kind !== "symbol") {
+    return unsupported(context, expr, "unsupported_differential_variable");
+  }
+  return renderSymbol(`d${expr.variable.name}`, context);
+}
+
+function renderConstrainedPartial(
+  expr: Extract<Expr, { kind: "partial_at_const_quantity" }>,
+  context: RenderContext,
+): string | null {
+  if (!context.constrainedPartialFunction) {
+    return unsupported(context, expr, "unsupported_constrained_partial");
+  }
+  const quantity = renderExpr(expr.quantity, context);
+  const variable = renderExpr(expr.variable, context);
+  const constantQuantity = renderExpr(expr.constantQuantity, context);
+  if (!quantity || !variable || !constantQuantity) return null;
+  return `${qualified(context, context.constrainedPartialFunction)}(${quantity}, ${variable}, hold=${constantQuantity})`;
 }
 
 function renderSecondOrderPartial(
