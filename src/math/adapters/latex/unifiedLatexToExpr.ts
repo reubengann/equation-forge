@@ -12,6 +12,7 @@ import {
   displayGroup,
   divide,
   equation,
+  flipSign,
   fullDerivativeOperator,
   hat,
   innerProduct,
@@ -39,7 +40,6 @@ import {
   type Expr,
 } from "../../ast";
 import { cloneExpr } from "../../ast/utils";
-import { flipSign } from "../../rewrite/algebraUtils";
 
 type UnifiedArgument = {
   content?: UnifiedNode[];

@@ -33,7 +33,12 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist/math/index.*",
+    "dist/math/ast",
+    "dist/math/adapters/latex",
+    "dist/math/adapters/sympy",
+    "dist/math/adapters/algebrite",
+    "dist/math/compile"
   ],
   "sideEffects": false,
   "scripts": {
