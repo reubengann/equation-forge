@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import type { IdentityRewriteOption } from "./math/rewrite/identity";
-import type { MoveType } from "./math/rewrite/types";
+import type {
+  IdentityRewriteOption,
+  MoveType,
+} from "@physics-derivation-pad/core/rewrite";
+import { UiIcon } from "./icons/UiIcon";
 import { StaticMath } from "./StaticMath";
 
 type EquationToolbarProps = {
@@ -155,23 +158,6 @@ const menuItemCaveatStyle: CSSProperties = {
   color: "rgba(255, 255, 255, 0.62)",
   fontSize: 11,
   lineHeight: 1.25,
-};
-
-const materialSymbolStyle: CSSProperties = {
-  fontVariationSettings: `"FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24`,
-  fontFamily: `"Material Symbols Rounded"`,
-  fontWeight: "normal",
-  fontStyle: "normal",
-  fontSize: 22,
-  lineHeight: 1,
-  letterSpacing: "normal",
-  textTransform: "none",
-  display: "inline-block",
-  whiteSpace: "nowrap",
-  wordWrap: "normal",
-  direction: "ltr",
-  WebkitFontFeatureSettings: `"liga"`,
-  WebkitFontSmoothing: "antialiased",
 };
 
 export function EquationToolbar({
@@ -357,9 +343,9 @@ export function EquationToolbar({
             ...(!canCopyEquation ? iconButtonDisabledStyle : {}),
           }}
         >
-          <span style={materialSymbolStyle} aria-hidden="true">
-            {copyEquationFeedback === "done" ? "check" : "content_copy"}
-          </span>
+          <UiIcon
+            name={copyEquationFeedback === "done" ? "check" : "content_copy"}
+          />
         </button>
         <button
           type="button"
@@ -374,9 +360,9 @@ export function EquationToolbar({
             ...(!canCopySelection ? iconButtonDisabledStyle : {}),
           }}
         >
-          <span style={materialSymbolStyle} aria-hidden="true">
-            {copySelectionFeedback === "done" ? "check" : "content_copy"}
-          </span>
+          <UiIcon
+            name={copySelectionFeedback === "done" ? "check" : "content_copy"}
+          />
         </button>
         <button
           type="button"
@@ -391,9 +377,9 @@ export function EquationToolbar({
             ...(!canCopyHistory ? iconButtonDisabledStyle : {}),
           }}
         >
-          <span style={materialSymbolStyle} aria-hidden="true">
-            {copyHistoryFeedback === "done" ? "check" : "history"}
-          </span>
+          <UiIcon
+            name={copyHistoryFeedback === "done" ? "check" : "history"}
+          />
         </button>
         <button
           type="button"
@@ -451,9 +437,7 @@ export function EquationToolbar({
             ...(!canSubstituteAllMatches ? iconButtonDisabledStyle : {}),
           }}
         >
-          <span style={materialSymbolStyle} aria-hidden="true">
-            select_all
-          </span>
+          <UiIcon name="select_all" />
         </button>
         <button
           type="button"
@@ -467,9 +451,7 @@ export function EquationToolbar({
             ...(!canApplyOperation ? iconButtonDisabledStyle : {}),
           }}
         >
-          <span style={materialSymbolStyle} aria-hidden="true">
-            functions
-          </span>
+          <UiIcon name="functions" />
         </button>
         <button
           type="button"
@@ -484,9 +466,7 @@ export function EquationToolbar({
             ...(!canForceFactor ? iconButtonDisabledStyle : {}),
           }}
         >
-          <span style={materialSymbolStyle} aria-hidden="true">
-            input
-          </span>
+          <UiIcon name="input" />
         </button>
       </div>
 
@@ -543,9 +523,7 @@ export function EquationToolbar({
             ...(!canFactor ? iconButtonDisabledStyle : {}),
           }}
         >
-          <span style={materialSymbolStyle} aria-hidden="true">
-            call_split
-          </span>
+          <UiIcon name="call_split" />
         </button>
         <button
           type="button"
@@ -559,9 +537,7 @@ export function EquationToolbar({
             ...(!canDistribute ? iconButtonDisabledStyle : {}),
           }}
         >
-          <span style={materialSymbolStyle} aria-hidden="true">
-            ramp_left
-          </span>
+          <UiIcon name="ramp_left" />
         </button>
         <button
           type="button"
@@ -575,17 +551,7 @@ export function EquationToolbar({
             ...(!canCleanup ? iconButtonDisabledStyle : {}),
           }}
         >
-          <img
-            src="/icons/clean.svg"
-            alt=""
-            aria-hidden="true"
-            style={{
-              width: 22,
-              height: 22,
-              display: "block",
-              filter: "invert(1)",
-            }}
-          />
+          <UiIcon name="clean" />
         </button>
         <button
           type="button"
@@ -599,9 +565,7 @@ export function EquationToolbar({
             ...(!canEvaluate ? iconButtonDisabledStyle : {}),
           }}
         >
-          <span style={materialSymbolStyle} aria-hidden="true">
-            calculate
-          </span>
+          <UiIcon name="calculate" />
         </button>
         <button
           type="button"
@@ -615,9 +579,7 @@ export function EquationToolbar({
             ...(!canApplyIdentityRewrite ? iconButtonDisabledStyle : {}),
           }}
         >
-          <span style={materialSymbolStyle} aria-hidden="true">
-            rule
-          </span>
+          <UiIcon name="rule" />
         </button>
         <details
           ref={identityMenuRef}
@@ -642,9 +604,7 @@ export function EquationToolbar({
               setIsIdentityMenuOpen((current) => canApplyIdentityRewrite && !current);
             }}
           >
-            <span style={materialSymbolStyle} aria-hidden="true">
-              arrow_drop_down
-            </span>
+            <UiIcon name="arrow_drop_down" />
           </summary>
           <div role="menu" style={menuPanelStyle}>
             {identityRewriteOptions.map((option) => (
@@ -678,9 +638,7 @@ export function EquationToolbar({
             ...(!canToggleNegate ? iconButtonDisabledStyle : {}),
           }}
         >
-          <span style={materialSymbolStyle} aria-hidden="true">
-            exposure_neg_1
-          </span>
+          <UiIcon name="exposure_neg_1" />
         </button>
         <button
           type="button"
@@ -696,9 +654,7 @@ export function EquationToolbar({
             ...(!canToggleFunctionSymbol ? iconButtonDisabledStyle : {}),
           }}
         >
-          <span style={materialSymbolStyle} aria-hidden="true">
-            function
-          </span>
+          <UiIcon name="function" />
         </button>
         <button
           type="button"
@@ -712,9 +668,7 @@ export function EquationToolbar({
             ...(!canToggleDelimiter ? iconButtonDisabledStyle : {}),
           }}
         >
-          <span style={materialSymbolStyle} aria-hidden="true">
-            data_object
-          </span>
+          <UiIcon name="data_object" />
         </button>
         <button
           type="button"
@@ -728,9 +682,7 @@ export function EquationToolbar({
             ...(!canCycleDelimiter ? iconButtonDisabledStyle : {}),
           }}
         >
-          <span style={materialSymbolStyle} aria-hidden="true">
-            data_array
-          </span>
+          <UiIcon name="data_array" />
         </button>
       </div>
     </div>

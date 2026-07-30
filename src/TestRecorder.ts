@@ -1,10 +1,5 @@
-import type {
-  DomSnapshotObservedPayload,
-  PointerEventPayload,
-  SelectionGeometry,
-} from "./interaction/selectionController";
-import type { InsertionPreview, MoveType } from "./math/rewrite/types";
-import type { TermSelection } from "./selection/types";
+import type { SelectionGeometry } from "./interaction/selectionController";
+import type { MoveType } from "@physics-derivation-pad/core/rewrite";
 
 export type PointerPhase = "pointer_down" | "pointer_move" | "pointer_up";
 
@@ -44,16 +39,6 @@ export type TestRecorderEvent =
   | LatexAcceptedEvent
   | DomChangedEvent
   | MoveModeChangedEvent;
-
-export type EquationEditorRecordingHooks = {
-  onDomSnapshotObserved: (payload: DomSnapshotObservedPayload) => void;
-  onPointerDownEvent: (payload: PointerEventPayload) => void;
-  onPointerMoveEvent: (payload: PointerEventPayload) => void;
-  onPointerUpEvent: (payload: PointerEventPayload) => void;
-  onSelectionChanged: (selection: TermSelection | null) => void;
-  onPreviewChanged: (preview: InsertionPreview | null) => void;
-  onMoveTypeChanged: (moveType: MoveType) => void;
-};
 
 export class TestRecorder {
   private events: TestRecorderEvent[] = [];

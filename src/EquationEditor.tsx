@@ -15,62 +15,61 @@ import {
   selectionSet,
   type RectBounds,
 } from "./interaction/selectionController";
-import { type TermSelection } from "./selection/types";
-import type { CompiledMathDocument } from "./math/compile/compileMathDocument";
-import { exprToLatex, parseLatexToExpr } from "./math/adapters/latex";
-import { canRun as canFlipRelation, run as flipRelation } from "./math/rewrite/flipRelation";
-import { autoRewriteSelection, canAutoRewrite } from "./math/rewrite/autoRewrite";
-import { canCycleDelimiterSelection, cycleDelimiterSelection } from "./math/rewrite/cycleDelimiter";
+import type { TermSelection } from "@physics-derivation-pad/core/selection";
+import {
+  canToggleFunctionSymbol,
+  isFunctionSymbolSelectionTagged,
+  toggleFunctionSymbol,
+  type CompiledMathDocument,
+} from "@physics-derivation-pad/core/compile";
+import { exprToLatex, parseLatexToExpr } from "@physics-derivation-pad/core/latex";
 import {
   applyDefaultIdentityRewriteToSelection,
   applyIdentityRewriteToSelection,
-  getApplicableIdentityRewritesForSelection,
-} from "./math/rewrite/identity";
-import { canEvaluateWithAlgebrite, evaluateSelectionWithAlgebrite } from "./math/rewrite/algebrite";
-import {
   applyOperationToFraction,
   applyOperationToRelation,
+  autoRewriteSelection,
   canApplyOperationToFraction,
   canApplyOperationToRelation,
-  operationPlaceholderForTarget,
-  type ApplyOperationTargetKind,
-  validateOperationTemplate,
-} from "./math/rewrite/applyOperation";
-import { canExecuteMove, executeMove } from "./math/rewrite/rewriteEngine";
-import { canToggleDelimiterSelection, toggleDelimiterSelection } from "./math/rewrite/toggleDelimiter";
-import { canToggleNegateSelection, toggleNegateSelection } from "./math/rewrite/toggleNegate";
-import {
+  canAutoRewrite,
+  canCycleDelimiterSelection,
+  canEvaluateWithAlgebrite,
+  canExecuteMove,
+  canFlipRelation,
+  canForceFactorSelection,
+  canToggleDelimiterSelection,
+  canToggleNegateSelection,
+  cycleDelimiterSelection,
+  evaluateSelectionWithAlgebrite,
+  executeMove,
+  flipRelation,
+  forceFactorSelection,
+  getApplicableIdentityRewritesForSelection,
   getReplaceableSymbols,
+  getSelectionRewriteTarget,
   getSubstitutionSelection,
   isValidSubstitutionReplacement,
+  operationPlaceholderForTarget,
+  resolveHorizontalInsertionSlot,
   substituteAllMatchingExpressions,
   substituteSelection,
-} from "./math/rewrite/substitute";
-import {
-  resolveHorizontalInsertionSlot,
+  toggleDelimiterSelection,
+  toggleNegateSelection,
+  validateForceFactorExpr,
+  type ApplyOperationTargetKind,
   type InsertionPreview,
   type MoveType,
   type NodeHorizontalBounds,
-} from "./math/rewrite/types";
-import type { EquationEditorRecordingHooks } from "./TestRecorder";
+  validateOperationTemplate,
+} from "@physics-derivation-pad/core/rewrite";
+import type { EquationEditorRecordingHooks } from "./EquationEditorRecordingHooks";
 import { EquationToolbar } from "./EquationToolbar";
 import { SubstituteModal } from "./SubstituteModal";
 import { SymbolReplacementModal, type SymbolReplacementDraft } from "./SymbolReplacementModal";
 import { ApplyOperationModal } from "./ApplyOperationModal";
 import { ForceFactorModal } from "./ForceFactorModal";
 import { buildPadSubstituteSuggestions, type PadDefinitionSource } from "./substituteSuggestions";
-import {
-  canForceFactorSelection,
-  forceFactorSelection,
-  validateForceFactorExpr,
-} from "./math/rewrite/forceFactor";
-import { getSelectionRewriteTarget } from "./math/rewrite/selectionRewrite";
 import type { FunctionSymbolTag } from "./EquationRowState";
-import {
-  canToggleFunctionSymbol,
-  isFunctionSymbolSelectionTagged,
-  toggleFunctionSymbol,
-} from "./math/compile/functionSymbols";
 import { formatEquationHistoryLatexForCopy, formatEquationLatexForCopy } from "./copyLatex";
 
 type InsertionLineStyle = {

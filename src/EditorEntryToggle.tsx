@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { EquationRow } from "./EquationRow";
 import { createDraftEquationRowState, type EquationRowState } from "./EquationRowState";
-import type { EquationEditorRecordingHooks } from "./TestRecorder";
+import type { EquationEditorRecordingHooks } from "./EquationEditorRecordingHooks";
 
 const DEBUG_EQUATION_PRESETS = [
   String.raw`a+b=c`,

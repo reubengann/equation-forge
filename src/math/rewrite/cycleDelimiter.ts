@@ -1,4 +1,4 @@
-import type { TermSelection } from "../../selection/types";
+import type { TermSelection } from "../selection";
 import { type DelimiterKind, type Expr } from "../ast";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import { cloneExpr, replaceCompiledNode } from "../ast/utils";

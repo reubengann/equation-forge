@@ -1,9 +1,14 @@
-import { exprToLatex } from "./math/adapters/latex";
-import type { CompiledMathDocument } from "./math/compile/compileMathDocument";
-import type { Expr } from "./math/ast";
-import { applySign, collapseProduct, flipSign, splitSign, structuralKeyIgnoringDisplayGroups } from "./math/rewrite/algebraUtils";
-import { add } from "./math/ast";
-import type { SubstitutionSelection } from "./math/rewrite/substitute";
+import { exprToLatex } from "@physics-derivation-pad/core/latex";
+import type { CompiledMathDocument } from "@physics-derivation-pad/core/compile";
+import { add, type Expr } from "@physics-derivation-pad/core/ast";
+import {
+  applySign,
+  collapseProduct,
+  flipSign,
+  splitSign,
+  structuralKeyIgnoringDisplayGroups,
+  type SubstitutionSelection,
+} from "@physics-derivation-pad/core/rewrite";
 
 export type PadDefinitionSource = {
   equationId: string;

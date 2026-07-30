@@ -1,4 +1,14 @@
-export { DerivationPad, type DerivationPadCommands, type DerivationPadOptions, type DerivationPadProps } from "./DerivationPad";
+export {
+  DerivationPad,
+  type DerivationPadCommands,
+  type DerivationPadEquationActionContext,
+  type DerivationPadOptions,
+  type DerivationPadProps,
+} from "./DerivationPad";
+export {
+  configurePadEnvironment,
+  type ConfigurePadEnvironmentOptions,
+} from "./configurePadEnvironment";
 export { EquationRow, type EquationRowCommands, type EquationRowProps } from "./EquationRow";
 export { MathEntry, type EquationEntryCommands } from "./MathEntry";
 export {

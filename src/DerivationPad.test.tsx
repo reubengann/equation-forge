@@ -77,4 +77,43 @@ describe("DerivationPad commands", () => {
     expect(latestEquations[0]?.state.history.past.map((step) => step.latex)).toEqual([originalLatex]);
     expect(latestEquations[0]?.state.history.present.latex).toBe(canonicalInsertedLatex);
   });
+
+  it("provides read-only equation context to host actions", () => {
+    const equation: PadEquation = {
+      id: "eq-host-action",
+      state: createEquationRowState("E = m c^2", "display"),
+    };
+    const before = JSON.stringify(equation);
+    let receivedEquationId: string | null = null;
+
+    mount(
+      <DerivationPad
+        equations={[equation]}
+        activeEquationId={equation.id}
+        options={{ wrapEquationCopiesInDisplayMath: false }}
+        onEquationsChange={() => undefined}
+        onActiveEquationIdChange={() => undefined}
+        onOptionsChange={() => undefined}
+        renderEquationActions={(context) => (
+          <button
+            type="button"
+            data-testid="host-equation-action"
+            onClick={() => {
+              receivedEquationId = context.equation.id;
+            }}
+          >
+            Copy to host
+          </button>
+        )}
+      />,
+    );
+
+    const action = container?.querySelector<HTMLButtonElement>(
+      '[data-testid="host-equation-action"]',
+    );
+    act(() => action?.click());
+
+    expect(receivedEquationId).toBe(equation.id);
+    expect(JSON.stringify(equation)).toBe(before);
+  });
 });

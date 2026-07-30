@@ -1,4 +1,4 @@
-import type { TermSelection } from "../../selection/types";
+import type { TermSelection } from "../selection";
 import { add, displayGroup, divide, multiply, num, power, type Expr } from "../ast";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import { cloneExpr } from "../ast/utils";

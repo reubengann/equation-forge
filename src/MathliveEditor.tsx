@@ -2,7 +2,7 @@ import type { Ref, RefObject } from "react";
 import { MathEntry, type EquationEntryCommands } from "./MathEntry";
 
 type MathliveEditorProps = {
-  slotRef: RefObject<HTMLDivElement | null>;
+  slotRef: RefObject<HTMLDivElement>;
   latex: string;
   updateMathFieldValue: (nextLatex: string) => void;
   onAccept: (latestLatex?: string) => void;

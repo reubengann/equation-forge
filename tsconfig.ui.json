@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.core.tsbuildinfo",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.ui.tsbuildinfo",
     "target": "es2023",
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
@@ -8,7 +8,7 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "outDir": "./dist",
+    "outDir": "./packages/ui/dist",
     "rootDir": "./src",
     "skipLibCheck": true,
     "verbatimModuleSyntax": true,
@@ -16,17 +16,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "jsx": "react-jsx"
   },
   "files": [
-    "src/types/algebrite.d.ts",
-    "src/math/index.ts",
-    "src/math/ast/index.ts",
-    "src/math/adapters/latex/index.ts",
-    "src/math/adapters/sympy/index.ts",
-    "src/math/compile/index.ts",
-    "src/math/selection/index.ts",
-    "src/math/rewrite/index.ts",
-    "src/math/adapters/algebrite/index.ts"
+    "src/index.ts",
+    "src/mathlive-elements.d.ts"
   ]
 }

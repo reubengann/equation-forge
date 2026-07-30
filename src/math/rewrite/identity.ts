@@ -1,4 +1,4 @@
-import type { TermSelection } from "../../selection/types";
+import type { TermSelection } from "../selection";
 import {
   absoluteValue,
   add,

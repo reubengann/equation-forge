@@ -2,9 +2,18 @@ import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState
 import { EquationEditor } from "./EquationEditor";
 import { MathliveEditor } from "./MathliveEditor";
 import type { EquationEntryCommands } from "./MathEntry";
-import type { EquationEditorRecordingHooks } from "./TestRecorder";
-import { coerceLatexForExpressionParser, parseLatexToExpr } from "./math/adapters/latex";
-import { compileMathDocument, compileMathDocumentFromExpr } from "./math/compile/compileMathDocument";
+import type { EquationEditorRecordingHooks } from "./EquationEditorRecordingHooks";
+import {
+  coerceLatexForExpressionParser,
+  parseLatexToExpr,
+} from "@physics-derivation-pad/core/latex";
+import {
+  applyFunctionSymbolSemantics,
+  compileMathDocument,
+  compileMathDocumentFromExpr,
+  pruneFunctionSymbols,
+  remapFunctionSymbols,
+} from "@physics-derivation-pad/core/compile";
 import {
   appendEquationHistoryStep,
   createEquationHistory,
@@ -12,11 +21,6 @@ import {
   type EquationRowState,
 } from "./EquationRowState";
 import type { PadDefinitionSource } from "./substituteSuggestions";
-import {
-  applyFunctionSymbolSemantics,
-  pruneFunctionSymbols,
-  remapFunctionSymbols,
-} from "./math/compile/functionSymbols";
 
 export type EquationRowCommands = EquationEntryCommands;
 

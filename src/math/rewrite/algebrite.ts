@@ -1,7 +1,7 @@
 import { canEvaluateAlgebrite, evaluateAlgebrite } from "../adapters/algebrite";
 import { type Expr } from "../ast";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
-import type { TermSelection } from "../../selection/types";
+import type { TermSelection } from "../selection";
 import { structuralKeyIgnoringDisplayGroups } from "./algebraUtils";
 import { getSelectionRewriteTarget, replaceSelectionWithExpr } from "./selectionRewrite";
 

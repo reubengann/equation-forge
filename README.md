@@ -2,6 +2,33 @@
 
 A Vite/React math derivation editor built around MathLive, a local math AST, and rewrite rules for algebraic manipulation.
 
+## Packages
+
+- `@physics-derivation-pad/core` contains the headless AST, LaTeX, SymPy,
+  compilation, selection, and rewrite APIs.
+- `@physics-derivation-pad/ui` contains the controlled React pad and document
+  serialization helpers. React and ReactDOM are peer dependencies.
+
+UI consumers should load the packaged styles and configure the MathLive font
+directory supplied by their host:
+
+```ts
+import {
+  DerivationPad,
+  configurePadEnvironment
+} from '@physics-derivation-pad/ui';
+import '@physics-derivation-pad/ui/style/index.css';
+
+configurePadEnvironment({ fontsDirectory: '/path/to/mathlive/fonts' });
+```
+
+`DerivationPad` does not choose a persistence backend. Its host owns the
+equations and active document state through controlled props. The standalone
+app uses browser storage; file-oriented hosts such as JupyterLab can use
+`serializePadDocument` and `parseStoredPadState` with their own save lifecycle.
+The `renderEquationActions` prop lets hosts add row-level actions without
+placing host-specific data in `EquationRowState`.
+
 ## Setup
 
 ```bash

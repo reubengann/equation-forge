@@ -27,7 +27,7 @@ type MathfieldElementLike = HTMLElement & {
 };
 
 type MathEntryProps = {
-  slotRef?: RefObject<HTMLDivElement | null>;
+  slotRef?: RefObject<HTMLDivElement>;
   latex: string;
   onLatexChange: (nextLatex: string) => void;
   onAccept: (latestLatex?: string) => void;

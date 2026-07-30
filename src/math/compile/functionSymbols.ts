@@ -1,9 +1,13 @@
-import type { FunctionSymbolTag } from "../../EquationRowState";
 import { exprToLatex } from "../adapters/latex";
 import type { Expr } from "../ast";
 import { multiply, power, userFunction } from "../ast";
 import { cloneExpr } from "../ast/utils";
 import type { CompiledMathDocument } from "./compileMathDocument";
+
+export type FunctionSymbolTag = {
+  nodeId: string;
+  name: string;
+};
 
 export function getFunctionSymbolCandidate(
   document: CompiledMathDocument,

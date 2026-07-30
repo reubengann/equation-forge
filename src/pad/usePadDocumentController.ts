@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import type { EquationRowState } from "../EquationRowState";
-import { compileMathDocument } from "../math/compile/compileMathDocument";
+import { compileMathDocument } from "@physics-derivation-pad/core/compile";
 import type { PadDefinitionSource } from "../substituteSuggestions";
 import {
   createEmptyPadEquation,

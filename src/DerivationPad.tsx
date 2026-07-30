@@ -1,24 +1,15 @@
-import { forwardRef, useImperativeHandle, useRef, type CSSProperties } from "react";
+import {
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { EquationRow, type EquationRowCommands } from "./EquationRow";
+import { UiIcon, type UiIconName } from "./icons/UiIcon";
 import { usePadDocumentController } from "./pad/usePadDocumentController";
 import type { PadEquation } from "./pad/padDocument";
 
-const materialSymbolStyle: CSSProperties = {
-  fontVariationSettings: `"FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24`,
-  fontFamily: `"Material Symbols Rounded"`,
-  fontWeight: "normal",
-  fontStyle: "normal",
-  fontSize: 21,
-  lineHeight: 1,
-  letterSpacing: "normal",
-  textTransform: "none",
-  display: "inline-block",
-  whiteSpace: "nowrap",
-  wordWrap: "normal",
-  direction: "ltr",
-  WebkitFontFeatureSettings: `"liga"`,
-  WebkitFontSmoothing: "antialiased",
-};
 const sideControlStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
@@ -56,6 +47,12 @@ export type DerivationPadCommands = {
   focusEntry: () => void;
 };
 
+export type DerivationPadEquationActionContext = {
+  equation: Readonly<PadEquation>;
+  index: number;
+  isActive: boolean;
+};
+
 export type DerivationPadProps = {
   equations: PadEquation[];
   activeEquationId: string | null;
@@ -63,13 +60,16 @@ export type DerivationPadProps = {
   onEquationsChange: (nextEquations: PadEquation[]) => void;
   onActiveEquationIdChange: (nextActiveEquationId: string | null) => void;
   onOptionsChange: (nextOptions: DerivationPadOptions) => void;
+  renderEquationActions?: (
+    context: DerivationPadEquationActionContext,
+  ) => ReactNode;
   title?: string;
   description?: string;
 };
 
 type PadIconButtonProps = {
   label: string;
-  icon: string;
+  icon: UiIconName;
   onClick: () => void;
   testId: string;
   disabled?: boolean;
@@ -91,9 +91,7 @@ function PadIconButton({ label, icon, onClick, testId, disabled = false }: PadIc
         cursor: disabled ? "not-allowed" : "pointer",
       }}
     >
-      <span style={materialSymbolStyle} aria-hidden="true">
-        {icon}
-      </span>
+      <UiIcon name={icon} size={21} />
     </button>
   );
 }
@@ -106,6 +104,7 @@ export const DerivationPad = forwardRef<DerivationPadCommands, DerivationPadProp
     onEquationsChange,
     onActiveEquationIdChange,
     onOptionsChange,
+    renderEquationActions,
     title = "Pad",
     description = "Click an equation to make its shortcuts active.",
   },
@@ -147,7 +146,10 @@ export const DerivationPad = forwardRef<DerivationPadCommands, DerivationPadProp
   );
 
   return (
-    <section style={{ display: "flex", flexDirection: "column", gap: "14px", alignItems: "stretch" }}>
+    <section
+      className="pdp-ui"
+      style={{ display: "flex", flexDirection: "column", gap: "14px", alignItems: "stretch" }}
+    >
       <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" }}>
         <div>
           <h1 style={{ margin: 0, fontSize: "1.25rem" }}>{title}</h1>
@@ -197,6 +199,11 @@ export const DerivationPad = forwardRef<DerivationPadCommands, DerivationPadProp
           const isFirstEquation = index === 0;
           const isLastEquation = index === controller.equations.length - 1;
           const definitionSources = controller.getSubstituteSuggestionSources(equation.id);
+          const hostActions = renderEquationActions?.({
+            equation,
+            index,
+            isActive,
+          });
           return (
             <article
               key={equation.id}
@@ -258,6 +265,7 @@ export const DerivationPad = forwardRef<DerivationPadCommands, DerivationPadProp
                 </span>
               </div>
               <div style={sideControlStyle}>
+                {hostActions}
                 <PadIconButton
                   label="Duplicate equation"
                   icon="content_copy"

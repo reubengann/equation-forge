@@ -1,4 +1,4 @@
-import type { SelectionKind, TermSelection } from "../../selection/types";
+import type { SelectionKind, TermSelection } from "../selection";
 import type { Expr } from "../ast";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 

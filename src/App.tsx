@@ -10,10 +10,11 @@ import type {
 import type { InsertionPreview, MoveType } from "./math/rewrite/types";
 import { selectionNodeIds } from "./interaction/selectionController";
 import type { TermSelection } from "./selection/types";
-import { TestRecorder, type EquationEditorRecordingHooks, type TestRecorderEvent } from "./TestRecorder";
-import { MathfieldElement } from "mathlive";
+import { TestRecorder, type TestRecorderEvent } from "./TestRecorder";
+import type { EquationEditorRecordingHooks } from "./EquationEditorRecordingHooks";
 import { compileMathDocument, type CompiledMathDocument } from "./math/compile/compileMathDocument";
 import type { Expr } from "./math/ast";
+import { configurePadEnvironment } from "./configurePadEnvironment";
 
 async function saveFixtureJson(fixture: EventFixture): Promise<void> {
   const json = `${JSON.stringify(fixture, null, 2)}\n`;
@@ -66,7 +67,7 @@ async function saveFixtureJson(fixture: EventFixture): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
-MathfieldElement.fontsDirectory = "/fonts";
+configurePadEnvironment({ fontsDirectory: "/fonts" });
 
 function summarizeDebugExpr(expr: Expr): string {
   switch (expr.kind) {

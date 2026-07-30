@@ -1,6 +1,6 @@
-import type { CompiledExprIndex as ExprIndex } from "../math/ast";
+import type { CompiledExprIndex as ExprIndex } from "@physics-derivation-pad/core/ast";
 import type { RectBounds } from "./selectionController";
-import type { TermSelection } from "../selection/types";
+import type { TermSelection } from "@physics-derivation-pad/core/selection";
 
 export type MultiSelectionEvent =
   | { type: "ctrl_click"; nodeId: string }

@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { DraggableModal } from "./DraggableModal";
 import { MathEntry } from "./MathEntry";
 import { MATH_ENTRY_MACROS, type MathEntryMacro } from "./mathEntry/mathEntryMacros";
-import type { ApplyOperationTargetKind } from "./math/rewrite/applyOperation";
+import type { ApplyOperationTargetKind } from "@physics-derivation-pad/core/rewrite";
 
 type ApplyOperationModalProps = {
   targetKind: ApplyOperationTargetKind;

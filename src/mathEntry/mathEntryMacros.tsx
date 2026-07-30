@@ -1,11 +1,13 @@
 import type { ReactNode } from "react";
-import derivativeIconSvg from "../../public/icons/derivative.svg?raw";
-import derivativeOperatorIconSvg from "../../public/icons/derivative-operator.svg?raw";
-import definiteIntegralIconSvg from "../../public/icons/definite-integral.svg?raw";
-import indefiniteIntegralIconSvg from "../../public/icons/indefinite-integral.svg?raw";
-import partialDerivativeIconSvg from "../../public/icons/partial-derivative.svg?raw";
-import partialDerivativeOperatorIconSvg from "../../public/icons/partial-derivative-operator.svg?raw";
-import partialDerivativeSubscriptIconSvg from "../../public/icons/partial-derivative-subscript.svg?raw";
+import {
+  definiteIntegralIconSvg,
+  derivativeIconSvg,
+  derivativeOperatorIconSvg,
+  indefiniteIntegralIconSvg,
+  partialDerivativeIconSvg,
+  partialDerivativeOperatorIconSvg,
+  partialDerivativeSubscriptIconSvg,
+} from "./generatedMacroIconSvg";
 
 export type MathEntryMacro = {
   id: string;
@@ -16,7 +18,10 @@ export type MathEntryMacro = {
 };
 
 function macroIcon(svg: string, size = 22) {
-  const sizedSvg = svg.replace("<svg", '<svg style="width:100%;height:100%;display:block" focusable="false"');
+  const sizedSvg = svg.replace(
+    "<svg",
+    '<svg style="width:100%;height:100%;display:block" focusable="false"',
+  );
   return (
     <span
       aria-hidden="true"
@@ -62,7 +67,10 @@ export const MATH_ENTRY_MACROS: MathEntryMacro[] = [
     label: "partial operator",
     title: "Insert partial derivative operator",
     latex: String.raw`\dfrac{\partial}{\partial \placeholder{}}`,
-    icon: macroIcon(partialDerivativeOperatorIconSvg, fractionMacroIconSize),
+    icon: macroIcon(
+      partialDerivativeOperatorIconSvg,
+      fractionMacroIconSize,
+    ),
   },
   {
     id: "partial-derivative-subscript",

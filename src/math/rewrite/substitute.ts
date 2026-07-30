@@ -1,7 +1,7 @@
 import { sym, type Expr } from "../ast";
 import { exprToLatex } from "../adapters/latex";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
-import type { TermSelection } from "../../selection/types";
+import type { TermSelection } from "../selection";
 import { cloneExpr } from "../ast/utils";
 import { applySign, collapseProduct, splitSign, structuralKeyIgnoringDisplayGroups, withSign } from "./algebraUtils";
 import {

@@ -1,5 +1,8 @@
-import type { CompiledExprIndex as ExprIndex, Expr } from "../math/ast";
-import type { TermSelection } from "../selection/types";
+import type {
+  CompiledExprIndex as ExprIndex,
+  Expr,
+} from "@physics-derivation-pad/core/ast";
+import type { TermSelection } from "@physics-derivation-pad/core/selection";
 import { applyCtrlClickIntent, applyMarqueeSelectIntent } from "./multiSelectionController";
 
 type MathDivHost = HTMLElement & { shadowRoot?: ShadowRoot | null };

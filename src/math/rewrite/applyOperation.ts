@@ -1,7 +1,7 @@
 import { differential, displayGroup, equation, inequality, type Expr } from "../ast";
 import { cloneExpr, replaceCompiledNode } from "../ast/utils";
 import { applySign, isNegativeExpr, splitSign } from "./algebraUtils";
-import type { TermSelection } from "../../selection/types";
+import type { TermSelection } from "../selection";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";
 import type { InequalityExpr } from "../ast/expr";
 

@@ -1,4 +1,4 @@
-import type { TermSelection } from "../../selection/types";
+import type { TermSelection } from "../selection";
 import type { Expr } from "../ast";
 import { exprToLatex } from "../adapters/latex/exprToLatex";
 import type { CompiledMathDocument } from "../compile/compileMathDocument";

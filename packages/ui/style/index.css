@@ -1,0 +1,12 @@
+.pdp-ui {
+  color: var(--jp-ui-font-color1, inherit);
+  font-family: var(--jp-ui-font-family, system-ui, sans-serif);
+}
+
+.pdp-ui .equation-toolbar-menu-summary::-webkit-details-marker {
+  display: none;
+}
+
+.pdp-ui .equation-toolbar-menu-summary::marker {
+  content: "";
+}

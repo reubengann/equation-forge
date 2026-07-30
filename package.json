@@ -3,6 +3,9 @@
   "private": false,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "packages/ui"
+  ],
   "main": "./dist/math/index.js",
   "types": "./dist/math/index.d.ts",
   "exports": {
@@ -26,6 +29,14 @@
       "types": "./dist/math/compile/index.d.ts",
       "import": "./dist/math/compile/index.js"
     },
+    "./selection": {
+      "types": "./dist/math/selection/index.d.ts",
+      "import": "./dist/math/selection/index.js"
+    },
+    "./rewrite": {
+      "types": "./dist/math/rewrite/index.d.ts",
+      "import": "./dist/math/rewrite/index.js"
+    },
     "./algebrite": {
       "types": "./dist/math/adapters/algebrite/index.d.ts",
       "import": "./dist/math/adapters/algebrite/index.js"
@@ -38,20 +49,26 @@
     "dist/math/adapters/latex",
     "dist/math/adapters/sympy",
     "dist/math/adapters/algebrite",
-    "dist/math/compile"
+    "dist/math/compile",
+    "dist/math/selection",
+    "dist/math/rewrite"
   ],
   "sideEffects": false,
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && npm run build:core",
+    "build": "npm run build:core && tsc -b && vite build && npm run build:core && npm run build:ui",
     "build:core": "tsc -p tsconfig.core.json",
+    "prebuild:ui": "node scripts/generateMacroIconModule.mjs && node scripts/generateUiIconModule.mjs",
+    "build:ui": "tsc -p tsconfig.ui.json",
     "lint": "eslint .",
     "preview": "vite preview",
     "mathtests": "tsx ./scripts/mathtests.ts",
     "gen_mathtests": "tsx ./scripts/gen_mathtests.ts",
     "fuzz:rewrites": "tsx ./scripts/fuzzRewrites.ts",
     "check": "npm run test:run && npm run mathtests && npm run build",
+    "pretest": "npm run build:core && npm run build:ui",
     "test": "vitest",
+    "pretest:run": "npm run build:core && npm run build:ui",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test"
@@ -63,10 +80,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@material-symbols/svg-400": "^0.45.9",
     "@playwright/test": "^1.59.1",
     "@types/node": "^24.12.2",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/coverage-v8": "^4.1.5",
     "eslint": "^10.2.1",
@@ -76,8 +94,8 @@
     "globals": "^17.5.0",
     "jsdom": "^29.0.2",
     "mathlive": "^0.109.1",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "tsx": "^4.20.6",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",
