@@ -359,6 +359,21 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
   };
   const isPrimeMacro = (candidate: UnifiedNode | undefined): boolean =>
     candidate?.type === "macro" && (candidate.content === "prime" || candidate.content === "doubleprime");
+  const literalPrimeAfter = (
+    startIndex: number,
+  ): { index: number; order: number } | null => {
+    let index = startIndex + 1;
+    while (nodes[index]?.type === "whitespace") index += 1;
+    const candidate = nodes[index];
+    if (
+      candidate?.type !== "string" ||
+      typeof candidate.content !== "string" ||
+      !/^'+$/.test(candidate.content)
+    ) {
+      return null;
+    }
+    return { index, order: candidate.content.length };
+  };
   const mathrmDifferentialKind = (arg: UnifiedNode[] | undefined): "exact" | "inexact" | null => {
     if (
       arg?.length === 1 &&
@@ -572,6 +587,18 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
           continue;
         }
       }
+      if (stringContent === "d'") {
+        const inferred = readInferredDifferential(i, { skipWhitespace: true });
+        if (inferred) {
+          tokens.push({
+            kind: "differential",
+            variable: inferred.variable,
+            inexact: true,
+          });
+          i += inferred.consumedNodes;
+          continue;
+        }
+      }
       const trailingPrimeMatch = /^([A-Za-z0-9]+)('+)$/.exec(stringContent);
       if (trailingPrimeMatch) {
         const baseToken = tokenFromStringContent(trailingPrimeMatch[1]);
@@ -626,6 +653,21 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
               inexact: true,
             });
             i += 1 + inferred.consumedNodes;
+            continue;
+          }
+        }
+        const literalPrime = literalPrimeAfter(i);
+        if (literalPrime?.order === 1) {
+          const inferred = readInferredDifferential(literalPrime.index, {
+            skipWhitespace: true,
+          });
+          if (inferred) {
+            tokens.push({
+              kind: "differential",
+              variable: inferred.variable,
+              inexact: true,
+            });
+            i = literalPrime.index + inferred.consumedNodes;
             continue;
           }
         }
@@ -820,6 +862,7 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
       let differentialStartIndex = i;
       const nextNode = nodes[i + 1];
       const primeOrder = primeOrderFromMacroExponent(nextNode);
+      const literalPrime = literalPrimeAfter(i);
       const derivativeDegree = integerFromMacroExponent(nextNode);
       if (differentialKind && derivativeDegree && derivativeDegree > 1) {
         tokens.push({ kind: "symbol", name: differentialKind === "inexact" ? "\\mathrm{d'}" : "\\mathrm{d}" });
@@ -834,13 +877,19 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
         differentialStartIndex = i + 1;
       } else if (differentialKind && primeOrder === 1) {
         differentialStartIndex = i + 1;
+      } else if (differentialKind && literalPrime?.order === 1) {
+        differentialStartIndex = literalPrime.index;
       }
       const groupedVariable = readLeftRightGroupAt(differentialStartIndex + 1);
       if (differentialKind && groupedVariable) {
         tokens.push({
           kind: "differential",
           variable: groupedVariable.variable,
-          ...(differentialKind === "inexact" || primeOrder === 1 ? { inexact: true } : {}),
+          ...(differentialKind === "inexact" ||
+          primeOrder === 1 ||
+          literalPrime?.order === 1
+            ? { inexact: true }
+            : {}),
         });
         i = groupedVariable.endIndex;
         continue;
@@ -850,13 +899,25 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
         tokens.push({
           kind: "differential",
           variable: inferred.variable,
-          ...(differentialKind === "inexact" || primeOrder === 1 ? { inexact: true } : {}),
+          ...(differentialKind === "inexact" ||
+          primeOrder === 1 ||
+          literalPrime?.order === 1
+            ? { inexact: true }
+            : {}),
         });
         i = differentialStartIndex + inferred.consumedNodes;
         continue;
       }
       if (differentialKind) {
-        tokens.push({ kind: "symbol", name: differentialKind === "inexact" || primeOrder === 1 ? "\\mathrm{d'}" : "\\mathrm{d}" });
+        tokens.push({
+          kind: "symbol",
+          name:
+            differentialKind === "inexact" ||
+            primeOrder === 1 ||
+            literalPrime?.order === 1
+              ? "\\mathrm{d'}"
+              : "\\mathrm{d}",
+        });
         continue;
       }
     }
@@ -1486,11 +1547,28 @@ class TokenParser {
         unwrappedBase.inexact ? { inexact: true } : undefined,
       );
     }
-    if (unwrappedBase.kind === "symbol" && subscript.kind === "symbol") {
-      return sym(`${unwrappedBase.name}_${subscript.name}`);
+    const atomicSubscript =
+      subscript.kind === "display_group" ? subscript.expression : subscript;
+    const subscriptName =
+      atomicSubscript.kind === "symbol"
+        ? atomicSubscript.name
+        : atomicSubscript.kind === "number"
+          ? String(atomicSubscript.value)
+          : atomicSubscript.kind === "text"
+            ? atomicSubscript.text.replace(/\.+$/, "")
+            : null;
+    if (unwrappedBase.kind === "symbol" && subscriptName) {
+      return sym(`${unwrappedBase.name}_${subscriptName}`);
     }
-    if (unwrappedBase.kind === "symbol" && subscript.kind === "number") {
-      return sym(`${unwrappedBase.name}_${String(subscript.value)}`);
+    if (
+      unwrappedBase.kind === "special_font" &&
+      unwrappedBase.value.kind === "symbol" &&
+      subscriptName
+    ) {
+      return specialFont(
+        sym(`${unwrappedBase.value.name}_${subscriptName}`),
+        unwrappedBase.font,
+      );
     }
     return multiply([unwrappedBase, subscript]);
   }
@@ -1704,6 +1782,14 @@ class TokenParser {
   }
 
   private mergeMultiply(left: Expr, right: Expr): Expr {
+    if (
+      left.kind === "symbol" &&
+      left.name.startsWith("\\") &&
+      right.kind === "symbol" &&
+      /^_[A-Za-z0-9]+$/.test(right.name)
+    ) {
+      return sym(`${left.name}${right.name}`);
+    }
     if (left.kind === "symbol" && (left.name === "\\mathrm{d}" || left.name === "\\mathrm{d'}")) {
       return differential(right, left.name === "\\mathrm{d'}" ? { inexact: true } : undefined);
     }

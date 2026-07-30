@@ -379,6 +379,21 @@ describe("parseLatexToExpr", () => {
     expect(expr.variable.name).toBe("W");
   });
 
+  it("tokenizes apostrophes written after differential markers", () => {
+    const plain = parseLatexToExpr(String.raw`d'Q`);
+    const roman = parseLatexToExpr(String.raw`\mathrm{d}' {q_r}`);
+
+    expectExprKind(plain, "differential");
+    expect(plain.inexact).toBe(true);
+    expectExprKind(plain.variable, "symbol");
+    expect(plain.variable.name).toBe("Q");
+
+    expectExprKind(roman, "differential");
+    expect(roman.inexact).toBe(true);
+    expectExprKind(roman.variable, "symbol");
+    expect(roman.variable.name).toBe("q_r");
+  });
+
   it("parses inexact differential equations with subscripted differential variables", () => {
     const expr = parseLatexToExpr(String.raw`\mathrm{d}^{\prime}{W}=Y\,\mathrm{d}{X}_1`);
     expectExprKind(expr, "equation");
@@ -410,6 +425,19 @@ describe("parseLatexToExpr", () => {
     expectExprKind(expr.value, "symbol");
     expect(expr.value.name).toBe("H");
     expect(expr.font).toBe("script");
+  });
+
+  it("keeps numeric and text subscripts attached to script symbols", () => {
+    const numeric = parseLatexToExpr(String.raw`\mathscr{V}_2`);
+    const textual = parseLatexToExpr(String.raw`\mathscr{F}_\text{fric.}`);
+
+    expectExprKind(numeric, "special_font");
+    expectExprKind(numeric.value, "symbol");
+    expect(numeric.value.name).toBe("V_2");
+
+    expectExprKind(textual, "special_font");
+    expectExprKind(textual.value, "symbol");
+    expect(textual.value.name).toBe("F_fric");
   });
 
   it("parses calligraphic", () => {
@@ -978,9 +1006,12 @@ describe("parseLatexToExpr", () => {
   });
 
   it("parses subscripted Greek symbol macros as single symbols", () => {
-    const expr = parseLatexToExpr(String.raw`\mu_s`);
-    expectExprKind(expr, "symbol");
-    expect(expr.name).toBe(String.raw`\mu_s`);
+    const unbraced = parseLatexToExpr(String.raw`\mu_s`);
+    const braced = parseLatexToExpr(String.raw`\rho_{r}`);
+    expectExprKind(unbraced, "symbol");
+    expect(unbraced.name).toBe(String.raw`\mu_s`);
+    expectExprKind(braced, "symbol");
+    expect(braced.name).toBe(String.raw`\rho_r`);
   });
 
   it("preserves comma-separated symbol subscripts", () => {
