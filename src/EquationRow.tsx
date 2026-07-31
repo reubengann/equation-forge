@@ -275,7 +275,6 @@ export const EquationRow = forwardRef<EquationRowCommands, EquationRowProps>(fun
       onFocusCapture={onActivate}
       style={{
         width: "100%",
-        maxWidth: "1400px",
         display: "flex",
         flexDirection: "column",
         gap: "12px",

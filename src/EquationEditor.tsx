@@ -1415,7 +1415,7 @@ export function EquationEditor({
             display: "block",
             width: "100%",
             textAlign: "left",
-            fontSize: "1.2rem",
+            fontSize: "1.2em",
           }}
         />
         {debugRectOverlays.map((rect) => (
