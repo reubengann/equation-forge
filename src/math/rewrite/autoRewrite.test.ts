@@ -130,6 +130,21 @@ describe("autoRewriteSelection factor", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`b \left(a - c\right)`);
   });
 
+  it("factors equivalent differential superscript notations", () => {
+    const document = buildDocument(
+      String.raw`\mu_1^{\left(2\right)} \,\mathrm{d}{n_1^{\left(2\right)}} - \mu_1^{\left(1\right)} \,\mathrm{d}{n_1}^{\left(2\right)}`,
+    );
+    const selection = { kind: "single" as const, nodeId: "n1" };
+
+    expect(canAutoRewrite(document, selection, "factor")).toBe(true);
+    const next = autoRewriteSelection(document, selection, "factor");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`\mathrm{d}{n_1^{\left(2\right)}} \left(\mu_1^{\left(2\right)} - \mu_1^{\left(1\right)}\right)`,
+    );
+  });
+
   it("does not factor out identity numerators from reciprocal terms", () => {
     const document = buildDocument(String.raw`\Delta u = c_v T_2 - c_v T_1 + a \frac{1}{v_1} - a \frac{1}{v_2}`);
     const reciprocalTerms = Object.entries(document.index.nodeById)
