@@ -252,10 +252,38 @@ function isDoubleClickSelectableNode(expr: Expr | undefined): boolean {
   }
 }
 
+function isParenthesizedSuperscriptDifferential(expr: Expr | undefined): boolean {
+  return (
+    expr?.kind === "differential" &&
+    expr.variable.kind === "power" &&
+    expr.variable.exponent.kind === "display_group" &&
+    expr.variable.exponent.delimiter === "paren"
+  );
+}
+
+function nearestAtomicDifferentialAncestor(
+  nodeId: string,
+  index: ExprIndex,
+): string | null {
+  let ancestorId = index.parentById[nodeId] ?? null;
+  while (ancestorId) {
+    if (isParenthesizedSuperscriptDifferential(index.nodeById[ancestorId])) {
+      return ancestorId;
+    }
+    ancestorId = index.parentById[ancestorId] ?? null;
+  }
+  return null;
+}
+
 function walkUpToDirectlySelectableNode(nodeId: string | null, index: ExprIndex): string | null {
   if (!nodeId) return null;
   let cursor: string | null = nodeId;
   while (cursor) {
+    const atomicDifferentialId = nearestAtomicDifferentialAncestor(cursor, index);
+    if (atomicDifferentialId) {
+      cursor = atomicDifferentialId;
+      continue;
+    }
     const parentId: string | null = index.parentById[cursor] ?? null;
     const parentExpr = parentId ? index.nodeById[parentId] : undefined;
     if (parentId && shouldEscalateFromChildToParent(parentExpr)) {

@@ -112,6 +112,58 @@ describe("selectionController", () => {
     });
   });
 
+  it("selects a differential as a unit through a nested variable expression", () => {
+    const compiled = compileMathDocument(
+      String.raw`\mathrm{d}{n_1^{\left(1\right)}}`,
+    );
+    const differentialId = Object.entries(compiled.index.nodeById).find(
+      ([, node]) => node.kind === "differential",
+    )?.[0];
+    expect(differentialId).toBeDefined();
+
+    const nodeResolution = buildNodeResolutionSource(
+      makeRect(
+        Object.keys(compiled.index.nodeById).map((nodeId) => [
+          nodeId,
+          0,
+          100,
+        ] as [string, number, number]),
+      ),
+      compiled.index,
+    );
+
+    expect(
+      resolveNodeAtPoint({ x: 50, y: 10 }, nodeResolution, compiled.index)
+        .selectableNodeId,
+    ).toBe(differentialId);
+  });
+
+  it("keeps components selectable inside a general differential expression", () => {
+    const compiled = compileMathDocument(
+      String.raw`\mathrm{d}\left(R T \left(\ln p + \phi\right)\right)`,
+    );
+    const symbolId = Object.entries(compiled.index.nodeById).find(
+      ([, node]) => node.kind === "symbol" && node.name === "R",
+    )?.[0];
+    expect(symbolId).toBeDefined();
+
+    const nodeResolution = buildNodeResolutionSource(
+      makeRect(
+        Object.keys(compiled.index.nodeById).map((nodeId) => [
+          nodeId,
+          0,
+          100,
+        ] as [string, number, number]),
+      ),
+      compiled.index,
+    );
+
+    expect(
+      resolveNodeAtPoint({ x: 50, y: 10 }, nodeResolution, compiled.index)
+        .selectableNodeId,
+    ).toBe(symbolId);
+  });
+
   it("expands single selection into multi on ctrl-click", () => {
     const rects = makeRect([
       ["n1", 0, 100],
