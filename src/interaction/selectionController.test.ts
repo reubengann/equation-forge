@@ -112,14 +112,21 @@ describe("selectionController", () => {
     });
   });
 
-  it("selects a differential as a unit through a nested variable expression", () => {
+  it("selects a differential with an indicating-superscript symbol as a unit", () => {
     const compiled = compileMathDocument(
-      String.raw`\mathrm{d}{n_1^{\left(1\right)}}`,
+      String.raw`\mathrm{d}{n_1}^{\left(1\right)}`,
     );
     const differentialId = Object.entries(compiled.index.nodeById).find(
       ([, node]) => node.kind === "differential",
     )?.[0];
     expect(differentialId).toBeDefined();
+    expect(
+      Object.values(compiled.index.nodeById).some(
+        (node) =>
+          node.kind === "symbol" &&
+          node.name === String.raw`n_1^{\left(1\right)}`,
+      ),
+    ).toBe(true);
 
     const nodeResolution = buildNodeResolutionSource(
       makeRect(

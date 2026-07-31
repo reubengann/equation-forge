@@ -90,7 +90,7 @@ type Token =
     }
   | { kind: "close_group"; value: string }
   | { kind: "subscript"; value: UnifiedNode[] }
-  | { kind: "exponent"; value: UnifiedNode[] }
+  | { kind: "exponent"; value: UnifiedNode[]; indicatingSuffix?: string }
   | { kind: "integral_symbol"; variant: "normal" | "closed" | "multiple"; order: number }
   | { kind: "sum_symbol" }
   | { kind: "prod_symbol" }
@@ -333,6 +333,51 @@ function mergeSubscript(tokens: Token[], i: number, node: UnifiedNode): number {
     name: `${previous.name}_{${printRaw(argNodes as unknown as Parameters<typeof printRaw>[0])}}`,
   };
   return i;
+}
+
+function indicatingSuperscriptSuffixFromNodes(
+  argNodes: UnifiedNode[] | undefined,
+): string | null {
+  const exponent = parseGroupNodes(argNodes);
+  if (
+    !argNodes ||
+    exponent?.kind !== "display_group" ||
+    exponent.delimiter !== "paren"
+  ) {
+    return null;
+  }
+
+  const renderedExponent = printRaw(
+    argNodes as unknown as Parameters<typeof printRaw>[0],
+  );
+  return `^{${renderedExponent}}`;
+}
+
+function indicatingSuperscriptSuffix(node: UnifiedNode): string | null {
+  return indicatingSuperscriptSuffixFromNodes(node.args?.[0]?.content);
+}
+
+function mergeIndicatingSuperscript(tokens: Token[], node: UnifiedNode): boolean {
+  const suffix = indicatingSuperscriptSuffix(node);
+  if (!suffix) return false;
+
+  const previous = tokens[tokens.length - 1];
+  if (!previous) return false;
+
+  if (previous.kind === "symbol") {
+    tokens[tokens.length - 1] = {
+      kind: "symbol",
+      name: `${previous.name}${suffix}`,
+    };
+    return true;
+  }
+
+  if (previous.kind === "differential") {
+    previous.variable.push(node);
+    return true;
+  }
+
+  return false;
 }
 
 function tokenize(nodes: UnifiedNode[]): Token[] {
@@ -637,8 +682,23 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
       }
       if (trailingExponentMatch && exponentGroup?.type === "group" && Array.isArray(exponentGroup.content)) {
         const baseToken = tokenFromStringContent(trailingExponentMatch[1]);
+        const indicatingSuffix = indicatingSuperscriptSuffixFromNodes(
+          exponentGroup.content,
+        );
+        if (baseToken?.kind === "symbol" && indicatingSuffix) {
+          tokens.push({
+            kind: "symbol",
+            name: `${baseToken.name}${indicatingSuffix}`,
+          });
+          i += 1;
+          continue;
+        }
         if (baseToken) tokens.push(baseToken);
-        tokens.push({ kind: "exponent", value: exponentGroup.content });
+        tokens.push({
+          kind: "exponent",
+          value: exponentGroup.content,
+          ...(indicatingSuffix ? { indicatingSuffix } : {}),
+        });
         i += 1;
         continue;
       }
@@ -773,7 +833,13 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
     }
 
     if (macro === "^") {
-      tokens.push({ kind: "exponent", value: node.args?.[0]?.content ?? [] });
+      if (mergeIndicatingSuperscript(tokens, node)) continue;
+      const indicatingSuffix = indicatingSuperscriptSuffix(node);
+      tokens.push({
+        kind: "exponent",
+        value: node.args?.[0]?.content ?? [],
+        ...(indicatingSuffix ? { indicatingSuffix } : {}),
+      });
       continue;
     }
 
@@ -1574,19 +1640,34 @@ class TokenParser {
     return multiply([unwrappedBase, subscript]);
   }
 
-  private applyPostfixExponent(base: Expr, exponent: Expr): Expr {
-    if (
-      base.kind === "differential" &&
-      exponent.kind === "display_group" &&
-      exponent.delimiter === "paren"
-    ) {
-      return differential(
-        power(base.variable, exponent),
-        {
-          ...(base.inexact ? { inexact: true } : {}),
-          postfixVariableSuperscript: true,
-        },
-      );
+  private applyPostfixExponent(
+    base: Expr,
+    exponent: Expr,
+    indicatingSuffix?: string,
+  ): Expr {
+    if (indicatingSuffix) {
+      if (base.kind === "symbol") {
+        return sym(`${base.name}${indicatingSuffix}`);
+      }
+      if (base.kind === "special_font" && base.value.kind === "symbol") {
+        return specialFont(
+          sym(`${base.value.name}${indicatingSuffix}`),
+          base.font,
+        );
+      }
+      if (base.kind === "differential") {
+        const variable = this.applyPostfixExponent(
+          base.variable,
+          exponent,
+          indicatingSuffix,
+        );
+        if (variable.kind !== "power") {
+          return differential(
+            variable,
+            base.inexact ? { inexact: true } : undefined,
+          );
+        }
+      }
     }
     return power(base, exponent);
   }
@@ -1836,7 +1917,7 @@ class TokenParser {
         const primeOrder = primeOrderFromExponent(exponent);
         expr = primeOrder
           ? applyPrime(expr, primeOrder)
-          : this.applyPostfixExponent(expr, exponent);
+          : this.applyPostfixExponent(expr, exponent, next.indicatingSuffix);
         continue;
       }
       if (next.kind === "subscript") {

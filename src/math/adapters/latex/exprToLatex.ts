@@ -4,8 +4,7 @@ type RenderContext =
   | "default"
   | "sumTerm"
   | "productFactor"
-  | "prefixOperand"
-  | "postfixDifferentialVariable";
+  | "prefixOperand";
 
 class LatexGenerator {
   readonly expr: Expr;
@@ -101,18 +100,7 @@ class LatexGenerator {
     return this.generateUnsignedWithId(signed.value, id, context);
   }
 
-  generateUnsignedWithId(expr: Expr, id: string, context: RenderContext): string {
-    if (
-      context === "postfixDifferentialVariable" &&
-      expr.kind === "power" &&
-      expr.exponent.kind === "display_group" &&
-      expr.exponent.delimiter === "paren"
-    ) {
-      return this.wrap(
-        `{${this.generate(expr.base)}}^{${this.generate(expr.exponent)}}`,
-        id,
-      );
-    }
+  generateUnsignedWithId(expr: Expr, id: string, _context: RenderContext): string {
     return this.generateUnsignedWithIdLegacy(expr, id);
   }
 
@@ -217,17 +205,6 @@ class LatexGenerator {
 
   generateDifferentialBody(expr: Extract<Expr, { kind: "differential" }>): string {
     const operator = `\\mathrm{d${expr.inexact ? "'" : ""}}`;
-    if (
-      expr.postfixVariableSuperscript &&
-      expr.variable.kind === "power" &&
-      expr.variable.exponent.kind === "display_group" &&
-      expr.variable.exponent.delimiter === "paren"
-    ) {
-      return `${operator}${this.generate(
-        expr.variable,
-        "postfixDifferentialVariable",
-      )}`;
-    }
     const variable = this.generate(expr.variable);
     return expr.variable.kind === "display_group" ? `${operator}${variable}` : `${operator}{${variable}}`;
   }
@@ -553,11 +530,22 @@ function sameExpr(left: Expr, right: Expr): boolean {
 }
 
 function renderSymbolName(name: string): string {
-  const separatorIndex = name.indexOf("_");
-  if (separatorIndex <= 0 || separatorIndex === name.length - 1 || name.endsWith("}")) return name;
-  const base = name.slice(0, separatorIndex);
-  const subscript = name.slice(separatorIndex + 1);
-  return subscript.length === 1 ? name : `${base}_{${subscript}}`;
+  const superscriptIndex = name.indexOf("^{");
+  const stem = superscriptIndex > 0 ? name.slice(0, superscriptIndex) : name;
+  const superscript = superscriptIndex > 0 ? name.slice(superscriptIndex) : "";
+  const separatorIndex = stem.indexOf("_");
+  if (
+    separatorIndex <= 0 ||
+    separatorIndex === stem.length - 1 ||
+    stem.endsWith("}")
+  ) {
+    return name;
+  }
+  const base = stem.slice(0, separatorIndex);
+  const subscript = stem.slice(separatorIndex + 1);
+  return subscript.length === 1
+    ? name
+    : `${base}_{${subscript}}${superscript}`;
 }
 
 function splitAdditiveTermSign(expr: Expr): { sign: 1 | -1; value: Expr } {

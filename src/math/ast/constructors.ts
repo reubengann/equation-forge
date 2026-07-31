@@ -6,7 +6,6 @@ type ExprOptions = {
 
 type DifferentialOptions = ExprOptions & {
   inexact?: boolean;
-  postfixVariableSuperscript?: boolean;
 };
 
 function withOptions<T extends Expr>(expr: T, options: ExprOptions = {}): Expr {
@@ -199,9 +198,6 @@ export const differential = (variable: Expr, options?: DifferentialOptions): Exp
   kind: "differential",
   variable,
   ...(options?.inexact ? { inexact: true } : {}),
-  ...(options?.postfixVariableSuperscript
-    ? { postfixVariableSuperscript: true }
-    : {}),
 }, options);
 
 export const partialDerivative = (quantity: Expr, variable: Expr, options?: ExprOptions): Expr => withOptions({

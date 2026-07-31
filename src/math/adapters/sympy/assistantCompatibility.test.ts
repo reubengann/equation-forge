@@ -180,6 +180,16 @@ const assistantCompatibilityCases: CompatibilityCase[] = [
     codeIncludes: ['spp.Symbol("dT_s")', 'spp.Symbol("dP_s")'],
   },
   {
+    name: "indicating superscript differentials",
+    latex: String.raw`\mathrm{d}{n_1}^{\left(1\right)} = \mathrm{d}{n_1^{\left(2\right)}}`,
+    status: "supported",
+    exprKind: "equation",
+    codeIncludes: [
+      'spp.Symbol("dn_1^{\\\\left(1\\\\right)}")',
+      'spp.Symbol("dn_1^{\\\\left(2\\\\right)}")',
+    ],
+  },
+  {
     name: "subscripts in constrained partials",
     latex: String.raw`\left(\frac{\partial{c_{v}}}{\partial{v}}\right)_{T} = \left(\frac{\partial{c_{v}}}{\partial{\rho_{r}}}\right)_{T} \left(\frac{\partial{\rho_{r}}}{\partial{v}}\right)_{T}`,
     status: "supported",

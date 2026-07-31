@@ -2,18 +2,6 @@
 
 ## Medium
 
-- Expression `\mathrm{d}{n_1}^{\left(1\right)}` This parses as
-
-```
-- n1 differential
-  - n2 power [variable]
-    - n3 symbol [base] (name=n_1)
-    - n4 display_group [exponent] (delimiter=paren)
-      - n5 number [expression] (value=1)
-```
-
-I think this leads to difficulty. Really, this is just differential of a symbol, which happens to be `n_1^{(1)}`. But continuing the semantic tree, it's like we tell all functionality that it's an exponent `(1)`, but that's just an indicating superscript, no different than a subscript really. There may be many such things in the codebase, complicating manipulation. If we were to send this through algebrite, for instance, it would certainly fail. This also requires thingsl ike postfixVariableSubscript to be tracked, which could be handled at parsing IMO.
-
 - Right now `\frac{\mathrm{d}{\sigma}}{\mathrm{d}{T}}` is not recognized as a full derivative, but instead as a quotient
 
 ```

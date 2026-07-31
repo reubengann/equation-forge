@@ -21,9 +21,7 @@ export function structuralKey(expr: Expr): string {
   const rest = { ...expr };
   delete rest.error;
   if (rest.sign === 1) delete rest.sign;
-  return JSON.stringify(rest, (key, value) =>
-    key === "postfixVariableSuperscript" ? undefined : value,
-  );
+  return JSON.stringify(rest);
 }
 
 export function structuralKeyIgnoringDisplayGroups(expr: Expr): string {

@@ -17,6 +17,22 @@ describe("toAlgebrite", () => {
     expect(result.symbols.originalBySafe.get("__pdp1")).toBe(String.raw`\mu_s`);
   });
 
+  it("maps indicating-superscript symbols to one safe variable", () => {
+    const result = toAlgebrite(
+      expr(String.raw`\mu_1^{\left(1\right)}+2 \mu_1^{\left(2\right)}`),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.toString()).toBe("__pdp0+2*__pdp1");
+    expect(result.symbols.originalBySafe.get("__pdp0")).toBe(
+      String.raw`\mu_1^{\left(1\right)}`,
+    );
+    expect(result.symbols.originalBySafe.get("__pdp1")).toBe(
+      String.raw`\mu_1^{\left(2\right)}`,
+    );
+  });
+
   it("evaluates integrals during translation with explicit differentials", () => {
     const result = toAlgebrite(expr(String.raw`\int x \sin(x)\,\mathrm{d}{x}`));
 

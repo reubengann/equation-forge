@@ -372,7 +372,9 @@ describe("canExecuteMove", () => {
     const document = buildDocument(String.raw`\mathrm{d}\left(\mu_i^{\left(j\right)} n_i^{\left(j\right)}\right)`);
     const selectedNodeId = findNodeId(
       document,
-      (expr) => expr.kind === "power" && expr.base.kind === "symbol" && expr.base.name === String.raw`\mu_i`,
+      (expr) =>
+        expr.kind === "symbol" &&
+        expr.name === String.raw`\mu_i^{\left(j\right)}`,
     );
     const differentialId = findNodeId(document, (expr) => expr.kind === "differential");
 

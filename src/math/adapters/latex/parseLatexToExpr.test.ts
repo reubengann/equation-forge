@@ -329,17 +329,19 @@ describe("parseLatexToExpr", () => {
 
     const lhs = expr.sides[0];
     expectExprKind(lhs, "differential");
-    expectExprKind(lhs.variable, "power");
-    expectExprKind(lhs.variable.base, "symbol");
-    expect(lhs.variable.base.name).toBe("n_1");
-    expectExprKind(lhs.variable.exponent, "display_group");
-    expect(lhs.variable.exponent.delimiter).toBe("paren");
+    expectExprKind(lhs.variable, "symbol");
+    expect(lhs.variable.name).toBe(String.raw`n_1^{\left(1\right)}`);
     expect(exprToPlainLatex(lhs)).toBe(
-      String.raw`\mathrm{d}{n_1}^{\left(1\right)}`,
+      String.raw`\mathrm{d}{n_1^{\left(1\right)}}`,
     );
 
     const internalSuperscript = parseLatexToExpr(
       String.raw`\mathrm{d}{n_1^{\left(1\right)}}`,
+    );
+    expectExprKind(internalSuperscript, "differential");
+    expectExprKind(internalSuperscript.variable, "symbol");
+    expect(internalSuperscript.variable.name).toBe(
+      String.raw`n_1^{\left(1\right)}`,
     );
     expect(exprToPlainLatex(internalSuperscript)).toBe(
       String.raw`\mathrm{d}{n_1^{\left(1\right)}}`,
@@ -348,6 +350,49 @@ describe("parseLatexToExpr", () => {
     const ordinaryPower = parseLatexToExpr(String.raw`\mathrm{d}{x}^{2}`);
     expectExprKind(ordinaryPower, "power");
     expectExprKind(ordinaryPower.base, "differential");
+  });
+
+  it("folds parenthesized indicating superscripts into symbol identity", () => {
+    const expr = parseLatexToExpr(
+      String.raw`n_1^{\left(2\right)}=\mu_s^{\left(\pi\right)}=\mathscr{V}_2^{\left(1\right)}`,
+    );
+    expectExprKind(expr, "equation");
+
+    const plain = expr.sides[0];
+    expectExprKind(plain, "symbol");
+    expect(plain.name).toBe(String.raw`n_1^{\left(2\right)}`);
+    expect(exprToPlainLatex(plain)).toBe(String.raw`n_1^{\left(2\right)}`);
+
+    const greek = expr.sides[1];
+    expectExprKind(greek, "symbol");
+    expect(greek.name).toBe(String.raw`\mu_s^{\left(\pi\right)}`);
+    expect(exprToPlainLatex(greek)).toBe(
+      String.raw`\mu_s^{\left(\pi\right)}`,
+    );
+
+    const script = expr.sides[2];
+    expectExprKind(script, "special_font");
+    expectExprKind(script.value, "symbol");
+    expect(script.value.name).toBe(String.raw`V_2^{\left(1\right)}`);
+    expect(exprToPlainLatex(script)).toBe(
+      String.raw`\mathscr{V_2^{\left(1\right)}}`,
+    );
+
+    const multiDigitSubscript = parseLatexToExpr(
+      String.raw`n_{12}^{\left(1\right)}`,
+    );
+    expectExprKind(multiDigitSubscript, "symbol");
+    expect(multiDigitSubscript.name).toBe(
+      String.raw`n_12^{\left(1\right)}`,
+    );
+    expect(exprToPlainLatex(multiDigitSubscript)).toBe(
+      String.raw`n_{12}^{\left(1\right)}`,
+    );
+
+    const ordinaryPower = parseLatexToExpr(String.raw`n_1^2`);
+    expectExprKind(ordinaryPower, "power");
+    const primedSymbol = parseLatexToExpr(String.raw`n_1^{\prime}`);
+    expectExprKind(primedSymbol, "primed");
   });
 
   it("parses MathLive prime exponents as primed differential variables", () => {
