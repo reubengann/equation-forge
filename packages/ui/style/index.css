@@ -1,3 +1,5 @@
+@import "mathlive/fonts.css";
+
 .pdp-ui {
   color: var(--jp-ui-font-color1, inherit);
   font-family: var(--jp-ui-font-family, system-ui, sans-serif);

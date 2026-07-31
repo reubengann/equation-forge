@@ -1,10 +1,10 @@
 import { MathfieldElement } from "mathlive";
 
 export type ConfigurePadEnvironmentOptions = {
-  fontsDirectory?: string;
+  fontsDirectory?: string | null;
 };
 
-let configuredFontsDirectory: string | undefined;
+let configuredFontsDirectory: string | null | undefined;
 
 export function configurePadEnvironment({
   fontsDirectory,
