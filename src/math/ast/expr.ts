@@ -169,6 +169,7 @@ export type DifferentialExpr = {
   kind: "differential";
   variable: Expr;
   inexact?: boolean;
+  postfixVariableSuperscript?: boolean;
 };
 
 export type PartialDerivativeExpr = {

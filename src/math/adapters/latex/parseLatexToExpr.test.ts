@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Expr } from "../../ast";
+import { exprToPlainLatex } from "./exprToLatex";
 import { parseLatexToExpr } from "./parseLatexToExpr";
 
 function expectExprKind<K extends Expr["kind"]>(
@@ -318,6 +319,35 @@ describe("parseLatexToExpr", () => {
     expectExprKind(expr.variable.value, "symbol");
     expect(expr.variable.value.name).toBe("T");
     expect(expr.variable.order).toBe(1);
+  });
+
+  it("attaches parenthesized postfix superscripts to differential variables", () => {
+    const expr = parseLatexToExpr(
+      String.raw`$$ \mathrm{d}{n_1}^{\left(1\right)}=-\left(\mathrm{d}{n_1}^{\left(2\right)}+\mathrm{d}{n_1}^{\left(\pi\right)}\right) $$`,
+    );
+    expectExprKind(expr, "equation");
+
+    const lhs = expr.sides[0];
+    expectExprKind(lhs, "differential");
+    expectExprKind(lhs.variable, "power");
+    expectExprKind(lhs.variable.base, "symbol");
+    expect(lhs.variable.base.name).toBe("n_1");
+    expectExprKind(lhs.variable.exponent, "display_group");
+    expect(lhs.variable.exponent.delimiter).toBe("paren");
+    expect(exprToPlainLatex(lhs)).toBe(
+      String.raw`\mathrm{d}{n_1}^{\left(1\right)}`,
+    );
+
+    const internalSuperscript = parseLatexToExpr(
+      String.raw`\mathrm{d}{n_1^{\left(1\right)}}`,
+    );
+    expect(exprToPlainLatex(internalSuperscript)).toBe(
+      String.raw`\mathrm{d}{n_1^{\left(1\right)}}`,
+    );
+
+    const ordinaryPower = parseLatexToExpr(String.raw`\mathrm{d}{x}^{2}`);
+    expectExprKind(ordinaryPower, "power");
+    expectExprKind(ordinaryPower.base, "differential");
   });
 
   it("parses MathLive prime exponents as primed differential variables", () => {

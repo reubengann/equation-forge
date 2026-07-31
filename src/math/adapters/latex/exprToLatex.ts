@@ -1,6 +1,11 @@
 import { splitSign, type DelimiterKind, type Expr } from "../../ast";
 
-type RenderContext = "default" | "sumTerm" | "productFactor" | "prefixOperand";
+type RenderContext =
+  | "default"
+  | "sumTerm"
+  | "productFactor"
+  | "prefixOperand"
+  | "postfixDifferentialVariable";
 
 class LatexGenerator {
   readonly expr: Expr;
@@ -96,7 +101,18 @@ class LatexGenerator {
     return this.generateUnsignedWithId(signed.value, id, context);
   }
 
-  generateUnsignedWithId(expr: Expr, id: string, _context: RenderContext): string {
+  generateUnsignedWithId(expr: Expr, id: string, context: RenderContext): string {
+    if (
+      context === "postfixDifferentialVariable" &&
+      expr.kind === "power" &&
+      expr.exponent.kind === "display_group" &&
+      expr.exponent.delimiter === "paren"
+    ) {
+      return this.wrap(
+        `{${this.generate(expr.base)}}^{${this.generate(expr.exponent)}}`,
+        id,
+      );
+    }
     return this.generateUnsignedWithIdLegacy(expr, id);
   }
 
@@ -201,6 +217,17 @@ class LatexGenerator {
 
   generateDifferentialBody(expr: Extract<Expr, { kind: "differential" }>): string {
     const operator = `\\mathrm{d${expr.inexact ? "'" : ""}}`;
+    if (
+      expr.postfixVariableSuperscript &&
+      expr.variable.kind === "power" &&
+      expr.variable.exponent.kind === "display_group" &&
+      expr.variable.exponent.delimiter === "paren"
+    ) {
+      return `${operator}${this.generate(
+        expr.variable,
+        "postfixDifferentialVariable",
+      )}`;
+    }
     const variable = this.generate(expr.variable);
     return expr.variable.kind === "display_group" ? `${operator}${variable}` : `${operator}{${variable}}`;
   }

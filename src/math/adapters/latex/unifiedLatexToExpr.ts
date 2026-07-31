@@ -1560,6 +1560,7 @@ class TokenParser {
     if (unwrappedBase.kind === "symbol" && subscriptName) {
       return sym(`${unwrappedBase.name}_${subscriptName}`);
     }
+
     if (
       unwrappedBase.kind === "special_font" &&
       unwrappedBase.value.kind === "symbol" &&
@@ -1571,6 +1572,23 @@ class TokenParser {
       );
     }
     return multiply([unwrappedBase, subscript]);
+  }
+
+  private applyPostfixExponent(base: Expr, exponent: Expr): Expr {
+    if (
+      base.kind === "differential" &&
+      exponent.kind === "display_group" &&
+      exponent.delimiter === "paren"
+    ) {
+      return differential(
+        power(base.variable, exponent),
+        {
+          ...(base.inexact ? { inexact: true } : {}),
+          postfixVariableSuperscript: true,
+        },
+      );
+    }
+    return power(base, exponent);
   }
 
   private consumeIntegralBody(): {
@@ -1818,7 +1836,7 @@ class TokenParser {
         const primeOrder = primeOrderFromExponent(exponent);
         expr = primeOrder
           ? applyPrime(expr, primeOrder)
-          : power(expr, exponent);
+          : this.applyPostfixExponent(expr, exponent);
         continue;
       }
       if (next.kind === "subscript") {
