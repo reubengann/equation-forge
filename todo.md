@@ -24,7 +24,8 @@ This causes problems when, say, pulling it out of an integral, because it is tre
 
 ## Hard
 
-- JupyterLab plugin.
+- I am not convinced that both movement modes are needed. Are there examples where there is ambiguity of a move based on the selection? If we have `a + b c = e`, if b is selected, it can only possibly be moved multiplicatively, and if `b c` is selected it can only be moved additively. What's a counterexample?
+- JupyterLab plugin integration with other plugins
 - Refine/test hit testing. Dragging into a denominator is particularly ugly, as it presents a horizontal line through existing symbols.
 - Documentation and release.
 - vector operations. We don't have any identities surrounding cross or dot products, nor do we do any kind of checks whether a given equation makes dimensional sense (so, e.g., you can do `\eqn + 5` to `\vec{a} = \vec{v} \times \vec{w}`, which is nonsense, but there's nothing to stop you from writing it I think.) This would also presumably require logic at the parsing level, since inputting an invalid equation also breaks comprehension.

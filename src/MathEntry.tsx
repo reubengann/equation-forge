@@ -290,7 +290,7 @@ export const MathEntry = forwardRef<EquationEntryCommands, MathEntryProps>(funct
           onKeyDown={handleKeyDown}
           style={{
             width: "100%",
-            fontSize: "1.2rem",
+            fontSize: "1.2em",
             background: "transparent",
             border: "none",
             outline: "none",
