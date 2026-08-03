@@ -97,6 +97,16 @@ export const MathEntry = forwardRef<EquationEntryCommands, MathEntryProps>(funct
   }, [mathfieldMacros]);
 
   useEffect(() => {
+    const field = mathFieldRef.current;
+    if (!field) return;
+    const currentLatex =
+      typeof field.getValue === "function" ? field.getValue("latex") : field.value;
+    if (currentLatex === latex) return;
+    field.value = latex;
+    field.setAttribute("value", latex);
+  }, [latex]);
+
+  useEffect(() => {
     if (!autoFocus || focusSession == null) return;
 
     let cancelled = false;
