@@ -5,6 +5,8 @@ Select part of an expression and drag it to a new location; Equation Forge
 applies the corresponding algebraic rewrite and keeps a history of the
 derivation.
 
+![Rearranging an equation by direct manipulation](assets/animations/hero_demo.gif)
+
 Instead of retyping each line, you can:
 
 - rearrange terms and factors;
@@ -33,10 +35,13 @@ browser storage.
 
 1. Follow [Getting started](getting-started.md) to open Equation Forge.
 2. Work through [Your first derivation](tutorial.md).
-3. Read [Core concepts](concepts.md) to understand selections and move modes.
-4. Use the [Rewrite features](rewrite-features.md) page as a toolbar reference.
+3. Follow the [tutorial learning path](tutorials/index.md) from selection
+   fundamentals to worked thermodynamics derivations.
+4. Read [Core concepts](concepts.md) to understand selections and move modes.
+5. Use the [Rewrite features](rewrite-features.md) page as a toolbar reference.
 
 !!! note "Early-stage software"
+
     Equation Forge is under active development. It supports a broad range of
     symbolic expressions, but not every LaTeX construct or algebraic move is
     available yet. Unsupported input is generally preserved as an immutable

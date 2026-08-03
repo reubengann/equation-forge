@@ -79,4 +79,5 @@ npm run build
 `npm run mathtests` replays recorded drag-and-drop interactions in
 `mathtests/fixtures`.
 
-Next, try [Your first derivation](tutorial.md).
+Next, try [Your first derivation](tutorial.md), then choose another walkthrough
+from the [tutorial learning path](tutorials/index.md).

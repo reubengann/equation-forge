@@ -18,8 +18,16 @@ Supported move families include:
 - moving a term or factor across a relation;
 - inserting a term into a sum;
 - inserting a factor into a product or denominator;
+- moving a factor from one power or radical into another with the same
+  exponent or root degree;
 - structural moves involving supported derivatives, differentials, and
   integrals.
+
+For example, in multiplicative move mode, dragging \(a\) from \(a^3\) into
+\((b+c)^3\) produces \((a(b+c))^3\). Likewise, dragging \(x\) from
+\(\sqrt{x}\) into \(\sqrt{y}\) produces \(\sqrt{xy}\). These same-power moves
+are branch/domain-sensitive and are generally safe for positive real bases;
+Equation Forge does not verify those preconditions.
 
 Choose ![Additive move mode](assets/icons/additive-move-mode.svg) **Additive
 move mode** for terms and
@@ -30,6 +38,8 @@ the modes.
 Not every mathematically imaginable drag has a rewrite rule. A valid drop
 location shows an insertion preview. No preview means the move will not be
 applied.
+
+Try it: [Selection and rearranging](tutorials/selection-and-rearranging.md).
 
 ## History and copying
 
@@ -76,6 +86,8 @@ expressions** applies the same replacement to every matching occurrence.
 Review the result carefully when the same symbol has different meanings in
 different parts of a formula.
 
+Try it: [Substitution](tutorials/substitution.md).
+
 ### Apply operation
 
 Toolbar icon: ![Apply operation](assets/icons/apply-operation.svg)
@@ -87,6 +99,9 @@ relation and `\part` for the selected fraction part.
 When applying an order-reversing operation to an inequality, use the dialog's
 inequality-flip option as appropriate. Equation Forge does not infer all
 domain or monotonicity conditions.
+
+Try it: [Operations, identities, and
+evaluation](tutorials/operations-identities-and-evaluation.md#apply-an-operation-to-both-sides).
 
 ## Automatic rewrites
 
@@ -113,6 +128,8 @@ Toolbar icon: ![Distribute selection](assets/icons/distribute-selection.svg)
 Distributes a product over a sum, or applies another supported distribution
 rule such as a derivative over a sum. Shortcut: <kbd>D</kbd>.
 
+Try it: [Distribute and factor](tutorials/distribute-and-factor.md).
+
 ### Clean up selection
 
 Toolbar icon: ![Clean up selection](assets/icons/clean-up-selection.svg)
@@ -128,6 +145,9 @@ Toolbar icon: ![Evaluate selection](assets/icons/evaluate-selection.svg)
 Sends a supported selected expression through the bundled Algebrite adapter.
 Evaluation is available only for expression forms that can be translated to
 that backend.
+
+Try it: [Evaluate a supported
+integral](tutorials/operations-identities-and-evaluation.md#evaluate-a-supported-integral).
 
 ## Identities
 
@@ -146,6 +166,9 @@ The identity library includes supported rules for:
 Some identities have domain or branch caveats. These appear alongside the
 identity choice and should be treated as mathematical preconditions, not as
 warnings that Equation Forge can verify automatically.
+
+Try it: [Apply a named
+identity](tutorials/operations-identities-and-evaluation.md#apply-a-named-identity).
 
 ## Structure controls
 

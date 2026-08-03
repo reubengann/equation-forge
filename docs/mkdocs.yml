@@ -4,7 +4,17 @@ site_description: Formula derivation by direct manipulation
 nav:
   - Home: index.md
   - Getting started: getting-started.md
-  - Tutorial: tutorial.md
+  - Tutorials:
+      - Learning path: tutorials/index.md
+      - First derivation: tutorial.md
+      - Core workflows:
+          - Selection and rearranging: tutorials/selection-and-rearranging.md
+          - Distribute and factor: tutorials/distribute-and-factor.md
+          - Substitution: tutorials/substitution.md
+          - Operations, identities, and evaluation: tutorials/operations-identities-and-evaluation.md
+      - Worked derivations:
+          - Enthalpy from an equation of state: tutorials/enthalpy-from-equation-of-state.md
+          - Carnot reservoirs: tutorials/carnot-reservoirs.md
   - Concepts: concepts.md
   - Rewrite features: rewrite-features.md
   - FAQ: faq.md

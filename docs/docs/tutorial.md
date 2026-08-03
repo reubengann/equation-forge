@@ -108,4 +108,7 @@ factor it again.
   ![Clean up selection](assets/icons/clean-up-selection.svg) **Clean up
   selection** when a supported simplification is available.
 
-Continue with [Core concepts](concepts.md) for a more detailed explanation.
+Continue with [Selection and
+rearranging](tutorials/selection-and-rearranging.md), browse the
+[tutorial learning path](tutorials/index.md), or read
+[Core concepts](concepts.md) for a more detailed explanation.

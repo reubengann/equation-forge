@@ -111,3 +111,7 @@ pad and serialization helpers. The packages are currently early-stage, so
 integrators should expect the API to evolve.
 
 ## Can I add my own macros?
+
+## Why doesn't this support `/` division notation as well as fractions?
+
+This project depends on Mathlive, and Mathlive does not support mixing slash and fractions at the same time. The `/` key always makes something a fraction.
