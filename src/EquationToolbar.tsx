@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type {
   IdentityRewriteOption,
   MoveType,
-} from "@physics-derivation-pad/core/rewrite";
+} from "@equation-forge/core/rewrite";
 import { UiIcon } from "./icons/UiIcon";
 import { StaticMath } from "./StaticMath";
 

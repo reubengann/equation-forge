@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DerivationPad, type DerivationPadOptions } from "./DerivationPad";
+import { EquationForge, type EquationForgeOptions } from "./EquationForge";
 import {
   loadBrowserPadDocument,
   loadBrowserWrapEquationCopiesInDisplayMath,
@@ -10,12 +10,12 @@ import {
 export function PadView() {
   const [equations, setEquations] = useState(() => loadBrowserPadDocument().equations);
   const [activeEquationId, setActiveEquationId] = useState<string | null>(() => equations[0]?.id ?? null);
-  const [options, setOptions] = useState<DerivationPadOptions>(() => ({
+  const [options, setOptions] = useState<EquationForgeOptions>(() => ({
     wrapEquationCopiesInDisplayMath: loadBrowserWrapEquationCopiesInDisplayMath(),
   }));
 
   return (
-    <DerivationPad
+    <EquationForge
       equations={equations}
       activeEquationId={activeEquationId}
       options={options}

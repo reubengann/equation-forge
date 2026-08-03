@@ -1,7 +1,7 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import { DraggableModal } from "./DraggableModal";
 import { MathEntry } from "./MathEntry";
-import type { ReplaceableSymbol } from "@physics-derivation-pad/core/rewrite";
+import type { ReplaceableSymbol } from "@equation-forge/core/rewrite";
 
 type MathDivLike = HTMLElement & {
   value?: string;

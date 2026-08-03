@@ -6,14 +6,14 @@ import type { EquationEditorRecordingHooks } from "./EquationEditorRecordingHook
 import {
   coerceLatexForExpressionParser,
   parseLatexToExpr,
-} from "@physics-derivation-pad/core/latex";
+} from "@equation-forge/core/latex";
 import {
   applyFunctionSymbolSemantics,
   compileMathDocument,
   compileMathDocumentFromExpr,
   pruneFunctionSymbols,
   remapFunctionSymbols,
-} from "@physics-derivation-pad/core/compile";
+} from "@equation-forge/core/compile";
 import {
   appendEquationHistoryStep,
   createEquationHistory,

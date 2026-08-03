@@ -6,19 +6,19 @@ import { fileURLToPath, URL } from "node:url";
 export default defineConfig({
   resolve: {
     alias: {
-      "@physics-derivation-pad/core/ast": fileURLToPath(
+      "@equation-forge/core/ast": fileURLToPath(
         new URL("./src/math/ast/index.ts", import.meta.url),
       ),
-      "@physics-derivation-pad/core/compile": fileURLToPath(
+      "@equation-forge/core/compile": fileURLToPath(
         new URL("./src/math/compile/index.ts", import.meta.url),
       ),
-      "@physics-derivation-pad/core/latex": fileURLToPath(
+      "@equation-forge/core/latex": fileURLToPath(
         new URL("./src/math/adapters/latex/index.ts", import.meta.url),
       ),
-      "@physics-derivation-pad/core/rewrite": fileURLToPath(
+      "@equation-forge/core/rewrite": fileURLToPath(
         new URL("./src/math/rewrite/index.ts", import.meta.url),
       ),
-      "@physics-derivation-pad/core/selection": fileURLToPath(
+      "@equation-forge/core/selection": fileURLToPath(
         new URL("./src/math/selection/index.ts", import.meta.url),
       ),
     },

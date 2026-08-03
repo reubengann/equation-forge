@@ -1,14 +1,14 @@
 export {
-  DerivationPad,
-  type DerivationPadCommands,
-  type DerivationPadEquationActionContext,
-  type DerivationPadOptions,
-  type DerivationPadProps,
-} from "./DerivationPad";
+  EquationForge,
+  type EquationForgeCommands,
+  type EquationForgeEquationActionContext,
+  type EquationForgeOptions,
+  type EquationForgeProps,
+} from "./EquationForge";
 export {
-  configurePadEnvironment,
-  type ConfigurePadEnvironmentOptions,
-} from "./configurePadEnvironment";
+  configureEquationForgeEnvironment,
+  type ConfigureEquationForgeEnvironmentOptions,
+} from "./configureEquationForgeEnvironment";
 export { EquationRow, type EquationRowCommands, type EquationRowProps } from "./EquationRow";
 export { MathEntry, type EquationEntryCommands } from "./MathEntry";
 export {

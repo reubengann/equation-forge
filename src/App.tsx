@@ -14,7 +14,7 @@ import { TestRecorder, type TestRecorderEvent } from "./TestRecorder";
 import type { EquationEditorRecordingHooks } from "./EquationEditorRecordingHooks";
 import { compileMathDocument, type CompiledMathDocument } from "./math/compile/compileMathDocument";
 import type { Expr } from "./math/ast";
-import { configurePadEnvironment } from "./configurePadEnvironment";
+import { configureEquationForgeEnvironment } from "./configureEquationForgeEnvironment";
 
 async function saveFixtureJson(fixture: EventFixture): Promise<void> {
   const json = `${JSON.stringify(fixture, null, 2)}\n`;
@@ -67,7 +67,7 @@ async function saveFixtureJson(fixture: EventFixture): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
-configurePadEnvironment({ fontsDirectory: "/fonts" });
+configureEquationForgeEnvironment({ fontsDirectory: "/fonts" });
 
 function summarizeDebugExpr(expr: Expr): string {
   switch (expr.kind) {

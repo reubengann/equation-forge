@@ -1,7 +1,7 @@
 import {
   compileMathDocument,
   type FunctionSymbolTag,
-} from "@physics-derivation-pad/core/compile";
+} from "@equation-forge/core/compile";
 
 export type EquationMode = "entry" | "display";
 
@@ -23,7 +23,7 @@ export type EquationRowState = {
   mode: EquationMode;
 };
 
-export type { FunctionSymbolTag } from "@physics-derivation-pad/core/compile";
+export type { FunctionSymbolTag } from "@equation-forge/core/compile";
 
 export function createEquationHistory(latex: string, functionSymbols: FunctionSymbolTag[] = []): EquationHistory {
   return {

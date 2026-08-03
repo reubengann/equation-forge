@@ -455,7 +455,7 @@ describe("exprToLatex", () => {
 
   it("wraps user functions in a MathLive class when tagged", () => {
     expect(exprToLatex(userFunction("f", sym("x")), true)).toBe(
-      String.raw`\htmlData{node-id="n1"}{\class{pdp-user-function}{f\!\left(\htmlData{node-id="n2"}{x}\right)}}`,
+      String.raw`\htmlData{node-id="n1"}{\class{equation-forge-user-function}{f\!\left(\htmlData{node-id="n2"}{x}\right)}}`,
     );
     expect(exprToLatex(userFunction("f", sym("x")), false)).toBe(String.raw`f\left(x\right)`);
   });

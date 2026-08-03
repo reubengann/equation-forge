@@ -20,8 +20,8 @@ type CompatibilityCase =
 
 /**
  * Representative inputs from jupyterlab-sympy-assistant's Python parser
- * tests. This is a migration inventory, not a claim that PDP should mimic
- * every legacy normalization. PDP preserves semantic nodes in its AST while
+ * tests. This is a migration inventory, not a claim that Equation Forge should mimic
+ * every legacy normalization. Equation Forge preserves semantic nodes in its AST while
  * the SymPy adapter supplies the assistant's required output policy.
  */
 const assistantCompatibilityCases: CompatibilityCase[] = [

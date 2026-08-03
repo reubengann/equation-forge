@@ -15,14 +15,14 @@ import {
   selectionSet,
   type RectBounds,
 } from "./interaction/selectionController";
-import type { TermSelection } from "@physics-derivation-pad/core/selection";
+import type { TermSelection } from "@equation-forge/core/selection";
 import {
   canToggleFunctionSymbol,
   isFunctionSymbolSelectionTagged,
   toggleFunctionSymbol,
   type CompiledMathDocument,
-} from "@physics-derivation-pad/core/compile";
-import { exprToLatex, parseLatexToExpr } from "@physics-derivation-pad/core/latex";
+} from "@equation-forge/core/compile";
+import { exprToLatex, parseLatexToExpr } from "@equation-forge/core/latex";
 import {
   applyDefaultIdentityRewriteToSelection,
   applyIdentityRewriteToSelection,
@@ -61,7 +61,7 @@ import {
   type MoveType,
   type NodeHorizontalBounds,
   validateOperationTemplate,
-} from "@physics-derivation-pad/core/rewrite";
+} from "@equation-forge/core/rewrite";
 import type { EquationEditorRecordingHooks } from "./EquationEditorRecordingHooks";
 import { EquationToolbar } from "./EquationToolbar";
 import { SubstituteModal } from "./SubstituteModal";
@@ -336,7 +336,7 @@ export function EquationEditor({
     const shadowRoot = host?.shadowRoot;
     if (!shadowRoot) return;
 
-    const functionEls = Array.from(shadowRoot.querySelectorAll<HTMLElement>(".pdp-user-function"));
+    const functionEls = Array.from(shadowRoot.querySelectorAll<HTMLElement>(".equation-forge-user-function"));
     for (const el of functionEls) {
       el.style.color = "rgba(255, 255, 255, 0.72)";
     }
@@ -348,7 +348,7 @@ export function EquationEditor({
       const isSelected = !!nodeId && selectedNodeIds.has(nodeId);
       el.style.color = isSelected ? "#ff9800" : "";
       if (isSelected) {
-        for (const functionEl of Array.from(el.querySelectorAll<HTMLElement>(".pdp-user-function"))) {
+        for (const functionEl of Array.from(el.querySelectorAll<HTMLElement>(".equation-forge-user-function"))) {
           functionEl.style.color = "#ff9800";
         }
       }

@@ -10,17 +10,17 @@ vi.mock("mathlive", () => ({
   },
 }));
 
-import { configurePadEnvironment } from "./configurePadEnvironment";
+import { configureEquationForgeEnvironment } from "./configureEquationForgeEnvironment";
 
-describe("configurePadEnvironment", () => {
+describe("configureEquationForgeEnvironment", () => {
   beforeEach(() => {
     setFontsDirectory.mockClear();
   });
 
   it("applies each fonts directory at most once consecutively", () => {
-    configurePadEnvironment({ fontsDirectory: "/first-fonts" });
-    configurePadEnvironment({ fontsDirectory: "/first-fonts" });
-    configurePadEnvironment({ fontsDirectory: "/second-fonts" });
+    configureEquationForgeEnvironment({ fontsDirectory: "/first-fonts" });
+    configureEquationForgeEnvironment({ fontsDirectory: "/first-fonts" });
+    configureEquationForgeEnvironment({ fontsDirectory: "/second-fonts" });
 
     expect(setFontsDirectory.mock.calls).toEqual([
       ["/first-fonts"],

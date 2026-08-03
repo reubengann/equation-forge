@@ -1,6 +1,6 @@
 @import "mathlive/fonts.css";
 
-.pdp-ui {
+.equation-forge-ui {
   color: var(--jp-ui-font-color1, inherit);
   font-family: var(--jp-ui-font-family, system-ui, sans-serif);
   font-size: 18px;
@@ -8,10 +8,10 @@
   letter-spacing: 0.18px;
 }
 
-.pdp-ui .equation-toolbar-menu-summary::-webkit-details-marker {
+.equation-forge-ui .equation-toolbar-menu-summary::-webkit-details-marker {
   display: none;
 }
 
-.pdp-ui .equation-toolbar-menu-summary::marker {
+.equation-forge-ui .equation-toolbar-menu-summary::marker {
   content: "";
 }

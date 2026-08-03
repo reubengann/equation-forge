@@ -310,7 +310,7 @@ class LatexGenerator {
       case "user_function":
         return this.wrap(
           this.tags
-            ? `\\class{pdp-user-function}{${expr.name}\\!\\left(${this.generate(expr.argument)}\\right)}`
+            ? `\\class{equation-forge-user-function}{${expr.name}\\!\\left(${this.generate(expr.argument)}\\right)}`
             : `${expr.name}\\left(${this.generate(expr.argument)}\\right)`,
           id,
         );

@@ -1,14 +1,14 @@
 import { MathfieldElement } from "mathlive";
 
-export type ConfigurePadEnvironmentOptions = {
+export type ConfigureEquationForgeEnvironmentOptions = {
   fontsDirectory?: string | null;
 };
 
 let configuredFontsDirectory: string | null | undefined;
 
-export function configurePadEnvironment({
+export function configureEquationForgeEnvironment({
   fontsDirectory,
-}: ConfigurePadEnvironmentOptions = {}): void {
+}: ConfigureEquationForgeEnvironmentOptions = {}): void {
   if (
     fontsDirectory === undefined ||
     fontsDirectory === configuredFontsDirectory

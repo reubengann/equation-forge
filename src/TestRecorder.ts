@@ -1,5 +1,5 @@
 import type { SelectionGeometry } from "./interaction/selectionController";
-import type { MoveType } from "@physics-derivation-pad/core/rewrite";
+import type { MoveType } from "@equation-forge/core/rewrite";
 
 export type PointerPhase = "pointer_down" | "pointer_move" | "pointer_up";
 

@@ -1,7 +1,7 @@
 import { act, createRef, useState, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
-import { DerivationPad, type DerivationPadCommands, type DerivationPadOptions } from "./DerivationPad";
+import { EquationForge, type EquationForgeCommands, type EquationForgeOptions } from "./EquationForge";
 import { createEquationRowState } from "./EquationRowState";
 import { compileMathDocument } from "./math/compile/compileMathDocument";
 import type { PadEquation } from "./pad/padDocument";
@@ -27,9 +27,9 @@ function mount(element: ReactElement) {
   });
 }
 
-describe("DerivationPad commands", () => {
+describe("EquationForge commands", () => {
   it("replaces and accepts the active equation entry through the public command ref", () => {
-    const commandsRef = createRef<DerivationPadCommands>();
+    const commandsRef = createRef<EquationForgeCommands>();
     const originalLatex = compileMathDocument("x = y").plainLatex;
     const insertedLatex = String.raw`F=ma`;
     const canonicalInsertedLatex = compileMathDocument(insertedLatex).plainLatex;
@@ -43,12 +43,12 @@ describe("DerivationPad commands", () => {
         },
       ]);
       const [activeEquationId, setActiveEquationId] = useState<string | null>("eq-1");
-      const [options, setOptions] = useState<DerivationPadOptions>({
+      const [options, setOptions] = useState<EquationForgeOptions>({
         wrapEquationCopiesInDisplayMath: false,
       });
       latestEquations = equations;
       return (
-        <DerivationPad
+        <EquationForge
           ref={commandsRef}
           equations={equations}
           activeEquationId={activeEquationId}
@@ -87,7 +87,7 @@ describe("DerivationPad commands", () => {
     let receivedEquationId: string | null = null;
 
     mount(
-      <DerivationPad
+      <EquationForge
         equations={[equation]}
         activeEquationId={equation.id}
         options={{ wrapEquationCopiesInDisplayMath: false }}

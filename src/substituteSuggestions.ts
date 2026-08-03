@@ -1,6 +1,6 @@
-import { exprToLatex } from "@physics-derivation-pad/core/latex";
-import type { CompiledMathDocument } from "@physics-derivation-pad/core/compile";
-import { add, type Expr } from "@physics-derivation-pad/core/ast";
+import { exprToLatex } from "@equation-forge/core/latex";
+import type { CompiledMathDocument } from "@equation-forge/core/compile";
+import { add, type Expr } from "@equation-forge/core/ast";
 import {
   applySign,
   collapseProduct,
@@ -8,7 +8,7 @@ import {
   splitSign,
   structuralKeyIgnoringDisplayGroups,
   type SubstitutionSelection,
-} from "@physics-derivation-pad/core/rewrite";
+} from "@equation-forge/core/rewrite";
 
 export type PadDefinitionSource = {
   equationId: string;

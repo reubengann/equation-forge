@@ -36,32 +36,32 @@ const PAD_ICON_BUTTON_STYLE: CSSProperties = {
   cursor: "pointer",
 };
 
-export type DerivationPadOptions = {
+export type EquationForgeOptions = {
   wrapEquationCopiesInDisplayMath: boolean;
 };
 
-export type DerivationPadCommands = {
+export type EquationForgeCommands = {
   insertLatex: (latex: string) => void;
   replaceEntryLatex: (latex: string) => void;
   acceptEntry: () => void;
   focusEntry: () => void;
 };
 
-export type DerivationPadEquationActionContext = {
+export type EquationForgeEquationActionContext = {
   equation: Readonly<PadEquation>;
   index: number;
   isActive: boolean;
 };
 
-export type DerivationPadProps = {
+export type EquationForgeProps = {
   equations: PadEquation[];
   activeEquationId: string | null;
-  options: DerivationPadOptions;
+  options: EquationForgeOptions;
   onEquationsChange: (nextEquations: PadEquation[]) => void;
   onActiveEquationIdChange: (nextActiveEquationId: string | null) => void;
-  onOptionsChange: (nextOptions: DerivationPadOptions) => void;
+  onOptionsChange: (nextOptions: EquationForgeOptions) => void;
   renderEquationActions?: (
-    context: DerivationPadEquationActionContext,
+    context: EquationForgeEquationActionContext,
   ) => ReactNode;
   title?: string;
   description?: string;
@@ -96,7 +96,7 @@ function PadIconButton({ label, icon, onClick, testId, disabled = false }: PadIc
   );
 }
 
-export const DerivationPad = forwardRef<DerivationPadCommands, DerivationPadProps>(function DerivationPad(
+export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProps>(function EquationForge(
   {
     equations,
     activeEquationId,
@@ -105,7 +105,7 @@ export const DerivationPad = forwardRef<DerivationPadCommands, DerivationPadProp
     onActiveEquationIdChange,
     onOptionsChange,
     renderEquationActions,
-    title = "Pad",
+    title = "Equation Forge",
     description = "Click an equation to make its shortcuts active.",
   },
   ref,
@@ -147,7 +147,7 @@ export const DerivationPad = forwardRef<DerivationPadCommands, DerivationPadProp
 
   return (
     <section
-      className="pdp-ui"
+      className="equation-forge-ui"
       style={{ display: "flex", flexDirection: "column", gap: "14px", alignItems: "stretch" }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" }}>

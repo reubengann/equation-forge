@@ -1,8 +1,8 @@
-import type { TermSelection } from "@physics-derivation-pad/core/selection";
+import type { TermSelection } from "@equation-forge/core/selection";
 import type {
   InsertionPreview,
   MoveType,
-} from "@physics-derivation-pad/core/rewrite";
+} from "@equation-forge/core/rewrite";
 import type {
   DomSnapshotObservedPayload,
   PointerEventPayload,

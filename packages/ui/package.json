@@ -1,5 +1,5 @@
 {
-  "name": "@physics-derivation-pad/ui",
+  "name": "@equation-forge/ui",
   "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -17,11 +17,11 @@
     "style"
   ],
   "sideEffects": [
-    "./dist/configurePadEnvironment.js",
+    "./dist/configureEquationForgeEnvironment.js",
     "./style/index.css"
   ],
   "peerDependencies": {
-    "@physics-derivation-pad/core": "*",
+    "@equation-forge/core": "*",
     "react": "^18.2.0 || ^19.0.0",
     "react-dom": "^18.2.0 || ^19.0.0"
   },
@@ -29,6 +29,6 @@
     "mathlive": "^0.109.1"
   },
   "devDependencies": {
-    "@physics-derivation-pad/core": "file:../.."
+    "@equation-forge/core": "file:../.."
   }
 }

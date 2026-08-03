@@ -6,8 +6,8 @@ import {
   type PadEquation,
 } from "./padDocument";
 
-const STORAGE_KEY = "physics-derivation-pad-equations";
-const COPY_OPTIONS_STORAGE_KEY = "physics-derivation-pad-copy-options";
+const STORAGE_KEY = "equation-forge-equations";
+const COPY_OPTIONS_STORAGE_KEY = "equation-forge-copy-options";
 
 export function loadBrowserPadDocument(): PadDocument {
   if (typeof window === "undefined") return createDefaultPadDocument();

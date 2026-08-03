@@ -2,11 +2,11 @@ import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  DerivationPad,
+  EquationForge,
   createDefaultPadDocument,
-  type DerivationPadOptions,
+  type EquationForgeOptions,
   type PadEquation,
-} from "@physics-derivation-pad/ui";
+} from "@equation-forge/ui";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -18,7 +18,7 @@ afterEach(() => {
   container = null;
 });
 
-describe("@physics-derivation-pad/ui package", () => {
+describe("@equation-forge/ui package", () => {
   it("mounts as a React 18 consumer and supports row lifecycle actions", () => {
     let latestEquations: PadEquation[] = [];
 
@@ -28,12 +28,12 @@ describe("@physics-derivation-pad/ui package", () => {
       const [activeEquationId, setActiveEquationId] = useState<string | null>(
         initialDocument.equations[0]?.id ?? null,
       );
-      const [options, setOptions] = useState<DerivationPadOptions>({
+      const [options, setOptions] = useState<EquationForgeOptions>({
         wrapEquationCopiesInDisplayMath: false,
       });
       latestEquations = equations;
       return (
-        <DerivationPad
+        <EquationForge
           equations={equations}
           activeEquationId={activeEquationId}
           options={options}
