@@ -556,6 +556,49 @@ describe("autoRewriteSelection cleanup", () => {
     expect(exprToLatex(next!, false)).toBe("a + b = 125");
   });
 
+  it("cancels matching root and power operations", () => {
+    expect(
+      exprToLatex(
+        autoRewriteSelection(buildDocument(String.raw`\sqrt{T_2}^{2}`), { kind: "single", nodeId: "n1" }, "cleanup")!,
+        false,
+      ),
+    ).toBe("T_2");
+    expect(
+      exprToLatex(
+        autoRewriteSelection(buildDocument(String.raw`\sqrt[3]{x}^{3}`), { kind: "single", nodeId: "n1" }, "cleanup")!,
+        false,
+      ),
+    ).toBe("x");
+  });
+
+  it("does not cancel roots and powers with different degrees", () => {
+    const document = buildDocument(String.raw`\sqrt{x}^{3}`);
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBe(false);
+  });
+
+  it("writes reciprocal powers in root notation", () => {
+    const squareRootDocument = buildDocument(String.raw`x^{\frac{1}{2}}`);
+    const squarePowerId = Object.entries(squareRootDocument.index.nodeById)
+      .find(([, expr]) => expr.kind === "power")?.[0];
+    const cubeRootDocument = buildDocument(String.raw`x^{\frac{1}{3}}`);
+    const cubePowerId = Object.entries(cubeRootDocument.index.nodeById)
+      .find(([, expr]) => expr.kind === "power")?.[0];
+
+    expect(squarePowerId).toBeDefined();
+    expect(cubePowerId).toBeDefined();
+    expect(exprToLatex(autoRewriteSelection(
+      squareRootDocument,
+      { kind: "single", nodeId: squarePowerId! },
+      "cleanup",
+    )!, false)).toBe(String.raw`\sqrt{x}`);
+    expect(exprToLatex(autoRewriteSelection(
+      cubeRootDocument,
+      { kind: "single", nodeId: cubePowerId! },
+      "cleanup",
+    )!, false)).toBe(String.raw`\sqrt[3]{x}`);
+  });
+
   it("collapses exp of ln to its argument", () => {
     const document = buildDocument(String.raw`\exp\left(\ln\left(a+b\right)\right)`);
     const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
@@ -620,6 +663,33 @@ describe("autoRewriteSelection cleanup", () => {
 
     expect(next).not.toBeNull();
     expect(exprToLatex(next!, false)).toBe("b");
+  });
+
+  it("cancels a denominator factor common to every numerator term", () => {
+    const document = buildDocument(
+      String.raw`\frac{-A P+A \rho g\left(h_0+h_2\right)-A \rho g\left(h_1-x\right)}{A}`,
+    );
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBe(true);
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`-P + \rho g \left(h_0 + h_2\right) - \rho g \left(h_1 - x\right)`,
+    );
+  });
+
+  it("preserves uncanceled denominator factors after canceling across a numerator sum", () => {
+    const document = buildDocument(String.raw`\frac{\left(a b+a c\right)}{a d}`);
+    const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(String.raw`\frac{b + c}{d}`);
+  });
+
+  it("does not cancel a denominator factor missing from one numerator term", () => {
+    const document = buildDocument(String.raw`\frac{a b+c}{a}`);
+
+    expect(canAutoRewrite(document, { kind: "single", nodeId: "n1" }, "cleanup")).toBe(false);
   });
 
   it("preserves the selected fraction sign while canceling fraction factors", () => {

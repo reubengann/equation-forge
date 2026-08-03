@@ -1,4 +1,4 @@
-import { add, divide, num, power, type Expr } from "../ast";
+import { add, divide, num, power, root, type Expr } from "../ast";
 import { cloneExpr } from "../ast/utils";
 import {
   applySign,
@@ -434,6 +434,9 @@ function cleanupDivide(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
   const collapsedNestedFraction = collapseNestedFractionFactors(expr);
   if (collapsedNestedFraction) return applySign(sign, collapsedNestedFraction);
 
+  const canceledAddNumeratorFactors = cancelCommonFactorsAcrossAddNumerator(expr.numerator, expr.denominator);
+  if (canceledAddNumeratorFactors) return applySign(sign, canceledAddNumeratorFactors);
+
   const numeratorFactors = multiplicativeFactors(expr.numerator);
   const denominatorFactors = multiplicativeFactors(expr.denominator);
   const remainingNumerator = numeratorFactors.map(cloneExpr);
@@ -447,6 +450,54 @@ function cleanupDivide(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
   const nextDenominator = collapseProduct(remainingDenominator);
   if (isNumberValue(nextDenominator, 1)) return withSign(nextNumerator, sign);
   return withSign(divide(nextNumerator, nextDenominator), sign);
+}
+
+function cancelCommonFactorsAcrossAddNumerator(numerator: Expr, denominator: Expr): Expr | null {
+  const addNumerator =
+    numerator.kind === "add"
+      ? numerator
+      : numerator.kind === "display_group" && numerator.expression.kind === "add"
+        ? numerator.expression
+        : null;
+  if (!addNumerator || addNumerator.terms.length < 2) return null;
+
+  const terms = addNumerator.terms.map((term) => {
+    const signed = splitSign(term);
+    return {
+      sign: signed.sign,
+      factors: multiplicativeFactors(signed.value),
+    };
+  });
+  const denominatorFactors = multiplicativeFactors(denominator);
+  let denominatorIndex = 0;
+  let changed = false;
+
+  while (denominatorIndex < denominatorFactors.length) {
+    const denominatorFactor = denominatorFactors[denominatorIndex];
+    if (!denominatorFactor) break;
+
+    const matches = terms.map((term) => findCancellableFactor(term.factors, denominatorFactor));
+    if (matches.some((match) => match === null)) {
+      denominatorIndex += 1;
+      continue;
+    }
+
+    matches.forEach((match, termIndex) => {
+      const term = terms[termIndex];
+      if (!match || !term) return;
+      decrementFactorAt(term.factors, match.index, match.base);
+    });
+    decrementFactorAt(denominatorFactors, denominatorIndex, matches[0]!.base);
+    changed = true;
+  }
+
+  if (!changed) return null;
+
+  const nextNumerator = add(
+    terms.map((term) => applySign(term.sign, cleanupProductFactors(term.factors))),
+  );
+  const nextDenominator = cleanupProductFactors(denominatorFactors);
+  return isNumberValue(nextDenominator, 1) ? nextNumerator : divide(nextNumerator, nextDenominator);
 }
 
 function normalizeFractionOperandSigns(expr: Extract<Expr, { kind: "divide" }>): Expr | null {
@@ -715,10 +766,28 @@ function cleanupNegate(expr: Extract<Expr, { kind: "negate" }>): Expr | null {
 }
 
 function cleanupPower(expr: Extract<Expr, { kind: "power" }>): Expr | null {
-  const base = numericLiteralValue(expr.base);
-  const exponent = numericLiteralValue(expr.exponent);
-  if (base === null || exponent === null) return null;
+  const exponentRational = numericRationalValue(expr.exponent);
+  if (!exponentRational) return null;
+  const exponent = exponentRational.numerator / exponentRational.denominator;
+
+  if (Number.isInteger(exponent)) {
+    const signedBase = splitSign(unwrapDisplayGroups(expr.base));
+    if (signedBase.value.kind === "root" && signedBase.value.degree === exponent) {
+      const basePowerSign = signedBase.sign === -1 && exponent % 2 !== 0 ? -1 : 1;
+      return withSign(
+        cloneExpr(signedBase.value.value),
+        multiplySigns(exprSign(expr), basePowerSign),
+      );
+    }
+  }
+
+  if (exponentRational.numerator === 1 && exponentRational.denominator > 1) {
+    return withSign(root(cloneExpr(expr.base), exponentRational.denominator), exprSign(expr));
+  }
+
   if (!Number.isInteger(exponent)) return null;
+  const base = numericLiteralValue(expr.base);
+  if (base === null) return null;
 
   const value = base ** exponent;
   return Number.isFinite(value) ? num(value) : null;

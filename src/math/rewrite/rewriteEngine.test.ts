@@ -16,8 +16,8 @@ function buildDocument(latex: string): CompiledMathDocument {
   return compileMathDocumentFromExpr(latex, expr);
 }
 
-function findNodeId(document: CompiledMathDocument, predicate: (expr: Expr) => boolean): string {
-  const entry = Object.entries(document.index.nodeById).find(([, expr]) => predicate(expr));
+function findNodeId(document: CompiledMathDocument, predicate: (expr: Expr, id: string) => boolean): string {
+  const entry = Object.entries(document.index.nodeById).find(([id, expr]) => predicate(expr, id));
   expect(entry).toBeDefined();
   return entry![0];
 }
@@ -1027,5 +1027,121 @@ describe("canExecuteMove", () => {
     });
 
     expect(result?.latex).toBe(String.raw`\frac{b}{b \left(c\right)}`);
+  });
+
+  it("combines matching roots by dragging one radicand into the other", () => {
+    const document = buildDocument(String.raw`\sqrt{T_2}\sqrt{T_1}`);
+    const sourceId = symbolNodeId(document, "T_1");
+    const destinationId = symbolNodeId(document, "T_2");
+
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: sourceId },
+      destinationId,
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`\sqrt{T_2 T_1}`);
+  });
+
+  it("preserves the sign of a product when combining its radicals", () => {
+    const document = buildDocument(String.raw`T_2+T_1-2\sqrt{T_1}\sqrt{T_2}\geq0`);
+    const sourceId = findNodeId(
+      document,
+      (expr, id) =>
+        expr.kind === "symbol" &&
+        expr.name === "T_2" &&
+        document.index.nodeById[document.index.parentById[id] ?? ""]?.kind === "root",
+    );
+    const destinationId = findNodeId(
+      document,
+      (expr, id) =>
+        expr.kind === "symbol" &&
+        expr.name === "T_1" &&
+        document.index.nodeById[document.index.parentById[id] ?? ""]?.kind === "root",
+    );
+
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: sourceId },
+      destinationId,
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`T_2 + T_1 - 2 \sqrt{T_1 T_2} \geq 0`);
+  });
+
+  it("combines matching powers by dragging one base into the other", () => {
+    const document = buildDocument(String.raw`a^3\left(b+c\right)^3`);
+    const sourceId = symbolNodeId(document, "a");
+    const destinationId = findNodeId(document, (expr) => expr.kind === "add");
+
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: sourceId },
+      destinationId,
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`\left(a \left(b + c\right)\right)^{3}`);
+  });
+
+  it("preserves the powered remainder when moving one base factor", () => {
+    const document = buildDocument(String.raw`\left(a x\right)^3\left(b+c\right)^3`);
+    const sourceId = symbolNodeId(document, "a");
+    const destinationId = findNodeId(document, (expr) => expr.kind === "add");
+
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: sourceId },
+      destinationId,
+      moveType: "multiplicative",
+      destinationSlot: "before",
+    });
+
+    expect(result?.latex).toBe(String.raw`\left(x\right)^{3} \left(a \left(b + c\right)\right)^{3}`);
+  });
+
+  it("moves a matching powered base across an equation as a reciprocal", () => {
+    const document = buildDocument(String.raw`a^3=b^3`);
+
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: symbolNodeId(document, "a") },
+      destinationId: symbolNodeId(document, "b"),
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result?.latex).toBe(String.raw`1 = \left(\frac{b}{a}\right)^{3}`);
+  });
+
+  it("rejects dragging between powers with different exponents", () => {
+    const document = buildDocument(String.raw`a^3 b^2`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: symbolNodeId(document, "a") },
+      destinationId: symbolNodeId(document, "b"),
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("rejects dragging between roots with different degrees", () => {
+    const document = buildDocument(String.raw`\sqrt{a}\sqrt[3]{b}`);
+    const result = executeMove({
+      document,
+      selection: { kind: "single", nodeId: symbolNodeId(document, "a") },
+      destinationId: symbolNodeId(document, "b"),
+      moveType: "multiplicative",
+      destinationSlot: "after",
+    });
+
+    expect(result).toBeNull();
   });
 });

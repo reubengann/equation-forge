@@ -165,9 +165,12 @@ function productWithUpdatedChild(
   const childIds = context.document.index.childrenById[parentId] ?? [];
   const childIndex = childIds.indexOf(childId);
   if (childIndex < 0) return cloneExpr(parentNode);
-  return collapseMultiplicativeFactors(
-    parentNode.factors
+  const signedParent = splitSign(parentNode);
+  const product = signedParent.value as Extract<Expr, { kind: "multiply" }>;
+  const collapsed = collapseMultiplicativeFactors(
+    product.factors
       .map((factor, index) => (index === childIndex ? cloneExpr(childNode) : cloneExpr(factor)))
       .filter((factor) => !isMultiplicativeIdentity(factor)),
   );
+  return withSign(collapsed, multiplySigns(signedParent.sign, splitSign(collapsed).sign));
 }

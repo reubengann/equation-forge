@@ -831,6 +831,23 @@ describe("identity rewrites", () => {
     );
   });
 
+  it("expands binomial squares with either sign", () => {
+    const options = getApplicableIdentityRewrites(parse(String.raw`\left(a-b\right)^2`));
+
+    expect(options.map((option) => option.id)).toContain("expand-binomial-square");
+    expect(rewriteLatex(String.raw`\left(a+b\right)^2`, "expand-binomial-square")).toBe(
+      String.raw`a^{2} + b^{2} + 2 a b`,
+    );
+    expect(rewriteLatex(String.raw`\left(a-b\right)^2`, "expand-binomial-square")).toBe(
+      String.raw`a^{2} + b^{2} - 2 a b`,
+    );
+  });
+
+  it("does not expand non-square or non-binomial powers as binomial squares", () => {
+    expect(rewriteLatex(String.raw`\left(a+b\right)^3`, "expand-binomial-square")).toBeNull();
+    expect(rewriteLatex(String.raw`\left(a+b+c\right)^2`, "expand-binomial-square")).toBeNull();
+  });
+
   it("combines a product of matching powers with caveat metadata", () => {
     const input = String.raw`a^n b^n`;
     const options = getApplicableIdentityRewrites(parse(input));
@@ -845,6 +862,24 @@ describe("identity rewrites", () => {
 
   it("does not combine product powers with different exponents", () => {
     expect(rewriteLatex(String.raw`a^n b^m`, "combine-product-powers")).toBeNull();
+  });
+
+  it("combines a product of roots with matching degrees", () => {
+    const input = String.raw`\sqrt{a}\sqrt{b}`;
+    const options = getApplicableIdentityRewrites(parse(input));
+
+    expect(options.map((option) => option.id)).toContain("combine-product-roots");
+    expect(options.find((option) => option.id === "combine-product-roots")).toMatchObject({
+      caveat: "Branch/domain-sensitive; generally safe for positive real bases.",
+    });
+    expect(rewriteLatex(input, "combine-product-roots")).toBe(String.raw`\sqrt{a b}`);
+    expect(rewriteLatex(String.raw`\sqrt[3]{a}\sqrt[3]{b}`, "combine-product-roots")).toBe(
+      String.raw`\sqrt[3]{a b}`,
+    );
+  });
+
+  it("does not combine roots with different degrees", () => {
+    expect(rewriteLatex(String.raw`\sqrt{a}\sqrt[3]{b}`, "combine-product-roots")).toBeNull();
   });
 
   it("rewrites simple reciprocals to negative powers", () => {

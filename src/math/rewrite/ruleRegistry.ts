@@ -1,4 +1,5 @@
 import { extractFactorFromProduct } from "./rules/extractFactorFromProduct";
+import { extractFactorFromMatchingPower } from "./rules/extractFactorFromMatchingPower";
 import { extractFactorFromDerivative } from "./rules/extractFactorFromDerivative";
 import { extractFactorFromDifferential } from "./rules/extractFactorFromDifferential";
 import { extractFactorFromIntegral } from "./rules/extractFactorFromIntegral";
@@ -8,6 +9,7 @@ import { extractNumeratorTermFromFraction } from "./rules/extractNumeratorTermFr
 import { extractNumeratorFromFraction } from "./rules/extractNumeratorFromFraction";
 import { extractTermFromSum } from "./rules/extractTermFromSum";
 import { insertFactorIntoDenominator } from "./rules/insertFactorIntoDenominator";
+import { insertFactorIntoMatchingPower } from "./rules/insertFactorIntoMatchingPower";
 import { insertFactorIntoProduct } from "./rules/insertFactorIntoProduct";
 import { insertTermIntoSum } from "./rules/insertTermIntoSum";
 import { pivotAdditiveAcrossEquation } from "./rules/pivotAdditiveAcrossEquation";
@@ -29,6 +31,7 @@ export const UPWARD_REWRITE_RULES: UpwardRewriteRule[] = [
   extractNumeratorFromFraction(),
   extractDenominatorFactorFromFraction(),
   extractFactorFromProduct(),
+  extractFactorFromMatchingPower(),
   extractFactorFromDerivative(),
   extractFactorFromDifferential(),
   extractFactorFromIntegral(),
@@ -43,6 +46,7 @@ export const PIVOT_REWRITE_RULES: PivotRewriteRule[] = [
 
 export const DOWNWARD_REWRITE_RULES: DownwardRewriteRule[] = [
   insertTermIntoSum(),
+  insertFactorIntoMatchingPower(),
   insertFactorIntoDenominator(),
   insertFactorIntoProduct(),
 ];

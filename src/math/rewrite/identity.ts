@@ -14,6 +14,7 @@ import {
   partialDerivativeOperator,
   fullDerivativeOperator,
   power,
+  root,
   secondOrderPartialDerivative,
   sym,
   type Expr,
@@ -232,12 +233,27 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
     apply: expandPowerOfProduct,
   },
   {
+    id: "expand-binomial-square",
+    label: "(a + b)^2 -> a^2 + b^2 + 2 a b",
+    latex: String.raw`\left(a+b\right)^2 \to a^2+b^2+2ab`,
+    defaultPriority: 61,
+    apply: expandBinomialSquare,
+  },
+  {
     id: "combine-product-powers",
     label: "a^n b^n -> (a b)^n",
     latex: String.raw`a^{n}b^{n} \to \left(ab\right)^{n}`,
     caveat: POWER_BRANCH_CAVEAT,
     defaultPriority: 58,
     apply: combineProductPowers,
+  },
+  {
+    id: "combine-product-roots",
+    label: "root(n, a) root(n, b) -> root(n, a b)",
+    latex: String.raw`\sqrt[n]{a}\sqrt[n]{b} \to \sqrt[n]{ab}`,
+    caveat: POWER_BRANCH_CAVEAT,
+    defaultPriority: 58,
+    apply: combineProductRoots,
   },
   {
     id: "reciprocal-to-negative-power",
@@ -1018,6 +1034,26 @@ function expandPowerOfProduct(expr: Expr): Expr | null {
   return multiply(base.factors.map((factor) => power(factor, unwrapped.exponent)));
 }
 
+function expandBinomialSquare(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  const unwrapped = unwrapDisplayGroup(signed.value);
+  if (unwrapped.kind !== "power" || numericValue(unwrapped.exponent) !== 2) return null;
+
+  const base = unwrapDisplayGroup(unwrapped.base);
+  if (base.kind !== "add" || base.terms.length !== 2) return null;
+
+  const first = splitSign(base.terms[0]!);
+  const second = splitSign(base.terms[1]!);
+  const crossTerm = multiply([num(2), cloneExpr(first.value), cloneExpr(second.value)]);
+  const signedCrossTerm = first.sign === second.sign ? crossTerm : flipSign(crossTerm);
+  const expanded = add([
+    power(cloneExpr(first.value), num(2)),
+    power(cloneExpr(second.value), num(2)),
+    signedCrossTerm,
+  ]);
+  return applyOuterSign(signed.sign, expanded);
+}
+
 function combineProductPowers(expr: Expr): Expr | null {
   const unwrapped = unwrapDisplayGroup(expr);
   if (unwrapped.kind !== "multiply" || unwrapped.factors.length < 2) return null;
@@ -1038,6 +1074,25 @@ function combineProductPowers(expr: Expr): Expr | null {
   return power(
     displayGroup("paren", multiply(powers.map((factor) => cloneExpr(factor!.base)))),
     firstPower.exponent,
+  );
+}
+
+function combineProductRoots(expr: Expr): Expr | null {
+  const unwrapped = unwrapDisplayGroup(expr);
+  if (unwrapped.kind !== "multiply" || unwrapped.factors.length < 2) return null;
+
+  const roots = unwrapped.factors.map((factor) => {
+    const unwrappedFactor = unwrapDisplayGroup(factor);
+    return unwrappedFactor.kind === "root" ? unwrappedFactor : null;
+  });
+  if (roots.some((factor): factor is null => factor === null)) return null;
+
+  const [firstRoot] = roots;
+  if (!firstRoot || !roots.every((factor) => factor?.degree === firstRoot.degree)) return null;
+
+  return root(
+    multiply(roots.map((factor) => cloneExpr(factor!.value))),
+    firstRoot.degree,
   );
 }
 
