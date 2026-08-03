@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36" role="img" aria-labelledby="substitute-title">
+  <title id="substitute-title">Substitute</title>
+  <rect x="0.5" y="0.5" width="35" height="35" rx="3" fill="#424242" stroke="#757575"/>
+  <svg x="7" y="7" width="22" height="22" viewBox="0 0 24 24" fill="rgba(255,255,255,0.87)" color="rgba(255,255,255,0.87)">
+    <rect x="2.5" y="7" width="5.5" height="10" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M10.5 12h3.5M12.5 10l2 2-2 2"/><rect x="16" y="7" width="5.5" height="10" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.6"/>
+  </svg>
+</svg>

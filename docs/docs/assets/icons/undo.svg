@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36" role="img" aria-labelledby="undo-title">
+  <title id="undo-title">Undo</title>
+  <rect x="0.5" y="0.5" width="35" height="35" rx="3" fill="#424242" stroke="#757575"/>
+  <svg x="7" y="7" width="22" height="22" viewBox="0 0 24 24" fill="rgba(255,255,255,0.87)" color="rgba(255,255,255,0.87)">
+    <path d="M9.7 6.3a1 1 0 0 1 0 1.4L7.4 10H15a5 5 0 1 1 0 10h-2a1 1 0 1 1 0-2h2a3 3 0 1 0 0-6H7.4l2.3 2.3a1 1 0 1 1-1.4 1.4l-4-4a1 1 0 0 1 0-1.4l4-4a1 1 0 0 1 1.4 0z"/>
+  </svg>
+</svg>

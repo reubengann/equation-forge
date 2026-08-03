@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36" role="img" aria-labelledby="flip-relation-title">
+  <title id="flip-relation-title">Flip relation</title>
+  <rect x="0.5" y="0.5" width="35" height="35" rx="3" fill="#424242" stroke="#757575"/>
+  <svg x="7" y="7" width="22" height="22" viewBox="0 0 24 24" fill="rgba(255,255,255,0.87)" color="rgba(255,255,255,0.87)">
+    <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 9a7 7 0 0 1 11.95-2.85L20 9"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 5v4h-4"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7.5 14h9M7.5 17.5h9"/>
+  </svg>
+</svg>
