@@ -17,6 +17,7 @@ nav:
           - Carnot reservoirs: tutorials/carnot-reservoirs.md
   - Concepts: concepts.md
   - Rewrite features: rewrite-features.md
+  - Keyboard shortcuts: keyboard-shortcuts.md
   - FAQ: faq.md
 
 theme:
