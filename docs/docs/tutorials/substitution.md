@@ -4,6 +4,33 @@ Substitution replaces a selected expression while preserving its surrounding
 structure. The replacement can come from another equation in the pad or be
 entered directly.
 
+## Enter a replacement expression
+
+![Enter a substitution expression](../assets/animations/substitute_expr.gif)
+
+Enter:
+
+$$
+E = K + m g
+$$
+
+Select \(K\), open ![Substitute](../assets/icons/substitute.svg)
+**Substitute**, and enter:
+
+$$
+\frac{1}{2} m v^2
+$$
+
+After confirmation:
+
+$$
+E = \frac{1}{2} m v^2 + m g
+$$
+
+The replacement must be an expression, not a complete equality or inequality.
+Required parentheses are inserted when the replacement's position needs
+grouping.
+
 ## Substitute from another equation
 
 Create two equation rows:
@@ -37,33 +64,6 @@ $$
 Equation Forge searches other pad rows for relations that can replace the
 selection. Notice that the term to be replaced has to be the sole term on the left-hand side of another equation. If it were reversed, like, $x^2 = y$, this will not be recognized.
 
-## Enter a replacement expression
-
-Enter:
-
-$$
-a^2+s=2
-$$
-
-Select \(s\), open ![Substitute](../assets/icons/substitute.svg)
-**Substitute**, and enter:
-
-$$
-\int x^2\,\mathrm{d}x
-$$
-
-After confirmation:
-
-$$
-a^2+\int x^2\,\mathrm{d}x=2
-$$
-
-![Enter a substitution expression](../assets/animations/substitute_expr.gif)
-
-The replacement must be an expression, not a complete equality or inequality.
-Required parentheses are inserted when the replacement's position needs
-grouping.
-
 ## Replace every match
 
 ![Substitute all matching
@@ -86,6 +86,4 @@ that distinction.
 - Substitution changes the active equation only; it does not mutate the source
   relation.
 
-Next, try [Operations, identities, and
-evaluation](operations-identities-and-evaluation.md), or read the
-[substitution reference](../rewrite-features.md#substitute).
+Next, try [Operations, identities, and evaluation](operations-identities-and-evaluation.md)

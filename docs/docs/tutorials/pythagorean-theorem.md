@@ -42,8 +42,7 @@ $$
 ## 3. Expand the outer square
 
 Select \((a+b)^2\), click
-![Apply identity](../assets/icons/apply-identity.svg) **Apply identity**, and
-choose **expand-binomial-square**:
+![Apply identity](../assets/icons/apply-identity.svg) **Apply identity** or **Choose Identity** ![Choose Identity](../assets/icons/choose-identity.svg) to explicitly choose the binomial expansion.
 
 $$
 a^2+b^2+2ab=2ab+c^2
@@ -72,9 +71,4 @@ areas counted on both sides of the original area equation.
 
 ## What this derivation demonstrates
 
-- A geometric argument can provide the starting equation for a symbolic
-  derivation.
-- Cleanup combines numerical factors and cancels additive inverses.
-- A named identity expands a binomial square.
-- Additive dragging performs the same operation on opposite sides of an
-  equation.
+In the [next](enthalpy-from-equation-of-state.md) derivation, we combine three equations into one

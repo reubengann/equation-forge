@@ -67,5 +67,4 @@ silently perform extra algebra.
 - Distribution and factoring preserve equivalence but expose different useful
   forms.
 
-Continue to [Substitution](substitution.md), or see the
-[automatic rewrite reference](../rewrite-features.md#automatic-rewrites).
+Continue to [Substitution](substitution.md)
