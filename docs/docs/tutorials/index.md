@@ -22,9 +22,11 @@ Forge before.
 
 ## Worked derivations
 
-These longer tutorials apply the same tools to thermodynamics problems adapted
-from Sears and Salinger.
+Begin with a compact geometric proof, then apply the same tools to longer
+thermodynamics problems adapted from Sears and Salinger.
 
+- [The Pythagorean theorem](pythagorean-theorem.md) turns a square assembled
+  from four right triangles into a short algebraic derivation.
 - [Enthalpy from an equation of state](enthalpy-from-equation-of-state.md)
   combines two constitutive relations through substitution, cancellation, and
   factoring.

@@ -13,6 +13,7 @@ nav:
           - Substitution: tutorials/substitution.md
           - Operations, identities, and evaluation: tutorials/operations-identities-and-evaluation.md
       - Worked derivations:
+          - Pythagorean theorem: tutorials/pythagorean-theorem.md
           - Enthalpy from an equation of state: tutorials/enthalpy-from-equation-of-state.md
           - Carnot reservoirs: tutorials/carnot-reservoirs.md
   - Concepts: concepts.md

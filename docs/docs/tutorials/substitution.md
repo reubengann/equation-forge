@@ -35,7 +35,7 @@ $$
 ![Substitute from another equation](../assets/animations/substitute_existing.gif)
 
 Equation Forge searches other pad rows for relations that can replace the
-selection. The source equation is not changed.
+selection. Notice that the term to be replaced has to be the sole term on the left-hand side of another equation. If it were reversed, like, $x^2 = y$, this will not be recognized.
 
 ## Enter a replacement expression
 

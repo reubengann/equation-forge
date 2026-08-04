@@ -342,7 +342,7 @@ function cleanupMultiply(expr: Extract<Expr, { kind: "multiply" }>): Expr | null
 
   const keptFactors: Expr[] = [];
   let productSign: Sign = exprSign(expr);
-  let numericProduct = 1;
+  let numericProduct: Rational = { numerator: 1, denominator: 1 };
   let numericFactorCount = 0;
   let firstNumericFactorIndex = 0;
   let changed = false;
@@ -353,10 +353,10 @@ function cleanupMultiply(expr: Extract<Expr, { kind: "multiply" }>): Expr | null
     const positiveFactor = signedFactor.value;
     if (signedFactor.sign === -1) changed = true;
 
-    const numericValue = numericLiteralValue(positiveFactor);
+    const numericValue = numericRationalValue(positiveFactor);
     if (numericValue !== null) {
       if (numericFactorCount === 0) firstNumericFactorIndex = keptFactors.length;
-      numericProduct *= numericValue;
+      numericProduct = multiplyRationals(numericProduct, numericValue);
       numericFactorCount += 1;
       continue;
     }
@@ -385,16 +385,21 @@ function cleanupMultiply(expr: Extract<Expr, { kind: "multiply" }>): Expr | null
     keptFactors.push(positiveFactor);
   }
 
-  if (numericProduct < 0) {
+  if (numericProduct.numerator < 0) {
     productSign = multiplySigns(productSign, -1);
-    numericProduct = Math.abs(numericProduct);
+    numericProduct = { ...numericProduct, numerator: Math.abs(numericProduct.numerator) };
     changed = true;
   }
 
-  if (numericFactorCount > 0 && numericProduct !== 1) {
-    keptFactors.splice(firstNumericFactorIndex, 0, num(numericProduct));
+  if (numericFactorCount > 0 && (numericProduct.numerator !== 1 || numericProduct.denominator !== 1)) {
+    keptFactors.splice(firstNumericFactorIndex, 0, rationalToExpr(numericProduct));
   }
-  if (numericFactorCount > 1 || (numericFactorCount === 1 && numericProduct === 1)) changed = true;
+  if (
+    numericFactorCount > 1 ||
+    (numericFactorCount === 1 && numericProduct.numerator === numericProduct.denominator)
+  ) {
+    changed = true;
+  }
   if (productSign !== exprSign(expr)) changed = true;
 
   const collapsedFractionFactors = cancelAcrossFractionFactors(keptFactors);
@@ -843,6 +848,16 @@ function addRationals(left: Rational, right: Rational): Rational {
     numerator: left.numerator * right.denominator + right.numerator * left.denominator,
     denominator: left.denominator * right.denominator,
     decimalPlaces: maxDefined(left.decimalPlaces, right.decimalPlaces),
+  });
+}
+
+function multiplyRationals(left: Rational, right: Rational): Rational {
+  return normalizeRational({
+    numerator: left.numerator * right.numerator,
+    denominator: left.denominator * right.denominator,
+    ...(left.decimalPlaces != null || right.decimalPlaces != null
+      ? { decimalPlaces: (left.decimalPlaces ?? 0) + (right.decimalPlaces ?? 0) }
+      : {}),
   });
 }
 

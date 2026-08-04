@@ -500,6 +500,19 @@ describe("autoRewriteSelection cleanup", () => {
     expect(exprToLatex(next!, false)).toBe("6 a");
   });
 
+  it("folds rational numeric factors in products", () => {
+    for (const latex of [
+      String.raw`4 \frac{1}{2} a b`,
+      String.raw`4 \left(\frac{1}{2} a b\right)`,
+    ]) {
+      const document = buildDocument(latex);
+      const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
+
+      expect(next).not.toBeNull();
+      expect(exprToLatex(next!, false)).toBe("2 a b");
+    }
+  });
+
   it("combines repeated factors with positive integer powers", () => {
     const document = buildDocument(String.raw`v 2 a v^{2}`);
     const next = autoRewriteSelection(document, { kind: "single", nodeId: "n1" }, "cleanup");
