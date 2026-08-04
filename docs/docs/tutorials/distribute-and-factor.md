@@ -3,11 +3,11 @@
 Distribution and factoring are inverse structural rewrites. This tutorial
 starts with a product, expands it, and then restores the common factor.
 
-**Prerequisite:** know how to double-click or marquee-select an expression.
-
 ## Distribute a product
 
-Enter:
+![Distribute a product over a sum](../assets/animations/distribute.gif)
+
+Enter the expression:
 
 $$
 x(y+z)
@@ -15,8 +15,7 @@ $$
 
 1. Select the complete product by double-clicking \(x\), or marquee-drag around
    the expression.
-2. Click ![Distribute
-   selection](../assets/icons/distribute-selection.svg) **Distribute
+2. Click ![Distribute selection](../assets/icons/distribute-selection.svg) **Distribute
    selection**, or press <kbd>D</kbd>.
 
 Equation Forge applies \(x\) to each term:
@@ -25,17 +24,17 @@ $$
 x(y+z)\longrightarrow xy+xz
 $$
 
-![Distribute a product over a sum](../assets/animations/distribute.gif)
-
 The action is enabled only when the selected structure matches a supported
 distribution rule. Selecting only \(x\) or only \(y+z\) is not enough for this
 rewrite.
 
 ## Factor the result
 
+![Factor common term from sum](../assets/animations/factor.gif)
+
 With \(xy+xz\) displayed:
 
-1. Marquee-drag around both terms to select the complete sum.
+1. Triple-click a term until the whole sum is selected (or marquee-drag around both terms to select the complete sum)
 2. Click ![Factor selection](../assets/icons/factor-selection.svg) **Factor
    selection**, or press <kbd>F</kbd>.
 
@@ -45,10 +44,13 @@ $$
 xy+xz\longrightarrow x(y+z)
 $$
 
-If automatic factoring does not choose the intended supported factor, the
-![Force factor
-selection](../assets/icons/force-factor-selection.svg) **Force factor
-selection** dialog can request a specific nonzero simple rational factor.
+If your terms do not have an obvious common factor, you can force factoring of a term. Suppose we want to pull out the $1/2$ from
+
+$$ \left(a+\frac{1}{2}b\right)$$
+
+Select the parentheses and use the ![Force factor selection](../assets/icons/force-factor-selection.svg) **Force factor selection** dialog. Enter $\frac{1}{2}$
+
+![Factor common term from sum](../assets/animations/force_factor.gif)
 
 ## Distinguish factoring from cleanup
 

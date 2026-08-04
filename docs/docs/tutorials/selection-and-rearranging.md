@@ -13,11 +13,15 @@ $$
 ax+b=c
 $$
 
+![Double-click and move a product](../assets/animations/multiselect_basic.gif)
+
 In display mode:
 
-- click \(b\) to select that symbol;
-- double-click \(a\) or \(x\) to select the enclosing product \(ax\);
-- click empty space to clear the selection.
+1. double-click \(a\) or \(x\) to select the enclosing product \(ax\);
+2. Confirm that the complete product \(ax\) is highlighted.
+3. Drag the selection to the right-hand side and release at the insertion
+   preview.
+4. click empty space to clear the selection.
 
 A selection follows the expression tree. Double-clicking expands from a small
 node to a meaningful enclosing expression; it does not select a range of
@@ -28,13 +32,10 @@ rendered characters.
 To move \(ax\) as one additive term:
 
 1. Make sure ![Additive move
-   mode](../assets/icons/additive-move-mode.svg) **Additive move mode** is
+mode](../assets/icons/additive-move-mode.svg) **Additive move mode** is
    active.
 2. Press in empty space near \(a\), then marquee-drag across both \(a\) and
    \(x\).
-3. Confirm that the complete product \(ax\) is highlighted.
-4. Drag the selection to the right-hand side and release at the insertion
-   preview.
 
 The result is:
 
@@ -42,7 +43,7 @@ $$
 b=c-ax
 $$
 
-![Marquee-select and move a product](../assets/animations/multiselect_basic.gif)
+![Marquee-select and move a product](../assets/animations/marquee.gif)
 
 The marquee creates a structural multi-selection. Equation Forge accepts it
 only when the enclosed nodes form a supported group, such as adjacent factors
@@ -68,13 +69,4 @@ $$
 This move changes order but does not move a term across a relation, so the sign
 of \(y\) does not change.
 
-## What to notice
-
-- Clicking selects a node; double-clicking selects an enclosing expression.
-- A marquee can select adjacent structural parts as one source.
-- The insertion preview shows both whether a drop is valid and where the
-  selection will be inserted.
-- Rearranging within a sum differs from moving a term across an equality.
-
-Read [Selection](../concepts.md#selection) for the underlying model or continue
-to [Distribute and factor](distribute-and-factor.md).
+Continue to [Distribute and factor](distribute-and-factor.md).
