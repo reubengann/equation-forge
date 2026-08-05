@@ -20,7 +20,7 @@ Despite `\frac{\partial{x}}{\partial{y}}` being parsed as
   - n3 symbol [variable] (name=y)
 ```
 
-This causes problems when, say, pulling it out of an integral, because it is treated as a quotient of differentials. To a certain extent it makes sense, since those two components can be dragged separately.
+This causes problems when, say, pulling it out of an integral, because it is treated as a quotient of differentials. To a certain extent it makes sense, since those two components can be dragged separately, whereas in a partial derivative they cannot. But instead we could treat pulling a differential out of a full derivative as a new move rule. That would bridge the semantic gap between `full derivative` and `ratio of differentials`.
 
 ## Hard
 
