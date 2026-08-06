@@ -39,6 +39,7 @@ export type EquationRowProps = {
   mathFieldId?: string;
   substituteSuggestionSources?: PadDefinitionSource[];
   wrapEquationCopiesInDisplayMath?: boolean;
+  showAcceptButton?: boolean;
 };
 
 function acceptButtonLabel(mode: EquationMode) {
@@ -59,6 +60,7 @@ export const EquationRow = forwardRef<EquationRowCommands, EquationRowProps>(fun
   mathFieldId,
   substituteSuggestionSources = [],
   wrapEquationCopiesInDisplayMath = false,
+  showAcceptButton = true,
 }, ref) {
   const [entryError, setEntryError] = useState<string | null>(null);
   const [presetIndex, setPresetIndex] = useState(0);
@@ -274,7 +276,9 @@ export const EquationRow = forwardRef<EquationRowCommands, EquationRowProps>(fun
       onPointerDownCapture={onActivate}
       onFocusCapture={onActivate}
       style={{
+        flex: "1 1 0",
         width: "100%",
+        minWidth: 0,
         display: "flex",
         flexDirection: "column",
         gap: "12px",
@@ -285,6 +289,7 @@ export const EquationRow = forwardRef<EquationRowCommands, EquationRowProps>(fun
       <div
         style={{
           width: "100%",
+          minWidth: 0,
           display: "flex",
           gap: "8px",
           alignItems: "stretch",
@@ -329,6 +334,7 @@ export const EquationRow = forwardRef<EquationRowCommands, EquationRowProps>(fun
           <div
             style={{
               flex: 1,
+              minWidth: 0,
               display: "flex",
               flexDirection: "column",
               gap: "6px",
@@ -402,26 +408,29 @@ export const EquationRow = forwardRef<EquationRowCommands, EquationRowProps>(fun
             </button>
           </>
         )}
-        <button
-          type="button"
-          data-testid="accept-equation"
-          title={state.mode === "display" ? "Edit (E)" : "Accept"}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => handleAcceptToggle()}
-          style={{
-            width: "40px",
-            height: "40px",
-            alignSelf: "center",
-            boxSizing: "border-box",
-            border: "1px solid #757575",
-            borderRadius: "3px",
-            background: "#424242",
-            color: "rgba(255, 255, 255, 0.87)",
-            padding: "8px",
-          }}
-        >
-          {acceptButtonLabel(state.mode)}
-        </button>
+        {showAcceptButton && (
+          <button
+            type="button"
+            data-testid="accept-equation"
+            title={state.mode === "display" ? "Edit (E)" : "Accept"}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => handleAcceptToggle()}
+            style={{
+              width: "40px",
+              height: "40px",
+              flexShrink: 0,
+              alignSelf: "center",
+              boxSizing: "border-box",
+              border: "1px solid #757575",
+              borderRadius: "3px",
+              background: "#424242",
+              color: "rgba(255, 255, 255, 0.87)",
+              padding: "8px",
+            }}
+          >
+            {acceptButtonLabel(state.mode)}
+          </button>
+        )}
       </div>
     </section>
   );

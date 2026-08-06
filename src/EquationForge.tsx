@@ -12,6 +12,7 @@ import type { PadEquation } from "./pad/padDocument";
 
 const sideControlStyle: CSSProperties = {
   display: "flex",
+  flexShrink: 0,
   flexDirection: "column",
   gap: "6px",
   padding: "4px",
@@ -24,6 +25,7 @@ const sideControlStyle: CSSProperties = {
 const PAD_ICON_BUTTON_STYLE: CSSProperties = {
   width: "32px",
   height: "32px",
+  flexShrink: 0,
   padding: 0,
   display: "inline-flex",
   alignItems: "center",
@@ -148,14 +150,29 @@ export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProp
   return (
     <section
       className="equation-forge-ui"
-      style={{ display: "flex", flexDirection: "column", gap: "14px", alignItems: "stretch" }}
+      style={{
+        width: "100%",
+        minWidth: 0,
+        display: "flex",
+        flexDirection: "column",
+        gap: "14px",
+        alignItems: "stretch",
+      }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "space-between",
+          gap: "12px",
+          alignItems: "center",
+        }}
+      >
         <div>
           <h1 style={{ margin: 0, fontSize: "1.25rem" }}>{title}</h1>
           <div style={{ fontSize: "0.9rem", opacity: 0.75 }}>{description}</div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "12px" }}>
           <label
             style={{
               display: "inline-flex",
@@ -193,7 +210,7 @@ export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProp
         </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px", overflowX: "auto" }}>
+      <div style={{ display: "flex", minWidth: 0, flexDirection: "column", gap: "12px" }}>
         {controller.equations.map((equation, index) => {
           const isActive = controller.activeEquationId === equation.id;
           const isFirstEquation = index === 0;
@@ -216,7 +233,9 @@ export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProp
                 border: `1px solid ${isActive ? "#7c4dff" : "#575757"}`,
                 borderRadius: "6px",
                 background: isActive ? "rgba(124, 77, 255, 0.08)" : "rgba(255, 255, 255, 0.03)",
-                minWidth: "1200px",
+                boxSizing: "border-box",
+                width: "100%",
+                minWidth: 0,
               }}
             >
               <div style={sideControlStyle}>
@@ -235,7 +254,15 @@ export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProp
                   testId="move-pad-equation-down"
                 />
               </div>
-              <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+              <div
+                style={{
+                  flex: "1 1 0",
+                  minWidth: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
                 <EquationRow
                   ref={(commands) => {
                     equationCommandsByIdRef.current[equation.id] = commands;
@@ -249,6 +276,7 @@ export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProp
                   mathFieldId={`equation-mathfield-${equation.id}`}
                   substituteSuggestionSources={definitionSources}
                   wrapEquationCopiesInDisplayMath={controller.wrapEquationCopiesInDisplayMath}
+                  showAcceptButton={false}
                 />
                 <span
                   style={{
@@ -257,6 +285,7 @@ export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProp
                     padding: "2px 6px",
                     borderRadius: "6px",
                     background: "rgba(255, 255, 255, 0.06)",
+                    flexShrink: 0,
                     lineHeight: 1.2,
                     whiteSpace: "nowrap",
                   }}
@@ -266,6 +295,16 @@ export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProp
               </div>
               <div style={sideControlStyle}>
                 {hostActions}
+                <PadIconButton
+                  label={equation.state.mode === "display" ? "Edit equation" : "Accept equation"}
+                  icon={equation.state.mode === "display" ? "edit" : "check"}
+                  onClick={() => {
+                    const commands = equationCommandsByIdRef.current[equation.id];
+                    if (equation.state.mode === "display") commands?.focusEntry();
+                    else commands?.acceptEntry();
+                  }}
+                  testId="accept-equation"
+                />
                 <PadIconButton
                   label="Duplicate equation"
                   icon="content_copy"

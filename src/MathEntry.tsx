@@ -228,6 +228,8 @@ export const MathEntry = forwardRef<EquationEntryCommands, MathEntryProps>(funct
     <div
       style={{
         flex: 1,
+        minWidth: 0,
+        width: "100%",
         display: "flex",
         flexDirection: "column",
         gap: "6px",
@@ -276,13 +278,14 @@ export const MathEntry = forwardRef<EquationEntryCommands, MathEntryProps>(funct
         ref={slotRef}
         style={{
           flex: 1,
+          minWidth: 0,
           boxSizing: "border-box",
           height: "112px",
           color: "rgba(255, 255, 255, 1.0)",
           textAlign: "left",
           display: "flex",
           alignItems: "center",
-          overflow: "visible",
+          overflow: "hidden",
           border: "1px solid #757575",
           padding: "10px",
         }}
@@ -300,6 +303,9 @@ export const MathEntry = forwardRef<EquationEntryCommands, MathEntryProps>(funct
           onKeyDown={handleKeyDown}
           style={{
             width: "100%",
+            minWidth: 0,
+            maxWidth: "100%",
+            boxSizing: "border-box",
             fontSize: "1.2em",
             background: "transparent",
             border: "none",

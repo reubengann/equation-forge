@@ -31,6 +31,7 @@ const materialIconNames = [
   "data_array",
   "data_object",
   "delete",
+  "edit",
   "exposure_neg_1",
   "function",
   "functions",

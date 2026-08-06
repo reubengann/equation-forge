@@ -95,7 +95,10 @@ const iconButtonDisabledStyle: CSSProperties = {
 };
 
 const toolbarGroupStyle: CSSProperties = {
+  boxSizing: "border-box",
+  maxWidth: "100%",
   display: "flex",
+  flexWrap: "wrap",
   border: "1px solid #757575",
   borderRadius: "3px",
   overflow: "visible",
@@ -241,8 +244,12 @@ export function EquationToolbar({
   return (
     <div
       style={{
-        alignSelf: "flex-start",
+        alignSelf: "stretch",
+        boxSizing: "border-box",
+        width: "100%",
+        maxWidth: "100%",
         display: "flex",
+        flexWrap: "wrap",
         alignItems: "center",
         gap: "10px",
       }}

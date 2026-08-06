@@ -116,4 +116,53 @@ describe("EquationForge commands", () => {
     expect(receivedEquationId).toBe(equation.id);
     expect(JSON.stringify(equation)).toBe(before);
   });
+
+  it("allows equation rows to shrink with a narrow host container", () => {
+    const equation: PadEquation = {
+      id: "eq-responsive",
+      state: createEquationRowState("x = y", "display"),
+    };
+    const entryEquation: PadEquation = {
+      id: "eq-responsive-entry",
+      state: createEquationRowState("a + b = c", "entry"),
+    };
+
+    mount(
+      <EquationForge
+        equations={[equation, entryEquation]}
+        activeEquationId={equation.id}
+        options={{ wrapEquationCopiesInDisplayMath: false }}
+        onEquationsChange={() => undefined}
+        onActiveEquationIdChange={() => undefined}
+        onOptionsChange={() => undefined}
+      />,
+    );
+
+    const forge = container?.querySelector<HTMLElement>(".equation-forge-ui");
+    const row = container?.querySelector<HTMLElement>('[data-testid="pad-equation"]');
+    const moveGroup = container?.querySelector<HTMLElement>(
+      '[aria-label="Move mode"]',
+    );
+    const toolbar = moveGroup?.parentElement;
+    const acceptButton = container?.querySelector<HTMLButtonElement>(
+      '[data-testid="accept-equation"]',
+    );
+    const duplicateButton = container?.querySelector<HTMLButtonElement>(
+      '[data-testid="duplicate-pad-equation"]',
+    );
+    const mathField = container?.querySelector<HTMLElement>(
+      '[data-testid="latex-mathfield"]',
+    );
+
+    expect(forge?.style.minWidth).toBe("0px");
+    expect(row?.style.width).toBe("100%");
+    expect(row?.style.minWidth).toBe("0px");
+    expect(toolbar?.style.maxWidth).toBe("100%");
+    expect(toolbar?.style.flexWrap).toBe("wrap");
+    expect(moveGroup?.style.flexWrap).toBe("wrap");
+    expect(acceptButton?.style.flexShrink).toBe("0");
+    expect(acceptButton?.parentElement).toBe(duplicateButton?.parentElement);
+    expect(mathField?.style.maxWidth).toBe("100%");
+    expect(mathField?.parentElement?.style.overflow).toBe("hidden");
+  });
 });

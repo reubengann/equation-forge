@@ -1333,6 +1333,7 @@ export function EquationEditor({
     <div
       style={{
         flex: 1,
+        minWidth: 0,
         display: "flex",
         flexDirection: "column",
         gap: "12px",
@@ -1398,6 +1399,8 @@ export function EquationEditor({
           minHeight: "100px",
           position: "relative",
           boxSizing: "border-box",
+          minWidth: 0,
+          overflowX: "auto",
           color: "rgba(255, 255, 255, 1.0)",
           paddingLeft: "12px",
           paddingRight: "12px",
