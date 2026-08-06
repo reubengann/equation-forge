@@ -70,7 +70,11 @@ import { ApplyOperationModal } from "./ApplyOperationModal";
 import { ForceFactorModal } from "./ForceFactorModal";
 import { buildPadSubstituteSuggestions, type PadDefinitionSource } from "./substituteSuggestions";
 import type { FunctionSymbolTag } from "./EquationRowState";
-import { formatEquationHistoryLatexForCopy, formatEquationLatexForCopy } from "./copyLatex";
+import {
+  formatEquationHistoryLatexForCopy,
+  formatEquationLatexForCopy,
+  type EquationCopySurroundMode,
+} from "./copyLatex";
 
 type InsertionLineStyle = {
   left: number;
@@ -167,7 +171,7 @@ type EquationEditorProps = {
   recordingHooks?: EquationEditorRecordingHooks;
   isActive?: boolean;
   substituteSuggestionSources?: PadDefinitionSource[];
-  wrapEquationCopiesInDisplayMath?: boolean;
+  copySurroundMode?: EquationCopySurroundMode;
   equationHistoryLatexes?: string[];
 };
 
@@ -186,7 +190,7 @@ export function EquationEditor({
   recordingHooks,
   isActive = true,
   substituteSuggestionSources = [],
-  wrapEquationCopiesInDisplayMath = false,
+  copySurroundMode = "none",
   equationHistoryLatexes = [],
 }: EquationEditorProps) {
   const editorRootRef = useRef<HTMLDivElement | null>(null);
@@ -514,10 +518,10 @@ export function EquationEditor({
 
   const onCopyEquationRequested = useCallback(async () => {
     if (!canCopyEquation) return;
-    const latexForCopy = formatEquationLatexForCopy(compiledDoc.plainLatex, wrapEquationCopiesInDisplayMath);
+    const latexForCopy = formatEquationLatexForCopy(compiledDoc.plainLatex, copySurroundMode);
     const copied = await copyTextToClipboard(latexForCopy);
     if (copied) markCopyEquationSuccess();
-  }, [canCopyEquation, compiledDoc.plainLatex, wrapEquationCopiesInDisplayMath]);
+  }, [canCopyEquation, compiledDoc.plainLatex, copySurroundMode]);
 
   const onCopySelectionRequested = useCallback(async () => {
     if (!canCopySelection) return;

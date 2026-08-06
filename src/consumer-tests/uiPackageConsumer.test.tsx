@@ -29,7 +29,8 @@ describe("@equation-forge/ui package", () => {
         initialDocument.equations[0]?.id ?? null,
       );
       const [options, setOptions] = useState<EquationForgeOptions>({
-        wrapEquationCopiesInDisplayMath: false,
+        copySurroundMode: "none",
+        showEquationNumbers: true,
       });
       latestEquations = equations;
       return (

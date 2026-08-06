@@ -3,11 +3,17 @@ import { formatEquationHistoryLatexForCopy, formatEquationLatexForCopy } from ".
 
 describe("formatEquationLatexForCopy", () => {
   it("returns raw equation latex when display math wrapping is disabled", () => {
-    expect(formatEquationLatexForCopy(String.raw`a+b=c`, false)).toBe(String.raw`a+b=c`);
+    expect(formatEquationLatexForCopy(String.raw`a+b=c`, "none")).toBe(String.raw`a+b=c`);
   });
 
   it("wraps equation latex in display math delimiters when enabled", () => {
-    expect(formatEquationLatexForCopy(String.raw`a+b=c`, true)).toBe(String.raw`$$a+b=c$$`);
+    expect(formatEquationLatexForCopy(String.raw`a+b=c`, "display-math")).toBe(String.raw`$$a+b=c$$`);
+  });
+
+  it("wraps equation latex in an equation environment", () => {
+    expect(formatEquationLatexForCopy(String.raw`a+b=c`, "equation-environment")).toBe(
+      "\\begin{equation}\na+b=c\n\\end{equation}",
+    );
   });
 });
 

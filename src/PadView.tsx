@@ -1,18 +1,16 @@
 import { useState } from "react";
 import { EquationForge, type EquationForgeOptions } from "./EquationForge";
 import {
+  loadBrowserEquationForgeOptions,
   loadBrowserPadDocument,
-  loadBrowserWrapEquationCopiesInDisplayMath,
+  saveBrowserEquationForgeOptions,
   saveBrowserPadEquations,
-  saveBrowserWrapEquationCopiesInDisplayMath,
 } from "./pad/browserPadStorage";
 
 export function PadView() {
   const [equations, setEquations] = useState(() => loadBrowserPadDocument().equations);
   const [activeEquationId, setActiveEquationId] = useState<string | null>(() => equations[0]?.id ?? null);
-  const [options, setOptions] = useState<EquationForgeOptions>(() => ({
-    wrapEquationCopiesInDisplayMath: loadBrowserWrapEquationCopiesInDisplayMath(),
-  }));
+  const [options, setOptions] = useState<EquationForgeOptions>(loadBrowserEquationForgeOptions);
 
   return (
     <EquationForge
@@ -27,7 +25,7 @@ export function PadView() {
       onActiveEquationIdChange={setActiveEquationId}
       onOptionsChange={(nextOptions) => {
         setOptions(nextOptions);
-        saveBrowserWrapEquationCopiesInDisplayMath(nextOptions.wrapEquationCopiesInDisplayMath);
+        saveBrowserEquationForgeOptions(nextOptions);
       }}
     />
   );

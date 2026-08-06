@@ -5,6 +5,7 @@ export {
   type EquationForgeOptions,
   type EquationForgeProps,
 } from "./EquationForge";
+export { type EquationCopySurroundMode } from "./copyLatex";
 export {
   configureEquationForgeEnvironment,
   type ConfigureEquationForgeEnvironmentOptions,

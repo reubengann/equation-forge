@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react";
 import type { EquationRowState } from "../EquationRowState";
 import { compileMathDocument } from "@equation-forge/core/compile";
 import type { PadDefinitionSource } from "../substituteSuggestions";
+import type { EquationCopySurroundMode } from "../copyLatex";
 import {
   createEmptyPadEquation,
   duplicatePadEquation,
@@ -12,10 +13,10 @@ import {
 export type PadDocumentControllerOptions = {
   equations: PadEquation[];
   activeEquationId: string | null;
-  wrapEquationCopiesInDisplayMath: boolean;
+  copySurroundMode: EquationCopySurroundMode;
   onEquationsChange: (nextEquations: PadEquation[]) => void;
   onActiveEquationIdChange: (nextActiveEquationId: string | null) => void;
-  onWrapEquationCopiesInDisplayMathChange: (nextValue: boolean) => void;
+  onCopySurroundModeChange: (nextValue: EquationCopySurroundMode) => void;
 };
 
 export function buildPadDefinitionSources(equations: PadEquation[]): Map<string, PadDefinitionSource> {
@@ -45,10 +46,10 @@ export function getSubstituteSuggestionSourcesForEquation(
 export function usePadDocumentController({
   equations,
   activeEquationId,
-  wrapEquationCopiesInDisplayMath,
+  copySurroundMode,
   onEquationsChange,
   onActiveEquationIdChange,
-  onWrapEquationCopiesInDisplayMathChange,
+  onCopySurroundModeChange,
 }: PadDocumentControllerOptions) {
   const compiledSourcesByEquationId = useMemo(() => buildPadDefinitionSources(equations), [equations]);
 
@@ -131,11 +132,11 @@ export function usePadDocumentController({
     [onActiveEquationIdChange],
   );
 
-  const updateWrapEquationCopiesInDisplayMath = useCallback(
-    (value: boolean) => {
-      onWrapEquationCopiesInDisplayMathChange(value);
+  const updateCopySurroundMode = useCallback(
+    (value: EquationCopySurroundMode) => {
+      onCopySurroundModeChange(value);
     },
-    [onWrapEquationCopiesInDisplayMathChange],
+    [onCopySurroundModeChange],
   );
 
   const getSubstituteSuggestionSources = useCallback(
@@ -146,7 +147,7 @@ export function usePadDocumentController({
   return {
     equations,
     activeEquationId,
-    wrapEquationCopiesInDisplayMath,
+    copySurroundMode,
     compiledSourcesByEquationId,
     addEquation,
     removeEquation,
@@ -155,7 +156,7 @@ export function usePadDocumentController({
     duplicateEquationToEnd,
     updateEquationState,
     activateEquation,
-    updateWrapEquationCopiesInDisplayMath,
+    updateCopySurroundMode,
     getSubstituteSuggestionSources,
   };
 }

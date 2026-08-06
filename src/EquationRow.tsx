@@ -21,6 +21,7 @@ import {
   type EquationRowState,
 } from "./EquationRowState";
 import type { PadDefinitionSource } from "./substituteSuggestions";
+import type { EquationCopySurroundMode } from "./copyLatex";
 
 export type EquationRowCommands = EquationEntryCommands;
 
@@ -38,7 +39,7 @@ export type EquationRowProps = {
   onActivate?: () => void;
   mathFieldId?: string;
   substituteSuggestionSources?: PadDefinitionSource[];
-  wrapEquationCopiesInDisplayMath?: boolean;
+  copySurroundMode?: EquationCopySurroundMode;
   showAcceptButton?: boolean;
 };
 
@@ -59,7 +60,7 @@ export const EquationRow = forwardRef<EquationRowCommands, EquationRowProps>(fun
   onActivate,
   mathFieldId,
   substituteSuggestionSources = [],
-  wrapEquationCopiesInDisplayMath = false,
+  copySurroundMode = "none",
   showAcceptButton = true,
 }, ref) {
   const [entryError, setEntryError] = useState<string | null>(null);
@@ -322,7 +323,7 @@ export const EquationRow = forwardRef<EquationRowCommands, EquationRowProps>(fun
               onCanonicalLatexChanged={handleCanonicalLatexChanged}
               isActive={isActive}
               substituteSuggestionSources={substituteSuggestionSources}
-              wrapEquationCopiesInDisplayMath={wrapEquationCopiesInDisplayMath}
+              copySurroundMode={copySurroundMode}
               equationHistoryLatexes={equationHistoryLatexes}
             />
           ) : (

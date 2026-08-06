@@ -2,6 +2,7 @@ import { act, useState, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { createEquationRowState } from "../EquationRowState";
+import type { EquationCopySurroundMode } from "../copyLatex";
 import {
   buildPadDefinitionSources,
   getSubstituteSuggestionSourcesForEquation,
@@ -64,14 +65,14 @@ describe("pad document controller", () => {
         createEquation("eq-2", "b = c"),
       ]);
       const [activeEquationId, setActiveEquationId] = useState<string | null>("eq-1");
-      const [wrapEquationCopiesInDisplayMath, setWrapEquationCopiesInDisplayMath] = useState(false);
+      const [copySurroundMode, setCopySurroundMode] = useState<EquationCopySurroundMode>("none");
       controller = usePadDocumentController({
         equations,
         activeEquationId,
-        wrapEquationCopiesInDisplayMath,
+        copySurroundMode,
         onEquationsChange: setEquations,
         onActiveEquationIdChange: setActiveEquationId,
-        onWrapEquationCopiesInDisplayMathChange: setWrapEquationCopiesInDisplayMath,
+        onCopySurroundModeChange: setCopySurroundMode,
       });
       latestEquations = equations;
       latestActiveEquationId = activeEquationId;

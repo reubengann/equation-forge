@@ -34,6 +34,7 @@ describe("EquationForge commands", () => {
     const insertedLatex = String.raw`F=ma`;
     const canonicalInsertedLatex = compileMathDocument(insertedLatex).plainLatex;
     let latestEquations: PadEquation[] = [];
+    let latestOptions: EquationForgeOptions | null = null;
 
     function Harness() {
       const [equations, setEquations] = useState<PadEquation[]>([
@@ -44,9 +45,11 @@ describe("EquationForge commands", () => {
       ]);
       const [activeEquationId, setActiveEquationId] = useState<string | null>("eq-1");
       const [options, setOptions] = useState<EquationForgeOptions>({
-        wrapEquationCopiesInDisplayMath: false,
+        copySurroundMode: "none",
+        showEquationNumbers: true,
       });
       latestEquations = equations;
+      latestOptions = options;
       return (
         <EquationForge
           ref={commandsRef}
@@ -76,6 +79,15 @@ describe("EquationForge commands", () => {
     });
     expect(latestEquations[0]?.state.history.past.map((step) => step.latex)).toEqual([originalLatex]);
     expect(latestEquations[0]?.state.history.present.latex).toBe(canonicalInsertedLatex);
+
+    act(() => commandsRef.current?.addEquation());
+    expect(latestEquations).toHaveLength(2);
+
+    act(() => commandsRef.current?.setCopySurroundMode("equation-environment"));
+    expect(latestOptions).toMatchObject({ copySurroundMode: "equation-environment" });
+
+    act(() => commandsRef.current?.setShowEquationNumbers(false));
+    expect(latestOptions).toMatchObject({ showEquationNumbers: false });
   });
 
   it("provides read-only equation context to host actions", () => {
@@ -90,7 +102,7 @@ describe("EquationForge commands", () => {
       <EquationForge
         equations={[equation]}
         activeEquationId={equation.id}
-        options={{ wrapEquationCopiesInDisplayMath: false }}
+        options={{ copySurroundMode: "none", showEquationNumbers: true }}
         onEquationsChange={() => undefined}
         onActiveEquationIdChange={() => undefined}
         onOptionsChange={() => undefined}
@@ -131,7 +143,7 @@ describe("EquationForge commands", () => {
       <EquationForge
         equations={[equation, entryEquation]}
         activeEquationId={equation.id}
-        options={{ wrapEquationCopiesInDisplayMath: false }}
+        options={{ copySurroundMode: "none", showEquationNumbers: true }}
         onEquationsChange={() => undefined}
         onActiveEquationIdChange={() => undefined}
         onOptionsChange={() => undefined}
@@ -164,5 +176,27 @@ describe("EquationForge commands", () => {
     expect(acceptButton?.parentElement).toBe(duplicateButton?.parentElement);
     expect(mathField?.style.maxWidth).toBe("100%");
     expect(mathField?.parentElement?.style.overflow).toBe("hidden");
+  });
+
+  it("can suppress the header and equation number badges", () => {
+    const equation: PadEquation = {
+      id: "eq-embedded",
+      state: createEquationRowState("x = y", "display"),
+    };
+
+    mount(
+      <EquationForge
+        equations={[equation]}
+        activeEquationId={equation.id}
+        options={{ copySurroundMode: "display-math", showEquationNumbers: false }}
+        onEquationsChange={() => undefined}
+        onActiveEquationIdChange={() => undefined}
+        onOptionsChange={() => undefined}
+        showHeader={false}
+      />,
+    );
+
+    expect(container?.querySelector("h1")).toBeNull();
+    expect(container?.textContent).not.toContain("(1)");
   });
 });
