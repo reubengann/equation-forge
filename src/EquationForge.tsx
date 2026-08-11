@@ -45,7 +45,7 @@ export type EquationForgeOptions = {
 };
 
 export type EquationForgeCommands = {
-  addEquation: () => void;
+  addEquation: (latex?: string) => void;
   setCopySurroundMode: (mode: EquationCopySurroundMode) => void;
   setShowEquationNumbers: (show: boolean) => void;
   insertLatex: (latex: string) => void;
@@ -235,7 +235,7 @@ export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProp
               type="button"
               data-testid="add-pad-equation"
               onMouseDown={(event) => event.preventDefault()}
-              onClick={controller.addEquation}
+              onClick={() => controller.addEquation()}
               style={{
                 boxSizing: "border-box",
                 border: "1px solid #757575",

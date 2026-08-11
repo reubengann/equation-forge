@@ -49,10 +49,12 @@ export function createEquationId(): string {
   return `eq-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function createEmptyPadEquation(): PadEquation {
+export function createEmptyPadEquation(
+  latex = DEFAULT_PAD_EQUATION_LATEX,
+): PadEquation {
   return {
     id: createEquationId(),
-    state: createDraftEquationRowState(DEFAULT_PAD_EQUATION_LATEX),
+    state: createDraftEquationRowState(latex),
   };
 }
 

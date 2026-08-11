@@ -80,8 +80,13 @@ describe("EquationForge commands", () => {
     expect(latestEquations[0]?.state.history.past.map((step) => step.latex)).toEqual([originalLatex]);
     expect(latestEquations[0]?.state.history.present.latex).toBe(canonicalInsertedLatex);
 
-    act(() => commandsRef.current?.addEquation());
+    const newEquationLatex = String.raw`E=mc^2`;
+    act(() => commandsRef.current?.addEquation(newEquationLatex));
     expect(latestEquations).toHaveLength(2);
+    expect(latestEquations[1]?.state).toMatchObject({
+      latex: newEquationLatex,
+      mode: "entry",
+    });
 
     act(() => commandsRef.current?.setCopySurroundMode("equation-environment"));
     expect(latestOptions).toMatchObject({ copySurroundMode: "equation-environment" });

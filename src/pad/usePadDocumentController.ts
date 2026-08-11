@@ -53,8 +53,8 @@ export function usePadDocumentController({
 }: PadDocumentControllerOptions) {
   const compiledSourcesByEquationId = useMemo(() => buildPadDefinitionSources(equations), [equations]);
 
-  const addEquation = useCallback(() => {
-    const equation = createEmptyPadEquation();
+  const addEquation = useCallback((latex?: string) => {
+    const equation = createEmptyPadEquation(latex);
     onEquationsChange([...equations, equation]);
     onActiveEquationIdChange(equation.id);
   }, [equations, onActiveEquationIdChange, onEquationsChange]);
