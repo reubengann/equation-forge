@@ -1,7 +1,11 @@
 import { act, createRef, useState, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
-import { EquationForge, type EquationForgeCommands, type EquationForgeOptions } from "./EquationForge";
+import {
+  EquationForge,
+  type EquationForgeCommands,
+  type EquationForgeOptions,
+} from "./EquationForge";
 import { createEquationRowState } from "./EquationRowState";
 import { compileMathDocument } from "./math/compile/compileMathDocument";
 import type { PadEquation } from "./pad/padDocument";
@@ -32,7 +36,8 @@ describe("EquationForge commands", () => {
     const commandsRef = createRef<EquationForgeCommands>();
     const originalLatex = compileMathDocument("x = y").plainLatex;
     const insertedLatex = String.raw`F=ma`;
-    const canonicalInsertedLatex = compileMathDocument(insertedLatex).plainLatex;
+    const canonicalInsertedLatex =
+      compileMathDocument(insertedLatex).plainLatex;
     let latestEquations: PadEquation[] = [];
     let latestOptions: EquationForgeOptions | null = null;
 
@@ -43,7 +48,9 @@ describe("EquationForge commands", () => {
           state: createEquationRowState("x = y", "display"),
         },
       ]);
-      const [activeEquationId, setActiveEquationId] = useState<string | null>("eq-1");
+      const [activeEquationId, setActiveEquationId] = useState<string | null>(
+        "eq-1",
+      );
       const [options, setOptions] = useState<EquationForgeOptions>({
         copySurroundMode: "none",
         showEquationNumbers: true,
@@ -77,8 +84,12 @@ describe("EquationForge commands", () => {
       latex: canonicalInsertedLatex,
       mode: "display",
     });
-    expect(latestEquations[0]?.state.history.past.map((step) => step.latex)).toEqual([originalLatex]);
-    expect(latestEquations[0]?.state.history.present.latex).toBe(canonicalInsertedLatex);
+    expect(
+      latestEquations[0]?.state.history.past.map((step) => step.latex),
+    ).toEqual([originalLatex]);
+    expect(latestEquations[0]?.state.history.present.latex).toBe(
+      canonicalInsertedLatex,
+    );
 
     const newEquationLatex = String.raw`E=mc^2`;
     act(() => commandsRef.current?.addEquation(newEquationLatex));
@@ -88,8 +99,22 @@ describe("EquationForge commands", () => {
       mode: "entry",
     });
 
+    const existingEquations = JSON.stringify(latestEquations);
+    const displayEquationLatex = String.raw`pV=nRT`;
+    act(() =>
+      commandsRef.current?.addEquation(displayEquationLatex, "display"),
+    );
+    expect(latestEquations).toHaveLength(3);
+    expect(JSON.stringify(latestEquations.slice(0, 2))).toBe(existingEquations);
+    expect(latestEquations[2]?.state).toMatchObject({
+      latex: compileMathDocument(displayEquationLatex).plainLatex,
+      mode: "display",
+    });
+
     act(() => commandsRef.current?.setCopySurroundMode("equation-environment"));
-    expect(latestOptions).toMatchObject({ copySurroundMode: "equation-environment" });
+    expect(latestOptions).toMatchObject({
+      copySurroundMode: "equation-environment",
+    });
 
     act(() => commandsRef.current?.setShowEquationNumbers(false));
     expect(latestOptions).toMatchObject({ showEquationNumbers: false });
@@ -156,7 +181,9 @@ describe("EquationForge commands", () => {
     );
 
     const forge = container?.querySelector<HTMLElement>(".equation-forge-ui");
-    const row = container?.querySelector<HTMLElement>('[data-testid="pad-equation"]');
+    const row = container?.querySelector<HTMLElement>(
+      '[data-testid="pad-equation"]',
+    );
     const moveGroup = container?.querySelector<HTMLElement>(
       '[aria-label="Move mode"]',
     );
@@ -193,7 +220,10 @@ describe("EquationForge commands", () => {
       <EquationForge
         equations={[equation]}
         activeEquationId={equation.id}
-        options={{ copySurroundMode: "display-math", showEquationNumbers: false }}
+        options={{
+          copySurroundMode: "display-math",
+          showEquationNumbers: false,
+        }}
         onEquationsChange={() => undefined}
         onActiveEquationIdChange={() => undefined}
         onOptionsChange={() => undefined}

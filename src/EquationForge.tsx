@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import { EquationRow, type EquationRowCommands } from "./EquationRow";
+import type { EquationMode } from "./EquationRowState";
 import { UiIcon, type UiIconName } from "./icons/UiIcon";
 import { usePadDocumentController } from "./pad/usePadDocumentController";
 import type { PadEquation } from "./pad/padDocument";
@@ -45,7 +46,7 @@ export type EquationForgeOptions = {
 };
 
 export type EquationForgeCommands = {
-  addEquation: (latex?: string) => void;
+  addEquation: (latex?: string, mode?: EquationMode) => void;
   setCopySurroundMode: (mode: EquationCopySurroundMode) => void;
   setShowEquationNumbers: (show: boolean) => void;
   insertLatex: (latex: string) => void;
@@ -83,7 +84,13 @@ type PadIconButtonProps = {
   disabled?: boolean;
 };
 
-function PadIconButton({ label, icon, onClick, testId, disabled = false }: PadIconButtonProps) {
+function PadIconButton({
+  label,
+  icon,
+  onClick,
+  testId,
+  disabled = false,
+}: PadIconButtonProps) {
   return (
     <button
       type="button"
@@ -104,7 +111,10 @@ function PadIconButton({ label, icon, onClick, testId, disabled = false }: PadIc
   );
 }
 
-export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProps>(function EquationForge(
+export const EquationForge = forwardRef<
+  EquationForgeCommands,
+  EquationForgeProps
+>(function EquationForge(
   {
     equations,
     activeEquationId,
@@ -119,7 +129,9 @@ export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProp
   },
   ref,
 ) {
-  const equationCommandsByIdRef = useRef<Record<string, EquationRowCommands | null>>({});
+  const equationCommandsByIdRef = useRef<
+    Record<string, EquationRowCommands | null>
+  >({});
   const controller = usePadDocumentController({
     equations,
     activeEquationId,
@@ -143,19 +155,27 @@ export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProp
       },
       insertLatex: (latex: string) => {
         if (!controller.activeEquationId) return;
-        equationCommandsByIdRef.current[controller.activeEquationId]?.insertLatex(latex);
+        equationCommandsByIdRef.current[
+          controller.activeEquationId
+        ]?.insertLatex(latex);
       },
       replaceEntryLatex: (latex: string) => {
         if (!controller.activeEquationId) return;
-        equationCommandsByIdRef.current[controller.activeEquationId]?.replaceEntryLatex(latex);
+        equationCommandsByIdRef.current[
+          controller.activeEquationId
+        ]?.replaceEntryLatex(latex);
       },
       acceptEntry: () => {
         if (!controller.activeEquationId) return;
-        equationCommandsByIdRef.current[controller.activeEquationId]?.acceptEntry();
+        equationCommandsByIdRef.current[
+          controller.activeEquationId
+        ]?.acceptEntry();
       },
       focusEntry: () => {
         if (!controller.activeEquationId) return;
-        equationCommandsByIdRef.current[controller.activeEquationId]?.focusEntry();
+        equationCommandsByIdRef.current[
+          controller.activeEquationId
+        ]?.focusEntry();
       },
     }),
     [controller, onOptionsChange, options],
@@ -185,9 +205,18 @@ export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProp
         >
           <div>
             <h1 style={{ margin: 0, fontSize: "1.25rem" }}>{title}</h1>
-            <div style={{ fontSize: "0.9rem", opacity: 0.75 }}>{description}</div>
+            <div style={{ fontSize: "0.9rem", opacity: 0.75 }}>
+              {description}
+            </div>
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "12px" }}>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: "12px",
+            }}
+          >
             <label
               style={{
                 display: "inline-flex",
@@ -203,30 +232,37 @@ export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProp
                 data-testid="equation-copy-surround-mode"
                 value={controller.copySurroundMode}
                 onChange={(event) =>
-                  controller.updateCopySurroundMode(event.currentTarget.value as EquationCopySurroundMode)
+                  controller.updateCopySurroundMode(
+                    event.currentTarget.value as EquationCopySurroundMode,
+                  )
                 }
               >
                 <option value="none">None</option>
                 <option value="display-math">$$…$$</option>
-                <option value="equation-environment">Equation environment</option>
+                <option value="equation-environment">
+                  Equation environment
+                </option>
               </select>
             </label>
             <label
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-              fontSize: "0.9rem",
-              color: "rgba(255, 255, 255, 0.82)",
-              userSelect: "none",
-            }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "0.9rem",
+                color: "rgba(255, 255, 255, 0.82)",
+                userSelect: "none",
+              }}
             >
               <input
                 type="checkbox"
                 data-testid="show-equation-numbers"
                 checked={options.showEquationNumbers}
                 onChange={(event) =>
-                  onOptionsChange({ ...options, showEquationNumbers: event.currentTarget.checked })
+                  onOptionsChange({
+                    ...options,
+                    showEquationNumbers: event.currentTarget.checked,
+                  })
                 }
               />
               Show equation numbers
@@ -251,12 +287,21 @@ export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProp
         </div>
       ) : null}
 
-      <div style={{ display: "flex", minWidth: 0, flexDirection: "column", gap: "12px" }}>
+      <div
+        style={{
+          display: "flex",
+          minWidth: 0,
+          flexDirection: "column",
+          gap: "12px",
+        }}
+      >
         {controller.equations.map((equation, index) => {
           const isActive = controller.activeEquationId === equation.id;
           const isFirstEquation = index === 0;
           const isLastEquation = index === controller.equations.length - 1;
-          const definitionSources = controller.getSubstituteSuggestionSources(equation.id);
+          const definitionSources = controller.getSubstituteSuggestionSources(
+            equation.id,
+          );
           const hostActions = renderEquationActions?.({
             equation,
             index,
@@ -273,7 +318,9 @@ export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProp
                 padding: "8px",
                 border: `1px solid ${isActive ? "#7c4dff" : "#575757"}`,
                 borderRadius: "6px",
-                background: isActive ? "rgba(124, 77, 255, 0.08)" : "rgba(255, 255, 255, 0.03)",
+                background: isActive
+                  ? "rgba(124, 77, 255, 0.08)"
+                  : "rgba(255, 255, 255, 0.03)",
                 boxSizing: "border-box",
                 width: "100%",
                 minWidth: 0,
@@ -321,16 +368,16 @@ export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProp
                 />
                 {options.showEquationNumbers ? (
                   <span
-                  style={{
-                    fontSize: "0.8rem",
-                    color: "rgba(255, 255, 255, 0.62)",
-                    padding: "2px 6px",
-                    borderRadius: "6px",
-                    background: "rgba(255, 255, 255, 0.06)",
-                    flexShrink: 0,
-                    lineHeight: 1.2,
-                    whiteSpace: "nowrap",
-                  }}
+                    style={{
+                      fontSize: "0.8rem",
+                      color: "rgba(255, 255, 255, 0.62)",
+                      padding: "2px 6px",
+                      borderRadius: "6px",
+                      background: "rgba(255, 255, 255, 0.06)",
+                      flexShrink: 0,
+                      lineHeight: 1.2,
+                      whiteSpace: "nowrap",
+                    }}
                   >
                     ({index + 1})
                   </span>
@@ -339,11 +386,17 @@ export const EquationForge = forwardRef<EquationForgeCommands, EquationForgeProp
               <div style={sideControlStyle}>
                 {hostActions}
                 <PadIconButton
-                  label={equation.state.mode === "display" ? "Edit equation" : "Accept equation"}
+                  label={
+                    equation.state.mode === "display"
+                      ? "Edit equation"
+                      : "Accept equation"
+                  }
                   icon={equation.state.mode === "display" ? "edit" : "check"}
                   onClick={() => {
-                    const commands = equationCommandsByIdRef.current[equation.id];
-                    if (equation.state.mode === "display") commands?.focusEntry();
+                    const commands =
+                      equationCommandsByIdRef.current[equation.id];
+                    if (equation.state.mode === "display")
+                      commands?.focusEntry();
                     else commands?.acceptEntry();
                   }}
                   testId="accept-equation"

@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import type { EquationRowState } from "../EquationRowState";
+import type { EquationMode, EquationRowState } from "../EquationRowState";
 import { compileMathDocument } from "@equation-forge/core/compile";
 import type { PadDefinitionSource } from "../substituteSuggestions";
 import type { EquationCopySurroundMode } from "../copyLatex";
@@ -19,7 +19,9 @@ export type PadDocumentControllerOptions = {
   onCopySurroundModeChange: (nextValue: EquationCopySurroundMode) => void;
 };
 
-export function buildPadDefinitionSources(equations: PadEquation[]): Map<string, PadDefinitionSource> {
+export function buildPadDefinitionSources(
+  equations: PadEquation[],
+): Map<string, PadDefinitionSource> {
   const sources = new Map<string, PadDefinitionSource>();
   equations.forEach((equation, index) => {
     if (equation.state.mode !== "display") return;
@@ -40,7 +42,9 @@ export function getSubstituteSuggestionSourcesForEquation(
   sourcesByEquationId: Map<string, PadDefinitionSource>,
   equationId: string,
 ): PadDefinitionSource[] {
-  return [...sourcesByEquationId.values()].filter((source) => source.equationId !== equationId);
+  return [...sourcesByEquationId.values()].filter(
+    (source) => source.equationId !== equationId,
+  );
 }
 
 export function usePadDocumentController({
@@ -51,19 +55,28 @@ export function usePadDocumentController({
   onActiveEquationIdChange,
   onCopySurroundModeChange,
 }: PadDocumentControllerOptions) {
-  const compiledSourcesByEquationId = useMemo(() => buildPadDefinitionSources(equations), [equations]);
+  const compiledSourcesByEquationId = useMemo(
+    () => buildPadDefinitionSources(equations),
+    [equations],
+  );
 
-  const addEquation = useCallback((latex?: string) => {
-    const equation = createEmptyPadEquation(latex);
-    onEquationsChange([...equations, equation]);
-    onActiveEquationIdChange(equation.id);
-  }, [equations, onActiveEquationIdChange, onEquationsChange]);
+  const addEquation = useCallback(
+    (latex?: string, mode?: EquationMode) => {
+      const equation = createEmptyPadEquation(latex, mode);
+      onEquationsChange([...equations, equation]);
+      onActiveEquationIdChange(equation.id);
+    },
+    [equations, onActiveEquationIdChange, onEquationsChange],
+  );
 
   const removeEquation = useCallback(
     (id: string) => {
-      const normalizedNext = normalizePadEquations(equations.filter((equation) => equation.id !== id));
+      const normalizedNext = normalizePadEquations(
+        equations.filter((equation) => equation.id !== id),
+      );
       const nextActiveId =
-        activeEquationId === id || !normalizedNext.some((equation) => equation.id === activeEquationId)
+        activeEquationId === id ||
+        !normalizedNext.some((equation) => equation.id === activeEquationId)
           ? (normalizedNext[0]?.id ?? null)
           : activeEquationId;
       onEquationsChange(normalizedNext);
@@ -76,7 +89,12 @@ export function usePadDocumentController({
     (id: string, offset: -1 | 1) => {
       const sourceIndex = equations.findIndex((equation) => equation.id === id);
       const destinationIndex = sourceIndex + offset;
-      if (sourceIndex < 0 || destinationIndex < 0 || destinationIndex >= equations.length) return;
+      if (
+        sourceIndex < 0 ||
+        destinationIndex < 0 ||
+        destinationIndex >= equations.length
+      )
+        return;
 
       const next = [...equations];
       const [movedEquation] = next.splice(sourceIndex, 1);
@@ -115,10 +133,15 @@ export function usePadDocumentController({
   );
 
   const updateEquationState = useCallback(
-    (id: string, rowUpdater: (current: EquationRowState) => EquationRowState) => {
+    (
+      id: string,
+      rowUpdater: (current: EquationRowState) => EquationRowState,
+    ) => {
       onEquationsChange(
         equations.map((candidate) =>
-          candidate.id === id ? { ...candidate, state: rowUpdater(candidate.state) } : candidate,
+          candidate.id === id
+            ? { ...candidate, state: rowUpdater(candidate.state) }
+            : candidate,
         ),
       );
     },
@@ -140,7 +163,11 @@ export function usePadDocumentController({
   );
 
   const getSubstituteSuggestionSources = useCallback(
-    (equationId: string) => getSubstituteSuggestionSourcesForEquation(compiledSourcesByEquationId, equationId),
+    (equationId: string) =>
+      getSubstituteSuggestionSourcesForEquation(
+        compiledSourcesByEquationId,
+        equationId,
+      ),
     [compiledSourcesByEquationId],
   );
 

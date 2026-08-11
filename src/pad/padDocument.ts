@@ -1,5 +1,6 @@
 import {
   createDraftEquationRowState,
+  createEquationRowState,
   createEquationHistory,
   type EquationHistory,
   type EquationMode,
@@ -51,10 +52,14 @@ export function createEquationId(): string {
 
 export function createEmptyPadEquation(
   latex = DEFAULT_PAD_EQUATION_LATEX,
+  mode: EquationMode = "entry",
 ): PadEquation {
   return {
     id: createEquationId(),
-    state: createDraftEquationRowState(latex),
+    state:
+      mode === "display"
+        ? createEquationRowState(latex, "display")
+        : createDraftEquationRowState(latex),
   };
 }
 
@@ -63,7 +68,9 @@ export function createDefaultPadDocument(): PadDocument {
 }
 
 export function duplicatePadEquation(equation: PadEquation): PadEquation {
-  const functionSymbols = equation.state.functionSymbols.map((tag) => ({ ...tag }));
+  const functionSymbols = equation.state.functionSymbols.map((tag) => ({
+    ...tag,
+  }));
   return {
     id: createEquationId(),
     state: {
@@ -84,7 +91,11 @@ function parseFunctionSymbols(value: unknown): FunctionSymbolTag[] {
   return value.flatMap((tag) => {
     if (!tag || typeof tag !== "object") return [];
     const candidate = tag as Partial<FunctionSymbolTag>;
-    if (typeof candidate.nodeId !== "string" || typeof candidate.name !== "string") return [];
+    if (
+      typeof candidate.nodeId !== "string" ||
+      typeof candidate.name !== "string"
+    )
+      return [];
     return [{ nodeId: candidate.nodeId, name: candidate.name }];
   });
 }
@@ -111,14 +122,24 @@ function parseHistory(
   const past = Array.isArray(candidate.past)
     ? candidate.past.flatMap((step) =>
         typeof step?.latex === "string"
-          ? [{ latex: step.latex, functionSymbols: parseFunctionSymbols(step.functionSymbols) }]
+          ? [
+              {
+                latex: step.latex,
+                functionSymbols: parseFunctionSymbols(step.functionSymbols),
+              },
+            ]
           : [],
       )
     : [];
   const future = Array.isArray(candidate.future)
     ? candidate.future.flatMap((step) =>
         typeof step?.latex === "string"
-          ? [{ latex: step.latex, functionSymbols: parseFunctionSymbols(step.functionSymbols) }]
+          ? [
+              {
+                latex: step.latex,
+                functionSymbols: parseFunctionSymbols(step.functionSymbols),
+              },
+            ]
           : [],
       )
     : [];
@@ -128,13 +149,18 @@ function parseHistory(
     past,
     present: {
       latex: presentLatex,
-      functionSymbols: presentFunctionSymbols.length ? presentFunctionSymbols : fallbackFunctionSymbols,
+      functionSymbols: presentFunctionSymbols.length
+        ? presentFunctionSymbols
+        : fallbackFunctionSymbols,
     },
     future,
   };
 }
 
-function parseStoredEquation(value: unknown, index: number): PadEquation | null {
+function parseStoredEquation(
+  value: unknown,
+  index: number,
+): PadEquation | null {
   if (!value || typeof value !== "object") return null;
   const candidate = value as StoredPadEquation;
   const latex = typeof candidate.latex === "string" ? candidate.latex : null;
@@ -145,7 +171,10 @@ function parseStoredEquation(value: unknown, index: number): PadEquation | null 
   const history = parseHistory(candidate.history, latex, functionSymbols);
 
   return {
-    id: typeof candidate.id === "string" ? candidate.id : `eq-restored-${index + 1}`,
+    id:
+      typeof candidate.id === "string"
+        ? candidate.id
+        : `eq-restored-${index + 1}`,
     state: {
       latex,
       functionSymbols,
@@ -164,7 +193,10 @@ function parseStoredEquation(value: unknown, index: number): PadEquation | null 
 export function parseStoredPadState(value: unknown): PadDocument {
   if (!value || typeof value !== "object") return createDefaultPadDocument();
   const candidate = value as StoredPadState;
-  if (candidate.schemaVersion !== PAD_STORAGE_SCHEMA_VERSION || !Array.isArray(candidate.equations)) {
+  if (
+    candidate.schemaVersion !== PAD_STORAGE_SCHEMA_VERSION ||
+    !Array.isArray(candidate.equations)
+  ) {
     return createDefaultPadDocument();
   }
 
@@ -176,7 +208,9 @@ export function parseStoredPadState(value: unknown): PadDocument {
   return { equations: normalizePadEquations(equations) };
 }
 
-export function serializePadDocument(document: PadDocument): SerializedPadState {
+export function serializePadDocument(
+  document: PadDocument,
+): SerializedPadState {
   return {
     schemaVersion: PAD_STORAGE_SCHEMA_VERSION,
     equations: normalizePadEquations(document.equations).map((equation) => ({
