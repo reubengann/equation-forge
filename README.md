@@ -22,3 +22,5 @@ npm run build
 Then launch index.html
 
 ## Documentation
+
+Read the [Equation Forge documentation](https://reubengann.github.io/equation-forge/).

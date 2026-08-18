@@ -18,6 +18,7 @@ test-results
 playwright-report/*
 __pycache__
 svg_temp
+docs/site/
 
 # Editor directories and files
 /.vscode/*

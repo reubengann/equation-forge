@@ -1,5 +1,8 @@
 site_name: Equation Forge
 site_description: Formula derivation by direct manipulation
+site_url: https://reubengann.github.io/equation-forge/
+repo_url: https://github.com/reubengann/equation-forge
+repo_name: reubengann/equation-forge
 
 nav:
   - Home: index.md
