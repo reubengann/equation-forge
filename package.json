@@ -57,7 +57,7 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run build:core && tsc -b && vite build && npm run build:core && npm run build:ui",
-    "build:try": "npm run build:core && tsc -b && vite build --mode public --base /equation-forge/try/ && node scripts/copyMathliveFonts.mjs",
+    "build:try": "npm run build:core && npm run build:ui && tsc -b && vite build --mode public --base /equation-forge/try/ && node scripts/copyMathliveFonts.mjs",
     "build:core": "tsc -p tsconfig.core.json",
     "prebuild:ui": "node scripts/generateMacroIconModule.mjs && node scripts/generateUiIconModule.mjs",
     "build:ui": "tsc -p tsconfig.ui.json",
