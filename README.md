@@ -4,6 +4,10 @@
 
 An application for formula derivation by direct manipulation.
 
+## Try it
+
+[Try Equation Forge in your browser](https://reubengann.github.io/equation-forge/try/).
+
 ## Quick start
 
 ### Jupyterlab plugin

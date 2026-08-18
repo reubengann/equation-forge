@@ -6,7 +6,15 @@ on:
       - master
     paths:
       - "docs/**"
+      - ".env.public"
       - ".github/workflows/docs.yml"
+      - "index.html"
+      - "package*.json"
+      - "public/**"
+      - "scripts/copyMathliveFonts.mjs"
+      - "src/**"
+      - "tsconfig*.json"
+      - "vite.config.ts"
   workflow_dispatch:
 
 permissions:
@@ -25,6 +33,18 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Build Try It application
+        run: npm run build:try
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -36,6 +56,11 @@ jobs:
 
       - name: Build documentation
         run: mkdocs build --strict --config-file docs/mkdocs.yml
+
+      - name: Add Try It application to Pages site
+        run: |
+          mkdir -p docs/site/try
+          cp -R dist/. docs/site/try/
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

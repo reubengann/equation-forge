@@ -6,6 +6,7 @@ repo_name: reubengann/equation-forge
 
 nav:
   - Home: index.md
+  - Try it: https://reubengann.github.io/equation-forge/try/
   - Getting started: getting-started.md
   - Tutorials:
       - Learning path: tutorials/index.md

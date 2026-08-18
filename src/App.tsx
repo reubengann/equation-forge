@@ -67,7 +67,11 @@ async function saveFixtureJson(fixture: EventFixture): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
-configureEquationForgeEnvironment({ fontsDirectory: "/fonts" });
+const showDebugTab = import.meta.env.VITE_SHOW_DEBUG_TAB !== "false";
+
+configureEquationForgeEnvironment({
+  fontsDirectory: `${import.meta.env.BASE_URL}fonts`,
+});
 
 function summarizeDebugExpr(expr: Expr): string {
   switch (expr.kind) {
@@ -333,24 +337,26 @@ function App() {
         >
           Pad
         </button>
-        <button
-          type="button"
-          data-testid="show-debug-view"
-          onClick={() => setView("debug")}
-          style={{
-            boxSizing: "border-box",
-            border: "1px solid #757575",
-            borderRadius: "3px",
-            background: view === "debug" ? "#7c4dff" : "#424242",
-            color: "rgba(255, 255, 255, 0.87)",
-            padding: "8px 12px",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Debug
-        </button>
+        {showDebugTab ? (
+          <button
+            type="button"
+            data-testid="show-debug-view"
+            onClick={() => setView("debug")}
+            style={{
+              boxSizing: "border-box",
+              border: "1px solid #757575",
+              borderRadius: "3px",
+              background: view === "debug" ? "#7c4dff" : "#424242",
+              color: "rgba(255, 255, 255, 0.87)",
+              padding: "8px 12px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Debug
+          </button>
+        ) : null}
       </div>
-      {view === "pad" ? (
+      {view === "pad" || !showDebugTab ? (
         <PadView />
       ) : (
         <>
