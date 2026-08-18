@@ -1,6 +1,6 @@
 # Equation Forge
 
-![hero](./docs/site/assets/animations/hero_demo.gif)
+![hero](./docs/docs/assets/animations/hero_demo.gif)
 
 An application for formula derivation by direct manipulation.
 
