@@ -170,6 +170,7 @@ type EquationEditorProps = {
   onEditRequested?: () => void;
   recordingHooks?: EquationEditorRecordingHooks;
   isActive?: boolean;
+  keyboardShortcutsEnabled?: boolean;
   substituteSuggestionSources?: PadDefinitionSource[];
   copySurroundMode?: EquationCopySurroundMode;
   equationHistoryLatexes?: string[];
@@ -189,6 +190,7 @@ export function EquationEditor({
   onEditRequested,
   recordingHooks,
   isActive = true,
+  keyboardShortcutsEnabled = true,
   substituteSuggestionSources = [],
   copySurroundMode = "none",
   equationHistoryLatexes = [],
@@ -689,6 +691,7 @@ export function EquationEditor({
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!isActive) return;
+      if (!keyboardShortcutsEnabled) return;
       if (event.defaultPrevented) return;
       const key = event.key.toLowerCase();
 
@@ -820,6 +823,7 @@ export function EquationEditor({
     isForceFactorModalOpen,
     isSymbolReplacementModalOpen,
     isSubstituteModalOpen,
+    keyboardShortcutsEnabled,
     onCleanupRequested,
     onCopyEquationRequested,
     onCopySelectionRequested,

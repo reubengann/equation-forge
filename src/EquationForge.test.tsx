@@ -234,4 +234,33 @@ describe("EquationForge commands", () => {
     expect(container?.querySelector("h1")).toBeNull();
     expect(container?.textContent).not.toContain("(1)");
   });
+
+  it("does not handle keyboard shortcuts when the host disables them", () => {
+    const equation: PadEquation = {
+      id: "eq-inactive-host",
+      state: createEquationRowState("x = y", "display"),
+    };
+
+    mount(
+      <EquationForge
+        equations={[equation]}
+        activeEquationId={equation.id}
+        options={{ copySurroundMode: "none", showEquationNumbers: true }}
+        onEquationsChange={() => undefined}
+        onActiveEquationIdChange={() => undefined}
+        onOptionsChange={() => undefined}
+        keyboardShortcutsEnabled={false}
+      />,
+    );
+
+    const copyEvent = new KeyboardEvent("keydown", {
+      key: "c",
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+
+    expect(window.dispatchEvent(copyEvent)).toBe(true);
+    expect(copyEvent.defaultPrevented).toBe(false);
+  });
 });

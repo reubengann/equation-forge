@@ -36,6 +36,7 @@ export type EquationRowProps = {
   recordingHooks?: EquationEditorRecordingHooks;
   presets?: string[];
   isActive?: boolean;
+  keyboardShortcutsEnabled?: boolean;
   onActivate?: () => void;
   mathFieldId?: string;
   substituteSuggestionSources?: PadDefinitionSource[];
@@ -57,6 +58,7 @@ export const EquationRow = forwardRef<EquationRowCommands, EquationRowProps>(fun
   recordingHooks,
   presets,
   isActive = true,
+  keyboardShortcutsEnabled = true,
   onActivate,
   mathFieldId,
   substituteSuggestionSources = [],
@@ -322,6 +324,7 @@ export const EquationRow = forwardRef<EquationRowCommands, EquationRowProps>(fun
               onEditRequested={handleEditRequested}
               onCanonicalLatexChanged={handleCanonicalLatexChanged}
               isActive={isActive}
+              keyboardShortcutsEnabled={keyboardShortcutsEnabled}
               substituteSuggestionSources={substituteSuggestionSources}
               copySurroundMode={copySurroundMode}
               equationHistoryLatexes={equationHistoryLatexes}

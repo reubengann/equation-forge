@@ -68,6 +68,7 @@ export type EquationForgeProps = {
   onEquationsChange: (nextEquations: PadEquation[]) => void;
   onActiveEquationIdChange: (nextActiveEquationId: string | null) => void;
   onOptionsChange: (nextOptions: EquationForgeOptions) => void;
+  keyboardShortcutsEnabled?: boolean;
   renderEquationActions?: (
     context: EquationForgeEquationActionContext,
   ) => ReactNode;
@@ -122,6 +123,7 @@ export const EquationForge = forwardRef<
     onEquationsChange,
     onActiveEquationIdChange,
     onOptionsChange,
+    keyboardShortcutsEnabled = true,
     renderEquationActions,
     title = "Equation Forge",
     description = "Click an equation to make its shortcuts active.",
@@ -361,6 +363,7 @@ export const EquationForge = forwardRef<
                   }}
                   onActivate={() => controller.activateEquation(equation.id)}
                   isActive={isActive}
+                  keyboardShortcutsEnabled={keyboardShortcutsEnabled}
                   mathFieldId={`equation-mathfield-${equation.id}`}
                   substituteSuggestionSources={definitionSources}
                   copySurroundMode={controller.copySurroundMode}
