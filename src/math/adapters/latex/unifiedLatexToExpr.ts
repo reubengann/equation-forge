@@ -744,9 +744,9 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
           next?.type === "group" && Array.isArray(next.content)
             ? next.content
             : undefined;
-        const nextIsGroup = !!nextGroupContent;
-        if (nextIsGroup) {
-          const subExpr = parseGroupNodes(nextGroupContent);
+        const subscriptNodes = nextGroupContent ?? (next ? [next] : undefined);
+        if (subscriptNodes) {
+          const subExpr = parseGroupNodes(subscriptNodes);
           const base = stringContent.slice(0, -1);
           if (subExpr?.kind === "symbol") {
             tokens.push({ kind: "symbol", name: `${base}_${subExpr.name}` });
@@ -757,6 +757,17 @@ function tokenize(nodes: UnifiedNode[]): Token[] {
             tokens.push({
               kind: "symbol",
               name: `${base}_${String(subExpr.value)}`,
+            });
+            i += 1;
+            continue;
+          }
+          if (subExpr) {
+            const renderedSubscript = printRaw(
+              subscriptNodes as unknown as Parameters<typeof printRaw>[0],
+            );
+            tokens.push({
+              kind: "symbol",
+              name: `${base}_{${renderedSubscript}}`,
             });
             i += 1;
             continue;

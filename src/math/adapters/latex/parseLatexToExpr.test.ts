@@ -1089,6 +1089,13 @@ describe("parseLatexToExpr", () => {
     expect(braced.name).toBe(String.raw`\rho_r`);
   });
 
+  it("keeps unbraced text subscripts attached to symbols", () => {
+    const expr = parseLatexToExpr(String.raw`T_\text{ref}`);
+
+    expectExprKind(expr, "symbol");
+    expect(expr.name).toBe(String.raw`T_{\text{ref}}`);
+  });
+
   it("preserves comma-separated symbol subscripts", () => {
     const expr = parseLatexToExpr(String.raw`A_{T,P}`);
     expectExprKind(expr, "symbol");

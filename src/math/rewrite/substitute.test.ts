@@ -271,6 +271,23 @@ describe("substituteAllMatchingExpression", () => {
     expect(exprToLatex(next!, false)).toBe(String.raw`E_y + x_0`);
   });
 
+  it("braces an unbraced text subscript used as an integral-bound replacement", () => {
+    const document = buildDocument(
+      String.raw`V=\int_b^cS_A\,\mathrm{d}{T}-\int_d^cS_B\,\mathrm{d}{T}`,
+    );
+
+    const next = substituteAllMatchingExpression(
+      document,
+      replacement("b"),
+      replacement(String.raw`T_\text{ref}`),
+    );
+
+    expect(next).not.toBeNull();
+    expect(exprToLatex(next!, false)).toBe(
+      String.raw`V = \int_{T_{\text{ref}}}^{c} S_A \,\mathrm{d}{T} - \int_{d}^{c} S_B \,\mathrm{d}{T}`,
+    );
+  });
+
   it("promotes negative replacement signs out of partial derivatives at constant quantity", () => {
     const document = buildDocument(
       String.raw`\left(\frac{\partial{M}}{\partial{y}}\right)_{x} = \left(\frac{\partial{N}}{\partial{x}}\right)_{y}`,

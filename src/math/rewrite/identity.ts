@@ -7,6 +7,7 @@ import {
   differential,
   displayGroup,
   divide,
+  extractIntegralDifferential,
   multiply,
   num,
   partialAtConstQuantity,
@@ -64,10 +65,17 @@ const IDENTITY_REWRITES: IdentityRewrite[] = [
   },
   {
     id: "integral-sum-rule",
-    label: "int(f + g) dx -> int f dx + int g dx",
-    latex: String.raw`\int \left(f + g\right)\,dx \to \int f\,dx + \int g\,dx`,
+    label: "int(f + g) dx <-> int f dx + int g dx",
+    latex: String.raw`\int \left(f + g\right)\,dx \leftrightarrow \int f\,dx + \int g\,dx`,
     defaultPriority: 99,
     apply: integralSumRule,
+  },
+  {
+    id: "reverse-integral-bounds",
+    label: "int_a^b f(x) dx -> -int_b^a f(x) dx",
+    latex: String.raw`\int_a^b f(x)\,dx \to -\int_b^a f(x)\,dx`,
+    defaultPriority: 90,
+    apply: reverseIntegralBounds,
   },
   {
     id: "differential-sum-rule",
@@ -529,7 +537,30 @@ type IntegralLikeExpr = Extract<
   { kind: "integral" | "uniterated_integral" | "closed_integral" | "multiple_integral" }
 >;
 
+function reverseIntegralBounds(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  if (
+    signed.value.kind !== "integral" ||
+    !signed.value.lowerBound ||
+    !signed.value.upperBound
+  ) {
+    return null;
+  }
+
+  const reversed: Expr = {
+    ...signed.value,
+    integrand: cloneExpr(signed.value.integrand),
+    lowerBound: cloneExpr(signed.value.upperBound),
+    upperBound: cloneExpr(signed.value.lowerBound),
+  };
+
+  return signed.sign === -1 ? reversed : flipSign(reversed);
+}
+
 function integralSumRule(expr: Expr): Expr | null {
+  const combined = combineIntegralSum(expr);
+  if (combined) return combined;
+
   const signed = splitSign(expr);
   if (signed.sign === -1 || !isIntegralLike(signed.value)) return null;
 
@@ -547,6 +578,81 @@ function integralSumRule(expr: Expr): Expr | null {
       return signedTerm.sign === -1 ? flipSign(termIntegral) : termIntegral;
     }),
   );
+}
+
+function combineIntegralSum(expr: Expr): Expr | null {
+  const signed = splitSign(expr);
+  if (signed.sign === -1 || signed.value.kind !== "add" || signed.value.terms.length < 2) {
+    return null;
+  }
+
+  const terms = signed.value.terms.map((term) => {
+    const signedTerm = splitAdditiveTermSign(term);
+    if (!isIntegralLike(signedTerm.value)) return null;
+
+    const extracted = extractIntegralDifferential(signedTerm.value.integrand);
+    if (!extracted) return null;
+
+    return {
+      sign: signedTerm.sign,
+      integral: signedTerm.value,
+      extracted,
+    };
+  });
+  const integralTerms = terms.filter((term): term is NonNullable<typeof term> => term !== null);
+  if (integralTerms.length !== terms.length) return null;
+
+  const [first] = integralTerms;
+  if (!first) return null;
+
+  const variableKey = structuralKeyIgnoringDisplayGroups(first.extracted.variable);
+  if (
+    !integralTerms.every(
+      (term) =>
+        integralShapesMatch(first.integral, term.integral) &&
+        structuralKeyIgnoringDisplayGroups(term.extracted.variable) === variableKey,
+    )
+  ) {
+    return null;
+  }
+
+  const combinedIntegrand = multiply([
+    displayGroup(
+      "paren",
+      add(
+        integralTerms.map((term) =>
+          term.sign === -1
+            ? flipSign(term.extracted.integrand)
+            : cloneExpr(term.extracted.integrand),
+        ),
+      ),
+    ),
+    differential(cloneExpr(first.extracted.variable)),
+  ]);
+
+  return withIntegralIntegrand(first.integral, combinedIntegrand);
+}
+
+function integralShapesMatch(left: IntegralLikeExpr, right: IntegralLikeExpr): boolean {
+  if (left.kind !== right.kind) return false;
+
+  if (left.kind === "integral" && right.kind === "integral") {
+    return (
+      optionalExprsMatch(left.lowerBound, right.lowerBound) &&
+      optionalExprsMatch(left.upperBound, right.upperBound)
+    );
+  }
+
+  if (left.kind === "multiple_integral" && right.kind === "multiple_integral") {
+    return left.order === right.order;
+  }
+
+  return true;
+}
+
+function optionalExprsMatch(left: Expr | null, right: Expr | null): boolean {
+  if (!left || !right) return left === right;
+  return structuralKeyIgnoringDisplayGroups(left) === structuralKeyIgnoringDisplayGroups(right);
 }
 
 function integralSumIntegrand(expr: IntegralLikeExpr): {

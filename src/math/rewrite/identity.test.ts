@@ -240,6 +240,70 @@ describe("identity rewrites", () => {
     );
   });
 
+  it("combines sums of integrals", () => {
+    expect(
+      rewriteLatex(
+        String.raw`\int f\,\mathrm{d}{x}+\int g\,\mathrm{d}{x}`,
+        "integral-sum-rule",
+      ),
+    ).toBe(String.raw`\int \left(f + g\right) \,\mathrm{d}{x}`);
+    expect(
+      rewriteLatex(
+        String.raw`\int f\,\mathrm{d}{x}-\int g\,\mathrm{d}{x}`,
+        "integral-sum-rule",
+      ),
+    ).toBe(String.raw`\int \left(f - g\right) \,\mathrm{d}{x}`);
+  });
+
+  it("combines definite integrals only when their limits match", () => {
+    expect(
+      rewriteLatex(
+        String.raw`\int_a^b f\,\mathrm{d}{x}+\int_a^b g\,\mathrm{d}{x}`,
+        "integral-sum-rule",
+      ),
+    ).toBe(String.raw`\int_{a}^{b} \left(f + g\right) \,\mathrm{d}{x}`);
+    expect(
+      rewriteLatex(
+        String.raw`\int_a^b f\,\mathrm{d}{x}+\int_a^c g\,\mathrm{d}{x}`,
+        "integral-sum-rule",
+      ),
+    ).toBeNull();
+  });
+
+  it("does not combine integrals with different integration variables", () => {
+    expect(
+      rewriteLatex(
+        String.raw`\int f\,\mathrm{d}{x}+\int g\,\mathrm{d}{y}`,
+        "integral-sum-rule",
+      ),
+    ).toBeNull();
+  });
+
+  it("reverses definite integral bounds and flips the sign", () => {
+    const input = String.raw`\int_a^b f(x)\,\mathrm{d}{x}`;
+    const options = getApplicableIdentityRewrites(parse(input));
+
+    expect(options.map((option) => option.id)).toContain("reverse-integral-bounds");
+    expect(rewriteLatex(input, "reverse-integral-bounds")).toBe(
+      String.raw`-\int_{b}^{a} f \left(x\right) \,\mathrm{d}{x}`,
+    );
+    expect(
+      rewriteLatex(
+        String.raw`-\int_a^b f(x)\,\mathrm{d}{x}`,
+        "reverse-integral-bounds",
+      ),
+    ).toBe(String.raw`\int_{b}^{a} f \left(x\right) \,\mathrm{d}{x}`);
+  });
+
+  it("does not reverse integral bounds unless both bounds are present", () => {
+    expect(
+      rewriteLatex(String.raw`\int f(x)\,\mathrm{d}{x}`, "reverse-integral-bounds"),
+    ).toBeNull();
+    expect(
+      rewriteLatex(String.raw`\int_a f(x)\,\mathrm{d}{x}`, "reverse-integral-bounds"),
+    ).toBeNull();
+  });
+
   it("applies the derivative sum rule", () => {
     const expr = parse(String.raw`\frac{\partial}{\partial{x}} \left(f+g\right)`);
     const options = getApplicableIdentityRewrites(expr);
